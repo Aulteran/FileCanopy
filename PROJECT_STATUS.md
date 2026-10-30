@@ -26,6 +26,7 @@
 - 2026-10-30: M00 review fixes: added `.gitattributes` (LF line endings, avoids Prettier failures on Windows autocrlf checkouts), a CI placeholder (`.github/workflows/ci.yml`, runs `npm ci && npm run check`; not yet executed on GitHub), secret scan now skips deleted tracked files (with a test), anchored `.gitignore` runtime dirs, ticked M00 boxes in `08_IMPLEMENTATION_PLAN.md`.
 
 - 2026-10-30: M01 implemented: Compose stack (postgres, one-shot migrate, api, web; optional redis + worker profile), FastAPI skeleton with `/api/v1/health[/live]`, Alembic migration 0001 (`app_setting`, stable `instance_id`), separate library/app-data bind mounts, Python tooling (ruff, mypy strict, pytest) running in a pinned Python 3.13 image. ADR-001 and ADR-002 accepted by owner; ADR-003 added (Proposed).
+- 2026-10-30: ADR-003 accepted by owner. The planned storage-identity ADR was renumbered ADR-011 to avoid the number clash (`02_ARCHITECTURE.md`, `docs/adr/README.md`).
 
 ## Verified implemented functionality
 
@@ -44,7 +45,6 @@
 
 ## Current blockers
 
-- ADR-003 (Compose layout; Postgres on a named volume instead of `app-data/database/`) is Proposed and awaits owner review.
 - CI workflow (`.github/workflows/ci.yml`) was extended with the API and Compose checks but has not run on GitHub.
 - Docker verified on Windows/Docker Desktop only. Linux bind-mount ownership (`FILECANOPY_UID`/`FILECANOPY_GID`) is documented but untested.
 - Health endpoint is unauthenticated until M02 adds authentication.
@@ -58,7 +58,7 @@
 
 ## Next session instruction
 
-Review ADR-003, then open a fresh session and start M02 only (`prompts/FIRST_SESSION.md` pattern, with M02 substituted; Opus 5.5 security review is recommended for M02). Do not begin M02 without a new request.
+ADR-003 is accepted (the `pgdata` named volume must be covered by M22 backup guidance). Open a fresh session and start M02 only (`prompts/FIRST_SESSION.md` pattern, with M02 substituted; Opus 5.5 security review is recommended for M02). Do not begin M02 without a new request.
 
 ## Milestone session history
 
@@ -66,4 +66,4 @@ Review ADR-003, then open a fresh session and start M02 only (`prompts/FIRST_SES
 |---|---|---|---|---|
 | 2026-10-30 | Planning | Complete | Handoff documents created; no app code | Begin M00 |
 | 2026-10-30 | M00 Repository and developer workflow | Done | `npm run check` exit 0: eslint clean; prettier clean; `node --test` 6/6 pass; secret-scan clean; planted-key run detected and cleared | Approve ADR-001 and ADR-002; install Python 3.13 before M01 |
-| 2026-10-30 | M01 Docker and database foundation | Done | `npm run check` exit 0; `check:api` ruff/mypy clean, 26 passed 1 skipped; `test:compose` 9 passed (fresh install, restart/persistence, migrations, no-AI boot, degradation, security posture) | Review ADR-003; run CI on GitHub; start M02 |
+| 2026-10-30 | M01 Docker and database foundation | Done | `npm run check` exit 0; `check:api` ruff/mypy clean, 26 passed 1 skipped; `test:compose` 9 passed (fresh install, restart/persistence, migrations, no-AI boot, degradation, security posture) | ADR-003 accepted; run CI on GitHub; start M02 |

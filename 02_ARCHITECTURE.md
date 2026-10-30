@@ -130,7 +130,8 @@ Compose is primary and must be tested. Docker Swarm's `docker stack deploy` does
 
 - ADR-001: Modular monolith and selected Python/TypeScript stack.
 - ADR-002: Postgres, redis, task queue, pgvector optional.
-- ADR-003: Real directories, metadata DB, filesystem identity/reconciliation.
+- ADR-003: Compose layout, mounts and health semantics (written in M01; accepted).
+- ADR-011: Real directories, metadata DB, filesystem identity/reconciliation (renumbered from ADR-003, which was used for the M01 Compose decision).
 - ADR-004: ACL and separation of web-admin vs host-admin.
 - ADR-005: Privacy label semantics, confidential lock, local AI.
 - ADR-006: AI capability/provider abstraction, budgets, proposals.

@@ -6,10 +6,11 @@ ADRs record cross-cutting technical decisions. Each one is written as **Proposed
 
 | ID | Title | Status |
 |---|---|---|
-| [ADR-001](ADR-001-backend-stack.md) | Backend stack (Python/FastAPI, PostgreSQL, Redis workers) | Proposed |
-| [ADR-002](ADR-002-repository-toolchain.md) | Repository toolchain for M00 (Node-based checks) | Proposed |
+| [ADR-001](ADR-001-backend-stack.md) | Backend stack (Python/FastAPI, PostgreSQL, Redis workers) | Accepted |
+| [ADR-002](ADR-002-repository-toolchain.md) | Repository toolchain for M00 (Node-based checks) | Accepted |
+| [ADR-003](ADR-003-compose-layout-and-mounts.md) | Compose layout, mounts and health semantics (M01) | Accepted |
 
-Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-003 storage identity, ADR-004 ACL/admin separation, ADR-005 privacy labels, ADR-006 AI providers, ADR-007 email trust, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
+Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-004 ACL/admin separation, ADR-005 privacy labels, ADR-006 AI providers, ADR-007 email trust, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack, ADR-011 storage identity and filesystem reconciliation (renumbered from the original ADR-003).
 
 ## Template
 

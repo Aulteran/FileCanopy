@@ -1,6 +1,6 @@
 # ADR-003: Compose layout, mounts and health semantics (M01)
 
-- **Status:** Proposed (needs owner review; implemented in M01 and tested)
+- **Status:** Accepted (owner approved 2026-10-30; implemented in M01 and tested)
 - **Date:** 2026-10-30
 - **Milestone:** M01
 
