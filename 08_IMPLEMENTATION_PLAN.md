@@ -35,10 +35,10 @@
 **Goal:** Create mono-repo, CLAUDE.md, docs/adr, linting, formatting, test harness, CI placeholders and milestone status mechanics.
 
 **Acceptance criteria:**
-- [ ] Repository structure matches planned module boundaries
-- [ ] README and ADR skeleton written
-- [ ] Single documented local setup command can run basic checks
-- [ ] PROJECT_STATUS and MILESTONES remain source of truth
+- [x] Repository structure matches planned module boundaries
+- [x] README and ADR skeleton written
+- [x] Single documented local setup command can run basic checks
+- [x] PROJECT_STATUS and MILESTONES remain source of truth
 
 **Tests/evidence:** lint smoke, unit test scaffold, secret scan.
 

@@ -1,0 +1,7 @@
+# Planning documents are maintained by hand and are not reformatted.
+*.md
+# Milestone status is hand-maintained with its own layout.
+MILESTONES.json
+node_modules/
+coverage/
+package-lock.json

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Local environment and secrets (never commit real values)
+.env
+.env.*
+!.env.example
+
+# Build, test and tool output
+coverage/
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+
+# Python tooling (for the planned backend)
+__pycache__/
+*.pyc
+.venv/
+
+# Local runtime data: must never be checked in
+/library/
+/app-data/

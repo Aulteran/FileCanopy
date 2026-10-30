@@ -1,0 +1,23 @@
+# CI placeholder (M00). Runs the same checks as local development.
+# No secrets, no AI provider calls, no real documents. Extended in later milestones.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check

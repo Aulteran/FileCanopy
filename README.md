@@ -63,3 +63,16 @@ Never delay security tests until release candidate: every milestone that touches
 ## First Claude Code task
 
 Read `prompts/FIRST_SESSION.md`. Start milestone `M00` only. Do not begin the next milestone without reviewing the completed acceptance checklist.
+
+## Development setup (M00)
+
+Requirements: Node.js 22 or newer and npm. No AI provider keys or real documents are needed.
+
+```bash
+npm install
+npm run check
+```
+
+`npm run check` runs ESLint, the Prettier format check, the unit tests (`tests/unit`) and the secret scan (`scripts/secret-scan.mjs`). Individual commands: `npm run lint`, `npm run format`, `npm test`, `npm run secret-scan`.
+
+The backend and frontend are not implemented yet. Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.

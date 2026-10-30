@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy (working name)",
-  "status": "planning_complete_implementation_not_started",
+  "status": "m00_complete_m01_not_started",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -22,8 +22,8 @@
         "unit test scaffold",
         "secret scan"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Done 2026-10-30. Evidence: `npm install && npm run check` exits 0 (eslint clean; prettier format:check clean; node --test 6/6 pass; secret-scan clean). Planted-key end-to-end run detected the leak (exit 1) and passed after removal. Deviation from 02_ARCHITECTURE.md: M00 uses a Node toolchain because Python is not installed on the M00 machine; backend stack proposed in docs/adr/ADR-001-backend-stack.md (Proposed). Tooling decision in docs/adr/ADR-002-repository-toolchain.md (Proposed). Review fixes applied: .gitattributes, CI placeholder .github/workflows/ci.yml (not yet run on GitHub), deleted-file handling in secret scan (6 unit tests). Blockers: owner approval of ADR-001/ADR-002; Python 3.13 must be installed before M01.",
+      "status": "done"
     },
     {
       "id": "M01",
