@@ -1,0 +1,639 @@
+{
+  "project": "FileCanopy (working name)",
+  "status": "planning_complete_implementation_not_started",
+  "schema_version": 1,
+  "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
+  "milestones": [
+    {
+      "id": "M00",
+      "phase": "foundation",
+      "title": "Repository and developer workflow",
+      "depends_on": [],
+      "recommended_claude_code_model": "Haiku 5.5 for scaffolding; Sonnet 5.5 for review",
+      "objective": "Create mono-repo, CLAUDE.md, docs/adr, linting, formatting, test harness, CI placeholders and milestone status mechanics.",
+      "acceptance_criteria": [
+        "Repository structure matches planned module boundaries",
+        "README and ADR skeleton written",
+        "Single documented local setup command can run basic checks",
+        "PROJECT_STATUS and MILESTONES remain source of truth"
+      ],
+      "required_tests": [
+        "lint smoke",
+        "unit test scaffold",
+        "secret scan"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M01",
+      "phase": "foundation",
+      "title": "Docker and database foundation",
+      "depends_on": [
+        "M00"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Compose baseline for web/API/PostgreSQL/worker/Redis, first migrations, health probes and separate document/app-data mounts.",
+      "acceptance_criteria": [
+        "Compose core starts without AI services",
+        "Database migration applies idempotently",
+        "Document root remains bind-mounted and portable",
+        "App health status distinguishes core from optional workers"
+      ],
+      "required_tests": [
+        "fresh install",
+        "restart/persistence",
+        "database migration",
+        "no-AI boot"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M02",
+      "phase": "foundation",
+      "title": "Local authentication and first administrator",
+      "depends_on": [
+        "M01"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 security review",
+      "objective": "Secure first-admin bootstrap, email/password accounts, sessions, login/logout, access throttling, invitation and reset token primitives.",
+      "acceptance_criteria": [
+        "No default admin credentials or open registration",
+        "Password hashes and secure session cookies used",
+        "Invitation/reset token tested as single-use and expiring",
+        "Admin user management API cannot read plaintext passwords"
+      ],
+      "required_tests": [
+        "brute-force/rate limit",
+        "session revocation",
+        "CSRF",
+        "token replay",
+        "authz negative"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M03",
+      "phase": "foundation",
+      "title": "Storage roots and centralized ACL engine",
+      "depends_on": [
+        "M02"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 for design; Sonnet 5.5 for implementation",
+      "objective": "Define storage node identities, personal/shared roots, grants, resource-scoped policy service and admin-without-personal-visibility invariant.",
+      "acceptance_criteria": [
+        "Two user roles without admin personal read bypass",
+        "Effective ACL and subtree grants evaluated centrally",
+        "Each account has personal root; shared tree access configurable",
+        "Cross-user unauthorized metadata and path traversal rejected"
+      ],
+      "required_tests": [
+        "ACL matrix",
+        "private sibling non-disclosure",
+        "admin personal 403",
+        "path traversal",
+        "symlink escape"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M04",
+      "phase": "foundation",
+      "title": "Safe filesystem service and file CRUD",
+      "depends_on": [
+        "M03"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 review for race safety",
+      "objective": "Build safe filesystem primitives and APIs for list, browse, folder create, upload, download, copy, move, rename with transaction journal.",
+      "acceptance_criteria": [
+        "All file payloads remain real native files",
+        "Path escape, overwrite, conflict checks effective",
+        "Idempotent and revision-checked operations",
+        "Partial failure exposes reconcile status; does not silently lose source"
+      ],
+      "required_tests": [
+        "atomic write",
+        "cross-device copy",
+        "concurrent rename",
+        "symlinks",
+        "large file",
+        "unauthorized download"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M05",
+      "phase": "foundation",
+      "title": "Browser UI: folders and file operations",
+      "depends_on": [
+        "M04"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Create responsive React shell, side navigation, folder browser, breadcrumbs, upload action, details, keyboard and accessibility baseline.",
+      "acceptance_criteria": [
+        "Personal and shared roots visible according to ACL",
+        "Manual upload here, download, move, rename, create folder",
+        "Denied operations invisible or disabled and server rejects direct calls",
+        "No AI dependency"
+      ],
+      "required_tests": [
+        "Playwright CRUD",
+        "keyboard accessibility",
+        "mobile basic",
+        "forbidden UI/API"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M06",
+      "phase": "foundation",
+      "title": "Existing directory import and reconciliation",
+      "depends_on": [
+        "M05"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Live import workflow, dry-run backup warning, watcher + periodic rescan, external filesystem identity reconciliation.",
+      "acceptance_criteria": [
+        "Existing files remain in place (no forced copy)",
+        "Dry-run shows conflicts and backup warning",
+        "External moves/renames reflected or flagged as uncertain",
+        "External modifications attributed to external_filesystem"
+      ],
+      "required_tests": [
+        "large tree fixture",
+        "restart scan",
+        "out-of-band move",
+        "mount path changes",
+        "network watcher fallback"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M07",
+      "phase": "foundation",
+      "title": "Audit trail, trash, and undo",
+      "depends_on": [
+        "M06"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 recovery review",
+      "objective": "Append-only activity records per file, reversible operations and recovery-oriented trash/restore, activity UI.",
+      "acceptance_criteria": [
+        "Views/downloads/moves/AI actions have actor and event metadata",
+        "File history persists across renames and moves",
+        "Trash/restore works with permission gates",
+        "Undo refuses unsafe overwrite if state changed"
+      ],
+      "required_tests": [
+        "activity provenance",
+        "restore",
+        "undo conflict",
+        "authorization on audit",
+        "reboot after partial operation"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M08",
+      "phase": "foundation",
+      "title": "Sharing and personal-folder isolation",
+      "depends_on": [
+        "M07"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 review; Sonnet 5.5 coding",
+      "objective": "Subtree shares, viewer/editor grants, Shared with Me virtual destination; permission notifications without personal metadata leaks.",
+      "acceptance_criteria": [
+        "User may share nested personal subtree without revealing siblings",
+        "Web admin cannot browse unshared personal files",
+        "Grant/revoke changes take effect immediately",
+        "Shared to viewer is read-only even via API"
+      ],
+      "required_tests": [
+        "ACL combinatorics",
+        "revocation active session",
+        "notification leakage",
+        "collection placeholder references"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M09",
+      "phase": "foundation",
+      "title": "Privacy labels and confidential unlock",
+      "depends_on": [
+        "M08"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 for threat model; Sonnet 5.5 build",
+      "objective": "Normal/Private/Confidential label inheritance; server-enforced extra reauth; five-minute idle unlock; optional feature disable transition.",
+      "acceptance_criteria": [
+        "Private/Confidential content blocked from cloud-routing policy",
+        "Confidential requires fresh reauth and locks after 5 minutes idle",
+        "UI cannot bypass expired lock with existing preview URL",
+        "Disable privacy feature never silently downgrades protected folders"
+      ],
+      "required_tests": [
+        "fake clock idle timeout",
+        "parallel tab",
+        "background job not refreshing",
+        "inherited label",
+        "policy-disable migration"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M10",
+      "phase": "documents",
+      "title": "Document previews and safe extraction",
+      "depends_on": [
+        "M09"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library.",
+      "acceptance_criteria": [
+        "PDF and DOCX basic text extraction",
+        "Image thumbnail secure and access checked",
+        "ZIP stays inert, bounded inspection only",
+        "Parser errors do not corrupt originals"
+      ],
+      "required_tests": [
+        "malicious sample types",
+        "truncated PDF",
+        "zip-bomb fixture",
+        "permission on previews",
+        "resource timeout"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M11",
+      "phase": "documents",
+      "title": "OCR and traditional full-text search",
+      "depends_on": [
+        "M10"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Tesseract/OCRmyPDF background processing, searchable extracted text, filename and full-text search (no embeddings required).",
+      "acceptance_criteria": [
+        "Scanned PDFs become searchable after OCR",
+        "Search works with all AI off",
+        "Search results filtered by ACL and unlock",
+        "Index updates on file modification and permission change"
+      ],
+      "required_tests": [
+        "OCR fixture",
+        "no-AI search",
+        "ACL revocation",
+        "index invalidation",
+        "worker crash/retry"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M12",
+      "phase": "documents",
+      "title": "Invitations, SMTP and OIDC auth",
+      "depends_on": [
+        "M11"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 OIDC audit",
+      "objective": "Finish admin invite/reset UX, optional SMTP, Authentik/Authelia-compatible OIDC via standards, secure account linking.",
+      "acceptance_criteria": [
+        "Admin can invite by email or manually share invite token link",
+        "Reset requires one-time token; admin cannot inspect existing password",
+        "OIDC issuer/subject mapped safely to user",
+        "Local auth remains usable if OIDC disabled"
+      ],
+      "required_tests": [
+        "OIDC state/nonce/PKCE",
+        "duplicate verified email",
+        "token replay",
+        "SMTP down",
+        "login flows"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M13",
+      "phase": "documents",
+      "title": "Verified sender aliases and inbound mailbox foundations",
+      "depends_on": [
+        "M12"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Multiple verified emails per user, configurable IMAP, MIME parser, recipient aliases, quarantine store and inbox UI.",
+      "acceptance_criteria": [
+        "User can verify multiple emails and remove alias",
+        "Only verified identities with acceptable sender authentication are routed",
+        "Unrecognized/ambiguous email always quarantines",
+        "Email messages deduplicated across retries"
+      ],
+      "required_tests": [
+        "spoofed From",
+        "wrong To",
+        "alias collision",
+        "duplicate UID",
+        "MIME size/depth",
+        "SMTP unset"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M14",
+      "phase": "documents",
+      "title": "End-to-end personal/shared email ingestion",
+      "depends_on": [
+        "M13"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Route personaldocs to personal intake and ingest to shared intake; review/notifications and app processing queue.",
+      "acceptance_criteria": [
+        "Approved email attachment treated like UI upload",
+        "Personal alerts only to authorized personal users",
+        "Shared alerts to uploader and appropriate shared admins",
+        "Unknown sender admin approval does not allow unauthorized personal-folder injection"
+      ],
+      "required_tests": [
+        "two aliases",
+        "admin notification privacy",
+        "retries/dead letter",
+        "wrong user mapping",
+        "untrusted attachment"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M15",
+      "phase": "intelligence",
+      "title": "AI capability layer, providers, consent, and budget",
+      "depends_on": [
+        "M11",
+        "M09"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 design; Sonnet 5.5 implementation",
+      "objective": "Provider abstraction for Claude/OpenAI/Gemini/llama.cpp/Ollama, personal routing, privacy gating, secrets, per-scope AI spend accounting.",
+      "acceptance_criteria": [
+        "App still operates with zero AI configured",
+        "Main tree only instance default; personal opt-out/default/local-only/own provider",
+        "Private and Confidential never leave through cloud adapter",
+        "Monthly $ cap blocks new requests and usage visible; no consumer-plan credential hacks"
+      ],
+      "required_tests": [
+        "mock providers",
+        "budget race",
+        "provider outage",
+        "key redaction",
+        "policy table",
+        "no-cloud protected regression"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M16",
+      "phase": "intelligence",
+      "title": "AI organization proposals and safe auto-actions",
+      "depends_on": [
+        "M15",
+        "M07"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 action validator review",
+      "objective": "Structured proposals for naming, folder placement, new folders, sensitive warning and review queue; allow only empirically safe automation.",
+      "acceptance_criteria": [
+        "High-confidence safe validated renames/moves optional auto",
+        "Uncertain/unsafe requests go to review queue",
+        "AI cannot change ACLs, privacy downgrade, overwrite or delete",
+        "Every proposal/action audited, dismissible and reversible where supported"
+      ],
+      "required_tests": [
+        "malformed model response",
+        "invalid target",
+        "cross-user move",
+        "sensitive warning",
+        "review race"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M17",
+      "phase": "intelligence",
+      "title": "PDF splitting and duplicate detection",
+      "depends_on": [
+        "M16",
+        "M10"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "OCR-assisted split proposals, page preview, preserved source, deterministic split implementation; exact hash and near-duplicate suggestions.",
+      "acceptance_criteria": [
+        "Split requires user approval initially",
+        "Source preserved and all pages accounted for",
+        "Exact duplicates not silently destroyed",
+        "Split artifacts have audit and restore pathway"
+      ],
+      "required_tests": [
+        "two-doc sample",
+        "empty pages",
+        "rotation",
+        "one-page PDF",
+        "collision",
+        "source preservation"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M18",
+      "phase": "intelligence",
+      "title": "Virtual collections and AI suggestions",
+      "depends_on": [
+        "M16",
+        "M08"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Dedicated Collections screen, reference membership, collection ACL and AI suggest-only grouping.",
+      "acceptance_criteria": [
+        "Manual collections do not move/copy original files",
+        "AI never auto-creates a collection",
+        "One document can be in many collections",
+        "Unauthorized membership/name/count cannot leak"
+      ],
+      "required_tests": [
+        "reference after rename",
+        "permission revocation",
+        "suggest approve/dismiss",
+        "cross-user membership"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M19",
+      "phase": "advanced",
+      "title": "Optional local semantic search",
+      "depends_on": [
+        "M11",
+        "M15"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Haiku 5.5 docs",
+      "objective": "Connect/verify embedding model endpoint, pgvector chunk indexing, reindexing and ACL-aware semantic/hybrid search.",
+      "acceptance_criteria": [
+        "Disabled until compatible embeddings provider is healthy",
+        "CPU-only llama.cpp endpoint usable; Ollama alternate",
+        "No cloud fallback for protected/index data",
+        "No-AI full-text search stays available, and embeddings reindex safely by model"
+      ],
+      "required_tests": [
+        "embedding health/dimension",
+        "model swap",
+        "ACL filter",
+        "confidential lock",
+        "CPU-only mode",
+        "search relevance tests"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M20",
+      "phase": "advanced",
+      "title": "Document chat with source references",
+      "depends_on": [
+        "M19",
+        "M15"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 privacy audit",
+      "objective": "Retrieval augmented Q&A, authorized source snippets, local-only protected docs, provider budget, citation UI and graceful fallback.",
+      "acceptance_criteria": [
+        "Responses cite accessible source document/page",
+        "Cloud never sees Private/Confidential excerpts",
+        "No unauthorized chat data from shared/personal domains",
+        "No hallucinated files or implicit actions executed"
+      ],
+      "required_tests": [
+        "prompt injection document",
+        "cross-user query",
+        "cloud privacy",
+        "empty results",
+        "cost cap"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M21",
+      "phase": "advanced",
+      "title": "Optional MCP integration",
+      "depends_on": [
+        "M20",
+        "M08"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 design/review; Sonnet 5.5 coding",
+      "objective": "Implement disabled-by-default authenticated read-only MCP tools, scoped by user and privacy.",
+      "acceptance_criteria": [
+        "MCP disabled unless explicitly configured",
+        "User scopes enforced independent of frontend",
+        "No protected file contents returned to unauthorized/remote clients",
+        "Read-only initially; no path/shell capabilities"
+      ],
+      "required_tests": [
+        "MCP auth",
+        "origin/CSRF",
+        "cross-user file",
+        "private/local-only barrier",
+        "rate limiting"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M22",
+      "phase": "release",
+      "title": "Production packaging, backup, restore, Stack variant",
+      "depends_on": [
+        "M18",
+        "M19"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "Pinned images, upgrade/migrations, backup/restore guides, reverse proxy TLS examples, validated Stack deployment sample.",
+      "acceptance_criteria": [
+        "Fresh Docker Compose deploy works without AI",
+        "Upgrade/restart preserve files and metadata",
+        "Backup/restore includes Postgres + app-data + library",
+        "Stack example uses published images and is actually tested"
+      ],
+      "required_tests": [
+        "upgrade migration",
+        "restore drill",
+        "fresh compose",
+        "stack integration",
+        "non-root permissions"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M23",
+      "phase": "release",
+      "title": "Security, reliability, accessibility, and performance hardening",
+      "depends_on": [
+        "M20",
+        "M21",
+        "M22"
+      ],
+      "recommended_claude_code_model": "Opus 5.5 security review; Sonnet 5.5 fixes",
+      "objective": "Threat-model acceptance, red-team fixtures, leak checks, performance benchmarks, multiuser concurrency, accessibility polish.",
+      "acceptance_criteria": [
+        "All P0 isolation tests pass",
+        "No secret/plaintext logs",
+        "Large import/reconcile and background failures recover cleanly",
+        "Accessibility smoke and keyboard flows pass"
+      ],
+      "required_tests": [
+        "security adversarial suite",
+        "load benchmarks",
+        "backup restore",
+        "accessibility audit",
+        "semantics consistency"
+      ],
+      "notes": "",
+      "status": "not_started"
+    },
+    {
+      "id": "M24",
+      "phase": "release",
+      "title": "Open-source release readiness",
+      "depends_on": [
+        "M23"
+      ],
+      "recommended_claude_code_model": "Haiku 5.5 docs; Sonnet 5.5 final review",
+      "objective": "Confirm brand/license/trademark checks, open-source governance and CI release automation with accurate limitations and usage docs.",
+      "acceptance_criteria": [
+        "LICENSE/CONTRIBUTING/SECURITY/CHANGELOG present after owner approval",
+        "Docker image tagged and reproducible",
+        "Privacy and host-admin limitation plainly documented",
+        "All milestone evidence, tests and known issues published"
+      ],
+      "required_tests": [
+        "release install test",
+        "SBOM/secret scan",
+        "docs link checks",
+        "manual acceptance demo"
+      ],
+      "notes": "Use chosen project name; FileCanopy placeholder until cleared.",
+      "status": "not_started"
+    }
+  ]
+}

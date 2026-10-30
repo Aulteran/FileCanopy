@@ -1,0 +1,65 @@
+# FileCanopy — Claude Code Implementation Handoff
+
+**Project codename:** FileCanopy (temporary; rename before public release if desired)  
+**Project status:** Design baseline approved; implementation not started  
+**Date:** 2026-10-30  
+**Intent:** Open-source, self-hosted, Docker-deployable, folder-first document and general file manager with optional AI.
+
+## Golden rule
+
+**Real, portable folders and files are the source of truth.** The software must work with AI disabled and must not convert uploaded documents into an opaque proprietary store. Users may stop running this application and continue using their actual documents with conventional file tools.
+
+## What this package is
+
+This is a complete *planning and development handoff*, not a working application. It is written so Claude Code can implement one small milestone at a time, with consistent architecture, explicit acceptance criteria, and persistent progress records. Never claim a feature is implemented simply because it appears in these specifications.
+
+## Read in this order
+
+1. `CLAUDE.md` — permanent repository instructions for Claude Code.
+2. `01_PRODUCT_SPEC.md` — approved behaviors and non-goals.
+3. `03_SECURITY_PRIVACY.md` — non-negotiable security boundaries.
+4. `04_DATA_FILESYSTEM.md` — portable filesystem design and audit/undo model.
+5. `02_ARCHITECTURE.md` — recommended stack, component boundaries, and API contracts.
+6. `05_AI_AND_SEARCH.md` — optional AI, provider routing, embeddings, search, and budgets.
+7. `06_EMAIL_AND_MCP.md` — incoming email, outbound SMTP, and opt-in MCP.
+8. `07_UI_UX.md` — screens, onboarding, and flows.
+9. `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json` — ordered work units and gates.
+10. `09_TESTING_ACCEPTANCE.md` — requirements traceability and tests.
+11. `10_CLAUDE_CODE_HANDOFF.md` — exact session workflow, model routing, and prompts.
+12. `11_OPEN_DECISIONS.md` — intentionally unresolved or provisional choices.
+13. `PROJECT_STATUS.md` — living execution record; update after each milestone.
+
+## Core decisions already approved
+
+- Deployment: self-hosted Docker image with Docker Compose first; assess Docker Stack separately.
+- Files: traditional folders; real host-backed storage; existing directory imports operate on original files, not copies.
+- Library: PDFs and scanned documents are primary; also Word, spreadsheets, photos, archives, and general files.
+- AI: entirely optional; configurable cloud or local providers; per-user overrides for personal areas only.
+- Search: ordinary filename/full-text search without AI; semantic search optional **only when a compatible embedding endpoint is connected**.
+- Local embedding reference: EmbeddingGemma 2 via CPU-only llama.cpp on i7-9750H is a candidate, not a required dependency; Ollama is supported too.
+- AI organizing: automatically execute only high-confidence, low-risk permitted operations; otherwise queue for review. Collection creation is **suggest-only**.
+- Folders: Normal, Private, Confidential privacy levels; Private/Confidential never go to cloud AI; local AI only when explicitly enabled. Admin may disable privacy levels as a feature, subject to migration safeguards.
+- Confidential: permitted user must re-authenticate; unlock expires after five minutes of no user interaction with the protected folder.
+- Accounts: Administrator and User roles only; personal directory for each user; shared main working tree; per-folder grants and user-to-user folder sharing.
+- Admin: no automatic personal-folder document visibility in the UI, although a host filesystem administrator may directly access underlying files.
+- Email: multiple verified sender addresses per account; `personaldocs@...` to personal intake; `ingest@...` to shared intake; unknown senders quarantined for admin approval, optional SMTP notice.
+- Collections: separate sidebar section; virtual links to original files, optional AI suggestions to create; do not alter physical placement.
+- MCP: optional, disabled by default, user scoped, never bypass privacy or permissions.
+- History: per-file interaction/activity history, plus recoverable trash and reversible supported file operations; **not** full historical binary versioning.
+- Open source; brand name, exact license, and the initial public release boundary remain provisional.
+
+## Core release gates
+
+- **Core alpha:** fully usable multi-user file manager, ACLs, portable imports, history, trash/undo, backups guidance. No AI required.
+- **Document beta:** extraction/OCR, email ingress, optional AI classification/renaming/splitting with reviews, collections.
+- **Release candidate:** semantic search, chat, optional MCP, external OIDC, deployment hardening, threat-model tests.
+
+Never delay security tests until release candidate: every milestone that touches authentication, filesystem paths, or permissions must include negative authorization tests.
+
+## Working name and legal note
+
+`FileCanopy` is a placeholder. Do trademark, repository, package name, and domain checks before publishing. Do not imply affiliation with Paperless-ngx or adopt its branding without authorization. No Paperless-ngx source reuse is assumed.
+
+## First Claude Code task
+
+Read `prompts/FIRST_SESSION.md`. Start milestone `M00` only. Do not begin the next milestone without reviewing the completed acceptance checklist.
