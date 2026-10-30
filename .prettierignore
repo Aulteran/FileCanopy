@@ -5,3 +5,9 @@ MILESTONES.json
 node_modules/
 coverage/
 package-lock.json
+.venv/
+**/__pycache__/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.pytest_cache/
+*.lock

@@ -1,0 +1,110 @@
+# Core stack:      docker compose up -d --build
+# With workers:    docker compose --profile workers up -d --build
+# No AI service exists in this file; AI is optional and arrives in later milestones.
+name: filecanopy
+
+x-api-env: &api-env
+  FILECANOPY_DATABASE_URL: postgresql+psycopg://filecanopy:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/filecanopy
+  FILECANOPY_LIBRARY_PATH: /library
+  FILECANOPY_APP_DATA_PATH: /app-data
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: filecanopy
+      POSTGRES_USER: filecanopy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filecanopy -d filecanopy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot, serialized by a Postgres advisory lock. Re-running is a no-op.
+  migrate:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runtime }
+    image: filecanopy-api:dev
+    command: ["python", "-m", "app.db.migrate"]
+    restart: "no"
+    environment: *api-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    <<: *hardening
+
+  api:
+    image: filecanopy-api:dev
+    restart: unless-stopped
+    user: "${FILECANOPY_UID:-10001}:${FILECANOPY_GID:-10001}"
+    environment:
+      <<: *api-env
+      # Optional tier. Empty = not configured. Set to redis://redis:6379/0 when using the
+      # `workers` profile so health can report worker status.
+      FILECANOPY_REDIS_URL: ${FILECANOPY_REDIS_URL:-}
+    volumes:
+      - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
+      - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    <<: *hardening
+
+  web:
+    build: { context: .., dockerfile: apps/web/Dockerfile }
+    image: filecanopy-web:dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FILECANOPY_HTTP_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    <<: *hardening
+
+  redis:
+    image: redis:7-alpine
+    profiles: [workers]
+    restart: unless-stopped
+    user: redis # entrypoint cannot drop privileges itself once capabilities are dropped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    <<: *hardening
+
+  worker:
+    image: filecanopy-api:dev
+    profiles: [workers]
+    restart: unless-stopped
+    command: ["python", "-m", "workers.heartbeat"]
+    environment:
+      FILECANOPY_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis: { condition: service_healthy }
+    <<: *hardening
+
+volumes:
+  pgdata:

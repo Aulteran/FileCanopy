@@ -1,0 +1,26 @@
+[project]
+name = "filecanopy-api"
+version = "0.0.0"
+description = "FileCanopy API (working codename)"
+requires-python = ">=3.13"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["apps/api", "."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S603", "S607", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+mypy_path = "apps/api"
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+pythonpath = ["apps/api", "."]
+markers = ["compose: runs real docker compose stacks on the host (slow)"]

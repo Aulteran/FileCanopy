@@ -49,10 +49,10 @@
 **Goal:** Compose baseline for web/API/PostgreSQL/worker/Redis, first migrations, health probes and separate document/app-data mounts.
 
 **Acceptance criteria:**
-- [ ] Compose core starts without AI services
-- [ ] Database migration applies idempotently
-- [ ] Document root remains bind-mounted and portable
-- [ ] App health status distinguishes core from optional workers
+- [x] Compose core starts without AI services
+- [x] Database migration applies idempotently
+- [x] Document root remains bind-mounted and portable
+- [x] App health status distinguishes core from optional workers
 
 **Tests/evidence:** fresh install, restart/persistence, database migration, no-AI boot.
 

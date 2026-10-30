@@ -75,4 +75,26 @@ npm run check
 
 `npm run check` runs ESLint, the Prettier format check, the unit tests (`tests/unit`) and the secret scan (`scripts/secret-scan.mjs`). Individual commands: `npm run lint`, `npm run format`, `npm test`, `npm run secret-scan`.
 
-The backend and frontend are not implemented yet. Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
+### Running the stack (M01)
+
+Requirements: Docker with Compose v2. No AI provider keys or real documents are needed.
+
+```bash
+cp deploy/.env.example deploy/.env      # then set POSTGRES_PASSWORD
+mkdir -p library app-data               # or point the two paths in deploy/.env elsewhere
+docker compose -f deploy/docker-compose.yml up -d --build --wait
+curl http://127.0.0.1:8080/api/v1/health
+```
+
+`library/` is your ordinary document tree (bind mount, never converted or hidden); `app-data/` is app-private and must not overlap it. Optional workers: set `FILECANOPY_REDIS_URL` in `deploy/.env` and add `--profile workers`. Stop with `docker compose -f deploy/docker-compose.yml down` (add `-v` only to delete the database; documents are never touched).
+
+### Checks
+
+| Command | What it runs | Needs |
+|---|---|---|
+| `npm run check` | ESLint, Prettier, JS unit tests, secret scan | Node |
+| `npm run check:api` | ruff, mypy (strict), pytest unit tests in the pinned Python 3.13 image | Docker |
+| `npm run test:compose` | Real Compose tests: fresh install, restart/persistence, migrations, no-AI boot, optional-worker degradation | Docker, host Python + pytest (`python -m venv .venv && .venv/Scripts/pip install pytest==9.2.0`; on Linux/macOS use `.venv/bin/pip`) |
+| `npm run check:full` | all of the above | all of the above |
+
+The frontend is not implemented yet (M05). Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.

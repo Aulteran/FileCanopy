@@ -1,6 +1,6 @@
 # ADR-001: Backend stack
 
-- **Status:** Proposed (not yet approved by owner)
+- **Status:** Accepted (owner approved 2026-10-30, at the start of the M01 session)
 - **Date:** 2026-10-30
 - **Milestone:** M00 (decision needed before M01)
 

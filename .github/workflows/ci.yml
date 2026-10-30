@@ -1,4 +1,4 @@
-# CI placeholder (M00). Runs the same checks as local development.
+# Runs the same checks as local development (not yet executed on GitHub).
 # No secrets, no AI provider calls, no real documents. Extended in later milestones.
 name: ci
 
@@ -21,3 +21,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run check:api
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install pytest==9.2.0
+      - run: npm run test:compose
