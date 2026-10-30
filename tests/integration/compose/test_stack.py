@@ -49,6 +49,10 @@ class Stack:
             "FILECANOPY_HTTP_PORT": str(self.port),
         }
         self.env.pop("FILECANOPY_REDIS_URL", None)
+        if hasattr(os, "getuid"):
+            # Linux: the API must own the bind mounts, exactly as documented in deploy/.env.example.
+            self.env["FILECANOPY_UID"] = str(os.getuid())
+            self.env["FILECANOPY_GID"] = str(os.getgid())
 
     def compose(
         self, *args: str, check: bool = True, env: dict[str, str] | None = None
@@ -62,7 +66,11 @@ class Stack:
         return r
 
     def up(self, *extra: str) -> None:
-        self.compose(*extra, "up", "-d", "--build", "--wait", "--wait-timeout", "180")
+        try:
+            self.compose(*extra, "up", "-d", "--build", "--wait", "--wait-timeout", "180")
+        except AssertionError as exc:
+            logs = self.compose("--profile", "*", "logs", "--no-color", "--tail", "30", check=False)
+            raise AssertionError(f"{exc}\n--- service logs ---\n{logs.stdout}") from exc
 
     def get(self, path: str) -> tuple[int, dict[str, object]]:
         try:
