@@ -20,6 +20,7 @@
 ## Recent changes
 
 - 2026-10-30: Initial handoff written. No source code or Docker application implemented.
+- 2026-10-30: License set provisionally to AGPL-3.0-only on owner instruction: `LICENSE` added, `package.json` `license` field and README license section added. Dependency license audit deferred to pre-release (see "Reminder before first public release").
 - 2026-10-30: M00 implemented: Node-based lint/format/test/secret-scan workflow (`npm run check`), module-boundary skeleton with placeholder READMEs, ADR skeleton (ADR-001 and ADR-002 both Proposed), root README setup section. See `docs/adr/`.
 
 - 2026-10-30: M00 review fixes: added `.gitattributes` (LF line endings, avoids Prettier failures on Windows autocrlf checkouts), a CI placeholder (`.github/workflows/ci.yml`, runs `npm ci && npm run check`; not yet executed on GitHub), secret scan now skips deleted tracked files (with a test), anchored `.gitignore` runtime dirs, ticked M00 boxes in `08_IMPLEMENTATION_PLAN.md`.
@@ -47,7 +48,13 @@
 - CI workflow (`.github/workflows/ci.yml`) was extended with the API and Compose checks but has not run on GitHub.
 - Docker verified on Windows/Docker Desktop only. Linux bind-mount ownership (`FILECANOPY_UID`/`FILECANOPY_GID`) is documented but untested.
 - Health endpoint is unauthenticated until M02 adds authentication.
-- Final brand and license are deferred until preparation for public release.
+- Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
+
+## Reminder before first public release
+
+- [ ] Run a dependency license audit (runtime and build dependencies, including PyMuPDF, which is AGPL-3.0 or commercial) and confirm all are compatible with AGPL-3.0. Record the result in `11_OPEN_DECISIONS.md` item 2.
+- [ ] Revisit the license choice if the audit finds an incompatibility.
+- [ ] Confirm the project name and trademark/domain/registry checks (`11_OPEN_DECISIONS.md` item 1).
 
 ## Next session instruction
 

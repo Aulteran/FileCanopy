@@ -371,7 +371,9 @@
 **Goal:** Confirm brand/license/trademark checks, open-source governance and CI release automation with accurate limitations and usage docs.
 
 **Acceptance criteria:**
-- [ ] LICENSE/CONTRIBUTING/SECURITY/CHANGELOG present after owner approval
+- [ ] LICENSE (AGPL-3.0-only) present and consistent with package.json and README
+- [ ] Dependency license audit completed and recorded: all runtime dependencies compatible with AGPL-3.0
+- [ ] CONTRIBUTING/SECURITY/CHANGELOG present after owner approval
 - [ ] Docker image tagged and reproducible
 - [ ] Privacy and host-admin limitation plainly documented
 - [ ] All milestone evidence, tests and known issues published

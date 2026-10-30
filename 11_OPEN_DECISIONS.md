@@ -5,7 +5,7 @@ This document deliberately avoids reopening already-approved product behavior. R
 ## Product-owner decisions needed before *public release* (not before M00)
 
 1. **Final project name:** `FileCanopy` remains working codename. Check trademarks, repositories, container image registry, package and domains. Do not imply Paperless affiliation.
-2. **Open-source license:** choose an appropriate license (e.g. AGPL-3.0, GPL-3.0, Apache-2.0, MIT) after considering code dependencies and intended contribution goals; never insert a license automatically as a legal decision.
+2. **Open-source license:** *Provisionally decided 2026-10-30: `AGPL-3.0-only`* (LICENSE and `package.json` added on owner instruction). Before the first public release, the dependency license audit must be completed and recorded: confirm every runtime dependency is compatible with AGPL-3.0 (e.g. PyMuPDF is AGPL-3.0 or commercial, so it is fine under AGPL but blocks any relicensing to permissive terms). Revisit the choice at that point if the audit finds a problem.
 3. **Public release definition:** alpha and beta may be private or public; require owner sign-off before announcing stable support.
 4. **Supported platforms:** initial Linux x86_64 likely, ARM64 later if CI/dependencies tested; decide initial public support matrix based on build results.
 

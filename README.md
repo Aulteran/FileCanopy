@@ -98,3 +98,7 @@ curl http://127.0.0.1:8080/api/v1/health
 | `npm run check:full` | all of the above | all of the above |
 
 The frontend is not implemented yet (M05). Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
+
+## License
+
+FileCanopy is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). The project name and final public release terms remain provisional until the owner clears them for publication.

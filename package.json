@@ -2,6 +2,7 @@
   "name": "filecanopy",
   "version": "0.0.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "Self-hosted, folder-first file manager with optional AI (working codename).",
   "type": "module",
   "engines": {
