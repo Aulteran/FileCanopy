@@ -13,6 +13,12 @@ export function formatSize(bytes: number | null): string {
   return `${text} ${UNITS[unit]}`;
 }
 
+/** "1.5 MB of 4.0 MB (37%)" for an upload in progress. */
+export function progressText(sent: number, total: number): string {
+  const pct = total > 0 ? Math.floor((Math.min(sent, total) / total) * 100) : 0;
+  return `${formatSize(Math.min(sent, total))} of ${formatSize(total)} (${pct}%)`;
+}
+
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString();
@@ -70,6 +76,20 @@ const MESSAGES: Record<string, string> = {
   SETUP_ALREADY_COMPLETE: "Setup was already completed. Sign in instead.",
   INVALID_EMAIL: "That email address is not valid.",
   TOO_MANY_ATTEMPTS: "Too many attempts. Wait a little and try again.",
+  INVALID_TOKEN:
+    "This link is not valid any more. It may have been used already or have expired. Ask your administrator for a new one.",
+  PASSWORD_TOO_SHORT: "The password must be at least 12 characters long.",
+  PASSWORD_TOO_LONG: "That password is too long.",
+  PASSWORD_TOO_WEAK:
+    "That password is too easy to guess. Avoid common passwords and your email name.",
+  PASSWORDS_DIFFER: "The two passwords are not the same.",
+  EMAIL_EXISTS: "An account with that email address already exists.",
+  LAST_ADMIN: "This is the last active administrator, so it cannot be changed.",
+  NOT_INVITED: "That account has already accepted its invitation.",
+  NOT_ACTIVE: "Only an active account can get a password reset link.",
+  INVITATION_PENDING:
+    "That account has not accepted its invitation yet. Send a new invitation link instead.",
+  CANCELLED: "Upload cancelled.",
 };
 
 export function describeError(code: string): string {

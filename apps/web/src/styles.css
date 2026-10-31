@@ -544,3 +544,52 @@ button.linklike {
 .topbar .toplink[aria-current="page"] {
   font-weight: 600;
 }
+
+/* users, one-time links and upload progress (M06d) */
+select {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+.users {
+  max-width: 1000px;
+}
+.users h1 {
+  margin-top: 0;
+  font-size: 1.4rem;
+}
+.users section {
+  margin-bottom: 28px;
+}
+.users .stack-form {
+  max-width: 460px;
+}
+.users .row,
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.users table td {
+  overflow-wrap: anywhere;
+}
+.uploads progress {
+  width: 160px;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .users table thead {
+    display: none;
+  }
+  .users table tr,
+  .users table td {
+    display: block;
+  }
+}

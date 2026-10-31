@@ -134,13 +134,20 @@ export function TargetDialog({
 }: TargetProps) {
   const [at, setAt] = useState<NodeInfo | null>(null);
   const [folders, setFolders] = useState<Child[]>([]);
+  // Cursor of the next page of this folder's children: the list is paged like the browser's, so
+  // a folder with more than one page of entries still offers every subfolder.
+  const [next, setNext] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(startId);
+  const shown = useRef(target); // the folder whose list is on screen, for late pages
+  shown.current = target;
 
   useEffect(() => {
     let live = true;
     setError("");
+    setNext(null);
     Promise.all([api.node(target), api.children(target)])
       .then(([node, kids]) => {
         if (!live) return;
@@ -148,6 +155,7 @@ export function TargetDialog({
         setFolders(
           kids.items.filter((c) => c.kind === "dir" && c.id !== item.id),
         );
+        setNext(kids.next_after);
       })
       .catch((err: unknown) => {
         if (live)
@@ -159,6 +167,25 @@ export function TargetDialog({
       live = false;
     };
   }, [target, item.id]);
+
+  async function more(): Promise<void> {
+    if (next === null) return;
+    const from = target;
+    setLoadingMore(true);
+    try {
+      const page = await api.children(from, next);
+      if (shown.current !== from) return; // the person moved to another folder meanwhile
+      setFolders((f) => [
+        ...f,
+        ...page.items.filter((c) => c.kind === "dir" && c.id !== item.id),
+      ]);
+      setNext(page.next_after);
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const canWrite = at?.my_privileges.includes("write") ?? false;
   const same = mode === "move" && target === currentParentId;
@@ -195,7 +222,21 @@ export function TargetDialog({
             </button>
           </li>
         ))}
-        {at && folders.length === 0 && <li className="hint">No subfolders</li>}
+        {at && folders.length === 0 && next === null && (
+          <li className="hint">No subfolders</li>
+        )}
+        {next !== null && (
+          <li>
+            <button
+              type="button"
+              className="linklike"
+              disabled={loadingMore}
+              onClick={() => void more()}
+            >
+              Show more folders
+            </button>
+          </li>
+        )}
       </ul>
       {at && !canWrite && (
         <p className="hint">You cannot add items to this folder.</p>
