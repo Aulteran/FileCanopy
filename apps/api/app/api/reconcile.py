@@ -12,7 +12,7 @@ from app.auth import clock
 from app.auth.deps import client_ip, get_db, http_error
 from app.auth.schemas import Ok
 from app.auth.service import audit
-from app.db.models import Node, NodeGrant, StorageRoot
+from app.db.models import Node, NodeGrant, ScanRun, StorageRoot
 from app.domain import events
 from app.domain.fileops import serialize_tree_changes
 from app.policy import engine
@@ -93,6 +93,33 @@ def dismiss_missing(
     )
     db.commit()
     return Ok()
+
+
+class ScanStatus(BaseModel):
+    scan_state: str | None
+    # Tally of the plan that tripped the guard: counts only, never names or paths.
+    counts: dict[str, int] | None = None
+    reason: str | None = None
+
+
+@router.get("/nodes/{node_id}/scan", response_model=ScanStatus)
+def scan_status(
+    ctx: NodeContext = Depends(grant_admin_access), db: Session = Depends(get_db)
+) -> ScanStatus:
+    """What a suspended root is waiting on, so apply is never a blind decision."""
+    node = ctx.node
+    root = db.get(StorageRoot, node.root_id)
+    if node.parent_id is not None or root is None:
+        raise http_error(422, "NOT_A_ROOT")
+    if root.scan_state != "suspended":
+        return ScanStatus(scan_state=root.scan_state)
+    run = db.scalars(
+        select(ScanRun)
+        .where(ScanRun.root_id == root.id, ScanRun.outcome == "suspended")
+        .order_by(ScanRun.started_at.desc())
+    ).first()
+    counts = {k: v for k, v in (run.counts or {}).items() if isinstance(v, int)} if run else None
+    return ScanStatus(scan_state="suspended", counts=counts, reason=run.error_code if run else None)
 
 
 @router.post("/nodes/{node_id}/scan/resolve", response_model=Ok)

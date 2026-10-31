@@ -1039,3 +1039,47 @@ def test_device_is_rechecked_on_every_pass(fx: Fx, monkeypatch: pytest.MonkeyPat
     assert reconciler(fx).run_root(rid, "periodic").outcome == "skipped"
     with fx.w.ctx.sessions() as db:
         assert db.get(StorageRoot, rid).status == "unsupported_mount"  # type: ignore[union-attr]
+
+
+# ------------------------------------------------------------------ apply is never blind
+
+
+def test_suspended_root_reports_what_it_is_waiting_on(fx: Fx, alice: Api) -> None:
+    base = make_tree(fx, fx.taxes)
+    scan(fx)
+    shutil.rmtree(base)
+    scan(fx)
+    status = alice.get(f"/nodes/{fx.alice_root}/scan").json()
+    assert status["scan_state"] == "suspended" and status["reason"] == "MASS_CHANGE"
+    assert status["counts"]["affected"] >= 121 and status["counts"]["missing"] >= 1
+    assert "path" not in repr(status) and "bulk" not in repr(status)  # counts only
+    assert Api(fx, "admin").get(f"/nodes/{fx.alice_root}/scan").status_code == 403
+    r = alice.get(f"/nodes/{fx.taxes}/scan")
+    assert (r.status_code, code(r)) == (422, "NOT_A_ROOT")
+
+
+def test_apply_is_refused_when_the_plan_grew_since_it_was_reviewed(fx: Fx, alice: Api) -> None:
+    first = make_tree(fx, fx.taxes, 120)
+    second = make_tree(fx, fx.private, 100)
+    scan(fx)
+    shutil.rmtree(first)
+    assert scan(fx).outcome == "suspended"
+    reviewed = alice.get(f"/nodes/{fx.alice_root}/scan").json()["counts"]["affected"]
+    shutil.rmtree(second)  # more disappears while the owner is looking
+    resolve = {"action": "apply"}
+    assert alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code == 200
+    service: ReconcilerService = fx.w.app.state.reconciler
+    fx.w.advance(seconds=5)  # distinct run timestamps, as in real life
+    service.process_requests()
+    again = alice.get(f"/nodes/{fx.alice_root}/scan").json()
+    assert again["scan_state"] == "suspended" and again["reason"] == "CHANGED_SINCE_REVIEW"
+    assert again["counts"]["affected"] > reviewed
+    with fx.w.ctx.sessions() as db:
+        assert not list(db.scalars(select(Node).where(Node.status == "missing")))  # nothing applied
+    # having seen the new numbers, applying again goes through
+    assert alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code == 200
+    fx.w.advance(seconds=5)
+    service.process_requests()
+    assert alice.get(f"/nodes/{fx.alice_root}/scan").json()["scan_state"] is None
+    with fx.w.ctx.sessions() as db:
+        assert len(list(db.scalars(select(Node).where(Node.status == "missing")))) >= 220

@@ -49,6 +49,10 @@ PENDING_STATUSES = ("active", "reconcile_needed")
 # Content hashes of tiny files (empty, a few bytes) are common to unrelated files, so they never
 # link a vanished node to a new file.
 MIN_HASH_MATCH = 1024
+# "Apply" on a suspended root only proceeds if the fresh plan is not much larger than what the
+# person reviewed; otherwise the root is suspended again with the new numbers.
+APPLY_DRIFT = 0.10
+APPLY_DRIFT_SLACK = 10
 
 
 # ------------------------------------------------------------------ model of a plan
@@ -813,17 +817,8 @@ def _blocked(db: Session) -> Blocked:
 # ------------------------------------------------------------------ guard
 
 
-def would_exceed_guard(db: Session, root_id: uuid.UUID, plan: Plan) -> bool:
-    """True if applying `plan` would mark more than half of a root (and more than 100 nodes)
-    missing or modified: an unmounted or replaced bind mount looks exactly like that."""
-    total = (
-        db.scalar(
-            select(func.count())
-            .select_from(Node)
-            .where(Node.root_id == root_id, Node.status.in_(PENDING_STATUSES))
-        )
-        or 0
-    )
+def affected_count(db: Session, plan: Plan) -> int:
+    """Nodes the plan would mark missing (with their subtrees) or modified."""
     affected = len(plan.modified)
     for snap in plan.missing:
         if snap.kind == "dir":
@@ -840,7 +835,34 @@ def would_exceed_guard(db: Session, root_id: uuid.UUID, plan: Plan) -> bool:
             )
         else:
             affected += 1
+    return affected
+
+
+def would_exceed_guard(db: Session, root_id: uuid.UUID, affected: int) -> bool:
+    """True if applying a plan would mark more than half of a root (and more than 100 nodes)
+    missing or modified: an unmounted or replaced bind mount looks exactly like that."""
+    total = (
+        db.scalar(
+            select(func.count())
+            .select_from(Node)
+            .where(Node.root_id == root_id, Node.status.in_(PENDING_STATUSES))
+        )
+        or 0
+    )
     return affected > MASS_MINIMUM and affected > MASS_FRACTION * total
+
+
+def reviewed_affected(db: Session, root_id: uuid.UUID) -> int | None:
+    """What the person saw when the root was suspended: the latest suspended run's tally."""
+    run = db.scalars(
+        select(ScanRun)
+        .where(ScanRun.root_id == root_id, ScanRun.outcome == "suspended")
+        .order_by(ScanRun.started_at.desc())
+    ).first()
+    if run is None or not isinstance(run.counts, dict):
+        return None
+    value = run.counts.get("affected")
+    return int(value) if isinstance(value, int) else None
 
 
 # ------------------------------------------------------------------ one pass
@@ -949,13 +971,20 @@ class Reconciler:
                 log.warning("scan of a root failed: %s", type(exc).__name__)
                 return self._finish(run_id, PassResult("failed", {}, "ROOT_UNREADABLE"))
             counts = plan.counts()
-            if not force and would_exceed_guard(db, root_id, plan):
+            counts["affected"] = affected_count(db, plan)
+            reviewed = reviewed_affected(db, root_id) if force else None
+            drifted = (
+                reviewed is not None
+                and counts["affected"] > reviewed * (1 + APPLY_DRIFT) + APPLY_DRIFT_SLACK
+            )
+            if drifted or (not force and would_exceed_guard(db, root_id, counts["affected"])):
                 root = db.get(StorageRoot, root_id)
                 if root is not None:
                     root.scan_state = "suspended"
                     db.commit()
                 log.warning("scan suspended: too many changes at once (%s)", root_id)
-                return self._finish(run_id, PassResult("suspended", counts, "MASS_CHANGE"))
+                code = "CHANGED_SINCE_REVIEW" if drifted else "MASS_CHANGE"
+                return self._finish(run_id, PassResult("suspended", counts, code))
             if force and root.scan_state == "suspended":
                 root.scan_state = None
                 db.commit()
