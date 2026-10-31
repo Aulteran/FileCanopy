@@ -53,7 +53,6 @@
 ## Current blockers
 
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
-- ADR-012 awaits owner approval.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
 
 ## Reminder before first public release
@@ -64,7 +63,7 @@
 
 ## Next session instruction
 
-Approve ADR-012. Next: M03 (Opus 5.5 recommended for ACL design). Do not begin M03 without a new request.
+M03 design written: `docs/milestones/M03-design-and-plan.md` and ADR-004 (Accepted 2026-10-30). Owner answered the five design questions (recorded in the design doc). Next: implement M03 (Sonnet 5.5, Opus 5.5 security review). No M03 code exists yet.
 
 ## Milestone session history
 
