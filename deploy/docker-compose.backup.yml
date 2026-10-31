@@ -1,0 +1,14 @@
+# Optional backups (M06c, ADR-015). Off unless you add this file:
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d
+# then switch backups on in the web app (Settings, Backups). Without this file there is no
+# /backups mount and the feature stays off.
+#
+# FILECANOPY_BACKUP_PATH (in deploy/.env) is a host directory on a SEPARATE disk or share. It must
+# not be, contain or sit inside the library or the app-data directory. A backup on the same disk as
+# the library is not a backup. The API runs as FILECANOPY_UID/GID, so that user must own it.
+services:
+  api:
+    environment:
+      FILECANOPY_BACKUP_PATH: /backups
+    volumes:
+      - ${FILECANOPY_BACKUP_PATH:?set FILECANOPY_BACKUP_PATH in deploy/.env to the backup directory}:/backups

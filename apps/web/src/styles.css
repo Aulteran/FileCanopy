@@ -399,3 +399,148 @@ dialog h2 {
     padding: 12px 8px;
   }
 }
+
+/* setup window, imports and reconciliation states (M06b) */
+.setup,
+.banner {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.banner.warn {
+  border-color: var(--danger);
+}
+.setup h2,
+.banner h2 {
+  margin-top: 0;
+}
+.dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 0;
+}
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--sel);
+}
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.plan ul,
+.report ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+progress {
+  width: 100%;
+  height: 14px;
+}
+tbody tr.unsupported td,
+tbody tr.missing td {
+  color: var(--muted);
+}
+tbody tr.unsupported td:first-child {
+  font-style: italic;
+}
+tbody tr.missing td:first-child {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+tbody tr.missing .flag,
+tbody tr.unsupported .flag {
+  text-decoration: none;
+  display: inline-block;
+}
+
+/* first-sign-in setup screen and the unfinished-upload banner (M06b review) */
+.shell.setup-only {
+  display: block;
+}
+.setup-screen {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.setup-screen h1 {
+  margin-top: 0;
+}
+.setup-screen .dropzone {
+  padding: 32px 16px;
+  text-align: center;
+}
+.setup-screen .dropzone .actions {
+  justify-content: center;
+}
+button.linklike {
+  background: none;
+  border: 0;
+  padding: 0 12px 6px;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* backups (M06c) */
+.backups {
+  max-width: 760px;
+}
+.backups h1 {
+  margin-top: 0;
+  font-size: 1.4rem;
+}
+.backups section {
+  margin-bottom: 28px;
+}
+.backups .stack-form {
+  max-width: 460px;
+}
+.backups .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.backups .check input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+.backups pre.key {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: all;
+}
+.backups .warnings {
+  padding-left: 20px;
+  color: var(--danger);
+}
+.backups .facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+.backups .facts dt {
+  color: var(--muted);
+}
+.backups .facts dd {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .backups .facts {
+    grid-template-columns: 1fr;
+  }
+}
+.topbar .toplink {
+  color: var(--text);
+}
+.topbar .toplink[aria-current="page"] {
+  font-weight: 600;
+}

@@ -24,7 +24,7 @@ FileCanopy is a **file manager first, AI assistant second**. Its advantage over 
 - A main work tree exists for shared/group documents. Admin may grant/deny a user's access to the main tree.
 - Folder grants can be user-specific and read-only or read/write. A user can share a subfolder of their personal directory without exposing parent/sibling folders. Show `Shared with me` as a virtual navigation destination.
 - A UI administrator is not identical to a host root user; host filesystem authority is outside app privacy controls.
-- Folder structure can start blank (AI may suggest/build hierarchy if enabled) or import existing directories. Existing imported paths are **live**, not read-only copies; before any modification, strongly encourage an independent backup. Support a dry-run import analysis/preview.
+- Folder structure can start blank (AI may suggest/build hierarchy if enabled) or be filled once at first setup (owner decision 2026-10-31, ADR-011): the shared tree during instance setup and each personal folder during its owner's first-time setup, by dragging in a folder or `.zip` (copied; originals untouched) with a pre-check. Mounted drives are not supported in or as any managed folder for now (may return after the first full release on user request). After setup, content is added with ordinary file and folder uploads.
 - External filesystem moves/changes should be detected via watcher and periodic rescan; do not assume all changes pass through the web UI. Audit attribute external modifications to `external_filesystem` (do not fabricate a user).
 
 ### File operations and ingestion

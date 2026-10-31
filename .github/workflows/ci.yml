@@ -59,7 +59,7 @@ jobs:
           - suite: core
             tests: tests/integration/compose/test_stack.py
           - suite: app
-            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py tests/integration/compose/test_files_stack.py
+            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py tests/integration/compose/test_files_stack.py tests/integration/compose/test_import_stack.py
     name: compose (${{ matrix.suite }})
     steps:
       - uses: actions/checkout@v4

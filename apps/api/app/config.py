@@ -1,6 +1,8 @@
 """Runtime configuration. All values come from the environment; nothing here needs AI settings."""
 
+import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +32,47 @@ class Settings(BaseSettings):
     # The API runs as one process, so at startup every `planned` row is an orphan (default 0).
     # Raise it only if several API processes ever share one database.
     operation_stale_seconds: int = Field(default=0, ge=0)
+
+    # --- Reconciliation (M06, ADR-011 §5, §7, §8) ---
+    reconciler_enabled: bool = True
+    rescan_interval_seconds: int = Field(default=900, ge=1)
+    # Bytes per second for the background content hasher; 0 turns it off.
+    hash_rate_bytes: int = Field(default=20 * 1024**2, ge=0)
+    watcher_enabled: bool = True
+    # auto = detect from /proc/self/mountinfo; yes/no overrides detection.
+    network_fs: Literal["auto", "yes", "no"] = "auto"
+
+    # --- Setup import and folder upload (M06b, ADR-011 §4, §5) ---
+    max_import_entries: int = Field(default=100_000, ge=1, le=500_000)  # per batch
+    max_zip_bytes: int = Field(default=10 * 1024**3, ge=1)  # the uploaded archive itself
+    # Total decompressed bytes of one archive, counted while streaming.
+    max_zip_uncompressed_bytes: int = Field(default=50 * 1024**3, ge=1)
+    # An entry that expands past 1 MiB at more than this ratio is refused as a decompression bomb.
+    max_zip_ratio: int = Field(default=1000, ge=1)
+    import_expiry_seconds: int = Field(default=7 * 24 * 3600, ge=1)
+    # Free space that must remain on the library filesystem after an import.
+    import_free_space_reserve_bytes: int = Field(default=1024**3, ge=0)
+    # Import reports (import_entry rows) are deleted this many days after a batch completes. The
+    # batch summary row is kept indefinitely; stopped batches and batches with failures are kept.
+    import_entry_retention_days: int = Field(default=90, ge=1)
+    # Folder uploads a person may leave unfinished at once.
+    max_open_folder_uploads: int = Field(default=5, ge=1)
+    # A running import pauses the reconciler of its root for at most this long (continuous); after
+    # that the scan proceeds and the root reports "scan delayed".
+    scan_pause_ceiling_seconds: int = Field(default=1800, ge=1)
+
+    # --- Optional backups (M06c, ADR-015) ---
+    # Separate mount for backups. Empty = not configured: the feature stays off and the app is
+    # unaffected. Must not equal, contain or sit inside the library or app-data paths.
+    backup_path: str = ""
+    backup_scheduler_enabled: bool = True
+    backup_check_seconds: int = Field(default=60, ge=1)
+    # Bytes per second the backup job may read; 0 turns the throttle off.
+    backup_rate_bytes: int = Field(default=64 * 1024**2, ge=0)
+    # Free space that must remain on the backup volume after a run.
+    backup_free_space_reserve_bytes: int = Field(default=1024**3, ge=0)
+    # Files up to this size are read into memory so a change during the read can be retried.
+    backup_buffer_file_bytes: int = Field(default=4 * 1024**2, ge=0)
 
     # --- Authentication (M02) ---
     # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at
@@ -64,10 +107,40 @@ class Settings(BaseSettings):
             raise ConfigError(
                 "library_path and app_data_path must be separate, non-nested directories"
             )
+        if self.backup_path:
+            backup = Path(self.backup_path).resolve()
+            for other in (library, app_data):
+                if backup == other or backup in other.parents or other in backup.parents:
+                    raise ConfigError(
+                        "backup_path must not equal, contain or sit inside the library or "
+                        "app-data paths"
+                    )
+            # the same directory reached by another path (a second bind mount of one folder)
+            backup_id = path_identity(backup)
+            if backup_id is not None and backup_id in (
+                path_identity(library),
+                path_identity(app_data),
+            ):
+                raise ConfigError(
+                    "backup_path is the same directory as the library or the app-data path"
+                )
         configured = self.setup_token.get_secret_value()
         if configured and len(configured) < 32:
             raise ConfigError("FILECANOPY_SETUP_TOKEN must be at least 32 characters")
         return self
+
+
+def path_identity(path: Path) -> tuple[int, int] | None:
+    """(st_dev, st_ino) of a directory, or None when it cannot be read (not there yet)."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return info.st_dev, info.st_ino
+
+
+def backup_dir(settings: Settings) -> Path | None:
+    return Path(settings.backup_path) if settings.backup_path else None
 
 
 def load_settings() -> Settings:

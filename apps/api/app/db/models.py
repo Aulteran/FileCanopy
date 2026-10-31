@@ -5,14 +5,17 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
     Uuid,
+    false,
     func,
     text,
 )
@@ -20,6 +23,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
+
+from app.storage.names import name_key
 
 BigPK = BigInteger().with_variant(Integer(), "sqlite")  # SQLite autoincrements INTEGER only
 Json = JSON().with_variant(JSONB(), "postgresql")
@@ -93,8 +98,21 @@ class StorageRoot(Base):
         Uuid, ForeignKey("app_user.id"), unique=True, nullable=True
     )
     relative_dir: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False)  # active | missing | disabled
+    # active | missing | disabled | unsupported_mount (ADR-011 §3: not on the library device)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    scan_state: Mapped[str | None] = mapped_column(String(16), nullable=True)  # null | suspended
+    # open | closed (ADR-011 §1): the one-time window for a setup import; closed is final.
+    setup_state: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="open", server_default="open"
+    )
+    # Set while the reconciler skips this root because an import is writing into it; cleared by
+    # the first pass that finds no import writing. Bounded by `scan_pause_ceiling_seconds`.
+    scan_paused_since: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    fs_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    network_fs: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class Node(Base):
@@ -103,7 +121,18 @@ class Node(Base):
 
     __tablename__ = "node"
     __table_args__ = (
-        UniqueConstraint("parent_id", "name", name="uq_node_parent_name"),
+        # Dismissed and missing nodes stay for audit/recovery but release their name, so a
+        # different kind of entry can take it on disk (ADR-011 §7). The app still avoids the
+        # names of missing nodes.
+        Index(
+            "uq_node_parent_name",
+            "parent_id",
+            "name",
+            unique=True,
+            sqlite_where=text("status NOT IN ('dismissed','missing')"),
+            postgresql_where=text("status NOT IN ('dismissed','missing')"),
+        ),
+        Index("ix_node_parent_name_key", "parent_id", "name_key"),
         Index(
             "uq_node_one_root",
             "root_id",
@@ -122,14 +151,26 @@ class Node(Base):
         Uuid, ForeignKey("node.id"), index=True, nullable=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file
+    kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file | other
     lineage: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
         String(16), nullable=False
-    )  # active | busy | reconcile_needed
+    )  # active | busy | reconcile_needed | missing | dismissed
     # Optimistic-concurrency token: bumped by every rename and move (ADR-013).
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # files only
+    # Last observed filesystem identity (ADR-011 §6). Null until the first scan or app write.
+    fs_dev: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    fs_ino: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    mtime_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256 hex
+    # casefold(NFC(name)), not unique; derived from `name` on insert
+    name_key: Mapped[str] = mapped_column(
+        Text, nullable=False, default=lambda ctx: name_key(ctx.get_current_parameters()["name"])
+    )
+    unsupported_reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    raw_name_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen_run: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
@@ -237,3 +278,165 @@ class AuthAudit(Base):
     target_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     details: Mapped[Any] = mapped_column(Json, nullable=False)
+
+
+class ScanRun(Base):
+    """One reconciler pass over a root (ADR-011 §7). `counts` holds change tallies only."""
+
+    __tablename__ = "scan_run"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False)  # startup|periodic|manual|hint
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)  # running|ok|partial|...
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    counts: Mapped[Any] = mapped_column(Json, nullable=True)
+
+
+class FileEvent(Base):
+    """Minimal append-only per-node event log (ADR-011 §9); M07 builds the activity UI on it.
+    `details` hold ids, safe names and an uncertainty flag: never host paths or content."""
+
+    __tablename__ = "file_event"
+
+    id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
+    node_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime, index=True, nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    source: Mapped[str] = mapped_column(String(8), nullable=False)  # ui|import|scan|watcher
+    details: Mapped[Any] = mapped_column(Json, nullable=False)
+
+
+class ImportBatch(Base):
+    """One setup import or folder upload (ADR-011 §2). `plan` holds totals and example names the
+    importer supplied themselves, never host paths. Visible to its actor only."""
+
+    __tablename__ = "import_batch"
+    __table_args__ = (
+        # At most one unfinished setup import per root, whatever the request timing.
+        Index(
+            "uq_import_batch_open_setup",
+            "root_id",
+            unique=True,
+            sqlite_where=text(
+                "kind in ('setup_folder','setup_zip') and status in ('planned','running','stopped')"
+            ),
+            postgresql_where=text(
+                "kind in ('setup_folder','setup_zip') and status in ('planned','running','stopped')"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    target_node_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), index=True, nullable=False
+    )
+    # setup_folder | setup_zip | folder_upload
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    # planned | running | done | stopped | failed | cancelled | expired
+    status: Mapped[str] = mapped_column(String(12), index=True, nullable=False)
+    include_system: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    plan: Mapped[Any] = mapped_column(Json, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    staged_zip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Set when the retention job deleted this batch's import_entry rows (the summary stays).
+    entries_pruned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class ImportEntry(Base):
+    """Journal row for one folder or file of a batch: pending -> writing -> done | renamed |
+    skipped | failed (ADR-011 §2). `idx` is stable for the life of the batch."""
+
+    __tablename__ = "import_entry"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "idx", name="uq_import_entry_idx"),
+        Index("ix_import_entry_batch_status", "batch_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("import_batch.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    idx: Mapped[int] = mapped_column(Integer, nullable=False)
+    parent_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)  # cleaned; "" when skipped
+    path: Mapped[str] = mapped_column(Text, nullable=False)  # as the importer sent it, sanitized
+    kind: Mapped[str] = mapped_column(String(4), nullable=False)  # dir | file
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    mtime_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    src_index: Mapped[int | None] = mapped_column(Integer, nullable=True)  # position in the zip
+    status: Mapped[str] = mapped_column(String(8), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(32), nullable=True)  # skip or error code
+    node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    result_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dir_node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    tmp_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dst_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class BackupRun(Base):
+    """One backup run of one root (ADR-015). Counts and sizes only: never names, paths, content or
+    keys. Only `ok` rows that are not `pruned_at` take part in chains and retention."""
+
+    __tablename__ = "backup_run"
+    __table_args__ = (Index("ix_backup_run_root_started", "root_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    chain_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)  # full | incremental
+    # running | ok | failed | refused (could not start: volume, size limit)
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    archive_name: Mapped[str | None] = mapped_column(String(160), nullable=True)  # relative
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    uncompressed_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    archive_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    files_added: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_changed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_deleted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_missing: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_unstable: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    encrypted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    pruned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class BackupChainState(Base):
+    """What the newest verified run of a root contained (path -> size, mtime, inode), so the next
+    run can find changes without reading the (encrypted) archives. Private to the app database."""
+
+    __tablename__ = "backup_chain_state"
+
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), primary_key=True
+    )
+    chain_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)  # zlib JSON
+    encrypted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    last_archive: Mapped[str] = mapped_column(String(160), nullable=False)
+    event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)

@@ -101,6 +101,15 @@ curl http://127.0.0.1:8080/api/v1/health
 
 Open http://127.0.0.1:8080 after the stack is up: the first visit asks for the setup token printed in the API log (`docker compose -f deploy/docker-compose.yml logs api`). The browser UI (M05) covers folders and file operations; see `docs/milestones/M05-design-and-plan.md`. Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
 
+## Backups (optional, M06c)
+
+Backups are off by default and the app needs no backup volume. To use them, add `deploy/docker-compose.backup.yml` and mount a separate folder (see `deploy/README.md`), then turn them on under Backups as an administrator. Things to know:
+
+- A backup copies everyone's files, including private ones. Archives are encrypted by default to a key pair whose **recovery key is shown once and never stored**; lose it and the encrypted backups cannot be read.
+- **Rotate the recovery key after giving it to an owner.** Restoring needs the key, and that one key opens every archive on the volume, not only the owner's folder. Give it out only for a restore, then use "New recovery key" (older archives stay readable only with the key they were made with). Per-folder keys are proposed in `docs/adr/ADR-016-per-root-backup-keys.md` and are not built yet.
+- Backups of a folder that is disabled, missing or belongs to a removed account are kept and are never cleaned up automatically, so they keep using space. An audited purge is planned follow-up work; there is no purge screen yet.
+- A restore runs inside the request and can take long for a very large folder (a background restore job is a known limitation, not built).
+
 ## License
 
 FileCanopy is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). The project name and final public release terms remain provisional until the owner clears them for publication.

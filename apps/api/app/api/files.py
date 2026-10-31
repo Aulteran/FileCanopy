@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, get_db, http_error
@@ -44,6 +45,10 @@ class ChildOut(BaseModel):
     revision: int
     status: str
     updated_at: datetime
+    # Set for greyed-out entries (symlink, special, mounted_drive, invalid_name, undecodable_name).
+    unsupported_reason: str | None = None
+    # Another sibling has the same name apart from case or Unicode form (ADR-011 §6).
+    name_collision: bool = False
 
 
 class ChildrenOut(BaseModel):
@@ -92,8 +97,10 @@ class CopyBody(BaseModel):
     on_conflict: ConflictMode = "reject"
 
 
-def _child(node: Node) -> ChildOut:
+def _child(node: Node, collisions: frozenset[str] = frozenset()) -> ChildOut:
     return ChildOut(
+        unsupported_reason=node.unsupported_reason,
+        name_collision=node.name_key in collisions,
         id=node.id,
         name=node.name,
         kind=node.kind,
@@ -152,7 +159,20 @@ def list_children(
         )
     except OpError as err:
         raise _http(err) from err
-    return ChildrenOut(items=[_child(n) for n in rows], next_after=next_after)
+    keys = {n.name_key for n in rows}
+    colliding = frozenset(
+        db.scalars(
+            select(Node.name_key)
+            .where(
+                Node.parent_id == ctx.node.id,
+                Node.name_key.in_(keys),
+                Node.status != "dismissed",
+            )
+            .group_by(Node.name_key)
+            .having(func.count() > 1)
+        )
+    )
+    return ChildrenOut(items=[_child(n, colliding) for n in rows], next_after=next_after)
 
 
 @router.post("/nodes/{node_id}/folders", response_model=ResultOut, status_code=201)

@@ -17,7 +17,7 @@ Host /srv/filecanopy/app-data/        # app-private data, separate from library
   database/   cache/   previews/   jobs/   staging/   trash/
 ```
 
-Do not demand that existing imports be moved into this structure. Support registering a pre-existing directory as the live shared root or managed personal root. Never force a copy just for onboarding. Warn if storage root is a network filesystem where atomic operations/watchers behave differently. Never expose `app-data` as ordinary user documents.
+Existing content enters once, at first setup (ADR-011): a UI import (folder or zip, copied) into the empty shared root or an empty personal root. No root may be a separately mounted drive (refused as `unsupported_mount`), and drives mounted inside a managed folder are listed as unsupported and never entered. Warn if storage root is a network filesystem where atomic operations/watchers behave differently. Never expose `app-data` as ordinary user documents.
 
 ## Recommended entities (not a frozen SQL schema)
 

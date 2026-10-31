@@ -28,6 +28,8 @@ class EntryPoint(BaseModel):
     name: str
     kind: Literal["personal", "shared", "shared_with_me"]
     owner_name: str | None = None
+    # The setup window is open and this person may use it (ADR-011 §1).
+    setup_open: bool = False
 
 
 class NodeOut(BaseModel):
@@ -37,6 +39,14 @@ class NodeOut(BaseModel):
     root_kind: str
     my_privileges: list[str]
     parent_id: uuid.UUID | None
+    # Root nodes only, and only for whoever may manage the root (administrator for the shared tree,
+    # owner for a personal folder); otherwise null. Never names or counts of anything inside.
+    can_manage: bool = False
+    setup_state: str | None = None
+    scan_state: str | None = None
+    # An import has held the reconciler off this root for a long time (bounded by a ceiling), so
+    # changes made outside the app may show up late. Managers only.
+    scan_delayed: bool = False
 
 
 class GrantOut(BaseModel):
@@ -61,10 +71,19 @@ def list_roots(
         root = db.get(StorageRoot, node.root_id)
         if root is None:
             continue
+        setup_open = (
+            node.parent_id is None
+            and root.setup_state == "open"
+            and engine.can_administer_grants(db, Actor(principal.user.id), node)
+        )
         if root.kind == "personal" and root.owner_user_id == principal.user.id:
-            out.append(EntryPoint(node_id=node.id, name="My files", kind="personal"))
+            out.append(
+                EntryPoint(node_id=node.id, name="My files", kind="personal", setup_open=setup_open)
+            )
         elif root.kind == "shared":
-            out.append(EntryPoint(node_id=node.id, name=node.name, kind="shared"))
+            out.append(
+                EntryPoint(node_id=node.id, name=node.name, kind="shared", setup_open=setup_open)
+            )
         else:
             owner = db.get(User, root.owner_user_id) if root.owner_user_id else None
             out.append(
@@ -87,6 +106,11 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         parent = db.get(Node, node.parent_id)
         if Privilege.TRAVERSE in engine.effective(db, Actor(ctx.principal.user.id), parent):
             parent_id = node.parent_id
+    manage = (
+        node.parent_id is None
+        and root is not None
+        and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node)
+    )
     return NodeOut(
         id=node.id,
         name=node.name,
@@ -94,6 +118,10 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         root_kind=root.kind if root else "unknown",
         my_privileges=sorted(p.value for p in ctx.privileges),
         parent_id=parent_id,
+        can_manage=manage,
+        setup_state=root.setup_state if manage and root else None,
+        scan_state=root.scan_state if manage and root else None,
+        scan_delayed=bool(manage and root and root.scan_paused_since is not None),
     )
 
 

@@ -1,6 +1,6 @@
 # ADR-014: Web UI stack, serving and browser testing
 
-- **Status:** Proposed
+- **Status:** Accepted (owner approval 2026-10-31)
 - **Date:** 2026-10-31
 - **Milestone:** M05
 
@@ -31,3 +31,12 @@ M05 adds the first user interface. `02_ARCHITECTURE.md` recommends React, TypeSc
 - TanStack Query now: caching and invalidation are not yet needed; see above.
 - Node Playwright (`@playwright/test`): would need its own stack bootstrap duplicating the Compose helpers.
 - Embedding the bundle in the API container: loses the nginx streaming locations and the separate web tier of ADR-003.
+
+## Security and privacy impact
+
+- **The browser is never the authority.** Every operation is authorized by the server (ADR-004 policy engine, ADR-013 file operations). Hidden or disabled buttons are cosmetic; the browser tests call the API directly as a stranger, the administrator and a viewer with revoked grants.
+- **Strict same-origin CSP** (no inline script or style, no framing) limits what injected content could do.
+- **No reflected names or paths.** Error text comes from a fixed code table, so server-provided file names, paths or user input are never rendered as messages.
+- **Routes take a node id, never a path.** `/f/<node id>` is validated as a bare id before any request, so the URL cannot select a host location.
+- **Downloads keep `attachment` and `sandbox` headers** (ADR-013), so the UI does not change how files are served.
+- **Residual, not yet reviewed:** no independent security review of the web layer has been done. An Opus review can be scheduled separately; the M23 hardening milestone also covers it.

@@ -112,19 +112,45 @@
 
 **Tests/evidence:** Playwright CRUD, keyboard accessibility, mobile basic, forbidden UI/API.
 
-### M06 — Existing directory import and reconciliation
+### M06 — Initial import and reconciliation
+
+> Split across sessions on one branch: **M06a** (reconciler, mount refusal, file events; implemented 2026-10-31, [design](docs/milestones/M06a-design-and-plan.md)) and **M06b** (setup window, setup import, folder upload, setup and state screens; implemented 2026-10-31, [design](docs/milestones/M06b-design-and-plan.md)). All criteria are met and tested; the Opus 5.5 security review of M06b was done 2026-10-31 and its findings are fixed (see the "Security review and fixes" section of the M06b design note: zip central-directory walk, authentication before manifest bodies, window closure by folder upload, destination re-check, bounded reconciler pause, one open setup batch per root, retention of import reports, full-page setup screen, resume of interrupted folder uploads). Owner sign-off of M06 is still pending.
 
 **Phase:** foundation · **Dependencies:** M05 · **Suggested Claude Code model:** Sonnet 5.5
 
-**Goal:** Live import workflow, dry-run backup warning, watcher + periodic rescan, external filesystem identity reconciliation.
+**Goal:** First-setup import (folder or zip, UI) into an empty shared tree or personal folder, folder upload, watcher + periodic rescan, external filesystem identity reconciliation (ADR-011).
 
 **Acceptance criteria:**
-- [ ] Existing files remain in place (no forced copy)
-- [ ] Dry-run shows conflicts and backup warning
-- [ ] External moves/renames reflected or flagged as uncertain
-- [ ] External modifications attributed to external_filesystem
+- [x] First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten
+- [x] Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written
+- [x] A root on a separately mounted drive is refused, and mounted drives inside a managed folder are listed as unsupported and never entered
+- [x] Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits
+- [x] Folder upload after setup merges folders and keeps both on file conflicts
+- [x] External moves/renames reflected or flagged as uncertain
+- [x] External modifications attributed to external_filesystem
+- [x] Files removed outside the app shown as missing, never as deleted; mass disappearance suspends the root
 
-**Tests/evidence:** large tree fixture, restart scan, out-of-band move, mount path changes, network watcher fallback.
+**Tests/evidence:** large tree fixture, restart scan, out-of-band move, mount path changes, network watcher fallback, zip-slip and zip-bomb fixtures, interrupted import resume, mounted-drive refusal (root and nested), setup window closure, case-collision tree.
+
+### M06c — Optional backups
+
+**Phase:** foundation · **Dependencies:** M06 (M06a and M06b done) · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of key handling, pruning floor and restore authorization · **Decision:** [ADR-015](docs/adr/ADR-015-optional-backups.md) (Accepted)
+
+> Implemented 2026-10-31 (Sonnet 5.5), see [design, deviations and open questions](docs/milestones/M06c-design-and-plan.md). The Opus 5.5 review (key handling, pruning floor, restore authorization) is still to do.
+
+**Goal:** Optional, admin-configured backup of the whole library to a separate mounted volume: periodic full backups with changed-only backups in between, compressed (and encrypted by default), with a size limit that prunes the oldest whole chains.
+
+**Acceptance criteria:**
+- [x] Off by default; the app works fully with no backup volume; the backup mount is validated (not equal to, containing or inside the library or app data) and a same-device volume is warned about
+- [x] Interval, full-every-N, size limit and minimum chains kept (default 2, warning when set to 1) are admin settings, audited
+- [x] Full runs contain everything; changed-only runs contain only added or changed files and record deletions and missing files; a chain restores by hand with `tar`
+- [x] Archives are per root, written to a temporary name, verified and renamed; a failed run leaves no partial archive
+- [x] The size limit prunes whole oldest chains only, after a verified new run; the minimum chains are never pruned, and a run that cannot fit without breaking that floor does not start and warns
+- [x] Roots whose scan is suspended or that are not active are never backed up or counted toward retention; unsupported entries, symlinks and staging files are skipped
+- [x] Archives are encrypted by default with a one-time key; no content, paths or keys in logs or audit
+- [x] Restores never overwrite; the web admin role cannot restore or read a personal root from a backup; owners restore their own folder
+
+**Tests/evidence:** incremental correctness (add, change, rename, delete), manual chain restore with `tar`, pruning and the minimum-chains floor, size estimation and refusal, suspended root skipped, volume validation, interrupted-run cleanup, key loss handling, restore authorization, no content in logs.
 
 ### M07 — Audit trail, trash, and undo
 
@@ -167,6 +193,8 @@
 - [ ] Disable privacy feature never silently downgrades protected folders
 
 **Tests/evidence:** fake clock idle timeout, parallel tab, background job not refreshing, inherited label, policy-disable migration.
+
+**Constraint carried from M06c (backups):** a restore from a backup must re-apply the most restrictive privacy label (the label recorded with the backed-up content or the label now on its original location, whichever is stricter) and must not turn Private or Confidential content into Normal content; restoring Confidential content needs the same fresh reauthentication as reading it, and background backup or restore jobs never refresh an unlock. Archives must carry labels in their metadata for this. See ADR-016 (Proposed) for the key model this assumes.
 
 ### M10 — Document previews and safe extraction
 

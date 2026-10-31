@@ -9,21 +9,27 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
 from app.api import admin_storage
+from app.api import backups as backup_routes
 from app.api import files as file_routes
+from app.api import imports as import_routes
 from app.api import nodes as storage_nodes
+from app.api import reconcile as reconcile_routes
 from app.auth import admin as auth_admin
 from app.auth import bootstrap
 from app.auth import router as auth_router
 from app.auth.deps import AuthContext, scrub_validation_errors
 from app.auth.security import Passwords
 from app.auth.throttle import Throttle
+from app.backup.service import BackupService
 from app.config import Settings, load_settings
 from app.db.engine import make_engine
 from app.db.migrate import head_revision
 from app.domain.fileops import recover_operations
+from app.domain.imports import ImportRunner, recover_imports
 from app.health import build_report
 from app.logging_config import configure_logging
 from app.storage.roots import ensure_roots
+from app.storage.service import ReconcilerService
 
 log = logging.getLogger("filecanopy.api")
 
@@ -51,13 +57,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             recover_operations(sessions, cfg)
         except Exception as exc:  # flagged on the next start; never blocks serving
             log.warning("file operation recovery failed: %s", type(exc).__name__)
+        try:
+            recover_imports(sessions, cfg)
+        except Exception as exc:  # interrupted imports stay resumable; never blocks serving
+            log.warning("import recovery failed: %s", type(exc).__name__)
+        if cfg.reconciler_enabled:  # after recovery; never blocks serving
+            reconciler.start()
+        backups.start()  # does nothing without a configured backup volume
         yield
+        backups.stop()
+        import_runner.shutdown()
+        reconciler.stop()
         engine.dispose()
 
+    reconciler = ReconcilerService(sessions, cfg)
+    import_runner = ImportRunner(sessions, cfg)
+    backups = BackupService(sessions, cfg)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
     app.state.auth = AuthContext(cfg, sessions, Passwords(cfg), Throttle(cfg))
     app.state.setup_token_issued = False
+    app.state.reconciler = reconciler
+    app.state.imports = import_runner
+    app.state.backup = backups
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -99,6 +121,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_admin.router)
     app.include_router(storage_nodes.router)
     app.include_router(file_routes.router)
+    app.include_router(reconcile_routes.router)
+    app.include_router(import_routes.router)
     app.include_router(admin_storage.router)
+    app.include_router(backup_routes.router)
 
     return app

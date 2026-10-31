@@ -22,3 +22,17 @@ def validate_name(raw: str) -> str:
     if len(name.encode("utf-8", errors="strict")) > MAX_NAME_BYTES:
         raise InvalidName("name too long")
     return name
+
+
+def name_key(name: str) -> str:
+    """Case- and Unicode-form-insensitive comparison key (ADR-011 §6). Not unique in the database:
+    the app refuses to create a colliding name, but collisions found on disk are kept."""
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+def existing_name(raw: str) -> str:
+    """Validates the name of an entry that already exists and returns it unchanged. Names the
+    scanner finds are stored exactly as on disk (for example NFD from macOS), so opening them must
+    not normalize (ADR-011 §6). Names the app creates go through `validate_name`."""
+    validate_name(raw)
+    return raw

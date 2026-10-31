@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy (working name)",
-  "status": "m05_complete_merged_pending_review",
+  "status": "m06_done",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -146,33 +146,76 @@
         "mobile basic",
         "forbidden UI/API"
       ],
-      "notes": "Implemented 2026-10-31 (Sonnet 5.5); merged to main as 0c3158b (PR #6); awaiting owner review of ADR-014. Evidence: `npm run check` clean; `npm run check:web` (tsc strict + 4 vitest unit tests) clean; `npm run check:api` unchanged backend, ruff/format/mypy clean, 200 passed / 1 skipped; `npm run test:e2e` 6 passed (Playwright/Chromium on the real Compose stack: first-run setup and sign-in, folder CRUD with every result checked against the real files on the bind mount including keep-both and no-overwrite, move/copy with conflict messages, keyboard operation, 375x812 phone viewport, forbidden UI and direct API calls for a stranger, the administrator (no personal bypass) and a viewer grant with revocation); `test_stack.py` passes with the built UI behind nginx. Code: apps/web (React 19, TypeScript, Vite, plain CSS; Dockerfile now multi-stage; nginx SPA fallback + CSP), tests/e2e, scripts/e2e-test.mjs, CI `e2e` job. ADR-014 Proposed (plain CSS and a thin fetch client instead of Tailwind/TanStack Query, Playwright for Python). Limits: no invitation-accept/password-reset or admin screens, no previews, no multi-select, no delete/trash (M07), cross-root moves still refused by the API (UI offers Copy), accessibility is a tested baseline not a WCAG audit, Chromium only, breadcrumbs cost one request per ancestor. CI verification 2026-10-31: GitHub Actions (Linux) passed on PR #6 (check, compose app, compose core, e2e). Not verified: Firefox/WebKit; real screen readers.",
+      "notes": "Implemented 2026-10-31 (Sonnet 5.5); merged to main as 0c3158b (PR #6); ADR-014 accepted by owner 2026-10-31. Evidence: `npm run check` clean; `npm run check:web` (tsc strict + 4 vitest unit tests) clean; `npm run check:api` unchanged backend, ruff/format/mypy clean, 200 passed / 1 skipped; `npm run test:e2e` 6 passed (Playwright/Chromium on the real Compose stack: first-run setup and sign-in, folder CRUD with every result checked against the real files on the bind mount including keep-both and no-overwrite, move/copy with conflict messages, keyboard operation, 375x812 phone viewport, forbidden UI and direct API calls for a stranger, the administrator (no personal bypass) and a viewer grant with revocation); `test_stack.py` passes with the built UI behind nginx. Code: apps/web (React 19, TypeScript, Vite, plain CSS; Dockerfile now multi-stage; nginx SPA fallback + CSP), tests/e2e, scripts/e2e-test.mjs, CI `e2e` job. ADR-014 Accepted 2026-10-31 (plain CSS and a thin fetch client instead of Tailwind/TanStack Query, Playwright for Python). Limits: no invitation-accept/password-reset or admin screens, no previews, no multi-select, no delete/trash (M07), cross-root moves still refused by the API (UI offers Copy), accessibility is a tested baseline not a WCAG audit, Chromium only, breadcrumbs cost one request per ancestor. CI verification 2026-10-31: GitHub Actions (Linux) passed on PR #6 (check, compose app, compose core, e2e). Not verified: Firefox/WebKit; real screen readers.",
       "status": "done"
     },
     {
       "id": "M06",
       "phase": "foundation",
-      "title": "Existing directory import and reconciliation",
+      "title": "Initial import and reconciliation",
       "depends_on": [
         "M05"
       ],
       "recommended_claude_code_model": "Sonnet 5.5",
-      "objective": "Live import workflow, dry-run backup warning, watcher + periodic rescan, external filesystem identity reconciliation.",
+      "objective": "First-setup import (folder or zip, UI) into an empty shared tree or personal folder, folder upload, watcher + periodic rescan, external filesystem identity reconciliation (ADR-011).",
       "acceptance_criteria": [
-        "Existing files remain in place (no forced copy)",
-        "Dry-run shows conflicts and backup warning",
+        "First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten",
+        "Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written",
+        "A root on a separately mounted drive is refused, and mounted drives inside a managed folder are listed as unsupported and never entered",
+        "Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits",
+        "Folder upload after setup merges folders and keeps both on file conflicts",
         "External moves/renames reflected or flagged as uncertain",
-        "External modifications attributed to external_filesystem"
+        "External modifications attributed to external_filesystem",
+        "Files removed outside the app shown as missing, never as deleted; mass disappearance suspends the root"
       ],
       "required_tests": [
         "large tree fixture",
         "restart scan",
         "out-of-band move",
         "mount path changes",
-        "network watcher fallback"
+        "network watcher fallback",
+        "zip-slip and zip-bomb fixtures",
+        "interrupted import resume",
+        "mounted-drive refusal (root and nested)",
+        "setup window closure",
+        "case-collision tree"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Split in two on one branch (m06-import-and-reconciliation) and one PR. M06a (reconciler, mount refusal, file_event; backend) implemented 2026-10-31 (Sonnet 5.5): see docs/milestones/M06a-design-and-plan.md (258 passed / 1 skipped at that point; Opus 5.5 review done, findings fixed). M06b (setup window, setup import from a folder manifest and a server-extracted zip, folder upload, import tables, setup and state screens) implemented 2026-10-31 (Sonnet 5.5): see docs/milestones/M06b-design-and-plan.md. Evidence M06b: `npm run check` clean; `npm run check:api` ruff/format/mypy strict clean, 297 passed / 1 skipped (new tests/unit/api/test_imports.py, 39 tests: setup window open/closed and who sees it, finish and skip, closure by upload, new folder, copy, reconciler scan and mid-import, plan with skipped/unsafe/system/too-deep/colliding entries, free-space refusal, entry limit, folder import copying real files with mtimes and nothing written before start, keep-both and folder merge, folder upload merge and keep-both, empty folders, idempotent re-send, size mismatch and retry, zip-slip fixtures (8 traversal variants), symlink/FIFO/encrypted/unsupported entries, bzip2 bomb refused by ratio while the rest continues, total decompressed limit stopping the batch, entry-count/size/invalid-archive refusals, forged end-record checks, duplicate and case-twin names, cancelling removes the staged archive, interrupted folder import resumed without duplicates, published-but-unrecorded file adopted, interrupted zip stopped on restart and resumed from the staged archive, stale batches expire, reconciler pauses while an import writes, authorization: owner-only personal setup with no administrator bypass, administrator-only shared setup, role downgrade and revoked grant stop a batch mid-way, batches visible to their actor only); `npm run check:web` tsc strict + 9 vitest tests; `npm run test:compose` 22 passed (7 new in tests/integration/compose/test_import_stack.py on PostgreSQL behind nginx: migration 0006, a 1.1 MB manifest and 3601 files uploaded 6 at a time into new folders, background zip extraction, slip/bomb/symlink archive, restart during a zip extraction and during a folder import, setup window closed by a scan, folder-upload merge); `npm run test:e2e` 15 passed (6 M05 + 9 new in tests/e2e/test_setup_import_ui.py: setup offer and who sees it, start empty, folder import with plan/report/finish, zip import with slip/symlink/bomb, dropped folder in setup and as folder upload, upload-folder button merge and keep-both, interrupted import resumed by selecting the folder again, missing/greyed-out/name-collision/suspended-scan states, administrator has no route into a personal setup, phone viewport). Code: apps/api/app/domain/{imports,setup}.py, storage/ziparchive.py, api/imports.py, policy/deps.py (ImportAccess), migration 0006_setup_import, apps/web/src/{Setup,ScanBanner,importer}.ts(x) and Browser/api/format changes, apps/web/nginx.conf. Deviations to confirm (details in the M06b design note): routes addressed by node id (/nodes/{root node id}/setup...) instead of /roots/{id}/...; (superseded by the review: the setup offer is now a full-page screen after sign-in); SETUP_CLOSED is 409; one unfinished setup import per root; the reconciler pauses a root while a file of an import is being written (bounded, see the review); a setup import copies the contents of the chosen folder (top folder name dropped); (superseded: import_entry rows are pruned after 90 days). Not verified: real second-mount st_dev and NFS/SMB (simulated), inotify on Docker Desktop for Windows bind mounts, multi-process operation, a dropped folder from a real OS drag (the Playwright test replaces webkitGetAsEntry with an in-page tree; the picker is tested with a real directory), UI resume of an interrupted folder upload (API only). Opus 5.5 security review of M06b still to do (zip extractor, setup authorization, window-closure coverage, reconciler pause, adoption rule). Owner decisions 2026-10-31 (unchanged): import only at first setup into an empty root, no mounted drives as or inside any managed folder, after setup folder upload only (merge, keep both), rescan every 15 minutes, network filesystems allowed with warning and no watcher, unique hash matches become uncertain inferred moves, missing nodes kept until dismissed, unsupported entries shown greyed out. All M06 work stays on one branch and one PR. SECURITY REVIEW AND FIXES (2026-10-31, Opus 5.5 review of M06b; details in the 'Security review and fixes' section of docs/milestones/M06b-design-and-plan.md): lying zip entry count (central directory walked record by record before ZipFile, directory bytes bounded, zip planning serialized per root and person), manifests read only after authentication under a byte cap from max_import_entries and nginx cap 32m, folder upload closes the setup window, destination re-checked against the batch target and the uploader's write privilege (PARENT_CHANGED), reconciler pause only while an entry is writing with a 30-minute ceiling and a 'scan delayed' state, mount-over check before the pause; plus migration 0007 (one open setup batch per root as a partial unique index, scan_paused_since, entries_pruned_at), done batches never re-opened, resume and expiry audited, staging free-space check, per-person limits (open folder uploads, one zip in flight). Owner decisions implemented: full-page first-sign-in setup screen with 'Decide later' and the '(set up)' marker; import_entry rows pruned 90 days after completion (batch rows kept; stopped batches and batches with failures never pruned); GET /imports and an 'Unfinished upload' banner (batch ids in local storage; the person selects the same folder again); no CLI now (post-M06 to-do). Evidence after the fixes: `npm run check` clean; `npm run check:web` 11 vitest tests; `npm run check:api` ruff/format/mypy strict clean, 328 passed / 1 skipped (new tests/unit/api/test_imports_review.py, 31 tests, each fails on the reviewed code); `npm run test:compose` 23 passed (new test_review_fixes_through_nginx_on_postgres); `npm run test:e2e` 17 passed (setup tests rewritten for the full-page screen, plus unfinished-upload and scan-delayed tests). Not fixed / owner to decide: see 'Review items not fixed' in the M06b note. CI: GitHub Actions (Linux) green on PR #7 (check, compose app, compose core, e2e) at 1aac642; two test timing races found by CI were fixed. Owner sign-off 2026-10-31: M06 (a, b, c) done and signed off; ADR-016 (per-root backup keys) remains Proposed; unbuilt follow-ups in 11_OPEN_DECISIONS.md items 15-17 stay open.",
+      "status": "done"
+    },
+    {
+      "id": "M06c",
+      "phase": "foundation",
+      "title": "Optional backups",
+      "depends_on": [
+        "M06"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 review of key handling, pruning floor and restore authorization",
+      "objective": "Optional admin-configured backup of the whole library to a separate mounted volume: periodic full backups, changed-only backups in between, compressed and encrypted by default, with a size limit that prunes the oldest whole chains (ADR-015).",
+      "acceptance_criteria": [
+        "Off by default; the app works fully with no backup volume; the backup mount is validated and a same-device volume is warned about",
+        "Interval, full-every-N, size limit and minimum chains kept (default 2, warning at 1) are audited admin settings",
+        "Full runs contain everything; changed-only runs contain only added or changed files and record deletions and missing files; a chain restores by hand with tar",
+        "Archives are per root, written to a temporary name, verified and renamed; a failed run leaves no partial archive",
+        "The size limit prunes whole oldest chains only, after a verified new run; the minimum chains are never pruned and a run that cannot fit without breaking that floor does not start and warns",
+        "Suspended or inactive roots are never backed up or counted toward retention; unsupported entries, symlinks and staging files are skipped",
+        "Archives are encrypted by default with a one-time key; no content, paths or keys in logs or audit",
+        "Restores never overwrite; the web admin role cannot restore or read a personal root from a backup; owners restore their own folder"
+      ],
+      "required_tests": [
+        "incremental correctness (add, change, rename, delete)",
+        "manual chain restore with tar",
+        "pruning and minimum-chains floor",
+        "size estimation and refusal",
+        "suspended root skipped",
+        "volume validation",
+        "interrupted-run cleanup",
+        "key loss handling",
+        "restore authorization",
+        "no content in logs"
+      ],
+      "notes": "Implemented 2026-10-31 (Sonnet 5.5) on branch m06-import-and-reconciliation; see docs/milestones/M06c-design-and-plan.md (acceptance table with test names, layout, manual restore procedure, deviations and open questions). Evidence: `npm run check` clean; `npm run check:web` tsc strict + 17 vitest tests; `npm run check:api` ruff/format/mypy strict clean, 389 passed / 1 skipped (new tests/unit/api/test_backup.py, 58 tests on real files and a real tar: settings and volume validation, off by default, full and changed-only runs, add/change/rename/delete/missing chains restored with the host tar and rm, per-root archives, unsupported entries/symlinks/FIFOs/hardlinks/staging files/undecodable names skipped, suspended and inactive roots skipped and never pruned, changing files retried and deferred, failed and interrupted runs leave nothing, pruning of whole oldest chains after a verified run, minimum-chains floor, refusal when a run cannot fit, estimate from the last compression ratio, scheduler due logic, encryption (ciphertext has no names or content, wrong/truncated/damaged archives fail cleanly, key shown once and nowhere stored), rotation and key loss, CLI verify/list/decrypt, restore into a new folder without overwriting, restore authorization (owner only for a personal root, administrator for the shared tree, uniform 403, no administrator bypass), unsafe archive members, no content/paths/keys in logs or audit); `npm run test:compose` 26 passed (3 new in tests/integration/compose/test_backup_stack.py on PostgreSQL behind nginx with docker-compose.backup.yml: migration 0008, enable and run through the API, encrypted archive on the bind-mounted volume verified by the CLI in the container, restore into a new folder, member refused, restart keeps the settings, nested backup path refused at startup, no mount without the override); `npm run test:e2e` 19 passed (2 new in tests/e2e/test_ui_backups.py). Code: apps/api/app/backup/{crypto,store,volume,engine,retention,restore,service,cli}.py, api/backups.py, migration 0008_backups, config.py backup_* settings, main.py wiring, requirements.txt (cryptography 50.0.2 now a runtime dependency: add to the pre-release license audit), deploy/docker-compose.backup.yml, apps/web/src/{Backups.tsx,backupForm.ts,api.ts,route.ts,App.tsx,styles.css}. Deviations and open questions for the owner (details in the design note): (1) encryption is public-key (X25519/AES-GCM), the instance holds only the public key, so a restore needs the recovery key in the request and an owner needs the key holder to hand it over; per-owner keys would need a new ADR; (2) change detection uses live lstat fingerprints against a snapshot in the application database instead of previous manifests (archives are encrypted); (3) no 'less history than intended' warning (no such setting), the page shows the full backups and days the limit holds; (4) per-root metadata dump names the owner and grantees (encrypted by default); (5) restore is whole-root into a new folder, synchronous; (6) large files that change during the read are flagged changed_during_backup and recaptured by the next run, no filesystem snapshot. Security review done 2026-10-31 and its findings fixed (see the 'Security review fixes' section of the design note; test_backup.py now 80 tests; check:api 411 passed, test:compose 26, test:e2e 19, web 17); per-root keys proposed as ADR-016 (not decided), purge of frozen-root backups and async restore left as documented follow-ups. Not verified: Linux CI run, a real second disk, a network share as backup volume, restore of a very large tree (Linux CI run now done, see below). CI: GitHub Actions (Linux) green on PR #7 (check, compose app, compose core, e2e) at 1aac642; two test timing races found by CI were fixed. Owner sign-off 2026-10-31: M06 (a, b, c) done and signed off; ADR-016 (per-root backup keys) remains Proposed; unbuilt follow-ups in 11_OPEN_DECISIONS.md items 15-17 stay open.",
+      "status": "done"
     },
     {
       "id": "M07",
@@ -245,7 +288,7 @@
         "inherited label",
         "policy-disable migration"
       ],
-      "notes": "",
+      "notes": "Constraint carried from M06c (backups): a restore from a backup must re-apply the most restrictive privacy label (the label recorded with the backed-up content or the label now on its original location, whichever is stricter) and never turn Private or Confidential content into Normal content; restoring Confidential content needs the same fresh reauthentication as reading it, and background backup or restore jobs never refresh an unlock. See ADR-016 (Proposed).",
       "status": "not_started"
     },
     {
