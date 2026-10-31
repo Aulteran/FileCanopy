@@ -1,0 +1,244 @@
+"""Setup, login/logout, password change, and invitation/reset token redemption."""
+
+from fastapi import APIRouter, Depends, Request, Response
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.auth import bootstrap, clock
+from app.auth.deps import (
+    Principal,
+    check_origin,
+    clear_session_cookie,
+    client_ip,
+    ctx_of,
+    current_principal,
+    get_db,
+    http_error,
+    presented_session_hash,
+    set_session_cookie,
+)
+from app.auth.schemas import (
+    AcceptInvitation,
+    ChangePassword,
+    CompleteReset,
+    Login,
+    Ok,
+    SessionOut,
+    SetupAdmin,
+    SetupStatus,
+    UserOut,
+)
+from app.auth.security import PasswordPolicyError, check_password_policy
+from app.auth.service import (
+    audit,
+    consume_token,
+    create_session,
+    create_user,
+    drop_unused_tokens,
+    normalize_email,
+    revoke_session_by_hash,
+    revoke_sessions,
+    valid_email,
+)
+from app.db.models import User
+
+router = APIRouter(prefix="/api/v1", tags=["auth"])
+
+
+def _policy(password: str, email: str) -> None:
+    try:
+        check_password_policy(password, email)
+    except PasswordPolicyError as exc:
+        raise http_error(422, exc.code) from exc
+
+
+def _blocked(retry: int) -> Exception:
+    return http_error(429, "TOO_MANY_ATTEMPTS", {"Retry-After": str(retry)})
+
+
+def _name(raw: str) -> str:
+    name = raw.strip()
+    if not name or any(ord(c) < 32 for c in name):
+        raise http_error(422, "INVALID_NAME")
+    return name
+
+
+@router.get("/setup/status", response_model=SetupStatus)
+def setup_status(request: Request, db: Session = Depends(get_db)) -> SetupStatus:
+    required = bootstrap.setup_required(db)
+    if required and not getattr(request.app.state, "setup_token_issued", False):
+        ctx = ctx_of(request)
+        bootstrap.ensure_token(ctx.sessions, ctx.settings)  # DB was down at startup
+        request.app.state.setup_token_issued = True
+    return SetupStatus(setup_required=required)
+
+
+@router.post("/setup/admin", response_model=UserOut, status_code=201)
+def setup_admin(body: SetupAdmin, request: Request, db: Session = Depends(get_db)) -> UserOut:
+    ctx, ip = ctx_of(request), client_ip(request)
+    check_origin(request)
+    keys = ctx.throttle.ip_keys("setup", ip)
+    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+        db.commit()
+        raise _blocked(retry)
+    if not bootstrap.setup_required(db):
+        raise http_error(409, "SETUP_ALREADY_COMPLETE")
+    if not bootstrap.token_valid(db, ctx.settings, body.setup_token):
+        ctx.throttle.record_failure(db, keys)
+        audit(db, "setup.bad_token", ip=ip)
+        db.commit()
+        raise http_error(403, "INVALID_SETUP_TOKEN")
+    email = normalize_email(body.email)
+    if not valid_email(email):
+        raise http_error(422, "INVALID_EMAIL")
+    _policy(body.password, email)
+    name = _name(body.name)
+    try:
+        bootstrap.mark_complete(db)
+        user = create_user(
+            db,
+            email=email,
+            name=name,
+            role="admin",
+            status="active",
+            password_hash=ctx.passwords.hash(body.password),
+        )
+        audit(db, "setup.admin_created", actor=user.id, target=user.id, ip=ip)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise http_error(409, "SETUP_ALREADY_COMPLETE") from exc
+    return UserOut.of(user)
+
+
+@router.post("/auth/login", response_model=SessionOut)
+def login(
+    body: Login, request: Request, response: Response, db: Session = Depends(get_db)
+) -> SessionOut:
+    ctx, ip = ctx_of(request), client_ip(request)
+    check_origin(request)
+    email = normalize_email(body.email)
+    keys = ctx.throttle.login_keys(email, ip)
+    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+        audit(db, "login.throttled", ip=ip)
+        db.commit()
+        raise _blocked(retry)
+    user = db.scalar(select(User).where(User.email == email))
+    stored = user.password_hash if user is not None and user.status == "active" else None
+    # Always runs one Argon2 verification (dummy hash when no usable account): uniform timing.
+    verified = ctx.passwords.verify(stored, body.password)
+    if user is None or stored is None or not verified:
+        ctx.throttle.record_failure(db, keys)
+        audit(db, "login.failed", target=user.id if user else None, ip=ip)
+        db.commit()
+        raise http_error(401, "INVALID_CREDENTIALS")
+    # Only the narrow account+IP window resets: success must not erase distributed-guess history.
+    ctx.throttle.clear(db, keys[:1])
+    if ctx.passwords.needs_rehash(stored):
+        user.password_hash = ctx.passwords.hash(body.password)
+    if old := presented_session_hash(request):  # a presented session never survives a login
+        revoke_session_by_hash(db, old)
+    token, csrf = create_session(
+        db, user, ctx.settings.session_absolute_seconds, request.headers.get("user-agent")
+    )
+    audit(db, "login.success", actor=user.id, target=user.id, ip=ip)
+    db.commit()
+    set_session_cookie(request, response, token)
+    return SessionOut(user=UserOut.of(user), csrf_token=csrf)
+
+
+@router.get("/auth/session", response_model=SessionOut)
+def session_info(principal: Principal = Depends(current_principal)) -> SessionOut:
+    return SessionOut(user=UserOut.of(principal.user), csrf_token=principal.csrf_token)
+
+
+@router.post("/auth/logout", response_model=Ok)
+def logout(
+    request: Request,
+    response: Response,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+) -> Ok:
+    principal.session.revoked_at = clock.utcnow()
+    audit(db, "logout", actor=principal.user.id, ip=client_ip(request))
+    db.commit()
+    clear_session_cookie(request, response)
+    return Ok()
+
+
+@router.post("/auth/password", response_model=SessionOut)
+def change_password(
+    body: ChangePassword,
+    request: Request,
+    response: Response,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+) -> SessionOut:
+    ctx, ip, user = ctx_of(request), client_ip(request), principal.user
+    keys = ctx.throttle.login_keys(user.email, ip)
+    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+        raise _blocked(retry)
+    if not ctx.passwords.verify(user.password_hash, body.current_password):
+        ctx.throttle.record_failure(db, keys)
+        audit(db, "password.change_failed", actor=user.id, target=user.id, ip=ip)
+        db.commit()
+        raise http_error(403, "INVALID_CREDENTIALS")
+    _policy(body.new_password, user.email)
+    user.password_hash = ctx.passwords.hash(body.new_password)
+    user.password_changed_at = clock.utcnow()
+    # Every session ends, then a fresh one is issued here (rotation on privilege change).
+    revoke_sessions(db, user.id)
+    token, csrf = create_session(
+        db, user, ctx.settings.session_absolute_seconds, request.headers.get("user-agent")
+    )
+    audit(db, "password.changed", actor=user.id, target=user.id, ip=ip)
+    db.commit()
+    set_session_cookie(request, response, token)
+    return SessionOut(user=UserOut.of(user), csrf_token=csrf)
+
+
+def _redeem(db: Session, request: Request, token: str, purpose: str, expected_status: str) -> User:
+    ctx, ip = ctx_of(request), client_ip(request)
+    keys = ctx.throttle.ip_keys("token", ip)
+    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+        raise _blocked(retry)
+    user = consume_token(db, token, purpose)
+    if user is None or user.status != expected_status:
+        db.rollback()  # a token for an ineligible account is not burned
+        ctx.throttle.record_failure(db, keys)
+        db.commit()
+        raise http_error(400, "INVALID_TOKEN")  # unknown, expired, replayed: indistinguishable
+    return user
+
+
+@router.post("/auth/invitations/accept", response_model=Ok)
+def accept_invitation(
+    body: AcceptInvitation, request: Request, db: Session = Depends(get_db)
+) -> Ok:
+    ctx = ctx_of(request)
+    user = _redeem(db, request, body.token, "invitation", "invited")
+    _policy(body.password, user.email)  # raising here rolls back, so the token is not consumed
+    user.password_hash = ctx.passwords.hash(body.password)
+    user.password_changed_at = clock.utcnow()
+    user.status = "active"
+    if body.name is not None:
+        user.name = _name(body.name)
+    drop_unused_tokens(db, user.id)
+    audit(db, "invitation.accepted", actor=user.id, target=user.id, ip=client_ip(request))
+    db.commit()
+    return Ok()
+
+
+@router.post("/auth/password-reset/complete", response_model=Ok)
+def complete_reset(body: CompleteReset, request: Request, db: Session = Depends(get_db)) -> Ok:
+    ctx = ctx_of(request)
+    user = _redeem(db, request, body.token, "reset", "active")
+    _policy(body.password, user.email)
+    user.password_hash = ctx.passwords.hash(body.password)
+    user.password_changed_at = clock.utcnow()
+    revoke_sessions(db, user.id)
+    drop_unused_tokens(db, user.id)
+    audit(db, "password.reset_completed", actor=user.id, target=user.id, ip=client_ip(request))
+    db.commit()
+    return Ok()

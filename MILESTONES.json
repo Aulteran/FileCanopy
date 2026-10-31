@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy (working name)",
-  "status": "m01_complete_m02_not_started",
+  "status": "m02_complete_m03_not_started",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -71,8 +71,8 @@
         "token replay",
         "authz negative"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Done 2026-10-30. Evidence: `npm run check` clean; `npm run check:api` in the pinned python:3.13-slim image: ruff and format clean, mypy strict clean (20 files), 72 passed / 1 skipped (includes the auth suite on in-memory SQLite: no default creds/registration, setup token hashed/one-shot/throttled, Argon2id, cookie flags, enumeration resistance, brute-force throttling per account+ip/account/ip with lockout refusing the correct password, session revocation on logout/password change/admin action, idle+absolute expiry, disabled-account cutoff, CSRF/Origin, invitation/reset single-use/expiry/purpose/replay/hashed at rest, admin authz negatives, no secrets in admin API or audit, 422 does not echo passwords); `npm run test:compose` 10 passed (~3.6 min) on Docker 29.9.2, including new test_auth_stack.py: migration 0002 on PostgreSQL, setup-token flow from the log, login/CSRF/Origin through nginx, invitation replay, logout revocation, throttling keyed on the real client IP forwarded by nginx, no password in logs. Opus 5.5 security review 2026-10-30: no findings at the >80%-confidence bar. Outstanding: ADR-012 Proposed awaiting owner approval. Known limits: lockout counting not strictly atomic under bursts; per-account lockout permits temporary victim lockout; no reset email (needs SMTP, later), no OIDC, no TOTP; health endpoint intentionally unauthenticated for probes.",
+      "status": "done"
     },
     {
       "id": "M03",

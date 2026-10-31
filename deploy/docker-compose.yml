@@ -50,6 +50,10 @@ services:
       # Optional tier. Empty = not configured. Set to redis://redis:6379/0 when using the
       # `workers` profile so health can report worker status.
       FILECANOPY_REDIS_URL: ${FILECANOPY_REDIS_URL:-}
+      # Authentication. The bundled nginx overwrites X-Forwarded-For, so exactly one hop is trusted.
+      FILECANOPY_TRUSTED_PROXY_HOPS: "1"
+      FILECANOPY_COOKIE_SECURE: ${FILECANOPY_COOKIE_SECURE:-true}
+      FILECANOPY_SETUP_TOKEN: ${FILECANOPY_SETUP_TOKEN:-}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data
