@@ -6,8 +6,6 @@ Run with the rest of the compose suite (`npm run test:compose`). Random credenti
 
 import os
 import re
-import secrets
-from collections.abc import Iterator
 
 import pytest
 from test_auth_stack import PASSWORD, Client
@@ -16,20 +14,24 @@ from test_stack import Stack
 pytestmark = pytest.mark.compose
 
 
-@pytest.fixture(scope="module")
-def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
-    s = Stack(tmp_path_factory.mktemp("storage"), f"fctest{secrets.token_hex(3)}")
-    s.up()
-    yield s
-    s.down(volumes=True)
+@pytest.fixture
+def stack(app_stack: Stack) -> Stack:
+    return app_stack
 
 
 def setup_admin(stack: Stack) -> Client:
-    logs = stack.compose("logs", "--no-color", "api").stdout
-    token = re.findall(r"FIRST-RUN SETUP TOKEN[^:]*: ([\w-]+)", logs)[-1]
+    """Creates the first administrator, or reuses the one the auth suite already created."""
     anon = Client(stack)
-    body = {"email": "admin@example.com", "name": "Ada", "password": PASSWORD, "setup_token": token}
-    assert anon.call("POST", "/api/v1/setup/admin", body)[0] == 201
+    if anon.call("GET", "/api/v1/setup/status")[1]["setup_required"]:
+        logs = stack.compose("logs", "--no-color", "api").stdout
+        token = re.findall(r"FIRST-RUN SETUP TOKEN[^:]*: ([\w-]+)", logs)[-1]
+        body = {
+            "email": "admin@example.com",
+            "name": "Ada",
+            "password": PASSWORD,
+            "setup_token": token,
+        }
+        assert anon.call("POST", "/api/v1/setup/admin", body)[0] == 201
     admin = Client(stack)
     assert admin.login("admin@example.com") == 200
     return admin
@@ -62,7 +64,8 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     assert stack.sql("select version_num from alembic_version") == "0003"
     assert stack.sql("select count(*) from storage_root where kind = 'shared'") == "1"
     admin = setup_admin(stack)
-    assert stack.sql("select count(*) from storage_root where kind = 'personal'") == "1"
+    users = stack.sql("select count(*) from app_user")  # the auth suite may have added accounts
+    assert stack.sql("select count(*) from storage_root where kind = 'personal'") == users
     # Re-create the pre-M03 state (accounts but no storage tables) and migrate for real.
     stack.sql(
         "drop table node_grant, node, storage_root; "
@@ -75,13 +78,14 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     assert stack.sql(f"select relative_dir from storage_root where owner_user_id = '{uid}'") == (
         f"personal/{uid}"
     )
-    assert stack.sql("select count(*) from node where parent_id is null") == "2"
-    assert stack.sql("select count(*) from node_grant") == "1"  # default editor on the shared root
+    roots = str(int(users) + 1)  # every personal root plus the shared root
+    assert stack.sql("select count(*) from node where parent_id is null") == roots
+    assert stack.sql("select count(*) from node_grant") == users  # default editor, shared root
     assert stack.sql("select value #>> '{}' from app_setting where key like 'shared_tree_%'") == (
         "editor"
     )
     stack.compose("run", "--rm", "migrate")  # idempotent: no duplicate roots
-    assert stack.sql("select count(*) from storage_root") == "2"
+    assert stack.sql("select count(*) from storage_root") == roots
     assert admin.call("GET", "/api/v1/roots")[0] == 200
 
 

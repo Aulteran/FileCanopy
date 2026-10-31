@@ -1,14 +1,25 @@
-# Runs the same checks as local development (not yet executed on GitHub).
-# No secrets, no AI provider calls, no real documents. Extended in later milestones.
+# Runs the same checks as local development. No secrets, no AI provider calls, no real documents.
+#
+# - `check` (fast): lint, format, unit tests, secret scan. Runs on every push and pull request.
+# - `compose` (slow): the real Docker Compose suite, split into two parallel jobs. Runs on pull
+#   requests and manual runs, not again on the push that merges them (the merged tree was just
+#   tested). Run it by hand from the Actions tab (workflow_dispatch) after a direct push to main.
+# Docker layers are cached in the GitHub Actions cache; the images are pre-built here and the
+# tests are told not to rebuild them (FILECANOPY_SKIP_IMAGE_BUILD / FILECANOPY_COMPOSE_NO_BUILD).
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -21,9 +32,62 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: dev
+          tags: filecanopy-api-dev
+          load: true
+          cache-from: type=gha,scope=api-dev
+          cache-to: type=gha,mode=max,scope=api-dev
       - run: npm run check:api
+        env:
+          FILECANOPY_SKIP_IMAGE_BUILD: "1"
+
+  compose:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each entry starts its own stacks, so the two run side by side.
+          - suite: core
+            tests: tests/integration/compose/test_stack.py
+          - suite: app
+            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py
+    name: compose (${{ matrix.suite }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - run: python -m pip install pytest==9.2.0
-      - run: npm run test:compose
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: runtime
+          tags: filecanopy-api:dev
+          load: true
+          cache-from: type=gha,scope=api-runtime
+          cache-to: type=gha,mode=max,scope=api-runtime
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          tags: filecanopy-web:dev
+          load: true
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - run: npm run test:compose -- ${{ matrix.tests }}
+        env:
+          FILECANOPY_COMPOSE_NO_BUILD: "1"

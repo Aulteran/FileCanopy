@@ -33,6 +33,7 @@
 - 2026-10-31: M02 merged to `main` (PR #1, `d08ddd8`). GitHub Actions CI ran for the first time and passed on both the PR and `main`: `npm run check`, `npm run check:api` (72 passed, 1 skipped) and `npm run test:compose` (10 passed on the Linux runner, which also exercises the `FILECANOPY_UID`/`FILECANOPY_GID` bind-mount ownership path).
 - 2026-10-30: M03 implemented (migration 0003, `app/storage`, `app/policy`, `app/domain`, `app/api`; ADR-004): personal root per account, shared root with configurable default grant (`editor`), folder grants (viewer/editor), one policy engine, uniform 403, fd-based no-symlink resolver, admin without personal read bypass. See `docs/milestones/M03-design-and-plan.md`.
 - 2026-10-31: M03 merged to `main` (PR #3, `937677b`) after GitHub Actions CI passed on the PR: `npm run check`, `npm run check:api` (146 passed, 1 skipped) and `npm run test:compose` (13 passed).
+- 2026-10-31: CI restructured for speed (`.github/workflows/ci.yml`): a fast `check` job; the Compose suite split into two parallel jobs (`core`, and `app` which shares one stack between the auth and storage tests); Docker layers cached via the GitHub Actions cache with pre-built images; Compose runs on pull requests and manual runs only (use workflow_dispatch after a direct push to `main`).
 
 ## Verified implemented functionality
 

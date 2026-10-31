@@ -67,7 +67,9 @@ class Stack:
 
     def up(self, *extra: str) -> None:
         try:
-            self.compose(*extra, "up", "-d", "--build", "--wait", "--wait-timeout", "180")
+            # CI pre-builds the images with a layer cache and sets FILECANOPY_COMPOSE_NO_BUILD.
+            build = [] if os.environ.get("FILECANOPY_COMPOSE_NO_BUILD") else ["--build"]
+            self.compose(*extra, "up", "-d", *build, "--wait", "--wait-timeout", "180")
         except AssertionError as exc:
             logs = self.compose("--profile", "*", "logs", "--no-color", "--tail", "30", check=False)
             raise AssertionError(f"{exc}\n--- service logs ---\n{logs.stdout}") from exc

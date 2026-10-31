@@ -12,6 +12,8 @@ const venvPython =
 const python = existsSync(new URL(`../${venvPython}`, import.meta.url))
   ? venvPython
   : "python";
+// Optional test paths (npm run test:compose -- tests/integration/compose/test_stack.py).
+const targets = process.argv.slice(2);
 const r = spawnSync(
   python,
   [
@@ -22,7 +24,7 @@ const r = spawnSync(
     "-m",
     "compose",
     "-q",
-    "tests/integration/compose",
+    ...(targets.length ? targets : ["tests/integration/compose"]),
   ],
   { cwd: root, stdio: "inherit" },
 );
