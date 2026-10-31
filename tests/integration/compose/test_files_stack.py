@@ -224,7 +224,11 @@ def test_outside_changes_are_reconciled_on_postgres(stack: Stack) -> None:
     while time.monotonic() < deadline:
         status, listing = js(carol, "GET", f"/api/v1/nodes/{docs_id}/children")
         names = {i["name"]: i["id"] for i in listing["items"]}
-        if "renamed.txt" in names and "from-host.txt" in names:
+        if (
+            "renamed.txt" in names
+            and "from-host.txt" in names
+            and stack.sql(f"select status from node where id = '{doomed_id}'") == "missing"
+        ):
             break
         time.sleep(1)
     assert names.get("renamed.txt") == file_id  # same identity after an outside rename

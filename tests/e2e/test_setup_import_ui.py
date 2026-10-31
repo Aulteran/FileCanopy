@@ -279,6 +279,7 @@ def fake_directory_drop(page: Page, target: str) -> None:
     """Drops a folder the way a desktop does: the page asks the dropped item for a directory entry
     and reads it in small batches. Playwright cannot drag a folder from the OS, so the item's
     webkitGetAsEntry is replaced by an in-page tree; the page's own reading code runs unchanged."""
+    page.wait_for_selector(target)
     page.evaluate(
         """(target) => {
           const file = (name, text) => ({
