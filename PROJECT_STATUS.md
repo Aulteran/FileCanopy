@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
 **Last updated:** 2026-10-31  
-**Stage:** M05 implemented (browser UI for folders and file operations); merged to `main`, awaiting owner review of ADR-014.  
-**Current milestone:** M06 — Existing directory import and reconciliation (not started; awaits a new request).
+**Stage:** M05 implemented (browser UI for folders and file operations); merged to `main`, ADR-014 accepted by owner 2026-10-31.  
+**Current milestone:** M06 — Existing directory import and reconciliation (not started; blocked until ADR-011 is proposed and approved; see Next session instruction).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -15,7 +15,7 @@
 - [x] M02 — Local authentication and first administrator.
 - [x] M03 — Storage roots and centralized ACL engine.
 - [x] M04 — Safe filesystem service and file CRUD.
-- [x] M05 — Browser UI: folders and file operations (pending owner review).
+- [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
@@ -39,6 +39,8 @@
 - 2026-10-31: M04 implemented (migration 0004, `app/storage/files.py`, `app/domain/fileops.py`, `app/api/files.py`; ADR-013 Proposed): list, create folder, streamed upload, download, rename, move, copy by node id; no-replace filesystem steps; operation journal with idempotency keys, revision-checked claims, verified cross-device move, `reconcile_needed` reporting and startup recovery; M03 carry-overs resolved; nginx streams uploads/downloads. See `docs/milestones/M04-design-and-plan.md`.
 - 2026-10-31: M04 merged to `main` (PR #5, `ebf0c5d`) after GitHub Actions CI passed on the PR.
 - 2026-10-31: M05 implemented (`apps/web`, `tests/e2e`; ADR-014 Proposed): React/TypeScript/Vite single-page app with first-run setup and sign-in, side navigation from `GET /roots`, folder browser with breadcrumbs, upload (button and drop), download, new folder, rename, move and copy, details panel, keyboard grid navigation, native dialogs and a phone layout. The `web` image now builds the bundle; nginx serves it with a same-origin CSP. Playwright (Python) browser tests run on the real Compose stack; new CI `e2e` job.
+- 2026-10-31: Owner decisions recorded. ADR-014 accepted, with a "Security and privacy impact" section added (documentation only; no new review). Working name "FileCanopy" kept for development; publication still needs name and trademark clearance (`11_OPEN_DECISIONS.md` item 1). No public alpha before the M24 release gate. Marketing website deferred: the owner will build it in a separate Claude Code session, not as part of the milestone plan.
+- 2026-10-31: M06 mount model decided. The admin mounts any host folders into the container; they are inert (not scanned, watched or indexed) until an admin registers one through the UI import picker. ADR-011 is deferred to an Opus session. The network watcher fallback will be tested by simulation, not on a real network share.
 
 ## Verified implemented functionality
 
@@ -67,6 +69,8 @@
 
 ## Current blockers
 
+- M06 cannot start until ADR-011 (storage identity and reconciliation) is drafted and approved, planned for a later Opus session. The existing-folder mount model is decided. See Next session instruction.
+
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
 
@@ -78,7 +82,7 @@
 
 ## Next session instruction
 
-M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and awaits owner review and ADR-014 approval. Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
+M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and ADR-014 is accepted (2026-10-31). M06 has not started. Before M06 can start: (1) draft ADR-011 (storage identity, watcher and rescan, reconciliation rules, import picker rules) in an Opus session and get it approved; (2) mount model is decided: the admin mounts folders into the container, and they stay inert until registered through the UI import picker; (3) decide the rescan interval and network-share policy (`11_OPEN_DECISIONS.md` items 5 and 11); the network watcher fallback will be tested by simulation only. Recommended models: Sonnet 5.5 for implementation, Opus 5.5 for the ADR-011 design review. Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
 
 ## Milestone session history
 
@@ -90,4 +94,4 @@ M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and await
 | 2026-10-30 | M02 Local authentication and first administrator | Done | `npm run check` clean; `check:api` 72 passed / 1 skipped, ruff+mypy clean; `test:compose` 10 passed incl. auth on PostgreSQL behind nginx | Security review done (no findings); approve ADR-012; start M03 |
 | 2026-10-30 | M03 Storage roots and centralized ACL engine | Done | `check` clean; `check:api` 146 passed / 1 skipped; `test:compose` 13 passed | Security review done (no findings >=8/10); CI run; M04 on request |
 | 2026-10-31 | M04 Safe filesystem service and file CRUD | Done (signed off) | `check` clean; `check:api` 200 passed / 1 skipped; `test:compose` incl. files stack on PostgreSQL behind nginx | Merged (PR #5, CI green); M05 on request; M07 implements copy-and-trash for cross-root moves |
-| 2026-10-31 | M05 Browser UI: folders and file operations | Done (CI green, pending owner review) | `check` and `check:web` clean; `check:api` 200 passed / 1 skipped; `test:e2e` 6 passed (Playwright on the real stack) | Merged (PR #6, CI green); owner review and ADR-014 approval; M06 on request |
+| 2026-10-31 | M05 Browser UI: folders and file operations | Done (CI green; ADR-014 accepted 2026-10-31) | `check` and `check:web` clean; `check:api` 200 passed / 1 skipped; `test:e2e` 6 passed (Playwright on the real stack) | Merged (PR #6, CI green); M06 blocked until ADR-011 is approved; M06 on request |
