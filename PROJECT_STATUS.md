@@ -29,6 +29,7 @@
 - 2026-10-30: M01 implemented: Compose stack (postgres, one-shot migrate, api, web; optional redis + worker profile), FastAPI skeleton with `/api/v1/health[/live]`, Alembic migration 0001 (`app_setting`, stable `instance_id`), separate library/app-data bind mounts, Python tooling (ruff, mypy strict, pytest) running in a pinned Python 3.13 image. ADR-001 and ADR-002 accepted by owner; ADR-003 added (Proposed).
 - 2026-10-30: ADR-003 accepted by owner. The planned storage-identity ADR was renumbered ADR-011 to avoid the number clash (`02_ARCHITECTURE.md`, `docs/adr/README.md`).
 - 2026-10-30: M02 implemented (`apps/api/app/auth/`, migration 0002, ADR-012 Proposed): first-admin setup token, Argon2id accounts, server-side sessions with strict HttpOnly cookies, CSRF + Origin checks, DB-backed login throttling, single-use hashed invitation/reset tokens, admin user-management API, auth audit table, scrubbed 422 bodies. nginx now forwards the original `Host`; Compose sets `FILECANOPY_TRUSTED_PROXY_HOPS=1`. See `deploy/.env.example` for `FILECANOPY_SETUP_TOKEN` / `FILECANOPY_COOKIE_SECURE`.
+- 2026-10-31: M02 merged to `main` (PR #1, `d08ddd8`). GitHub Actions CI ran for the first time and passed on both the PR and `main`: `npm run check`, `npm run check:api` (72 passed, 1 skipped) and `npm run test:compose` (10 passed on the Linux runner, which also exercises the `FILECANOPY_UID`/`FILECANOPY_GID` bind-mount ownership path).
 
 ## Verified implemented functionality
 
@@ -45,12 +46,12 @@
 
 **Authentication (M02), verified 2026-10-30 on Docker 29.9.2:** `npm run check` clean; `npm run check:api` (pinned Python 3.13 image) ruff/format/mypy strict clean, 72 unit tests passed / 1 skipped, including the required brute-force/rate-limit, session-revocation, CSRF, token-replay and authz-negative tests; `npm run test:compose` 10 passed, including `test_auth_stack.py` (migration 0002 on PostgreSQL, setup-token flow, CSRF/Origin through nginx, token replay, throttling on the real client IP). Opus 5.5 security review of the M02 changes (2026-10-30): no findings at the >80%-confidence bar; accepted limits (per-account lockout, non-atomic burst counting) are recorded in ADR-012.
 
+**CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
+
 **Not implemented:** ACL, file operations, OIDC, email delivery of invitations/resets, file operations, UI (placeholder page only), job processing (heartbeat worker only), AI. Specs are not implementation evidence.
 
 ## Current blockers
 
-- CI workflow (`.github/workflows/ci.yml`) was extended with the API and Compose checks but has not run on GitHub.
-- Docker verified on Windows/Docker Desktop only. Linux bind-mount ownership (`FILECANOPY_UID`/`FILECANOPY_GID`) is documented but untested.
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - ADR-012 awaits owner approval.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
