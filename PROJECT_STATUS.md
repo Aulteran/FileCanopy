@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-10-31  
 **Stage:** M06a, M06b and M06c implemented and committed on branch `m06-import-and-reconciliation` (reconciler and mount refusal; setup import, folder upload and import UI; optional backups). The Opus 5.5 security review of M06b was done and its findings fixed (migration 0007). The independent review of M06c was done and its findings fixed (see the 2026-10-31 entry); the owner has not signed off M06 or M06c and has not decided ADR-016 (per-root backup keys, Proposed).  
-**Current milestone:** M06 — Initial import and reconciliation, plus M06c — Optional backups (all implemented; M06c Opus review and owner sign-off pending; ADR-011 and ADR-015 accepted 2026-10-31).
+**Current milestone:** M06 and M06c done and signed off by the owner 2026-10-31 (PR #7, CI green). Next: M07 on a new request.
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -16,8 +16,8 @@
 - [x] M03 — Storage roots and centralized ACL engine.
 - [x] M04 — Safe filesystem service and file CRUD.
 - [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
-- [~] M06 — Initial import and reconciliation: M06a (reconciler) and M06b (setup import, folder upload, UI) implemented and reviewed (findings fixed); owner sign-off pending.
-- [~] M06c — Optional backups: implemented (migration 0008, `app/backup`, Backups page); review findings fixed; owner sign-off and ADR-016 decision pending.
+- [x] M06 — Initial import and reconciliation: M06a (reconciler), M06b (setup import, folder upload, UI) done; reviewed, findings fixed, CI green, owner signed off 2026-10-31.
+- [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) still Proposed.
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
@@ -120,4 +120,5 @@ M06a, M06b and M06c are implemented and committed on `m06-import-and-reconciliat
 | 2026-10-31 | M06a Reconciler, mount refusal, file events | Done (not yet in CI; Opus review done, findings fixed) | `check` clean; `check:api` 258 passed / 1 skipped; `test:compose` 15 passed (real reconciler on PostgreSQL, 0002 to 0005 migration); `test:e2e` 6 passed | M06b on request, same branch and PR; Owner to read the open review items |
 | 2026-10-31 | M06b Setup window, setup import, folder upload, import and state UI | Implemented (uncommitted; not in CI; Opus review pending) | `check` clean; `check:web` 9 tests; `check:api` 297 passed / 1 skipped; `test:compose` 22 passed; `test:e2e` 15 passed | Opus 5.5 security review done and findings fixed (see the follow-up row below); owner to confirm the deviations in the M06b design note; M06c on request |
 | 2026-10-31 | M06b security review fixes and owner decisions | Implemented and committed (5314115; not in CI) | `check` clean; `check:web` 11 vitest tests; `check:api` 328 passed / 1 skipped; `test:compose` 23 passed; `test:e2e` 17 passed | Owner sign-off of M06; bulk-import CLI deferred (post-M06 to-do) |
-| 2026-10-31 | M06c Optional backups | Implemented and committed (not in CI; Opus review pending) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
+| 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 undecided |
+| 2026-10-31 | M06c Optional backups | Implemented and committed (superseded by the sign-off row above) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
