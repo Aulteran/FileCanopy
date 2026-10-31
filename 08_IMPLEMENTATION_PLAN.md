@@ -132,6 +132,24 @@
 
 **Tests/evidence:** large tree fixture, restart scan, out-of-band move, mount path changes, network watcher fallback, zip-slip and zip-bomb fixtures, interrupted import resume, mounted-drive refusal (root and nested), setup window closure, case-collision tree.
 
+### M06c — Optional backups
+
+**Phase:** foundation · **Dependencies:** M06 (M06a and M06b done) · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of key handling, pruning floor and restore authorization · **Decision:** [ADR-015](docs/adr/ADR-015-optional-backups.md) (Accepted)
+
+**Goal:** Optional, admin-configured backup of the whole library to a separate mounted volume: periodic full backups with changed-only backups in between, compressed (and encrypted by default), with a size limit that prunes the oldest whole chains.
+
+**Acceptance criteria:**
+- [ ] Off by default; the app works fully with no backup volume; the backup mount is validated (not equal to, containing or inside the library or app data) and a same-device volume is warned about
+- [ ] Interval, full-every-N, size limit and minimum chains kept (default 2, warning when set to 1) are admin settings, audited
+- [ ] Full runs contain everything; changed-only runs contain only added or changed files and record deletions and missing files; a chain restores by hand with `tar`
+- [ ] Archives are per root, written to a temporary name, verified and renamed; a failed run leaves no partial archive
+- [ ] The size limit prunes whole oldest chains only, after a verified new run; the minimum chains are never pruned, and a run that cannot fit without breaking that floor does not start and warns
+- [ ] Roots whose scan is suspended or that are not active are never backed up or counted toward retention; unsupported entries, symlinks and staging files are skipped
+- [ ] Archives are encrypted by default with a one-time key; no content, paths or keys in logs or audit
+- [ ] Restores never overwrite; the web admin role cannot restore or read a personal root from a backup; owners restore their own folder
+
+**Tests/evidence:** incremental correctness (add, change, rename, delete), manual chain restore with `tar`, pruning and the minimum-chains floor, size estimation and refusal, suspended root skipped, volume validation, interrupted-run cleanup, key loss handling, restore authorization, no content in logs.
+
 ### M07 — Audit trail, trash, and undo
 
 **Phase:** foundation · **Dependencies:** M06 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 recovery review

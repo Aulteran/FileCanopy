@@ -78,4 +78,6 @@ Fixed, each with a test:
 5. **Dismiss.** It takes the tree lock, re-checks `missing`, and only a grant administrator can dismiss a subtree that carries grants; the audit record lists the removed grants (user, level, node).
 6. **Guard.** The denominator counts only active and flagged nodes, and every pass re-checks the root's device against the library's (status becomes `unsupported_mount`). Hashing skips a suspended root.
 
-Open (not fixed, owner to decide): the ADR-011 trigger "root device changed and almost nothing matches by name" is covered only by the per-pass device check and the 50 % rule; "apply" on a suspended root runs a fresh unguarded plan without showing the person what it will do; dismissed grants are deleted, not soft-disabled, so an undo has to re-create them from the audit record.
+Resolved after review: "apply" on a suspended root now shows the counts that tripped the guard (`GET /nodes/{id}/scan`) and refuses (suspends again, `CHANGED_SINCE_REVIEW`) if the fresh plan is more than 10 % plus 10 nodes larger; the ADR-011 device-change trigger is met by the per-pass device check plus the 50 % rule (noted in ADR-011).
+
+Open: dismissed grants are deleted, not soft-disabled, so an undo has to re-create them from the audit record; decide when M07 builds undo.

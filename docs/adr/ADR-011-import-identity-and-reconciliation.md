@@ -247,6 +247,8 @@ It backfills `name_key`. For roots that exist when the migration runs, `setup_st
 
 The reconciler, mount refusal and `file_event` were built in M06a. Where the build departed from the text above (migration split with M06b, missing nodes releasing their database name, batched apply after a read-only plan, simplified `reconcile_needed` resolution) is listed in [`docs/milestones/M06a-design-and-plan.md`](../milestones/M06a-design-and-plan.md). None of it changes an owner decision.
 
+The mass-change guard's "root device changed and almost nothing matches by name" trigger is met by two checks instead of one rule: every pass compares the root's device with the library's and refuses the root (`unsupported_mount`) on a mismatch, and a same-device replacement (a restored or empty directory) trips the 50 % rule. "Apply" on a suspended root is not blind: the suspended pass stores its counts (`GET /nodes/{id}/scan`), and a forced pass that would affect more than 10 % (plus 10 nodes) beyond what was reviewed suspends the root again with the new numbers.
+
 ## Alternatives considered
 
 - **Admin mount picker for any root (original M06):** no copy for anyone, but it needs a UI that browses host folders and an exception to ADR-004 for personal roots. Dropped, along with a shared-only mount variant, until after the first full release.
