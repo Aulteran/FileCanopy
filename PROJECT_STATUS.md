@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
 **Last updated:** 2026-10-31  
-**Stage:** M06a, M06b and M06c implemented and committed on branch `m06-import-and-reconciliation` (reconciler and mount refusal; setup import, folder upload and import UI; optional backups). The Opus 5.5 security review of M06b was done and its findings fixed (migration 0007). The independent review of M06c was done and its findings fixed (see the 2026-10-31 entry); the owner has not signed off M06 or M06c and has not decided ADR-016 (per-root backup keys, Proposed).  
-**Current milestone:** M06 and M06c done and signed off by the owner 2026-10-31 (PR #7, CI green). Next: M07 on a new request.
+**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. M07 is in planning: ADR-017 (trash location and retention) is Proposed and the M07 acceptance plan is waiting for the owner's approval.  
+**Current milestone:** M07 — Audit trail, trash, and undo: planning only (`docs/milestones/M07-design-and-plan.md`, ADR-017 Proposed). No M07 code yet.
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -17,7 +17,7 @@
 - [x] M04 — Safe filesystem service and file CRUD.
 - [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
 - [x] M06 — Initial import and reconciliation: M06a (reconciler), M06b (setup import, folder upload, UI) done; reviewed, findings fixed, CI green, owner signed off 2026-10-31.
-- [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) still Proposed.
+- [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) accepted by the owner 2026-10-31, not yet built.
 - [x] M06d — Account screens, upload progress and picker paging: implemented on `claude/project-thread-mxn2e8` (admin Users page, `/invite` and `/reset` pages, byte progress with cancel, picker paging); e2e 24 passed; awaiting owner sign-off and CI.
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
@@ -88,10 +88,8 @@
 
 ## Current blockers
 
-- M06c needs the Opus 5.5 review ADR-015 asks for (key handling, pruning floor, restore authorization) and the owner's decision on the open questions in `docs/milestones/M06c-design-and-plan.md` (public-key encryption means a restore needs the recovery key from whoever holds it; per-owner keys would need a new ADR).
-
-- M06 needs the owner's sign-off before it is closed: confirm the deviations and open items at the end of `docs/milestones/M06b-design-and-plan.md` (the Opus 5.5 review is done and its findings are fixed). All M06 work stays on one branch (`m06-import-and-reconciliation`) and one PR: M06a (3b8939d, 9827c38), M06b (5314115) and M06c are committed on the branch.
-
+- **M07 needs owner decisions before feature code starts:** approve or amend the rest of ADR-017 (trash retention defaults and visibility; open decision 9) and the acceptance plan in `docs/milestones/M07-design-and-plan.md`. Trash location is decided (owner, 2026-10-31): a hidden library-level `.filecanopy-trash` outside every root, which amends `03_SECURITY_PRIVACY.md` for trash.
+- ADR-016 (per-root backup keys) was accepted 2026-10-31 but is not built yet; until it is, the documented mitigation stays: rotate the recovery key after giving it to an owner. It does not block M07.
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
 
@@ -103,7 +101,7 @@
 
 ## Next session instruction
 
-M06a, M06b and M06c are implemented and committed on `m06-import-and-reconciliation`. Next: the Opus 5.5 review of M06c (key handling, pruning floor, restore authorization), the owner's decision on the deviations and open items in the M06b and M06c design notes, then sign-off of M06 and a pull request. After that, **M07 — Audit trail, trash, and undo**, on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message; M07 trash also gives an undo for a whole import batch. M06d (2026-10-31) did the UI carry-over: invitation-accept and password-reset screens with an admin Users page, upload byte progress, and picker paging. Still open: restore of a single folder or file from a backup (own milestone, needs an ADR-015/016 addendum).
+M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and undo**, once the owner approves ADR-017 and the M07 acceptance plan (`docs/milestones/M07-design-and-plan.md`). The plan splits M07 into M07a (backend: activity events, trash, restore, purge, undo, cross-root moves, import-batch undo) and M07b (UI: Trash page, activity panel, undo, end-to-end tests), on one branch and one PR, as M06 was. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + `moved_out` event; ADR-013 section 7), after which the UI drops the "use Copy instead" message. M06d (2026-10-31, PR #9) did the UI carry-over: invitation-accept and password-reset screens with an admin Users page, upload byte progress, and picker paging. Still open: restore of a single folder or file from a backup (own milestone, needs an ADR-015/016 addendum).
 
 ## Post-M06 to-do
 
@@ -123,6 +121,7 @@ M06a, M06b and M06c are implemented and committed on `m06-import-and-reconciliat
 | 2026-10-31 | M06a Reconciler, mount refusal, file events | Done (not yet in CI; Opus review done, findings fixed) | `check` clean; `check:api` 258 passed / 1 skipped; `test:compose` 15 passed (real reconciler on PostgreSQL, 0002 to 0005 migration); `test:e2e` 6 passed | M06b on request, same branch and PR; Owner to read the open review items |
 | 2026-10-31 | M06b Setup window, setup import, folder upload, import and state UI | Implemented (uncommitted; not in CI; Opus review pending) | `check` clean; `check:web` 9 tests; `check:api` 297 passed / 1 skipped; `test:compose` 22 passed; `test:e2e` 15 passed | Opus 5.5 security review done and findings fixed (see the follow-up row below); owner to confirm the deviations in the M06b design note; M06c on request |
 | 2026-10-31 | M06b security review fixes and owner decisions | Implemented and committed (5314115; not in CI) | `check` clean; `check:web` 11 vitest tests; `check:api` 328 passed / 1 skipped; `test:compose` 23 passed; `test:e2e` 17 passed | Owner sign-off of M06; bulk-import CLI deferred (post-M06 to-do) |
-| 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 undecided |
+| 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 since accepted (2026-10-31), not built |
 | 2026-10-31 | M06d Account screens, upload progress, picker paging | Implemented (UI only; awaiting sign-off and CI) | `check` clean; web 25 vitest tests; `test:e2e` 24 passed (5 new) | Owner sign-off; single-file restore is its own later milestone; M07 on request |
 | 2026-10-31 | M06c Optional backups | Implemented and committed (superseded by the sign-off row above) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
+| 2026-10-31 | M07 planning | ADR-017 and acceptance plan drafted, waiting for owner approval | No code; docs only | Owner to decide ADR-017 (trash location, retention defaults) and approve the plan |
