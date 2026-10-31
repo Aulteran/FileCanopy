@@ -9,17 +9,20 @@ function run(args) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-run([
-  "build",
-  "-q",
-  "-f",
-  "apps/api/Dockerfile",
-  "--target",
-  "dev",
-  "-t",
-  "filecanopy-api-dev",
-  ".",
-]);
+// CI pre-builds this image with a layer cache and sets FILECANOPY_SKIP_IMAGE_BUILD.
+if (!process.env.FILECANOPY_SKIP_IMAGE_BUILD) {
+  run([
+    "build",
+    "-q",
+    "-f",
+    "apps/api/Dockerfile",
+    "--target",
+    "dev",
+    "-t",
+    "filecanopy-api-dev",
+    ".",
+  ]);
+}
 const inDev = (...cmd) => run(["run", "--rm", "filecanopy-api-dev", ...cmd]);
 const config = ["--config", "apps/api/pyproject.toml"];
 inDev("ruff", "check", ...config, "apps/api", "workers", "tests");

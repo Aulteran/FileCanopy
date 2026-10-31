@@ -6,10 +6,8 @@ temp directories only.
 
 import json
 import re
-import secrets
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -54,12 +52,9 @@ class Client:
         return status
 
 
-@pytest.fixture(scope="module")
-def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
-    s = Stack(tmp_path_factory.mktemp("auth"), f"fctest{secrets.token_hex(3)}")
-    s.up()
-    yield s
-    s.down(volumes=True)
+@pytest.fixture
+def stack(app_stack: Stack) -> Stack:
+    return app_stack
 
 
 def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
@@ -103,7 +98,8 @@ def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
     stale.cookie = member.cookie
     assert stale.call("GET", "/api/v1/auth/session")[0] == 401
 
+    # The member is locked, not the admin: the storage suite reuses this stack and the admin.
     # Throttling keys on the real client address forwarded by nginx, not nginx's own address.
-    codes = [Client(stack).login("admin@example.com", f"wrong password {i}") for i in range(6)]
+    codes = [Client(stack).login("m@example.com", f"wrong password {i}") for i in range(6)]
     assert codes == [401] * 5 + [429]
     assert PASSWORD not in stack.compose("logs", "--no-color").stdout
