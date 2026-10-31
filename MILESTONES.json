@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy (working name)",
-  "status": "m04_complete_m05_not_started",
+  "status": "m05_complete_pending_review",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -146,8 +146,8 @@
         "mobile basic",
         "forbidden UI/API"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-10-31 (Sonnet 5.5); awaiting owner review. Evidence: `npm run check` clean; `npm run check:web` (tsc strict + 4 vitest unit tests) clean; `npm run check:api` unchanged backend, ruff/format/mypy clean, 200 passed / 1 skipped; `npm run test:e2e` 6 passed (Playwright/Chromium on the real Compose stack: first-run setup and sign-in, folder CRUD with every result checked against the real files on the bind mount including keep-both and no-overwrite, move/copy with conflict messages, keyboard operation, 375x812 phone viewport, forbidden UI and direct API calls for a stranger, the administrator (no personal bypass) and a viewer grant with revocation); `test_stack.py` passes with the built UI behind nginx. Code: apps/web (React 19, TypeScript, Vite, plain CSS; Dockerfile now multi-stage; nginx SPA fallback + CSP), tests/e2e, scripts/e2e-test.mjs, CI `e2e` job. ADR-014 Proposed (plain CSS and a thin fetch client instead of Tailwind/TanStack Query, Playwright for Python). Limits: no invitation-accept/password-reset or admin screens, no previews, no multi-select, no delete/trash (M07), cross-root moves still refused by the API (UI offers Copy), accessibility is a tested baseline not a WCAG audit, Chromium only, breadcrumbs cost one request per ancestor. Not verified: CI run on GitHub for the new `e2e` job; Firefox/WebKit; real screen readers.",
+      "status": "done"
     },
     {
       "id": "M06",

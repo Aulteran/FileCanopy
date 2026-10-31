@@ -26,4 +26,7 @@ explicit_package_bases = true
 
 [tool.pytest.ini_options]
 pythonpath = ["apps/api", "."]
-markers = ["compose: runs real docker compose stacks on the host (slow)"]
+markers = [
+  "compose: runs real docker compose stacks on the host (slow)",
+  "e2e: drives the web UI in a real browser against a real stack (slow)",
+]

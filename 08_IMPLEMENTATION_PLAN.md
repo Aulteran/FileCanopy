@@ -105,10 +105,10 @@
 **Goal:** Create responsive React shell, side navigation, folder browser, breadcrumbs, upload action, details, keyboard and accessibility baseline.
 
 **Acceptance criteria:**
-- [ ] Personal and shared roots visible according to ACL
-- [ ] Manual upload here, download, move, rename, create folder
-- [ ] Denied operations invisible or disabled and server rejects direct calls
-- [ ] No AI dependency
+- [x] Personal and shared roots visible according to ACL
+- [x] Manual upload here, download, move, rename, create folder
+- [x] Denied operations invisible or disabled and server rejects direct calls
+- [x] No AI dependency
 
 **Tests/evidence:** Playwright CRUD, keyboard accessibility, mobile basic, forbidden UI/API.
 
