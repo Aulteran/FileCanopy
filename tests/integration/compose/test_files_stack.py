@@ -213,9 +213,11 @@ def test_outside_changes_are_reconciled_on_postgres(stack: Stack) -> None:
     doomed_id = json.loads(gone_body)["node"]["id"]
 
     folder = stack.library / "personal" / uid / "Docs"
+    # created before the unlink: a freed inode number is often reused at once, and ADR-011 reads a
+    # reused inode as an uncertain inferred move rather than a deletion
+    (folder / "from-host.txt").write_bytes(b"hello from the host")
     (folder / "old.txt").rename(folder / "renamed.txt")
     (folder / "doomed.txt").unlink()
-    (folder / "from-host.txt").write_bytes(b"hello from the host")
 
     status, queued = js(carol, "POST", f"/api/v1/nodes/{docs_id}/rescan")
     assert status == 202, queued
