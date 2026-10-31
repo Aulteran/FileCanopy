@@ -4,8 +4,16 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import sessionmaker
 
+from app.auth import admin as auth_admin
+from app.auth import bootstrap
+from app.auth import router as auth_router
+from app.auth.deps import AuthContext, scrub_validation_errors
+from app.auth.security import Passwords
+from app.auth.throttle import Throttle
 from app.config import Settings, load_settings
 from app.db.engine import make_engine
 from app.db.migrate import head_revision
@@ -20,14 +28,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     cfg = settings or load_settings()
     engine = make_engine(cfg)
     expected_head = head_revision()
+    sessions = sessionmaker(engine, expire_on_commit=False)
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("api started")
+        try:
+            bootstrap.ensure_token(sessions, cfg)
+            app.state.setup_token_issued = True
+        except Exception as exc:  # database not ready: retried lazily by /setup/status
+            log.warning("setup token not prepared at startup: %s", type(exc).__name__)
         yield
         engine.dispose()
 
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
+
+    app.state.auth = AuthContext(cfg, sessions, Passwords(cfg), Throttle(cfg))
+    app.state.setup_token_issued = False
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+        # Default 422 bodies echo submitted values (passwords, tokens); send locations only.
+        return JSONResponse(
+            {
+                "detail": {
+                    "code": "VALIDATION_ERROR",
+                    "errors": scrub_validation_errors(exc.errors()),
+                }
+            },
+            status_code=422,
+        )
 
     @app.middleware("http")
     async def request_id(
@@ -36,6 +66,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Always generated server-side: a client-supplied value could inject log content.
         response = await call_next(request)
         response.headers["X-Request-ID"] = uuid.uuid4().hex
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        if request.url.path.startswith("/api/v1/") and "/health" not in request.url.path:
+            response.headers["Cache-Control"] = "no-store"  # auth state must never be cached
         return response
 
     @app.get("/api/v1/health/live")
@@ -48,5 +81,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """200 whenever core is usable (optional workers may be down); 503 when core is not."""
         report = build_report(cfg, engine, expected_head)
         return JSONResponse(report, status_code=503 if report["status"] == "unavailable" else 200)
+
+    app.include_router(auth_router.router)
+    app.include_router(auth_admin.router)
 
     return app

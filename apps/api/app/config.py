@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,31 @@ class Settings(BaseSettings):
     # App-private data (previews, staging, trash, ...). Never exposed as user documents.
     app_data_path: Path = Path("/app-data")
 
+    # --- Authentication (M02) ---
+    # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at
+    # startup and print it once in the API log while no administrator exists.
+    setup_token: SecretStr = SecretStr("")
+    # Secure cookies need HTTPS (browsers exempt localhost). False only for plain-HTTP LAN use.
+    cookie_secure: bool = True
+    # Number of trusted reverse proxies in front of the API (the bundled nginx is one). 0 means
+    # X-Forwarded-For is ignored. Never raise this unless every hop overwrites the header.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
+    # Extra allowed browser origins (comma-separated) besides the request's own Host.
+    allowed_origins: str = ""
+    session_idle_seconds: int = 7 * 24 * 3600
+    session_absolute_seconds: int = 30 * 24 * 3600
+    invitation_ttl_seconds: int = 72 * 3600
+    reset_ttl_seconds: int = 3600
+    # Argon2id cost (defaults: RFC 9106 low-memory profile). Lower only in tests.
+    argon2_time_cost: int = Field(default=3, ge=1)
+    argon2_memory_kib: int = Field(default=65536, ge=8)
+    argon2_parallelism: int = Field(default=4, ge=1)
+    # Failed-login throttling (see app/auth/throttle.py).
+    throttle_window_seconds: int = 900
+    throttle_max_per_account_ip: int = 5
+    throttle_max_per_account: int = 20
+    throttle_max_per_ip: int = 40
+
     @model_validator(mode="after")
     def _paths_must_be_separate(self) -> "Settings":
         library = self.library_path.resolve()
@@ -29,6 +54,9 @@ class Settings(BaseSettings):
             raise ConfigError(
                 "library_path and app_data_path must be separate, non-nested directories"
             )
+        configured = self.setup_token.get_secret_value()
+        if configured and len(configured) < 32:
+            raise ConfigError("FILECANOPY_SETUP_TOKEN must be at least 32 characters")
         return self
 
 
