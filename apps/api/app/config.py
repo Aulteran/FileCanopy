@@ -1,6 +1,7 @@
 """Runtime configuration. All values come from the environment; nothing here needs AI settings."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +31,15 @@ class Settings(BaseSettings):
     # The API runs as one process, so at startup every `planned` row is an orphan (default 0).
     # Raise it only if several API processes ever share one database.
     operation_stale_seconds: int = Field(default=0, ge=0)
+
+    # --- Reconciliation (M06, ADR-011 §5, §7, §8) ---
+    reconciler_enabled: bool = True
+    rescan_interval_seconds: int = Field(default=900, ge=1)
+    # Bytes per second for the background content hasher; 0 turns it off.
+    hash_rate_bytes: int = Field(default=20 * 1024**2, ge=0)
+    watcher_enabled: bool = True
+    # auto = detect from /proc/self/mountinfo; yes/no overrides detection.
+    network_fs: Literal["auto", "yes", "no"] = "auto"
 
     # --- Authentication (M02) ---
     # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at

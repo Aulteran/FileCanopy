@@ -27,11 +27,13 @@ from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
 from app.db.models import FileOperation, Node, StorageRoot
+from app.domain import events
 from app.domain.nodes import path_components
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 from app.storage import files
-from app.storage.names import InvalidName
+from app.storage.identity import fingerprint
+from app.storage.names import InvalidName, name_key
 from app.storage.resolver import (
     StorageError,
     StorageEscape,
@@ -91,10 +93,14 @@ def _need(ctx: OpCtx, target: uuid.UUID | Node, privilege: Privilege) -> Node:
 
 
 def _usable(node: Node, *, kind: str | None = None) -> None:
+    if node.kind == "other":
+        raise OpError(409, "UNSUPPORTED_ENTRY")  # symlink, special file or mounted drive (ADR-011)
     if kind is not None and node.kind != kind:
         raise OpError(422, "NOT_A_DIRECTORY" if kind == "dir" else "NOT_A_FILE")
     if node.status == "busy":
         raise OpError(409, "NODE_BUSY")
+    if node.status == "missing":
+        raise OpError(409, "CONTENT_MISSING")  # gone outside the app: never "deleted"
     if node.status != "active":
         raise OpError(409, "RECONCILE_NEEDED")
 
@@ -108,7 +114,7 @@ def _clean(name: str) -> str:
 
 def _root(ctx: OpCtx, node: Node) -> StorageRoot:
     root = ctx.db.get(StorageRoot, node.root_id)
-    if root is None or root.status == "disabled":
+    if root is None or root.status in engine.UNUSABLE_ROOT_STATUSES:
         raise OpError(403, "FORBIDDEN")
     return root
 
@@ -141,7 +147,7 @@ def _map_error(exc: BaseException) -> OpError:
 def _fs(ctx: OpCtx, root: StorageRoot, comps: list[str], *, write: bool) -> Iterator[int]:
     """Opens a directory beneath a root. Writes first make sure the root directory exists (accounts
     created while the API runs have none until restart)."""
-    if write and root.status == "missing":
+    if write and root.status != "active":
         raise OpError(503, "STORAGE_UNAVAILABLE")  # an unusable root is not silently recreated
     try:
         if write:
@@ -152,10 +158,22 @@ def _fs(ctx: OpCtx, root: StorageRoot, comps: list[str], *, write: bool) -> Iter
         raise _map_error(exc) from exc
 
 
-def _db_has(db: Session, parent_id: uuid.UUID, name: str) -> bool:
-    return (
-        db.scalar(select(Node.id).where(Node.parent_id == parent_id, Node.name == name)) is not None
-    )
+def _db_has(
+    db: Session,
+    parent_id: uuid.UUID,
+    name: str,
+    *,
+    exact: bool = False,
+    exclude: uuid.UUID | None = None,
+) -> bool:
+    """True if a sibling holds the name. New names also collide on `name_key` (case and Unicode
+    form), so content stays safe for case-insensitive clients (ADR-011 §6); dismissed nodes
+    release their name."""
+    column = Node.name == name if exact else Node.name_key == name_key(name)
+    query = select(Node.id).where(Node.parent_id == parent_id, Node.status != "dismissed", column)
+    if exclude is not None:
+        query = query.where(Node.id != exclude)
+    return db.scalar(query.limit(1)) is not None
 
 
 def _candidates(name: str, kind: str, mode: str) -> Iterator[str]:
@@ -186,12 +204,20 @@ def _new_node(parent: Node, name: str, kind: str, size: int | None) -> Node:
     )
 
 
+def _stamp(node: Node, info: os.stat_result, sha256: str | None = None) -> None:
+    """Records the filesystem identity the app itself just created, so the next scan sees no
+    change (and a later outside edit is detected against this fingerprint)."""
+    node.fs_dev, node.fs_ino, node.mtime_ns = fingerprint(info)
+    if sha256 is not None:
+        node.content_hash = sha256
+
+
 def _parent_unchanged(db: Session, parent: Node, revision: int) -> None:
     """Final-transaction check for create-type operations: the parent was not renamed, moved or
     claimed while we worked, so the entry we made is still where the database will say it is.
     Takes the tree lock and re-reads the parent, so the caller builds the new node from a lineage
     that no concurrent move can rewrite before this transaction ends."""
-    _serialize_tree_changes(db)
+    serialize_tree_changes(db)
     db.expire_all()
     db.refresh(parent)
     if parent.status != "active" or parent.revision != revision or not _chain_idle(db, parent):
@@ -201,7 +227,7 @@ def _parent_unchanged(db: Session, parent: Node, revision: int) -> None:
 TREE_LOCK_KEY = 0x46435F54524545  # arbitrary constant: "FC_TREE"
 
 
-def _serialize_tree_changes(db: Session) -> None:
+def serialize_tree_changes(db: Session) -> None:
     """Final transactions that change lineage (moves) or insert nodes under a lineage take one
     transaction-scoped advisory lock, so a subtree rewrite can never miss an uncommitted insert
     and no transaction builds a lineage from a stale ancestor. DB-only and short; file I/O never
@@ -346,7 +372,7 @@ def list_children(
 ) -> tuple[list[Node], str | None]:
     node = _need(ctx, node_id, Privilege.LIST)
     _usable_for_read(node, "dir")
-    query = select(Node).where(Node.parent_id == node.id)
+    query = select(Node).where(Node.parent_id == node.id, Node.status != "dismissed")
     if after is not None:
         query = query.where(Node.name > after)
     rows = list(ctx.db.scalars(query.order_by(Node.name).limit(limit + 1)))
@@ -355,6 +381,10 @@ def list_children(
 
 
 def _usable_for_read(node: Node, kind: str) -> None:
+    if node.kind == "other":
+        raise OpError(409, "UNSUPPORTED_ENTRY")
+    if kind == "file" and node.status == "missing":
+        raise OpError(409, "CONTENT_MISSING")
     if node.kind != kind:
         raise OpError(422, "NOT_A_DIRECTORY" if kind == "dir" else "NOT_A_FILE")
 
@@ -410,11 +440,15 @@ def create_folder(ctx: OpCtx, parent_id: uuid.UUID, name: str, key: str | None) 
         if _db_has(ctx.db, parent.id, clean):
             raise OpError(409, "NAME_CONFLICT")
         with _fs(ctx, root, comps, write=True) as dir_fd:
-            files.make_dir(dir_fd, clean)
+            made = files.make_dir(dir_fd, clean)
             try:
                 _parent_unchanged(ctx.db, parent, revision)
                 node = _new_node(parent, clean, "dir", None)
+                _stamp(node, made)
                 ctx.db.add(node)
+                events.record(
+                    ctx.db, node.id, "created", source="ui", actor_user_id=ctx.actor, name=clean
+                )
                 op.node_id = node.id
                 _set(op, "committed")
                 audit(ctx.db, "file.mkdir", actor=ctx.actor, ip=ctx.ip, node_id=str(node.id))
@@ -546,7 +580,16 @@ class Upload:
                 try:
                     _parent_unchanged(ctx.db, parent, self._revision)
                     node = _new_node(parent, chosen, "file", info.st_size)
+                    _stamp(node, info, stage.sha256)
                     ctx.db.add(node)
+                    events.record(
+                        ctx.db,
+                        node.id,
+                        "created",
+                        source="ui",
+                        actor_user_id=ctx.actor,
+                        name=chosen,
+                    )
                     op.node_id = node.id
                     _set(op, "committed", size=info.st_size, sha256=stage.sha256)
                     audit(ctx.db, "file.upload", actor=ctx.actor, ip=ctx.ip, node_id=str(node.id))
@@ -606,6 +649,7 @@ def _apply_move(
         .values(
             parent_id=new_parent.id,
             name=new_name,
+            name_key=name_key(new_name),
             root_id=new_parent.root_id,
             lineage=new_lineage,
             status="active",
@@ -735,7 +779,7 @@ def relocate(
             chosen: str | None = None
             via_copy = False
             for cand in _candidates(new_name, node.kind, mode):
-                if _db_has(ctx.db, new_parent.id, cand):
+                if _db_has(ctx.db, new_parent.id, cand, exclude=node.id):
                     continue
                 _note(ctx, op, dst_name=cand, step="renaming")
                 try:
@@ -761,7 +805,7 @@ def relocate(
                 # Final transaction: serialize with other lineage changes, then trust only fresh
                 # rows. An ancestor of the target or of the node may have moved while the
                 # filesystem step ran (possibly minutes for a cross-device copy).
-                _serialize_tree_changes(ctx.db)
+                serialize_tree_changes(ctx.db)
                 ctx.db.expire_all()
                 fresh = ctx.db.get(Node, node.id)
                 target = ctx.db.get(Node, new_parent.id)
@@ -995,6 +1039,9 @@ def _insert_copied(ctx: OpCtx, target: Node, created: list[files.TreeEntry]) -> 
             parent, entry.rel[-1], entry.kind, entry.size if entry.kind == "file" else None
         )
         ctx.db.add(node)
+        events.record(
+            ctx.db, node.id, "created", source="ui", actor_user_id=ctx.actor, name=entry.rel[-1]
+        )
         by_rel[entry.rel] = node
         if len(entry.rel) == 1:
             top = node
@@ -1094,7 +1141,7 @@ def _recover_one(ctx: OpCtx, op: FileOperation) -> str:
     if parent is not None and d.get("tmp"):
         _remove_leftover_tmp(ctx, parent, d["tmp"])
     if parent is not None and name and _stat_at(ctx, parent, name) is not None:
-        if not _db_has(db, parent.id, name):
+        if not _db_has(db, parent.id, name, exact=True):
             _set(op, "reconcile_needed", step="orphan_entry")
             return "reconcile_needed"
     _set(op, "failed", error="INTERRUPTED")

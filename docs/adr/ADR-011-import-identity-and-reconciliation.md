@@ -243,6 +243,10 @@ It backfills `name_key`. For roots that exist when the migration runs, `setup_st
 - M06 is large: setup import (API, zip, SPA, resume), folder upload, and reconciliation (scanner, watcher, matching, guard, events). Splitting it is proposed in `PROJECT_STATUS.md`.
 - The single-process assumption (ADR-013 §6a) is kept. The per-root advisory lock is the first step toward more than one process.
 
+## Implementation notes (M06a, 2026-10-31)
+
+The reconciler, mount refusal and `file_event` were built in M06a. Where the build departed from the text above (migration split with M06b, missing nodes releasing their database name, batched apply after a read-only plan, simplified `reconcile_needed` resolution) is listed in [`docs/milestones/M06a-design-and-plan.md`](../milestones/M06a-design-and-plan.md). None of it changes an owner decision.
+
 ## Alternatives considered
 
 - **Admin mount picker for any root (original M06):** no copy for anyone, but it needs a UI that browses host folders and an exception to ADR-004 for personal roots. Dropped, along with a shared-only mount variant, until after the first full release.

@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
     func,
     text,
 )
@@ -20,6 +22,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
+
+from app.storage.names import name_key
 
 BigPK = BigInteger().with_variant(Integer(), "sqlite")  # SQLite autoincrements INTEGER only
 Json = JSON().with_variant(JSONB(), "postgresql")
@@ -93,8 +97,14 @@ class StorageRoot(Base):
         Uuid, ForeignKey("app_user.id"), unique=True, nullable=True
     )
     relative_dir: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False)  # active | missing | disabled
+    # active | missing | disabled | unsupported_mount (ADR-011 §3: not on the library device)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    scan_state: Mapped[str | None] = mapped_column(String(16), nullable=True)  # null | suspended
+    fs_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    network_fs: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class Node(Base):
@@ -103,7 +113,18 @@ class Node(Base):
 
     __tablename__ = "node"
     __table_args__ = (
-        UniqueConstraint("parent_id", "name", name="uq_node_parent_name"),
+        # Dismissed and missing nodes stay for audit/recovery but release their name, so a
+        # different kind of entry can take it on disk (ADR-011 §7). The app still avoids the
+        # names of missing nodes.
+        Index(
+            "uq_node_parent_name",
+            "parent_id",
+            "name",
+            unique=True,
+            sqlite_where=text("status NOT IN ('dismissed','missing')"),
+            postgresql_where=text("status NOT IN ('dismissed','missing')"),
+        ),
+        Index("ix_node_parent_name_key", "parent_id", "name_key"),
         Index(
             "uq_node_one_root",
             "root_id",
@@ -122,14 +143,26 @@ class Node(Base):
         Uuid, ForeignKey("node.id"), index=True, nullable=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file
+    kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file | other
     lineage: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
         String(16), nullable=False
-    )  # active | busy | reconcile_needed
+    )  # active | busy | reconcile_needed | missing | dismissed
     # Optimistic-concurrency token: bumped by every rename and move (ADR-013).
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # files only
+    # Last observed filesystem identity (ADR-011 §6). Null until the first scan or app write.
+    fs_dev: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    fs_ino: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    mtime_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256 hex
+    # casefold(NFC(name)), not unique; derived from `name` on insert
+    name_key: Mapped[str] = mapped_column(
+        Text, nullable=False, default=lambda ctx: name_key(ctx.get_current_parameters()["name"])
+    )
+    unsupported_reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    raw_name_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen_run: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
@@ -236,4 +269,37 @@ class AuthAudit(Base):
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     target_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    details: Mapped[Any] = mapped_column(Json, nullable=False)
+
+
+class ScanRun(Base):
+    """One reconciler pass over a root (ADR-011 §7). `counts` holds change tallies only."""
+
+    __tablename__ = "scan_run"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False)  # startup|periodic|manual|hint
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)  # running|ok|partial|...
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    counts: Mapped[Any] = mapped_column(Json, nullable=True)
+
+
+class FileEvent(Base):
+    """Minimal append-only per-node event log (ADR-011 §9); M07 builds the activity UI on it.
+    `details` hold ids, safe names and an uncertainty flag: never host paths or content."""
+
+    __tablename__ = "file_event"
+
+    id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
+    node_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime, index=True, nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    source: Mapped[str] = mapped_column(String(8), nullable=False)  # ui|import|scan|watcher
     details: Mapped[Any] = mapped_column(Json, nullable=False)

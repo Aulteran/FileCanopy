@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -54,11 +55,25 @@ def js(c: Client, method: str, path: str, body: dict[str, Any] | None = None, **
 
 
 def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0004"
+    assert stack.sql("select version_num from alembic_version") == "0005"
     assert stack.sql(
         "select count(*) from information_schema.columns "
         "where table_name = 'node' and column_name in ('revision', 'size')"
     ) == ("2")
+    # root statuses such as unsupported_mount (17 characters) must fit the column
+    assert (
+        int(
+            stack.sql(
+                "select character_maximum_length from information_schema.columns "
+                "where table_name = 'storage_root' and column_name = 'status'"
+            )
+        )
+        >= 24
+    )
+    stack.sql(
+        "begin; update storage_root set status = 'unsupported_mount' "
+        "where id = (select id from storage_root limit 1); rollback"
+    )
     admin = setup_admin(stack)
     tag = uuid.uuid4().hex[:6]
     alice_mail, bob_mail = f"alice{tag}@example.com", f"bob{tag}@example.com"
@@ -163,3 +178,74 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
     assert stack.sql("select count(*) from node where status <> 'active'") == "0"
     leftovers = [p for p in stack.library.rglob(".filecanopy-tmp-*")]
     assert leftovers == []
+
+
+def test_outside_changes_are_reconciled_on_postgres(stack: Stack) -> None:
+    """M06a: a rename and a new file made on the host bind mount are picked up by "rescan now"
+    (the real reconciler thread, PostgreSQL advisory locks and lineage rewrite), a vanished file
+    becomes missing rather than deleted, and the external actor never names a user."""
+    admin = setup_admin(stack)
+    tag = uuid.uuid4().hex[:6]
+    mail = f"carol{tag}@example.com"
+    carol = invite_and_login(stack, admin, mail)
+    uid = user_id(stack, mail)
+    root = root_node(stack, f"personal/{uid}")
+    status, docs = js(carol, "POST", f"/api/v1/nodes/{root}/folders", {"name": "Docs"})
+    assert status == 201, docs
+    docs_id = docs["node"]["id"]
+    status, body, _ = raw(
+        carol,
+        "POST",
+        f"/api/v1/nodes/{docs_id}/files?name=old.txt",
+        b"outside change",
+        **{"Content-Type": "application/octet-stream"},
+    )
+    assert status == 201, body
+    file_id = json.loads(body)["node"]["id"]
+    gone_status, gone_body, _ = raw(
+        carol,
+        "POST",
+        f"/api/v1/nodes/{docs_id}/files?name=doomed.txt",
+        b"will vanish",
+        **{"Content-Type": "application/octet-stream"},
+    )
+    assert gone_status == 201, gone_body
+    doomed_id = json.loads(gone_body)["node"]["id"]
+
+    folder = stack.library / "personal" / uid / "Docs"
+    (folder / "old.txt").rename(folder / "renamed.txt")
+    (folder / "doomed.txt").unlink()
+    (folder / "from-host.txt").write_bytes(b"hello from the host")
+
+    status, queued = js(carol, "POST", f"/api/v1/nodes/{docs_id}/rescan")
+    assert status == 202, queued
+    deadline = time.monotonic() + 60
+    names: dict[str, str] = {}
+    while time.monotonic() < deadline:
+        status, listing = js(carol, "GET", f"/api/v1/nodes/{docs_id}/children")
+        names = {i["name"]: i["id"] for i in listing["items"]}
+        if "renamed.txt" in names and "from-host.txt" in names:
+            break
+        time.sleep(1)
+    assert names.get("renamed.txt") == file_id  # same identity after an outside rename
+    assert "from-host.txt" in names
+    assert stack.sql(f"select status from node where id = '{doomed_id}'") == "missing"
+    status, got, _ = raw(carol, "GET", f"/api/v1/nodes/{file_id}/content")
+    assert status == 200 and got == b"outside change"
+    status, out = js(carol, "GET", f"/api/v1/nodes/{doomed_id}/content")
+    assert status == 409 and out["detail"]["code"] == "CONTENT_MISSING"
+    assert (
+        stack.sql(
+            f"select actor_kind || '/' || coalesce(actor_user_id::text, '-') from file_event "
+            f"where node_id = '{file_id}' and action = 'external_moved'"
+        )
+        == "external_filesystem/-"
+    )
+    assert (
+        stack.sql(
+            "select count(*) from scan_run where outcome in ('ok','partial') and trigger = 'manual'"
+        )
+        != "0"
+    )
+    # a second rescan inside a minute is refused
+    assert js(carol, "POST", f"/api/v1/nodes/{docs_id}/rescan")[0] == 429

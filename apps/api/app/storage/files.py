@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import BinaryIO
 
-from app.storage.names import InvalidName, validate_name
+from app.storage.names import InvalidName, existing_name, validate_name
 from app.storage.resolver import DIR_FLAGS, DIR_MODE, StorageError, StorageEscape
 
 TMP_PREFIX = ".filecanopy-tmp-"
@@ -128,7 +128,7 @@ def fsync_dir(dir_fd: int) -> None:
 
 def lstat_entry(dir_fd: int, name: str) -> os.stat_result | None:
     try:
-        return os.lstat(validate_name(name), dir_fd=dir_fd)
+        return os.lstat(existing_name(name), dir_fd=dir_fd)
     except FileNotFoundError:
         return None
     except InvalidName as exc:
@@ -147,7 +147,7 @@ def make_dir(dir_fd: int, name: str) -> os.stat_result:
 
 def open_dir_child(dir_fd: int, name: str) -> int:
     try:
-        return os.open(validate_name(name), DIR_FLAGS, dir_fd=dir_fd)
+        return os.open(existing_name(name), DIR_FLAGS, dir_fd=dir_fd)
     except InvalidName as exc:
         raise StorageEscape("unsafe path component") from exc
     except OSError as exc:
@@ -162,7 +162,7 @@ def open_regular(dir_fd: int, name: str) -> tuple[int, os.stat_result]:
     """Opens an existing regular file for reading, race-safely. Symlinks, FIFOs, devices and
     hardlinked files (`st_nlink > 1`, ADR-013 §5) raise UnsafeEntry."""
     try:
-        name = validate_name(name)
+        name = existing_name(name)
     except InvalidName as exc:
         raise StorageEscape("unsafe path component") from exc
     flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
@@ -341,7 +341,7 @@ def scan_tree(
             else:
                 raise UnsafeEntry("unsupported entry in tree")
 
-    top = os.lstat(validate_name(name), dir_fd=dir_fd)
+    top = os.lstat(existing_name(name), dir_fd=dir_fd)
     if stat.S_ISREG(top.st_mode):
         if top.st_nlink != 1:
             raise UnsafeEntry("hardlinked file")

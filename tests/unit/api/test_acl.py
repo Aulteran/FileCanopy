@@ -262,6 +262,9 @@ def test_admin_personal_403_and_no_leak_in_admin_storage(fx: Fx) -> None:
     assert set(body) == {
         "shared_root_node_id",
         "shared_root_status",
+        "network_fs",
+        "fs_type",
+        "network_acknowledged",
         "shared_default_access",
         "personal_roots",
     }
@@ -516,7 +519,7 @@ def test_default_shared_access_is_configurable_for_future_accounts(fx: Fx) -> No
 def test_ensure_roots_creates_directories_and_marks_unusable_roots(fx: Fx, tmp_path: Path) -> None:
     lib = fx.w.settings.library_path
     counts = ensure_roots(fx.w.ctx.sessions, fx.w.settings)
-    assert counts == {"active": 8, "missing": 0}  # 7 personal + shared
+    assert counts == {"active": 8, "missing": 0, "unsupported_mount": 0}  # 7 personal + shared
     assert (lib / "shared").is_dir()
     alice_dir = lib / "personal" / str(fx.uid("alice@example.com"))
     assert alice_dir.is_dir() and alice_dir.stat().st_mode & 0o007 == 0
@@ -526,7 +529,11 @@ def test_ensure_roots_creates_directories_and_marks_unusable_roots(fx: Fx, tmp_p
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     bob_dir.symlink_to(elsewhere, target_is_directory=True)
-    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {"active": 7, "missing": 1}
+    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {
+        "active": 7,
+        "missing": 1,
+        "unsupported_mount": 0,
+    }
     assert list(elsewhere.iterdir()) == []
     with fx.w.ctx.sessions() as db:
         bob_root = db.scalars(
@@ -535,12 +542,20 @@ def test_ensure_roots_creates_directories_and_marks_unusable_roots(fx: Fx, tmp_p
         assert bob_root.status == "missing"
     # Once the link is removed the root recovers on the next start.
     bob_dir.unlink()
-    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {"active": 8, "missing": 0}
+    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {
+        "active": 8,
+        "missing": 0,
+        "unsupported_mount": 0,
+    }
 
 
 def test_ensure_roots_with_missing_library_does_not_crash(fx: Fx) -> None:
     shutil.rmtree(fx.w.settings.library_path)
-    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {"active": 0, "missing": 8}
+    assert ensure_roots(fx.w.ctx.sessions, fx.w.settings) == {
+        "active": 0,
+        "missing": 8,
+        "unsupported_mount": 0,
+    }
 
 
 def test_node_path_resolves_from_lineage_and_refuses_corrupted_names(fx: Fx) -> None:
@@ -609,6 +624,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/users/{user_id}/revoke-sessions",
     "/api/v1/admin/storage",
     "/api/v1/admin/storage/shared-default-access",
+    "/api/v1/admin/storage/network-ack",
 }
 
 

@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
 **Last updated:** 2026-10-31  
-**Stage:** M05 implemented (browser UI for folders and file operations); merged to `main`, ADR-014 accepted by owner 2026-10-31.  
-**Current milestone:** M06 — Initial import and reconciliation (not started; ADR-011 accepted 2026-10-31; see Next session instruction).
+**Stage:** M06a implemented on branch `m06-import-and-reconciliation` (reconciler, mount refusal, file events; backend only). M06b not started.  
+**Current milestone:** M06 — Initial import and reconciliation (M06a done, M06b next; ADR-011 accepted 2026-10-31).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -16,6 +16,7 @@
 - [x] M03 — Storage roots and centralized ACL engine.
 - [x] M04 — Safe filesystem service and file CRUD.
 - [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
+- [~] M06 — Initial import and reconciliation: M06a (reconciler) done, M06b (setup import, folder upload, UI) not started.
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
@@ -42,6 +43,7 @@
 - 2026-10-31: Owner decisions recorded. ADR-014 accepted, with a "Security and privacy impact" section added (documentation only; no new review). Working name "FileCanopy" kept for development; publication still needs name and trademark clearance (`11_OPEN_DECISIONS.md` item 1). No public alpha before the M24 release gate. Marketing website deferred: the owner will build it in a separate Claude Code session, not as part of the milestone plan.
 - 2026-10-31: M06 mount model decided. The admin mounts any host folders into the container; they are inert (not scanned, watched or indexed) until an admin registers one through the UI import picker. ADR-011 is deferred to an Opus session. The network watcher fallback will be tested by simulation, not on a real network share.
 - 2026-10-31: ADR-011 drafted (Proposed), replacing the mount-picker model above. Owner decisions: import only at first setup into an empty root (shared tree by the admin, personal folder by its owner) through a UI folder or zip import (copy, server-side zip extraction); no mounted drives as or inside any managed folder (dropped until after the first full release, on user request); after setup, ordinary folder upload (merge, keep both); rescan every 15 minutes; network filesystems allowed with warning; unique hash matches become uncertain inferred moves; missing nodes kept until dismissed; unsupported entries shown greyed out. M06 title, acceptance criteria and tests updated in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`; spec docs 01, 04, 07 and 11 updated.
+- 2026-10-31: M06a implemented (migration 0005, `app/storage/{reconcile,service,watcher,identity}.py`, `app/domain/events.py`, `app/api/reconcile.py`): external-change reconciler (read-only plan, inode and hash matching, batched re-validated apply), mass-change guard with owner/admin resolve, `missing` instead of deleted with dismiss, mount refusal (`unsupported_mount`, nested mounted drives greyed out), network-filesystem detection, inotify hints, throttled hashing, 15-minute rescan, `file_event` log, case/Unicode name policy. See `docs/milestones/M06a-design-and-plan.md`.
 
 ## Verified implemented functionality
 
@@ -64,13 +66,15 @@
 
 **Browser UI (M05), verified 2026-10-31 on Docker 29.9.2 (Windows):** `npm run check` clean; `npm run check:web` (tsc strict, 4 unit tests) clean; `check:api` 200 passed / 1 skipped (backend unchanged); `npm run test:e2e` 6 passed in about 33 s (setup/sign-in, CRUD against real files, move/copy and conflict messages, keyboard, 375x812 viewport, forbidden UI plus direct API calls for stranger/administrator/viewer and grant revocation). GitHub Actions passed on PR #6 (2026-10-31, Linux runner): `check` 1m42s, `compose (app)` 1m53s, `compose (core)` 3m56s, and the new `e2e` job 1m45s.
 
+**Reconciler (M06a), verified 2026-10-31 on Docker 29.9.2 (Windows):** `npm run check` clean; `check:api` ruff/format/mypy strict clean, 256 passed / 1 skipped (new `test_reconcile.py`, 56 tests on real files: outside rename/move/modify keep identity, copy+delete is an uncertain inferred move, ambiguous twins and cross-root moves are not linked, vanished files become `missing` not deleted, mass disappearance suspends the root, relocation with and without mtimes, restart scan, 2000-file tree, symlink/FIFO/mounted-drive/undecodable entries never followed, root-on-another-device refusal, case-collision tree, real inotify, network-filesystem fallback, authorization); `test:compose` 15 passed including host-side changes reconciled on PostgreSQL and the 0002 to 0005 migration backfill; `test:e2e` 6 passed. Mounted drives and network filesystems are simulated. Not yet run on GitHub Actions; Opus 5.5 security review done (see M06a design note): findings 1, 2, 3, 5, 7 fixed, plus the database-before-disk ordering and parts of the guard (denominator, per-pass device check).
+
 **CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
 
-**Not implemented:** delete/trash/undo, replacing existing files, `Range` downloads, external-change import/reconciliation (M06), sharing UI, OIDC, email delivery of invitations/resets, invitation-accept/password-reset/admin screens, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
+**Not implemented:** delete/trash/undo, replacing existing files, `Range` downloads, setup import, zip extraction and folder upload (M06b), any UI for missing, unsupported or suspended items (M06b), sharing UI, OIDC, email delivery of invitations/resets, invitation-accept/password-reset/admin screens, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
 
 ## Current blockers
 
-- M06 is unblocked: ADR-011 accepted 2026-10-31. M06 will be built on a single branch (see Next session instruction).
+- M06b is unblocked: M06a is implemented. All M06 work stays on one branch (`m06-import-and-reconciliation`) and one PR; the branch has uncommitted M06a work until the owner asks for a commit.
 
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
@@ -83,7 +87,7 @@
 
 ## Next session instruction
 
-M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and ADR-014 is accepted (2026-10-31). M06 has not started. Before M06 can start: ADR-011 is accepted (2026-10-31). Owner decision: all of M06 goes on one branch; if split into sessions, the parts share that branch and a single PR. Proposed session split: M06a (reconciler, mount refusal, `file_event`; backend) and M06b (setup import of folder/zip, folder upload, setup screens and drag-and-drop UI). The network watcher fallback will be tested by simulation only. Recommended models: Sonnet 5.5 for implementation, Opus 5.5 for the ADR-011 design review. Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
+M06a is implemented on `m06-import-and-reconciliation` (uncommitted until requested). Next: **M06b**, on the same branch and PR: `storage_root.setup_state` and the setup window (including closing it when a scan finds content), setup import from a folder manifest and from a server-extracted zip with plan, free-space check and the zip limits, folder upload with merge and keep-both, `import_batch`/`import_entry` (migration 0006) with resume, and the setup screens plus drag-and-drop UI, including UI for missing, greyed-out unsupported, name-collision and suspended-scan states that M06a only exposes through the API. Recommended models: Sonnet 5.5 to implement; Opus 5.5 security review of the zip extractor, setup authorization, matching rules and mass-change guard before M06 is signed off. See "Deviations" in `docs/milestones/M06a-design-and-plan.md` before starting. Start M06b only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
 
 ## Milestone session history
 
@@ -96,3 +100,4 @@ M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and ADR-0
 | 2026-10-30 | M03 Storage roots and centralized ACL engine | Done | `check` clean; `check:api` 146 passed / 1 skipped; `test:compose` 13 passed | Security review done (no findings >=8/10); CI run; M04 on request |
 | 2026-10-31 | M04 Safe filesystem service and file CRUD | Done (signed off) | `check` clean; `check:api` 200 passed / 1 skipped; `test:compose` incl. files stack on PostgreSQL behind nginx | Merged (PR #5, CI green); M05 on request; M07 implements copy-and-trash for cross-root moves |
 | 2026-10-31 | M05 Browser UI: folders and file operations | Done (CI green; ADR-014 accepted 2026-10-31) | `check` and `check:web` clean; `check:api` 200 passed / 1 skipped; `test:e2e` 6 passed (Playwright on the real stack) | Merged (PR #6, CI green); M06 blocked until ADR-011 is approved; M06 on request |
+| 2026-10-31 | M06a Reconciler, mount refusal, file events | Done (not yet in CI; Opus review done, findings fixed) | `check` clean; `check:api` 256 passed / 1 skipped; `test:compose` 15 passed (real reconciler on PostgreSQL, 0002 to 0005 migration); `test:e2e` 6 passed | M06b on request, same branch and PR; Owner to read the open review items |
