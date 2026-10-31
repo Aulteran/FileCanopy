@@ -1,6 +1,6 @@
 # ADR-016: Per-root backup key pairs with administrator escrow and an owner recovery key
 
-- **Status:** Proposed
+- **Status:** Accepted (owner decision 2026-10-31); not yet implemented
 - **Date:** 2026-10-31
 - **Milestone:** follow-up to M06c (before any release that advertises owner self-restore); constrains M09
 
@@ -12,9 +12,9 @@ ADR-015 encrypts every archive to one instance-wide X25519 public key. The recov
 - An administrator who holds the key can decrypt every personal root from the backup volume, which contradicts the rule that the web administrator role does not bypass personal-folder read protections (an administrator who also controls the host is outside the trust model, but handing out one all-powerful key as routine practice should not be necessary).
 - The restore authorization is correct (only the owner restores a personal root), but the owner cannot actually exercise it without the key holder.
 
-Until this ADR is decided, M06c ships with a documented mitigation: **rotate the recovery key after giving it to an owner** (UI text, README, `POST /admin/backups/key/rotate` with `expected_fingerprint`).
+Until this ADR is implemented, M06c ships with a documented mitigation: **rotate the recovery key after giving it to an owner** (UI text, README, `POST /admin/backups/key/rotate` with `expected_fingerprint`).
 
-## Decision (proposed)
+## Decision
 
 1. **One key pair per root.** The first backup of a root creates an X25519 key pair for that root. The instance stores only the public key (as today) and archives of that root are encrypted to it.
 2. **Owner recovery key.** The private half for a personal root is shown once to its owner (a "Save your backup recovery key" step on the Backups page), never stored by the app. An owner restores their own folder with their own key and cannot open anyone else's archives.

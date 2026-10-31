@@ -1,7 +1,7 @@
 # FileCanopy — Current Project Status
 
 **Last updated:** 2026-10-31  
-**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. M07 is in planning: ADR-017 (trash location and retention) is Proposed and the M07 acceptance plan is waiting for the owner's approval. ADR-016 (per-root backup keys) is still Proposed.  
+**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. M07 is in planning: ADR-017 (trash location and retention) is Proposed and the M07 acceptance plan is waiting for the owner's approval.  
 **Current milestone:** M07 — Audit trail, trash, and undo: planning only (`docs/milestones/M07-design-and-plan.md`, ADR-017 Proposed). No M07 code yet.
 **Working name:** FileCanopy (not selected or cleared for publication).
 
@@ -17,7 +17,7 @@
 - [x] M04 — Safe filesystem service and file CRUD.
 - [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
 - [x] M06 — Initial import and reconciliation: M06a (reconciler), M06b (setup import, folder upload, UI) done; reviewed, findings fixed, CI green, owner signed off 2026-10-31.
-- [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) still Proposed.
+- [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) accepted by the owner 2026-10-31, not yet built.
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
@@ -86,7 +86,7 @@
 ## Current blockers
 
 - **M07 needs owner decisions before feature code starts:** approve or amend the rest of ADR-017 (trash retention defaults and visibility; open decision 9) and the acceptance plan in `docs/milestones/M07-design-and-plan.md`. Trash location is decided (owner, 2026-10-31): a hidden library-level `.filecanopy-trash` outside every root, which amends `03_SECURITY_PRIVACY.md` for trash.
-- ADR-016 (per-root backup keys) is still Proposed. Until it is decided, the documented mitigation stays: rotate the recovery key after giving it to an owner. It does not block M07.
+- ADR-016 (per-root backup keys) was accepted 2026-10-31 but is not built yet; until it is, the documented mitigation stays: rotate the recovery key after giving it to an owner. It does not block M07.
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
 
@@ -118,6 +118,6 @@ M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and 
 | 2026-10-31 | M06a Reconciler, mount refusal, file events | Done (not yet in CI; Opus review done, findings fixed) | `check` clean; `check:api` 258 passed / 1 skipped; `test:compose` 15 passed (real reconciler on PostgreSQL, 0002 to 0005 migration); `test:e2e` 6 passed | M06b on request, same branch and PR; Owner to read the open review items |
 | 2026-10-31 | M06b Setup window, setup import, folder upload, import and state UI | Implemented (uncommitted; not in CI; Opus review pending) | `check` clean; `check:web` 9 tests; `check:api` 297 passed / 1 skipped; `test:compose` 22 passed; `test:e2e` 15 passed | Opus 5.5 security review done and findings fixed (see the follow-up row below); owner to confirm the deviations in the M06b design note; M06c on request |
 | 2026-10-31 | M06b security review fixes and owner decisions | Implemented and committed (5314115; not in CI) | `check` clean; `check:web` 11 vitest tests; `check:api` 328 passed / 1 skipped; `test:compose` 23 passed; `test:e2e` 17 passed | Owner sign-off of M06; bulk-import CLI deferred (post-M06 to-do) |
-| 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 undecided |
+| 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 since accepted (2026-10-31), not built |
 | 2026-10-31 | M06c Optional backups | Implemented and committed (superseded by the sign-off row above) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
 | 2026-10-31 | M07 planning | ADR-017 and acceptance plan drafted, waiting for owner approval | No code; docs only | Owner to decide ADR-017 (trash location, retention defaults) and approve the plan |
