@@ -2,7 +2,20 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Index, Integer, String, Uuid, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -58,6 +71,84 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     password_changed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class StorageRoot(Base):
+    """A top-level directory under the library mount: the shared tree or one personal root."""
+
+    __tablename__ = "storage_root"
+    __table_args__ = (
+        Index(
+            "uq_storage_root_one_shared",
+            "kind",
+            unique=True,
+            sqlite_where=text("kind = 'shared'"),
+            postgresql_where=text("kind = 'shared'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # shared | personal
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), unique=True, nullable=True
+    )
+    relative_dir: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)  # active | missing | disabled
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class Node(Base):
+    """Stable identity of a folder or file. The API only ever addresses nodes by `id`;
+    `lineage` is the '/'-delimited ids of all ancestors including self (ADR-004 §2)."""
+
+    __tablename__ = "node"
+    __table_args__ = (
+        UniqueConstraint("parent_id", "name", name="uq_node_parent_name"),
+        Index(
+            "uq_node_one_root",
+            "root_id",
+            unique=True,
+            sqlite_where=text("parent_id IS NULL"),
+            postgresql_where=text("parent_id IS NULL"),
+        ),
+        Index("ix_node_lineage", "lineage", postgresql_ops={"lineage": "text_pattern_ops"}),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("node.id"), index=True, nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file
+    lineage: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class NodeGrant(Base):
+    """Folder grant: `level` applies to the folder and its whole subtree, never upward."""
+
+    __tablename__ = "node_grant"
+    __table_args__ = (UniqueConstraint("node_id", "grantee_user_id", name="uq_node_grant"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    grantee_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), index=True, nullable=False
+    )
+    level: Mapped[str] = mapped_column(String(8), nullable=False)  # viewer | editor
+    granted_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("app_user.id"),
+        nullable=True,  # None = instance default grant
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
 class AuthSession(Base):

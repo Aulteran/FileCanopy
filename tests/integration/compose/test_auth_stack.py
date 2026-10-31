@@ -63,7 +63,7 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
 
 
 def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0002"
+    assert stack.sql("select version_num from alembic_version") == "0003"
     anon = Client(stack)
     assert anon.call("GET", "/api/v1/setup/status")[1] == {"setup_required": True}
 

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import clock
 from app.auth.security import csrf_token_for, digest, new_token
 from app.db.models import AuthAudit, AuthSession, AuthToken, User
+from app.domain import nodes
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
 
@@ -60,6 +61,7 @@ def create_user(
     )
     db.add(user)
     db.flush()
+    nodes.provision_user_storage(db, user)  # personal root + default shared grant, same transaction
     return user
 
 

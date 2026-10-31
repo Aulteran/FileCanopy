@@ -1,6 +1,6 @@
 # ADR-012: Local authentication, sessions and first-administrator bootstrap
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-10-30)
 - **Date:** 2026-10-30
 - **Milestone:** M02
 
@@ -34,4 +34,4 @@ M02 needs email/password accounts, sessions, throttling, and invitation/reset pr
 
 ## Security and privacy impact
 
-Introduces the credential and session boundary used by every later endpoint. Requires Opus 5.5 security review (recommended for M02, not yet performed).
+Introduces the credential and session boundary used by every later endpoint. Opus 5.5 security review of the M02 changes was performed (2026-10-30) with no findings at the >80%-confidence bar; the accepted limits are listed under Consequences.
