@@ -106,7 +106,7 @@ Open http://127.0.0.1:8080 after the stack is up: the first visit asks for the s
 Backups are off by default and the app needs no backup volume. To use them, add `deploy/docker-compose.backup.yml` and mount a separate folder (see `deploy/README.md`), then turn them on under Backups as an administrator. Things to know:
 
 - A backup copies everyone's files, including private ones. Archives are encrypted by default to a key pair whose **recovery key is shown once and never stored**; lose it and the encrypted backups cannot be read.
-- **Rotate the recovery key after giving it to an owner.** Restoring needs the key, and that one key opens every archive on the volume, not only the owner's folder. Give it out only for a restore, then use "New recovery key" (older archives stay readable only with the key they were made with). Per-folder keys are proposed in `docs/adr/ADR-016-per-root-backup-keys.md` and are not built yet.
+- **Rotate the recovery key after giving it to an owner.** Restoring needs the key, and that one key opens every archive on the volume, not only the owner's folder. Give it out only for a restore, then use "New recovery key" (older archives stay readable only with the key they were made with). Per-folder keys are decided in `docs/adr/ADR-016-per-root-backup-keys.md` (accepted) but are not built yet.
 - Backups of a folder that is disabled, missing or belongs to a removed account are kept and are never cleaned up automatically, so they keep using space. An audited purge is planned follow-up work; there is no purge screen yet.
 - A restore runs inside the request and can take long for a very large folder (a background restore job is a known limitation, not built).
 
