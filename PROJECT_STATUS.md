@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
-**Last updated:** 2026-10-30  
-**Stage:** M04 complete (safe filesystem service and file CRUD; signed off by owner 2026-10-31). No UI yet.  
-**Current milestone:** M05 — Browser UI: folders and file operations (not started; awaits a new request).
+**Last updated:** 2026-10-31  
+**Stage:** M05 implemented (browser UI for folders and file operations); awaiting owner review.  
+**Current milestone:** M06 — Existing directory import and reconciliation (not started; awaits a new request).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -15,6 +15,7 @@
 - [x] M02 — Local authentication and first administrator.
 - [x] M03 — Storage roots and centralized ACL engine.
 - [x] M04 — Safe filesystem service and file CRUD.
+- [x] M05 — Browser UI: folders and file operations (pending owner review).
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
@@ -37,6 +38,7 @@
 - 2026-10-31: CI restructured for speed (`.github/workflows/ci.yml`): a fast `check` job; the Compose suite split into two parallel jobs (`core`, and `app` which shares one stack between the auth and storage tests); Docker layers cached via the GitHub Actions cache with pre-built images; Compose runs on pull requests and manual runs only (use workflow_dispatch after a direct push to `main`).
 - 2026-10-31: M04 implemented (migration 0004, `app/storage/files.py`, `app/domain/fileops.py`, `app/api/files.py`; ADR-013 Proposed): list, create folder, streamed upload, download, rename, move, copy by node id; no-replace filesystem steps; operation journal with idempotency keys, revision-checked claims, verified cross-device move, `reconcile_needed` reporting and startup recovery; M03 carry-overs resolved; nginx streams uploads/downloads. See `docs/milestones/M04-design-and-plan.md`.
 - 2026-10-31: M04 merged to `main` (PR #5, `ebf0c5d`) after GitHub Actions CI passed on the PR.
+- 2026-10-31: M05 implemented (`apps/web`, `tests/e2e`; ADR-014 Proposed): React/TypeScript/Vite single-page app with first-run setup and sign-in, side navigation from `GET /roots`, folder browser with breadcrumbs, upload (button and drop), download, new folder, rename, move and copy, details panel, keyboard grid navigation, native dialogs and a phone layout. The `web` image now builds the bundle; nginx serves it with a same-origin CSP. Playwright (Python) browser tests run on the real Compose stack; new CI `e2e` job.
 
 ## Verified implemented functionality
 
@@ -57,9 +59,11 @@
 
 **File operations (M04), verified 2026-10-31 on Docker 29.9.2:** `npm run check` clean; `check:api` ruff/format/mypy strict clean, 200 passed / 1 skipped; `test:compose` 14 passed including the new `test_files_stack.py` (PostgreSQL behind nginx: 5 MiB upload, move lineage rewrite, copy, four concurrent renames with exactly one winner). Opus 5.5 race-safety review done (13 findings, all fixed; cross-owner moves resolved by the owner: interim block now, copy + source-owner trash with history in M07). Signed off by owner. GitHub Actions passed on PR #5 (2026-10-31, Linux runner): `check` 1m12s, `compose (app)` 1m40s, `compose (core)` 3m46s.
 
+**Browser UI (M05), verified 2026-10-31 on Docker 29.9.2 (Windows):** `npm run check` clean; `npm run check:web` (tsc strict, 4 unit tests) clean; `check:api` 200 passed / 1 skipped (backend unchanged); `npm run test:e2e` 6 passed in about 33 s (setup/sign-in, CRUD against real files, move/copy and conflict messages, keyboard, 375x812 viewport, forbidden UI plus direct API calls for stranger/administrator/viewer and grant revocation). The new CI `e2e` job has not run on GitHub yet.
+
 **CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
 
-**Not implemented:** delete/trash/undo, replacing existing files, `Range` downloads, external-change import/reconciliation (M06), sharing UI, OIDC, email delivery of invitations/resets, UI (placeholder page only), job processing (heartbeat worker only), AI. Specs are not implementation evidence.
+**Not implemented:** delete/trash/undo, replacing existing files, `Range` downloads, external-change import/reconciliation (M06), sharing UI, OIDC, email delivery of invitations/resets, invitation-accept/password-reset/admin screens, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
 
 ## Current blockers
 
@@ -74,7 +78,7 @@
 
 ## Next session instruction
 
-M04 is merged (PR #5). Start M05 only on a new request. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7). Start M05 only on a new request. Carry-over for M05: the API surface is in ADR-013 section 1; errors are `{detail: {code}}`; mutations need the CSRF header; rename/move need `expected_revision` from the last listing.
+M05 is implemented on branch `m05-browser-ui` and awaits owner review, ADR-014 approval and a CI run (the new `e2e` job). Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
 
 ## Milestone session history
 
@@ -86,3 +90,4 @@ M04 is merged (PR #5). Start M05 only on a new request. M07 must implement the a
 | 2026-10-30 | M02 Local authentication and first administrator | Done | `npm run check` clean; `check:api` 72 passed / 1 skipped, ruff+mypy clean; `test:compose` 10 passed incl. auth on PostgreSQL behind nginx | Security review done (no findings); approve ADR-012; start M03 |
 | 2026-10-30 | M03 Storage roots and centralized ACL engine | Done | `check` clean; `check:api` 146 passed / 1 skipped; `test:compose` 13 passed | Security review done (no findings >=8/10); CI run; M04 on request |
 | 2026-10-31 | M04 Safe filesystem service and file CRUD | Done (signed off) | `check` clean; `check:api` 200 passed / 1 skipped; `test:compose` incl. files stack on PostgreSQL behind nginx | Merged (PR #5, CI green); M05 on request; M07 implements copy-and-trash for cross-root moves |
+| 2026-10-31 | M05 Browser UI: folders and file operations | Done (pending review) | `check` and `check:web` clean; `check:api` 200 passed / 1 skipped; `test:e2e` 6 passed (Playwright on the real stack) | Owner review, ADR-014, CI `e2e` run; M06 on request |

@@ -17,7 +17,9 @@
     "check": "npm run lint && npm run format:check && npm run test && npm run secret-scan",
     "check:api": "node scripts/api-check.mjs",
     "test:compose": "node scripts/compose-test.mjs",
-    "check:full": "npm run check && npm run check:api && npm run test:compose"
+    "check:full": "npm run check && npm run check:web && npm run check:api && npm run test:compose && npm run test:e2e",
+    "check:web": "npm --prefix apps/web run check",
+    "test:e2e": "node scripts/e2e-test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

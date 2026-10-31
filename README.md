@@ -95,9 +95,11 @@ curl http://127.0.0.1:8080/api/v1/health
 | `npm run check` | ESLint, Prettier, JS unit tests, secret scan | Node |
 | `npm run check:api` | ruff, mypy (strict), pytest unit tests in the pinned Python 3.13 image | Docker |
 | `npm run test:compose` | Real Compose tests: fresh install, restart/persistence, migrations, no-AI boot, optional-worker degradation | Docker, host Python + pytest (`python -m venv .venv && .venv/Scripts/pip install pytest==9.2.0`; on Linux/macOS use `.venv/bin/pip`) |
+| `npm run check:web` | TypeScript strict check and unit tests for `apps/web` | Node (`npm ci --prefix apps/web` first) |
+| `npm run test:e2e` | Browser tests (Playwright/Chromium) against a real Compose stack: setup, CRUD, keyboard, phone viewport, forbidden cases | Docker, host Python with `pytest` and `playwright` (`python -m playwright install chromium`) |
 | `npm run check:full` | all of the above | all of the above |
 
-The frontend is not implemented yet (M05). Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
+Open http://127.0.0.1:8080 after the stack is up: the first visit asks for the setup token printed in the API log (`docker compose -f deploy/docker-compose.yml logs api`). The browser UI (M05) covers folders and file operations; see `docs/milestones/M05-design-and-plan.md`. Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
 
 ## License
 

@@ -1,0 +1,401 @@
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --text: #1b2430;
+  --muted: #566274;
+  --line: #d3d9e2;
+  --accent: #1f5fbf;
+  --accent-text: #ffffff;
+  --danger: #a4262c;
+  --sel: #e3edfb;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181f;
+    --panel: #1c222b;
+    --text: #e8ecf2;
+    --muted: #a5b0c0;
+    --line: #36404e;
+    --accent: #6ea4f4;
+    --accent-text: #0b1220;
+    --danger: #ff8d92;
+    --sel: #263650;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.45 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --line: currentColor;
+    --muted: var(--text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+button,
+a.button,
+input {
+  font: inherit;
+}
+
+button,
+a.button {
+  display: inline-block;
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+label {
+  display: block;
+  margin: 12px 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus {
+  left: 8px;
+  top: 8px;
+  z-index: 10;
+  background: var(--panel);
+  padding: 8px;
+}
+
+.hint {
+  color: var(--muted);
+  margin: 4px 0;
+}
+.error {
+  color: var(--danger);
+  min-height: 1.4em;
+  margin: 6px 0;
+}
+.loading,
+.empty {
+  padding: 24px;
+  color: var(--muted);
+}
+
+/* sign-in and setup */
+.auth {
+  max-width: 420px;
+  margin: 8vh auto;
+  padding: 0 16px;
+}
+.auth form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 20px 20px;
+}
+
+/* shell */
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top top"
+    "nav main";
+  min-height: 100vh;
+}
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-weight: 700;
+  margin-right: auto;
+}
+.sidenav {
+  grid-area: nav;
+  padding: 12px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+.sidenav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sidenav a {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+.sidenav a[aria-current="page"] {
+  background: var(--sel);
+  font-weight: 600;
+}
+.content {
+  grid-area: main;
+  padding: 16px;
+  min-width: 0;
+}
+.content:focus {
+  outline: none;
+}
+
+/* browser */
+.browser.dragging {
+  outline: 3px dashed var(--accent);
+  outline-offset: 4px;
+}
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.crumbs li + li::before {
+  content: "›";
+  margin-right: 4px;
+  color: var(--muted);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.uploads {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.uploads li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+}
+.split {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  align-items: start;
+}
+.list,
+.details {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.details {
+  padding: 12px 16px;
+}
+.details h2 {
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+  margin: 0 0 8px;
+}
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+}
+dt {
+  color: var(--muted);
+}
+dd {
+  margin: 0;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.actions.column {
+  flex-direction: column;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+tbody tr {
+  cursor: default;
+}
+tbody tr.selected {
+  background: var(--sel);
+}
+tbody tr:focus-visible {
+  outline-offset: -3px;
+}
+.more {
+  margin: 12px;
+}
+.flag {
+  color: var(--danger);
+}
+
+/* dialogs */
+dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+dialog h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+.picker {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.picker li {
+  padding: 2px;
+}
+.picker button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+}
+
+/* phone: the side navigation becomes a strip above the content, the details panel moves below */
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "top"
+      "nav"
+      "main";
+  }
+  .sidenav {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 4px 8px;
+  }
+  .sidenav ul {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .sidenav a {
+    white-space: nowrap;
+  }
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .when {
+    display: none;
+  }
+  .content {
+    padding: 12px 8px;
+  }
+}
