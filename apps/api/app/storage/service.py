@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
 from app.db.models import Node, StorageRoot
+from app.domain.imports import prune_import_reports
 from app.domain.nodes import path_components
 from app.storage.reconcile import Reconciler
 from app.storage.watcher import Watcher
@@ -134,6 +135,14 @@ class ReconcilerService:
             relative = root.relative_dir
         self.watcher.sync(self.settings.library_path, root_id, relative, dirs)
 
+    def _prune_reports(self) -> None:
+        """Retention for import reports, with the other periodic work (ADR-011, M06b review)."""
+        try:
+            with self.sessions() as db:
+                prune_import_reports(db, self.settings)
+        except Exception:  # never blocks scanning
+            log.exception("pruning import reports failed")
+
     def _loop(self) -> None:
         trigger, next_full = "startup", time.monotonic()
         while not self.reconciler.stop.is_set():
@@ -142,6 +151,7 @@ class ReconcilerService:
                     self._full_pass = False
                     self.full_pass(trigger)
                     trigger = "periodic"
+                    self._prune_reports()
                     next_full = time.monotonic() + self.settings.rescan_interval_seconds
                 self.process_requests()
                 for root_id in list(self._hash_roots):

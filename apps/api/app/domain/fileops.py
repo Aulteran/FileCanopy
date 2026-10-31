@@ -27,7 +27,7 @@ from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
 from app.db.models import FileOperation, Node, StorageRoot
-from app.domain import events
+from app.domain import events, setup
 from app.domain.nodes import path_components
 from app.policy import engine
 from app.policy.model import Actor, Privilege
@@ -446,6 +446,7 @@ def create_folder(ctx: OpCtx, parent_id: uuid.UUID, name: str, key: str | None) 
                 node = _new_node(parent, clean, "dir", None)
                 _stamp(node, made)
                 ctx.db.add(node)
+                setup.close_window(ctx.db, parent.root_id, "content", actor=ctx.actor, ip=ctx.ip)
                 events.record(
                     ctx.db, node.id, "created", source="ui", actor_user_id=ctx.actor, name=clean
                 )
@@ -582,6 +583,9 @@ class Upload:
                     node = _new_node(parent, chosen, "file", info.st_size)
                     _stamp(node, info, stage.sha256)
                     ctx.db.add(node)
+                    setup.close_window(
+                        ctx.db, parent.root_id, "content", actor=ctx.actor, ip=ctx.ip
+                    )
                     events.record(
                         ctx.db,
                         node.id,
@@ -1048,6 +1052,7 @@ def _insert_copied(ctx: OpCtx, target: Node, created: list[files.TreeEntry]) -> 
     ctx.db.flush()
     if top is None:
         raise OpError(500, "OPERATION_FAILED")
+    setup.close_window(ctx.db, target.root_id, "content", actor=ctx.actor, ip=ctx.ip)
     return top
 
 

@@ -3,6 +3,35 @@ import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
 import { Browser } from "./Browser";
 import { folderPath, useRoute } from "./route";
+import { SetupScreen } from "./Setup";
+import { UnfinishedUploads } from "./UnfinishedUploads";
+
+// Roots whose setup screen the person postponed ("Decide later") in this browser tab. It survives
+// a reload but not a new tab or a new sign-in, so the screen is offered again after signing in.
+const DEFERRED_KEY = "fc.setup-deferred";
+
+function readDeferred(userId: string): Set<string> {
+  try {
+    const raw: unknown = JSON.parse(
+      sessionStorage.getItem(DEFERRED_KEY) ?? "{}",
+    );
+    const mine = (raw as Record<string, unknown>)[userId];
+    return new Set(Array.isArray(mine) ? (mine as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDeferred(userId: string, ids: Set<string>): void {
+  try {
+    sessionStorage.setItem(
+      DEFERRED_KEY,
+      JSON.stringify({ [userId]: [...ids] }),
+    );
+  } catch {
+    /* storage unavailable: the screen is simply offered again */
+  }
+}
 
 type Boot =
   | { state: "loading" }
@@ -81,8 +110,11 @@ function Shell({
   const { folderId, go } = useRoute();
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
+  const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
+  const [setupFor, setSetupFor] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
-  useEffect(() => {
+  const loadRoots = useCallback(() => {
     api
       .roots()
       .then(setRoots)
@@ -91,6 +123,8 @@ function Shell({
         else setRoots([]);
       });
   }, [onEnded]);
+
+  useEffect(loadRoots, [loadRoots]);
 
   useEffect(() => {
     if (roots && roots.length > 0 && folderId === null)
@@ -101,9 +135,58 @@ function Shell({
     try {
       await api.logout();
     } finally {
+      writeDeferred(session.user.id, new Set());
       setCsrf("");
       onEnded();
     }
+  }
+
+  function postpone(id: string): void {
+    const next = new Set(deferred).add(id);
+    setDeferred(next);
+    writeDeferred(session.user.id, next);
+    setSetupFor(null);
+  }
+
+  if (roots === null) return <p className="loading">Loading…</p>;
+
+  const header = (
+    <header className="topbar">
+      <span className="brand">FileCanopy</span>
+      <span className="who">{session.user.name}</span>
+      <button onClick={() => void logout()}>Sign out</button>
+    </header>
+  );
+
+  // After sign-in, a root whose setup window is open and that this person may set up (their own
+  // folder; the shared tree for an administrator) gets a full-page screen before the browser.
+  const setupRoot = roots.find((r) =>
+    setupFor !== null
+      ? r.node_id === setupFor && r.setup_open
+      : r.setup_open && !deferred.has(r.node_id),
+  );
+  if (setupRoot) {
+    return (
+      <div className="shell setup-only">
+        {header}
+        <main id="main" tabIndex={-1} className="content">
+          <SetupScreen
+            key={setupRoot.node_id}
+            root={{
+              id: setupRoot.node_id,
+              name: setupRoot.name,
+              kind: setupRoot.kind,
+            }}
+            onClosed={() => {
+              setSetupFor(null);
+              loadRoots();
+            }}
+            onLater={() => postpone(setupRoot.node_id)}
+            onEnded={onEnded}
+          />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -111,14 +194,10 @@ function Shell({
       <a href="#main" className="skip">
         Skip to files
       </a>
-      <header className="topbar">
-        <span className="brand">FileCanopy</span>
-        <span className="who">{session.user.name}</span>
-        <button onClick={() => void logout()}>Sign out</button>
-      </header>
+      {header}
       <nav aria-label="Locations" className="sidenav">
         <ul>
-          {(roots ?? []).map((r) => (
+          {roots.map((r) => (
             <li key={r.node_id}>
               <a
                 href={folderPath(r.node_id)}
@@ -130,6 +209,15 @@ function Shell({
               >
                 {rootLabel(r)}
               </a>
+              {r.setup_open && (
+                <button
+                  className="linklike flag"
+                  aria-label={`Set up ${r.name}`}
+                  onClick={() => setSetupFor(r.node_id)}
+                >
+                  (set up)
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -138,13 +226,19 @@ function Shell({
         {roots !== null && roots.length === 0 && (
           <p>No storage locations are available to you.</p>
         )}
+        <UnfinishedUploads
+          go={go}
+          onEnded={onEnded}
+          onChanged={() => setReload((n) => n + 1)}
+        />
         {folderId !== null && (
           <Browser
-            key={folderId}
+            key={`${folderId}:${reload}`}
             folderId={folderId}
             go={go}
             onRoot={setActiveRoot}
             onEnded={onEnded}
+            onOpenSetup={() => setSetupFor(activeRoot)}
           />
         )}
       </main>

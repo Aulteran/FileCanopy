@@ -18,6 +18,7 @@ export type EntryPoint = {
   name: string;
   kind: "personal" | "shared" | "shared_with_me";
   owner_name: string | null;
+  setup_open: boolean;
 };
 export type NodeInfo = {
   id: string;
@@ -26,6 +27,11 @@ export type NodeInfo = {
   root_kind: string;
   my_privileges: string[];
   parent_id: string | null;
+  can_manage: boolean;
+  setup_state: "open" | "closed" | null;
+  scan_state: string | null;
+  // An import held the scanner off this folder for a long time (managers only).
+  scan_delayed: boolean;
 };
 export type Child = {
   id: string;
@@ -35,6 +41,68 @@ export type Child = {
   revision: number;
   status: string;
   updated_at: string;
+  unsupported_reason: string | null;
+  name_collision: boolean;
+};
+
+// Import batches (ADR-011 §2). Paths in a manifest are relative to the chosen folder.
+export type ManifestEntry = {
+  path: string;
+  kind: "dir" | "file";
+  size?: number;
+  mtime?: number;
+};
+export type Plan = {
+  files: number;
+  folders: number;
+  bytes: number;
+  skipped: Record<string, number>;
+  skipped_examples: { path: string; reason: string }[];
+  collisions: { count: number; examples: { path: string; kind: string }[] };
+  merged_folders: number;
+  free_bytes: number;
+  required_bytes: number;
+  fits: boolean;
+};
+export type Batch = {
+  id: string;
+  kind: "setup_folder" | "setup_zip" | "folder_upload";
+  status:
+    | "planned"
+    | "running"
+    | "done"
+    | "stopped"
+    | "failed"
+    | "cancelled"
+    | "expired";
+  target_node_id: string;
+  include_system: boolean;
+  plan: Plan;
+  counts: Record<string, number>;
+  error_code: string | null;
+  created_at: string;
+  updated_at: string;
+  // The per-file report was deleted by the retention job; the summary stays.
+  entries_pruned: boolean;
+};
+export type SetupInfo = { state: "open" | "closed"; batch: Batch | null };
+export type BatchEntry = {
+  index: number;
+  path: string;
+  kind: string;
+  size: number | null;
+  status: string;
+  reason: string | null;
+  result_name: string | null;
+};
+export type ResumeResult = {
+  pending: { index: number; path: string; size: number }[];
+  unmatched: number;
+};
+export type ScanInfo = {
+  scan_state: string | null;
+  counts: Record<string, number> | null;
+  reason: string | null;
 };
 export type Children = { items: Child[]; next_after: string | null };
 export type OpResult = {
@@ -151,4 +219,70 @@ export const api = {
       { headers: key() },
     ),
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
+
+  // Reconciliation (M06a routes, M06b UI)
+  rescan: (id: string) =>
+    call<{ status: string }>("POST", `/api/v1/nodes/${enc(id)}/rescan`),
+  dismiss: (id: string) =>
+    call<{ status: string }>("POST", `/api/v1/nodes/${enc(id)}/dismiss`),
+  scanInfo: (id: string) =>
+    call<ScanInfo>("GET", `/api/v1/nodes/${enc(id)}/scan`),
+  resolveScan: (id: string, action: "apply" | "keep") =>
+    call<{ status: string }>("POST", `/api/v1/nodes/${enc(id)}/scan/resolve`, {
+      action,
+    }),
+
+  // Setup window and imports
+  setupInfo: (root: string) =>
+    call<SetupInfo>("GET", `/api/v1/nodes/${enc(root)}/setup`),
+  finishSetup: (root: string, action: "finish" | "skip") =>
+    call<SetupInfo>("POST", `/api/v1/nodes/${enc(root)}/setup/finish`, {
+      action,
+    }),
+  planFolder: (
+    root: string,
+    entries: ManifestEntry[],
+    includeSystem: boolean,
+  ) =>
+    call<Batch>("POST", `/api/v1/nodes/${enc(root)}/setup/import`, {
+      entries,
+      include_system: includeSystem,
+    }),
+  planZip: (root: string, zip: File, includeSystem: boolean) =>
+    call<Batch>(
+      "POST",
+      `/api/v1/nodes/${enc(root)}/setup/import-zip?include_system=${includeSystem}`,
+      undefined,
+      { body: zip, headers: { "Content-Type": "application/zip" } },
+    ),
+  folderUpload: (target: string, entries: ManifestEntry[]) =>
+    call<Batch>("POST", `/api/v1/nodes/${enc(target)}/folder-uploads`, {
+      entries,
+    }),
+  // The caller's own unfinished batches (an interrupted folder upload can be resumed).
+  unfinishedImports: () => call<Batch[]>("GET", "/api/v1/imports"),
+  importInfo: (id: string) => call<Batch>("GET", `/api/v1/imports/${enc(id)}`),
+  importEntries: (id: string, status: string, after = -1) =>
+    call<{ items: BatchEntry[]; next_after: number | null }>(
+      "GET",
+      `/api/v1/imports/${enc(id)}/entries?status=${status}&after=${after}&limit=200`,
+    ),
+  startImport: (id: string) =>
+    call<Batch>("POST", `/api/v1/imports/${enc(id)}/start`),
+  resumeImport: (id: string, entries: ManifestEntry[]) =>
+    call<ResumeResult>("POST", `/api/v1/imports/${enc(id)}/resume`, {
+      entries,
+    }),
+  putEntry: (id: string, index: number, file: File) =>
+    call<{ index: number; status: string }>(
+      "PUT",
+      `/api/v1/imports/${enc(id)}/entries/${index}`,
+      undefined,
+      {
+        body: file,
+        headers: { "Content-Type": "application/octet-stream" },
+      },
+    ),
+  cancelImport: (id: string) =>
+    call<Batch>("POST", `/api/v1/imports/${enc(id)}/cancel`),
 };

@@ -41,6 +41,25 @@ class Settings(BaseSettings):
     # auto = detect from /proc/self/mountinfo; yes/no overrides detection.
     network_fs: Literal["auto", "yes", "no"] = "auto"
 
+    # --- Setup import and folder upload (M06b, ADR-011 §4, §5) ---
+    max_import_entries: int = Field(default=100_000, ge=1, le=500_000)  # per batch
+    max_zip_bytes: int = Field(default=10 * 1024**3, ge=1)  # the uploaded archive itself
+    # Total decompressed bytes of one archive, counted while streaming.
+    max_zip_uncompressed_bytes: int = Field(default=50 * 1024**3, ge=1)
+    # An entry that expands past 1 MiB at more than this ratio is refused as a decompression bomb.
+    max_zip_ratio: int = Field(default=1000, ge=1)
+    import_expiry_seconds: int = Field(default=7 * 24 * 3600, ge=1)
+    # Free space that must remain on the library filesystem after an import.
+    import_free_space_reserve_bytes: int = Field(default=1024**3, ge=0)
+    # Import reports (import_entry rows) are deleted this many days after a batch completes. The
+    # batch summary row is kept indefinitely; stopped batches and batches with failures are kept.
+    import_entry_retention_days: int = Field(default=90, ge=1)
+    # Folder uploads a person may leave unfinished at once.
+    max_open_folder_uploads: int = Field(default=5, ge=1)
+    # A running import pauses the reconciler of its root for at most this long (continuous); after
+    # that the scan proceeds and the root reports "scan delayed".
+    scan_pause_ceiling_seconds: int = Field(default=1800, ge=1)
+
     # --- Authentication (M02) ---
     # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at
     # startup and print it once in the API log while no administrator exists.

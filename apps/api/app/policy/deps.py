@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
-from app.db.models import FileOperation, Node
+from app.db.models import FileOperation, ImportBatch, Node
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 
@@ -98,6 +98,37 @@ class OperationAccess:
         return op
 
 
+class ImportAccess:
+    """Guard for import batches and their reports: visible to the actor who started the batch only.
+    Other people's and nonexistent ids are indistinguishable. Every entry commit still re-checks
+    the actor's authority through the policy engine (domain.imports.authorize)."""
+
+    policy_guard = True
+
+    def __call__(
+        self,
+        import_id: uuid.UUID,
+        request: Request,
+        principal: Principal = Depends(current_principal),
+        db: Session = Depends(get_db),
+    ) -> ImportBatch:
+        batch = db.get(ImportBatch, import_id)
+        if batch is None or batch.actor_user_id != principal.user.id:
+            raise _deny(db, request, principal, import_id, "import")
+        return batch
+
+
+class ImportListAccess:
+    """Guard for listing the caller's own unfinished import batches. It authenticates the caller
+    (session and CSRF) and returns the principal; the listing is filtered to that person's own
+    batches only, exactly the set `ImportAccess` would let them open."""
+
+    policy_guard = True
+
+    def __call__(self, principal: Principal = Depends(current_principal)) -> Principal:
+        return principal
+
+
 # Module-level singletons: FastAPI dependencies are cached by identity, and route signatures stay
 # free of calls in argument defaults.
 traverse_access = NodeAccess(Privilege.TRAVERSE)
@@ -105,3 +136,4 @@ list_access = NodeAccess(Privilege.LIST)
 read_access = NodeAccess(Privilege.READ)
 write_access = NodeAccess(Privilege.WRITE)
 grant_admin_access = GrantAdminAccess()
+import_list_access = ImportListAccess()

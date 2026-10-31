@@ -114,18 +114,18 @@
 
 ### M06 — Initial import and reconciliation
 
-> Split across sessions on one branch: **M06a** (reconciler, mount refusal, file events; implemented 2026-10-31, [design](docs/milestones/M06a-design-and-plan.md)) and **M06b** (setup import, folder upload, setup screens; not started). Unticked criteria below belong to M06b.
+> Split across sessions on one branch: **M06a** (reconciler, mount refusal, file events; implemented 2026-10-31, [design](docs/milestones/M06a-design-and-plan.md)) and **M06b** (setup window, setup import, folder upload, setup and state screens; implemented 2026-10-31, [design](docs/milestones/M06b-design-and-plan.md)). All criteria are met and tested; the Opus 5.5 security review of M06b was done 2026-10-31 and its findings are fixed (see the "Security review and fixes" section of the M06b design note: zip central-directory walk, authentication before manifest bodies, window closure by folder upload, destination re-check, bounded reconciler pause, one open setup batch per root, retention of import reports, full-page setup screen, resume of interrupted folder uploads). Owner sign-off of M06 is still pending.
 
 **Phase:** foundation · **Dependencies:** M05 · **Suggested Claude Code model:** Sonnet 5.5
 
 **Goal:** First-setup import (folder or zip, UI) into an empty shared tree or personal folder, folder upload, watcher + periodic rescan, external filesystem identity reconciliation (ADR-011).
 
 **Acceptance criteria:**
-- [ ] First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten
-- [ ] Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written
+- [x] First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten
+- [x] Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written
 - [x] A root on a separately mounted drive is refused, and mounted drives inside a managed folder are listed as unsupported and never entered
-- [ ] Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits
-- [ ] Folder upload after setup merges folders and keeps both on file conflicts
+- [x] Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits
+- [x] Folder upload after setup merges folders and keeps both on file conflicts
 - [x] External moves/renames reflected or flagged as uncertain
 - [x] External modifications attributed to external_filesystem
 - [x] Files removed outside the app shown as missing, never as deleted; mass disappearance suspends the root

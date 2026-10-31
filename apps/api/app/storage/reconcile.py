@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth import clock
 from app.config import Settings
 from app.db.models import FileOperation, Node, ScanRun, StorageRoot
-from app.domain import events
+from app.domain import events, setup
 from app.domain.fileops import serialize_tree_changes
 from app.domain.nodes import path_components
 from app.storage import files, roots
@@ -671,6 +671,7 @@ class Applier:
         node.last_seen_run = self.run_id
         db.add(node)
         db.flush()
+        setup.close_window(db, parent.root_id, "content")  # content found by a scan (ADR-011 §1)
         self._event(db, node.id, "external_created", name=name, kind=entry.kind)
         self.done["created"] += 1
         return node
@@ -943,6 +944,8 @@ class Reconciler:
                 root.status = "unsupported_mount"  # a drive was mounted over the root
                 db.commit()
                 return PassResult("skipped", {})
+            if setup.should_pause_scan(db, root, self.settings.scan_pause_ceiling_seconds):
+                return PassResult("skipped", {})  # a file is being written; the next pass looks
             run = ScanRun(
                 root_id=root_id,
                 trigger=trigger,

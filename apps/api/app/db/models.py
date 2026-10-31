@@ -101,6 +101,13 @@ class StorageRoot(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     scan_state: Mapped[str | None] = mapped_column(String(16), nullable=True)  # null | suspended
+    # open | closed (ADR-011 §1): the one-time window for a setup import; closed is final.
+    setup_state: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="open", server_default="open"
+    )
+    # Set while the reconciler skips this root because an import is writing into it; cleared by
+    # the first pass that finds no import writing. Bounded by `scan_pause_ceiling_seconds`.
+    scan_paused_since: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     fs_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     network_fs: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
@@ -303,3 +310,79 @@ class FileEvent(Base):
     action: Mapped[str] = mapped_column(String(24), nullable=False)
     source: Mapped[str] = mapped_column(String(8), nullable=False)  # ui|import|scan|watcher
     details: Mapped[Any] = mapped_column(Json, nullable=False)
+
+
+class ImportBatch(Base):
+    """One setup import or folder upload (ADR-011 §2). `plan` holds totals and example names the
+    importer supplied themselves, never host paths. Visible to its actor only."""
+
+    __tablename__ = "import_batch"
+    __table_args__ = (
+        # At most one unfinished setup import per root, whatever the request timing.
+        Index(
+            "uq_import_batch_open_setup",
+            "root_id",
+            unique=True,
+            sqlite_where=text(
+                "kind in ('setup_folder','setup_zip') and status in ('planned','running','stopped')"
+            ),
+            postgresql_where=text(
+                "kind in ('setup_folder','setup_zip') and status in ('planned','running','stopped')"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    target_node_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), index=True, nullable=False
+    )
+    # setup_folder | setup_zip | folder_upload
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    # planned | running | done | stopped | failed | cancelled | expired
+    status: Mapped[str] = mapped_column(String(12), index=True, nullable=False)
+    include_system: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    plan: Mapped[Any] = mapped_column(Json, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    staged_zip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Set when the retention job deleted this batch's import_entry rows (the summary stays).
+    entries_pruned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class ImportEntry(Base):
+    """Journal row for one folder or file of a batch: pending -> writing -> done | renamed |
+    skipped | failed (ADR-011 §2). `idx` is stable for the life of the batch."""
+
+    __tablename__ = "import_entry"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "idx", name="uq_import_entry_idx"),
+        Index("ix_import_entry_batch_status", "batch_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("import_batch.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    idx: Mapped[int] = mapped_column(Integer, nullable=False)
+    parent_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)  # cleaned; "" when skipped
+    path: Mapped[str] = mapped_column(Text, nullable=False)  # as the importer sent it, sanitized
+    kind: Mapped[str] = mapped_column(String(4), nullable=False)  # dir | file
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    mtime_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    src_index: Mapped[int | None] = mapped_column(Integer, nullable=True)  # position in the zip
+    status: Mapped[str] = mapped_column(String(8), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(32), nullable=True)  # skip or error code
+    node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    result_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dir_node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    tmp_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dst_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

@@ -6,10 +6,24 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import { ApiError, api, type Child, type NodeInfo } from "./api";
+import { ApiError, api, type Batch, type Child, type NodeInfo } from "./api";
 import { NameDialog, TargetDialog } from "./Dialogs";
 import { describeError, formatDate, formatSize } from "./format";
+import {
+  activeUploads,
+  droppedEntries,
+  fileMap,
+  forgetUpload,
+  fromInput,
+  pendingFiles,
+  readEntriesTree,
+  rememberUpload,
+  sendEntries,
+  toManifest,
+  type Picked,
+} from "./importer";
 import { folderPath } from "./route";
+import { ScanBanner } from "./ScanBanner";
 
 type Dialog = null | "folder" | "rename" | "move" | "copy";
 type Upload = {
@@ -19,14 +33,45 @@ type Upload = {
   code?: string;
 };
 
+type FolderJob = {
+  id: number;
+  name: string;
+  state: "uploading" | "done" | "error";
+  sent: number;
+  total: number;
+  failed: number;
+  kept: number;
+  code?: string;
+};
+
+// Why an entry is greyed out (ADR-011 section 9): shown, never hidden, never opened by the app.
+const UNSUPPORTED: Record<string, string> = {
+  symlink: "symbolic link",
+  special: "special file",
+  mounted_drive: "mounted drive",
+  invalid_name: "name not supported",
+  undecodable_name: "name cannot be read",
+};
+
 type Props = {
   folderId: string;
   go: (path: string) => void;
   onRoot: (id: string | null) => void;
   onEnded: () => void;
+  /** Open the full-page setup screen of the root this folder belongs to. */
+  onOpenSetup: () => void;
 };
 
-export function Browser({ folderId, go, onRoot, onEnded }: Props) {
+function rowClass(c: Child, selected: boolean): string | undefined {
+  const parts = [
+    selected ? "selected" : "",
+    c.kind === "other" ? "unsupported" : "",
+    c.status === "missing" ? "missing" : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const [info, setInfo] = useState<NodeInfo | null>(null);
   const [crumbs, setCrumbs] = useState<NodeInfo[]>([]);
   const [items, setItems] = useState<Child[]>([]);
@@ -41,7 +86,10 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
   const [errorText, setErrorText] = useState("");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [jobs, setJobs] = useState<FolderJob[]>([]);
+  const [tick, setTick] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const rows = useRef<(HTMLTableRowElement | null)[]>([]);
   const nextUpload = useRef(0);
 
@@ -91,7 +139,7 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
     return () => {
       live = false;
     };
-  }, [folderId, loadList, onRoot, fail]);
+  }, [folderId, loadList, onRoot, fail, tick]);
 
   const privileges = info?.my_privileges ?? [];
   const canWrite = privileges.includes("write");
@@ -111,6 +159,8 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
   async function refresh(): Promise<void> {
     try {
       await loadList();
+      // Also the folder itself: its setup window or scan state may have changed.
+      setInfo(await api.node(folderId));
     } catch (err) {
       setErrorText(fail(err));
     }
@@ -131,6 +181,96 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
     setDialog(null);
     setNotice(done);
     await refresh();
+  }
+
+  /** A folder upload (ADR-011 section 2): folders merge into folders of the same name, a file
+   * whose name is taken is kept next to the existing one, nothing is overwritten. */
+  async function runFolderUpload(picked: Picked): Promise<void> {
+    if (!canWrite || (picked.files.length === 0 && picked.dirs.length === 0))
+      return;
+    const id = nextUpload.current++;
+    const first = picked.files[0]?.path ?? picked.dirs[0] ?? "folder";
+    const name = first.split("/")[0]!;
+    const patch = (p: Partial<FolderJob>): void =>
+      setJobs((all) => all.map((j) => (j.id === id ? { ...j, ...p } : j)));
+    setJobs((all) => [
+      ...all,
+      {
+        id,
+        name,
+        state: "uploading",
+        sent: 0,
+        total: picked.files.length,
+        failed: 0,
+        kept: 0,
+      },
+    ]);
+    try {
+      const batch = await api.folderUpload(folderId, toManifest(picked));
+      rememberUpload(batch.id); // so a reload can offer to continue it
+      activeUploads.add(batch.id);
+      let final: Batch;
+      let result: Awaited<ReturnType<typeof sendEntries>>;
+      try {
+        const todo = await pendingFiles(batch.id);
+        result = await sendEntries(
+          batch.id,
+          todo,
+          fileMap(picked),
+          (sent, failed) => patch({ sent, failed }),
+        );
+        final = await api.importInfo(batch.id);
+      } finally {
+        activeUploads.delete(batch.id);
+      }
+      if (final.status === "done" || final.status === "cancelled")
+        forgetUpload(batch.id);
+      // Files that never reached the server (a lost connection) are failures too.
+      const failed = Math.max(final.counts.failed ?? 0, result.failed);
+      patch({
+        state: result.stoppedBy || failed > 0 ? "error" : "done",
+        code: result.stoppedBy ?? (failed > 0 ? "UPLOAD_FAILED" : undefined),
+        kept: final.counts.renamed ?? 0,
+        total: final.plan.files,
+        failed,
+      });
+      setNotice(
+        failed > 0 || result.stoppedBy
+          ? `Folder ${name} was not uploaded completely`
+          : `Uploaded folder ${name}`,
+      );
+    } catch (err) {
+      patch({
+        state: "error",
+        code: err instanceof ApiError ? err.code : "UNKNOWN",
+      });
+      if (err instanceof ApiError && err.status === 401) onEnded();
+    }
+    await refresh();
+  }
+
+  async function rescan(): Promise<void> {
+    try {
+      await api.rescan(folderId);
+      setNotice(
+        "Rescan requested. Changes made outside the app appear shortly.",
+      );
+      setTimeout(() => void refresh(), 3000);
+    } catch (err) {
+      setErrorText(fail(err));
+    }
+  }
+
+  async function dismissSelected(): Promise<void> {
+    if (!selected) return;
+    try {
+      await api.dismiss(selected.id);
+      setNotice(`Removed ${selected.name} from the list`);
+      setSelectedId(null);
+      await refresh();
+    } catch (err) {
+      setErrorText(fail(err));
+    }
   }
 
   async function runUploads(files: File[]): Promise<void> {
@@ -167,10 +307,13 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
     e.preventDefault();
     setDragging(false);
     if (!canWrite) return;
-    // Folders dropped from the desktop are not files; only plain files are uploaded.
-    const files = [...e.dataTransfer.files].filter(
-      (f) => f.type !== "" || f.size > 0,
-    );
+    // The entries must be taken now: the item list is cleared when the handler returns.
+    const entries = droppedEntries(e.dataTransfer.items);
+    if (entries.some((x) => x.isDirectory)) {
+      void readEntriesTree(entries).then(runFolderUpload);
+      return;
+    }
+    const files = [...e.dataTransfer.files];
     if (files.length > 0) void runUploads(files);
   }
 
@@ -205,7 +348,7 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
         e.preventDefault();
         return;
       case "F2":
-        if (canWrite) {
+        if (canWrite && item.kind !== "other" && item.status === "active") {
           setSelectedId(item.id);
           setDialog("rename");
           e.preventDefault();
@@ -287,6 +430,26 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
         >
           Upload here
         </button>
+        <input
+          ref={folderInput}
+          type="file"
+          multiple
+          hidden
+          data-testid="folder-upload-input"
+          {...{ webkitdirectory: "" }}
+          onChange={(e) => {
+            const chosen = fromInput(e.target.files);
+            e.target.value = "";
+            void runFolderUpload(chosen);
+          }}
+        />
+        <button
+          disabled={!canWrite}
+          title={noWrite}
+          onClick={() => folderInput.current?.click()}
+        >
+          Upload folder
+        </button>
         <button
           disabled={!canWrite}
           title={noWrite}
@@ -294,8 +457,37 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
         >
           New folder
         </button>
+        <button onClick={() => void rescan()}>Rescan</button>
         {!canWrite && <span className="hint">Read-only</span>}
       </div>
+
+      {info.parent_id === null &&
+        info.can_manage &&
+        info.setup_state === "open" && (
+          <p className="banner" role="note">
+            This folder has not been set up yet.{" "}
+            <button onClick={onOpenSetup}>Set up…</button>
+          </p>
+        )}
+      {info.parent_id === null && info.can_manage && info.scan_delayed && (
+        <p className="banner warn" role="note">
+          Syncing from disk was delayed while an upload was running, so changes
+          made outside the app may appear late. It catches up when the upload
+          ends.
+        </p>
+      )}
+      {info.parent_id === null &&
+        info.can_manage &&
+        info.scan_state === "suspended" && (
+          <ScanBanner
+            root={info}
+            onEnded={onEnded}
+            onResolved={() => {
+              setNotice("Your choice was saved.");
+              setTimeout(() => setTick((t) => t + 1), 2500);
+            }}
+          />
+        )}
 
       <p role="status" className="sr-only">
         {notice}
@@ -303,6 +495,34 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
       <p role="alert" className="error">
         {errorText}
       </p>
+
+      {jobs.length > 0 && (
+        <ul className="uploads" aria-label="Folder uploads">
+          {jobs.map((j) => (
+            <li key={j.id}>
+              <span>{j.name}</span>
+              <span>
+                {j.state === "uploading" &&
+                  `Uploading… ${j.sent} of ${j.total} files`}
+                {j.state === "done" &&
+                  `Done, ${j.total} files${j.kept > 0 ? `, ${j.kept} kept next to a file with the same name` : ""}`}
+                {j.state === "error" &&
+                  `${describeError(j.code ?? "UNKNOWN")}${j.failed > 0 ? ` (${j.failed} failed)` : ""}`}
+              </span>
+              {j.state !== "uploading" && (
+                <button
+                  aria-label={`Dismiss ${j.name}`}
+                  onClick={() =>
+                    setJobs((all) => all.filter((x) => x.id !== j.id))
+                  }
+                >
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {uploads.length > 0 && (
         <ul className="uploads" aria-label="Uploads">
@@ -368,7 +588,7 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
                     role="row"
                     tabIndex={ix === focusIx ? 0 : -1}
                     aria-selected={c.id === selectedId}
-                    className={c.id === selectedId ? "selected" : undefined}
+                    className={rowClass(c, c.id === selectedId)}
                     onFocus={(e) => {
                       if (e.target === e.currentTarget) setFocusIx(ix);
                     }}
@@ -380,7 +600,11 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
                   >
                     <td>
                       <span aria-hidden="true">
-                        {c.kind === "dir" ? "📁 " : "📄 "}
+                        {c.kind === "dir"
+                          ? "📁 "
+                          : c.kind === "other"
+                            ? "⛔ "
+                            : "📄 "}
                       </span>
                       {c.kind === "dir" ? (
                         <a
@@ -396,8 +620,26 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
                       ) : (
                         c.name
                       )}
-                      {c.status !== "active" && (
+                      {c.kind === "other" && (
+                        <em className="flag">
+                          {" "}
+                          (not supported:{" "}
+                          {UNSUPPORTED[c.unsupported_reason ?? ""] ?? "unknown"}
+                          )
+                        </em>
+                      )}
+                      {c.status === "missing" && (
+                        <em className="flag"> (missing, rescan needed)</em>
+                      )}
+                      {c.status !== "active" && c.status !== "missing" && (
                         <em className="flag"> (needs rescan)</em>
+                      )}
+                      {c.name_collision && (
+                        <em className="flag">
+                          {" "}
+                          (name differs only by case or accents from another
+                          item)
+                        </em>
                       )}
                     </td>
                     <td className="num">{formatSize(c.size)}</td>
@@ -430,37 +672,68 @@ export function Browser({ folderId, go, onRoot, onEnded }: Props) {
                 <dt>Modified</dt>
                 <dd>{formatDate(selected.updated_at)}</dd>
               </dl>
+              {selected.kind === "other" && (
+                <p className="hint">
+                  Not supported:{" "}
+                  {UNSUPPORTED[selected.unsupported_reason ?? ""] ?? "unknown"}.
+                  The app lists it but never opens or changes it.
+                </p>
+              )}
+              {selected.status === "missing" && (
+                <p className="hint">
+                  This item was removed outside the app. Nothing was deleted
+                  here. If it comes back, a rescan finds it again.
+                </p>
+              )}
               <div className="actions column">
-                {selected.kind === "file" && privileges.includes("read") && (
-                  <a
-                    className="button"
-                    href={api.downloadUrl(selected.id)}
-                    download
-                  >
-                    Download
-                  </a>
+                {selected.status === "missing" && (
+                  <>
+                    <button onClick={() => void rescan()}>Rescan</button>
+                    <button
+                      disabled={!canWrite}
+                      title={noWrite}
+                      onClick={() => void dismissSelected()}
+                    >
+                      Remove from list
+                    </button>
+                  </>
                 )}
-                <button
-                  disabled={!canWrite}
-                  title={noWrite}
-                  onClick={() => setDialog("rename")}
-                >
-                  Rename
-                </button>
-                <button
-                  disabled={!canWrite}
-                  title={noWrite}
-                  onClick={() => setDialog("move")}
-                >
-                  Move…
-                </button>
-                <button
-                  disabled={!canWrite}
-                  title={noWrite}
-                  onClick={() => setDialog("copy")}
-                >
-                  Copy…
-                </button>
+                {selected.kind === "file" &&
+                  selected.status === "active" &&
+                  privileges.includes("read") && (
+                    <a
+                      className="button"
+                      href={api.downloadUrl(selected.id)}
+                      download
+                    >
+                      Download
+                    </a>
+                  )}
+                {selected.kind !== "other" && selected.status === "active" && (
+                  <>
+                    <button
+                      disabled={!canWrite}
+                      title={noWrite}
+                      onClick={() => setDialog("rename")}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      disabled={!canWrite}
+                      title={noWrite}
+                      onClick={() => setDialog("move")}
+                    >
+                      Move…
+                    </button>
+                    <button
+                      disabled={!canWrite}
+                      title={noWrite}
+                      onClick={() => setDialog("copy")}
+                    >
+                      Copy…
+                    </button>
+                  </>
+                )}
               </div>
             </>
           ) : (
