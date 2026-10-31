@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
 from app.backup.engine import BackupEngine, RunResult
+from app.backup.restore import sweep_stale
 from app.backup.store import load_config
+from app.backup.volume import inspect_volume
 from app.config import Settings, backup_dir
 from app.db.models import BackupRun, StorageRoot
 
@@ -40,6 +42,12 @@ class BackupService:
             self.engine.recover_interrupted()
         except Exception as exc:  # never blocks serving
             log.warning("backup recovery failed: %s", type(exc).__name__)
+        try:  # half-built restore folders of a crashed run (staging names, never shown)
+            sweep_stale(self.sessions, self.settings)
+        except Exception as exc:
+            log.warning("restore cleanup failed: %s", type(exc).__name__)
+        if inspect_volume(self.settings).reason == "nested":
+            log.error("backup volume is the library, the app data or a storage root: runs refused")
         if not self.settings.backup_scheduler_enabled:
             return
         self._thread = threading.Thread(target=self._loop, name="fc-backup", daemon=True)

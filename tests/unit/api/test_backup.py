@@ -30,6 +30,7 @@ from test_reconcile import root_id, row, scan
 
 from app.backup import cli, crypto, retention
 from app.backup import engine as engine_mod
+from app.backup import restore as restore_mod
 from app.backup.engine import BackupEngine, RunResult, open_tar
 from app.backup.service import BackupService
 from app.backup.store import KEY_KEY, SETTINGS_KEY, load_config
@@ -878,7 +879,7 @@ def test_archives_are_encrypted_by_default_with_a_one_time_key(
     assert r.encrypted and r.key_fingerprint == crypto.recovery_key_fingerprint(key)
     a = archives(fx)[0]
     raw = a.read_bytes()
-    assert a.name == "0001-full.tar.gz.fcb" and raw[:4] == b"FCB1"
+    assert a.name == "0001-full.tar.gz.fcb" and raw[:4] == b"FCB2"
     assert MARKER not in raw and MARKER_NAME.encode() not in raw  # not even in file names
     assert b"\x1f\x8b" not in raw[:8]
     assert members(a, key)[f"files/Taxes/{MARKER_NAME}.txt"] == MARKER
@@ -1173,21 +1174,53 @@ def test_damaged_archive_leaves_no_half_restored_folder(fx: Fx, alice: Api) -> N
     assert tree(lib_root(fx)) == before
 
 
-def test_unsafe_archive_members_are_refused(fx: Fx, alice: Api, tmp_path: Path) -> None:
+def swap_archive(fx: Fx, path: Path, data: bytes) -> None:
+    """Replaces an archive on the volume and makes the database agree with the new bytes, as if
+    the file had been the one the run wrote (what a forger who also reached the database would
+    do; the checks that remain are the ones inside the archive)."""
+    import hashlib
+
+    path.write_bytes(data)
+    with fx.w.ctx.sessions() as db:
+        for r in db.scalars(select(BackupRun)):
+            if r.archive_name and (volume_dir(fx) / r.archive_name) == path:
+                r.size_bytes, r.archive_sha256 = len(data), hashlib.sha256(data).hexdigest()
+        db.commit()
+
+
+def forged_tar(fx: Fx, run: BackupRun, members: list[tuple[str, bytes]], **meta: Any) -> bytes:
     import io
+    import json
     import tarfile
 
+    head = {
+        "format": 1,
+        "root_id": str(run.root_id),
+        "chain_id": run.chain_id,
+        "seq": run.seq,
+        "kind": run.kind,
+        **meta,
+    }
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, content in [("meta/run.json", json.dumps(head).encode()), *members]:
+            ti = tarfile.TarInfo(name)
+            ti.size = len(content)
+            tar.addfile(ti, io.BytesIO(content))
+    return buf.getvalue()
+
+
+def test_unsafe_archive_members_are_refused(fx: Fx, alice: Api, tmp_path: Path) -> None:
     alice.upload(fx.taxes, "a.txt", b"a")
     enable(fx)
     run_ok(fx)
     a = archives(fx)[0]
-    evil = tmp_path / "evil.tar.gz"
-    with tarfile.open(evil, "w:gz") as tar:
-        for name in ("files/../../escape.txt", "files/ok/../../x", "files//abs"):
-            ti = tarfile.TarInfo(name)
-            ti.size = 3
-            tar.addfile(ti, io.BytesIO(b"bad"))
-    a.write_bytes(evil.read_bytes())
+    evil = forged_tar(
+        fx,
+        runs(fx)[0],
+        [(n, b"bad") for n in ("files/../../escape.txt", "files/ok/../../x", "files//abs")],
+    )
+    swap_archive(fx, a, evil)
     r = restore(alice, fx.alice_root)
     assert (r.status_code, code(r)) == (422, "BACKUP_ARCHIVE_UNSAFE")
     assert not (tmp_path / "escape.txt").exists() and not (tmp_path / "library" / "x").exists()
@@ -1300,3 +1333,444 @@ def test_engine_stop_event_ends_a_run(fx: Fx, alice: Api) -> None:
     result = engine.run_root(root_id(fx, fx.alice_root))
     assert result.status == "failed"
     assert not [p for p in volume_dir(fx).rglob("*") if p.is_file()]
+
+
+# ------------------------------------------------------------------ M06c review fixes
+
+
+def audit_actions(fx: Fx, action: str) -> list[AuthAudit]:
+    return [a for a in fx.w.db_rows(AuthAudit) if a.action == action]
+
+
+def status_of(fx: Fx) -> dict[str, Any]:
+    body: dict[str, Any] = fx.admin[0].get("/api/v1/admin/backups", headers=fx.admin[1]).json()
+    return body
+
+
+def test_a_prune_failure_never_destroys_the_runs_own_verified_archive(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    populate(fx, alice, 40_000)
+    enable(fx, full_every=1, min_chains_kept=2, max_size_bytes=10**9)
+    for _ in range(2):
+        run_ok(fx)
+
+    def boom(*a: Any, **k: Any) -> Any:
+        raise RuntimeError("database went away while pruning")
+
+    real_prune = retention.prune_to_limit
+    monkeypatch.setattr(retention, "prune_to_limit", boom)
+    result = run(fx)
+    assert result.status == "ok"  # the run was committed; pruning is a separate step
+    newest = next(r for r in runs(fx) if r.id == result.run_id)
+    assert newest.status == "ok" and newest.pruned_at is None
+    assert (volume_dir(fx) / (newest.archive_name or "")).is_file()
+    assert runs(fx, status="failed") == []
+    failures = audit_actions(fx, "backup.prune_failed")
+    assert len(failures) == 1 and failures[0].details["error"] == "RuntimeError"
+    assert "prune_failed" in status_of(fx)["warnings"]
+    monkeypatch.setattr(retention, "prune_to_limit", real_prune)
+    fx.w.advance(minutes=61)
+    assert run(fx).status == "ok"
+    assert "prune_failed" not in status_of(fx)["warnings"]  # cleared by the next good run
+
+
+def test_pruning_marks_rows_before_unlinking_and_survives_file_errors(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    populate(fx, alice, 60_000)
+    enable(fx, full_every=1, min_chains_kept=2, max_size_bytes=10**9)
+    for _ in range(3):
+        run_ok(fx)
+    oldest = runs(fx)[0]
+    one = sum(r.size_bytes or 0 for r in runs(fx)) // 3
+    enable(fx, full_every=1, min_chains_kept=2, max_size_bytes=int(one * 3.5))
+    seen_marked: list[bool] = []
+    real_unlink = Path.unlink
+
+    def refusing(self: Path, *a: Any, **k: Any) -> None:
+        if oldest.chain_id in str(self):
+            with fx.w.ctx.sessions() as db:
+                row = db.get(BackupRun, oldest.id)
+                assert row is not None
+                seen_marked.append(row.pruned_at is not None)
+            raise PermissionError("read-only volume")  # an OSError that is not FileNotFound
+        real_unlink(self, *a, **k)
+
+    monkeypatch.setattr(Path, "unlink", refusing)
+    result = run(fx)
+    assert result.status == "ok"
+    monkeypatch.setattr(Path, "unlink", real_unlink)
+    assert seen_marked and all(seen_marked)  # committed as pruned before the first unlink
+    newest = next(r for r in runs(fx, status=None) if r.id == result.run_id)
+    assert newest.status == "ok" and (volume_dir(fx) / (newest.archive_name or "")).is_file()
+    failures = audit_actions(fx, "backup.prune_failed")
+    assert failures and failures[0].details["error"] == "FILES_NOT_REMOVED"
+    assert failures[0].details["files"] >= 1
+    assert "prune_failed" in status_of(fx)["warnings"]
+    assert oldest.chain_id not in chains_on_disk(fx)  # no row promises the stuck archive
+
+
+def test_restore_verifies_each_archive_against_the_database_before_extracting(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    key = make_restore_fixture(fx, alice, encrypt=False)
+    assert key is None
+    a = archives(fx)[0]
+    original = a.read_bytes()
+
+    def no_writer(*args: Any, **kw: Any) -> Any:
+        raise AssertionError("extraction started before the archive was verified")
+
+    monkeypatch.setattr(restore_mod, "_Writer", no_writer)
+    before = tree(lib_root(fx))
+    a.write_bytes(original + b"x")  # size differs
+    r = restore(alice, fx.alice_root)
+    assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED")
+    flipped = bytearray(original)
+    flipped[len(flipped) // 2] ^= 0x01  # same size, different bytes
+    a.write_bytes(bytes(flipped))
+    r = restore(alice, fx.alice_root)
+    assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED")
+    assert tree(lib_root(fx)) == before
+
+
+def test_restore_refuses_an_archive_that_names_another_run(fx: Fx, alice: Api) -> None:
+    make_restore_fixture(fx, alice, encrypt=False)
+    a = archives(fx)[0]
+    run_row = runs(fx)[0]
+    good = [("files/x.txt", b"x")]
+    for wrong in ({"seq": 7}, {"chain_id": "other-chain"}, {"root_id": str(uuid.uuid4())}):
+        swap_archive(fx, a, forged_tar(fx, run_row, good, **wrong))
+        r = restore(alice, fx.alice_root)
+        assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED"), wrong
+    swap_archive(fx, a, forged_tar(fx, run_row, good))  # the same bytes with the right names
+    assert restore(alice, fx.alice_root).status_code == 200
+    assert not any(p.name.startswith(restore_mod.RESTORE_TMP) for p in lib_root(fx).iterdir())
+
+
+def test_encrypted_archive_is_bound_to_its_run_and_cannot_be_moved(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    key = enable(fx, encrypt=True, acknowledge_unencrypted=False, full_every=5)["recovery_key"]
+    run_ok(fx)
+    alice.upload(fx.taxes, "b.txt", b"b")
+    run_ok(fx)
+    first, second = archives(fx)
+    row = runs(fx)[1]
+    ctx_ok = crypto.archive_context(row.root_id, row.chain_id, 2)
+    with open(second, "rb") as fh:
+        assert crypto.DecryptingReader(fh, recovery_key=key, context=ctx_ok).context == ctx_ok
+    wrong = crypto.archive_context(row.root_id, row.chain_id, 1)
+    with open(second, "rb") as fh, pytest.raises(crypto.DecryptionError):
+        crypto.DecryptingReader(fh, recovery_key=key, context=wrong)
+    # an old, genuine archive of the same chain put in the place of the newest one
+    swap_archive(fx, second, first.read_bytes())
+    before = tree(lib_root(fx))
+    r = restore(alice, fx.alice_root, recovery_key=key)
+    assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED")
+    assert tree(lib_root(fx)) == before
+
+
+def test_a_header_that_changes_the_context_fails_authentication() -> None:
+    import io
+
+    recovery, public, _ = crypto.generate_keypair()
+    sink = io.BytesIO()
+    w = crypto.EncryptingWriter(sink, crypto.parse_public_key(public), b"ctx-A")
+    w.write(b"payload")
+    w.close()
+    raw = bytearray(sink.getvalue())
+    assert raw[:4] == b"FCB2"
+    raw[42:47] = b"ctx-B"
+    with pytest.raises(crypto.DecryptionError):
+        crypto.DecryptingReader(io.BytesIO(bytes(raw)), recovery_key=recovery).readall()
+
+
+def test_a_low_order_ephemeral_key_is_a_decryption_error_not_a_crash() -> None:
+    import io
+    import struct
+
+    recovery = crypto.generate_keypair()[0]
+    header = crypto.MAGIC + bytes(32) + bytes(4) + struct.pack(">H", 0)
+    with pytest.raises(crypto.DecryptionError):
+        crypto.DecryptingReader(io.BytesIO(header + b"\0" * 40), recovery_key=recovery)
+
+
+def test_a_run_on_an_emptied_or_unreadable_mount_is_refused_and_does_not_count(
+    fx: Fx, alice: Api
+) -> None:
+    for i in range(14):
+        alice.upload(fx.taxes, f"f{i}.txt", b"file %d" % i)
+    enable(fx, full_every=1, min_chains_kept=1)
+    run_ok(fx)
+    assert len(chains_on_disk(fx)) == 1
+    good_archive = archives(fx)[0]
+    for item in (lib_root(fx) / "Taxes").iterdir():  # the mount came back empty
+        if item.is_file():
+            item.unlink()
+    result = run(fx)
+    assert (result.status, result.code) == ("refused", "BACKUP_SOURCE_UNREADABLE")
+    assert len(chains_on_disk(fx)) == 1 and good_archive.is_file()  # nothing new, nothing lost
+    assert not [p for p in volume_dir(fx).rglob(".tmp-*")]
+    assert "source_unreadable" in status_of(fx)["warnings"]
+    fx.w.advance(minutes=61)
+    assert run(fx).status == "refused"  # retried each interval, never forced
+
+
+def test_a_few_unreadable_files_do_not_stop_a_backup(fx: Fx, alice: Api) -> None:
+    for i in range(14):
+        alice.upload(fx.taxes, f"f{i}.txt", b"file %d" % i)
+    enable(fx)
+    for i in range(3):
+        (lib_root(fx) / "Taxes" / f"f{i}.txt").unlink()
+    assert run(fx).status == "ok"
+
+
+def test_a_replaced_root_directory_is_refused(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx)
+    with fx.w.ctx.sessions() as db:
+        top = db.scalars(
+            select(Node).where(Node.root_id == root_id(fx, fx.alice_root), Node.parent_id.is_(None))
+        ).one()
+        top.fs_dev, top.fs_ino = 4242, 4242  # what the reconciler recorded is another directory
+        db.commit()
+    result = run(fx)
+    assert (result.status, result.code) == ("refused", "BACKUP_SOURCE_CHANGED")
+    assert not list(volume_dir(fx).rglob("*.tar.gz"))
+
+
+def test_restore_needs_an_active_idle_root(fx: Fx, alice: Api) -> None:
+    key = make_restore_fixture(fx, alice)
+    before = tree(lib_root(fx))
+    for values in ({"scan_state": "suspended"}, {"scan_paused_since": datetime.now(UTC)}):
+        set_root(fx, fx.alice_root, scan_state=None, status="active", scan_paused_since=None)
+        set_root(fx, fx.alice_root, **values)
+        r = restore(alice, fx.alice_root, recovery_key=key)
+        assert (r.status_code, code(r)) == (409, "ROOT_NOT_ACTIVE"), values
+    for status, expected in (("disabled", 403), ("missing", 409)):  # disabled: policy says no
+        set_root(fx, fx.alice_root, scan_state=None, status=status, scan_paused_since=None)
+        assert restore(alice, fx.alice_root, recovery_key=key).status_code == expected, status
+    set_root(fx, fx.alice_root, scan_state=None, status="active", scan_paused_since=None)
+    assert tree(lib_root(fx)) == before
+
+
+def test_deletions_for_parents_that_were_never_restored_create_nothing(fx: Fx, alice: Api) -> None:
+    make_restore_fixture(fx, alice, encrypt=False)
+    run_row = runs(fx)[0]
+    deleted = b"ghost/deep/file.txt\nnope/sub/\nTaxes\n"
+    members_in = [("meta/deleted.txt", deleted), ("files/keep.txt", b"k")]
+    swap_archive(fx, archives(fx)[0], forged_tar(fx, run_row, members_in))
+    r = restore(alice, fx.alice_root)
+    assert r.status_code == 200, r.text
+    folder = lib_root(fx) / r.json()["folder_name"]
+    assert sorted(p.name for p in folder.rglob("*")) == ["keep.txt"]  # no ghost/ or nope/ folders
+
+
+def test_key_creation_and_rotation_are_serialised_and_report_the_fingerprint(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.backup import store
+
+    first = enable(fx, encrypt=True, acknowledge_unencrypted=False)
+    assert first["recovery_key"]
+    assert first["recovery_key_fingerprint"] == first["key"]["fingerprint"]
+    again = enable(fx, encrypt=True, acknowledge_unencrypted=False)
+    assert again["recovery_key"] is None  # the one-time key is never made twice
+    assert again["key"]["fingerprint"] == first["key"]["fingerprint"]
+    c, h = fx.admin
+    stale = c.post(
+        "/api/v1/admin/backups/key/rotate",
+        json={"expected_fingerprint": "0123456789abcdef"},
+        headers=h,
+    )
+    assert (stale.status_code, code(stale)) == (409, "KEY_CHANGED")
+    assert status_of(fx)["key"]["fingerprint"] == first["key"]["fingerprint"]
+    rotated = c.post(
+        "/api/v1/admin/backups/key/rotate",
+        json={"expected_fingerprint": first["key"]["fingerprint"]},
+        headers=h,
+    ).json()
+    assert rotated["recovery_key"]
+    assert rotated["recovery_key_fingerprint"] == rotated["key"]["fingerprint"]
+    assert rotated["key"]["fingerprint"] != first["key"]["fingerprint"]
+    # the request that lost a creation race gets no key and changes nothing
+    with fx.w.ctx.sessions() as db:
+        assert store.create_key_if_absent(db) is None
+    with fx.w.ctx.sessions() as db:
+        monkeypatch.setattr(store, "_lock_key_row", lambda _db: None)
+        assert store.create_key_if_absent(db) is None  # the primary key refuses a second insert
+    assert status_of(fx)["key"]["fingerprint"] == rotated["key"]["fingerprint"]
+
+
+def test_administrator_status_hides_per_user_counts_of_personal_roots(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    Api(fx, "bob").upload(fx.shared_sub, "s.txt", b"s")
+    enable(fx)
+    run_ok(fx)
+    run_ok(fx, fx.shared_root)
+    status = status_of(fx)
+    personal = next(r for r in status["roots"] if r["kind"] == "personal" and r["last_run"])
+    shared = next(r for r in status["roots"] if r["kind"] == "shared")
+    counted = ("files_added", "files_changed", "files_deleted", "files_missing", "files_unstable")
+    assert personal["last_run"]["status"] == "ok" and personal["last_run"]["size_bytes"]
+    assert all(personal["last_run"][k] is None for k in counted)
+    assert shared["last_run"]["files_added"] >= 1  # the shared tree is the administrator's own
+    points = alice.get(f"/nodes/{fx.alice_root}/backups").json()
+    assert points[0]["files_added"] >= 1  # the owner still sees their own counts
+
+
+def test_backup_directory_that_is_the_library_by_another_path_is_refused(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app import config
+    from app.backup import volume
+
+    backup = Path(fx.w.settings.backup_path)
+    real = volume.path_identity
+    shared_dir = fx.w.settings.library_path / "shared"
+
+    def same_inode(p: Path) -> tuple[int, int] | None:
+        return (77, 77) if p in (backup, shared_dir) else real(p)
+
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx)
+    monkeypatch.setattr(volume, "path_identity", same_inode)
+    vol = inspect_volume(fx.w.settings)
+    assert (vol.usable, vol.reason) == (False, "nested")
+    result = run(fx)
+    assert (result.status, result.code) == ("refused", "BACKUP_VOLUME_UNAVAILABLE")
+    assert "volume_nested" in status_of(fx)["warnings"]
+    r = put_settings(fx)
+    assert (r.status_code, code(r)) == (409, "BACKUP_VOLUME_UNAVAILABLE")
+    # the same check against the library and the app data, when the application starts
+    library = fx.w.settings.library_path.resolve()
+    monkeypatch.setattr(
+        config,
+        "path_identity",
+        lambda p: (77, 77) if p.resolve() in (backup.resolve(), library) else None,
+    )
+    with pytest.raises(ValueError, match="same directory"):
+        Settings(  # type: ignore[call-arg]
+            database_url="postgresql+psycopg://u:p@h/db",
+            library_path=fx.w.settings.library_path,
+            app_data_path=tmp_path / "other-data",
+            backup_path=str(backup),
+        )
+
+
+def test_restore_is_built_under_a_staging_name_and_published_at_the_end(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    key = make_restore_fixture(fx, alice)
+    listings: list[list[str]] = []
+    real = restore_mod._Writer.write_file
+
+    def spy(self: Any, rel: str, source: Any, mtime: int) -> None:
+        listings.append(sorted(p.name for p in lib_root(fx).iterdir()))
+        real(self, rel, source, mtime)
+
+    monkeypatch.setattr(restore_mod._Writer, "write_file", spy)
+    r = restore(alice, fx.alice_root, recovery_key=key)
+    assert r.status_code == 200
+    assert listings
+    for names in listings:  # while files are being written the final name does not exist yet
+        assert not any(n.startswith("Restored from backup") for n in names)
+        assert any(n.startswith(restore_mod.RESTORE_TMP) for n in names)
+    final = sorted(p.name for p in lib_root(fx).iterdir())
+    assert r.json()["folder_name"] in final
+    assert not any(n.startswith(restore_mod.RESTORE_TMP) for n in final)
+
+
+def test_stale_restore_staging_folders_are_swept_at_startup(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx)
+    stale = lib_root(fx) / f"{restore_mod.RESTORE_TMP}deadbeef"
+    (stale / "Taxes" / "deep").mkdir(parents=True)
+    (stale / "Taxes" / "deep" / "x.txt").write_bytes(b"half")
+    svc = service(fx)
+    svc.start()
+    svc.stop()
+    assert not stale.exists()
+    assert (lib_root(fx) / "Taxes" / "a.txt").is_file()  # real data untouched
+
+
+def test_storage_errors_during_restore_become_a_clean_failure(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.storage.resolver import StorageEscape
+
+    key = make_restore_fixture(fx, alice)
+    before = tree(lib_root(fx))
+
+    def escape(self: Any, *a: Any, **k: Any) -> None:
+        raise StorageEscape("unsafe path component")
+
+    monkeypatch.setattr(restore_mod._Writer, "write_file", escape)
+    r = restore(alice, fx.alice_root, recovery_key=key)
+    assert (r.status_code, code(r)) == (500, "RESTORE_FAILED")
+    assert tree(lib_root(fx)) == before
+    assert audit_actions(fx, "backup.restore_failed")[-1].details["code"] == "RESTORE_FAILED"
+
+
+def test_oversized_deletion_list_and_manifest_are_refused(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    make_restore_fixture(fx, alice, encrypt=False)
+    a = archives(fx)[0]
+    swap_archive(fx, a, forged_tar(fx, runs(fx)[0], [("meta/deleted.txt", b"x/\n" * 100)]))
+    monkeypatch.setattr(restore_mod, "MAX_DELETED_BYTES", 50)
+    r = restore(alice, fx.alice_root)
+    assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED")
+    monkeypatch.setattr(restore_mod, "MAX_DELETED_BYTES", 128 * 1024 * 1024)
+    # an honest archive whose manifest is above the cap is not read into memory
+    fx.w.advance(minutes=61)
+    alice.upload(fx.taxes, "again.txt", b"again")
+    newest = run_ok(fx)
+    path = volume_dir(fx) / (newest.archive_name or "")
+    monkeypatch.setattr(engine_mod, "MAX_MANIFEST_BYTES", 10)
+    with pytest.raises(ValueError, match="manifest is larger"):
+        engine_mod.verify_archive(path, None, None, None)
+
+
+def test_archive_metadata_names_user_ids_and_roles_only(fx: Fx, alice: Api) -> None:
+    import json
+
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx)
+    run_ok(fx)
+    raw = members(archives(fx)[0])["meta/metadata.json"]
+    meta = json.loads(raw)
+    assert meta["users"] and all(set(u) == {"id", "role"} for u in meta["users"])
+    flat = raw.decode()
+    assert "@example.com" not in flat and "email" not in flat
+
+
+def test_first_verified_run_records_the_root_identity_and_a_swap_is_then_refused(
+    fx: Fx, alice: Api
+) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx, full_every=5)
+    run_ok(fx)
+    with fx.w.ctx.sessions() as db:
+        top = db.scalars(
+            select(Node).where(Node.root_id == root_id(fx, fx.alice_root), Node.parent_id.is_(None))
+        ).one()
+        info = os.stat(lib_root(fx))
+        assert (top.fs_dev, top.fs_ino) == (info.st_dev, info.st_ino)
+    top_dir = lib_root(fx)
+    moved = top_dir.with_name(top_dir.name + "-old")
+    top_dir.rename(moved)
+    shutil.copytree(moved, top_dir)  # same content, a different directory (new inode)
+    result = run(fx)
+    assert (result.status, result.code) == ("refused", "BACKUP_SOURCE_CHANGED")
+
+
+def test_a_root_directory_that_vanished_with_files_in_it_is_refused(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.taxes, "a.txt", b"a")
+    enable(fx)
+    run_ok(fx)
+    shutil.rmtree(lib_root(fx))
+    result = run(fx)
+    assert (result.status, result.code) == ("refused", "BACKUP_SOURCE_UNREADABLE")
+    assert len(chains_on_disk(fx)) == 1

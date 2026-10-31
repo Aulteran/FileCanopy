@@ -5,7 +5,7 @@ Layout of an archive (`tar.gz`, optionally encrypted, one per root and run):
     meta/run.json        chain, sequence, kind, time
     meta/deleted.txt     paths removed since the previous run (directories end with "/")
     meta/missing.txt     paths that went missing outside the app (their last copy is kept)
-    meta/metadata.json   nodes, grants, the users they name and events (no secrets)
+    meta/metadata.json   nodes, grants, the user ids and roles they name, and events (no secrets)
     files/...            the files and directories of this run (all of them in a full run)
     meta/manifest.json   size, mtime and SHA-256 of every member of `files/`, written last
 
@@ -58,12 +58,21 @@ from app.db.models import (
 )
 from app.domain import nodes as domain_nodes
 from app.storage.files import TMP_PREFIX, UnsafeEntry, open_regular
+from app.storage.identity import s64
 from app.storage.names import InvalidName, existing_name
-from app.storage.resolver import StorageError, open_dir
+from app.storage.reconcile import MASS_FRACTION
+from app.storage.resolver import StorageError, StorageMissing, open_dir
 
 log = logging.getLogger("filecanopy.backup")
 
 EVENT_CAP = 100_000
+MAX_MANIFEST_BYTES = 512 * 1024 * 1024  # about 2 million files; larger means damage or tampering
+# A run is refused when more than this share of the eligible files cannot be read (and more than
+# UNREADABLE_MINIMUM of them): an unmounted, replaced or emptied mount looks exactly like that, and
+# a chain made from it must never count toward the pruning floor. The share mirrors the
+# reconciler's mass-change guard.
+UNREADABLE_FRACTION = MASS_FRACTION
+UNREADABLE_MINIMUM = 10
 Fingerprint = tuple[int, int, int]  # size, mtime_ns, inode
 TMP_SUFFIX = ".part"
 
@@ -132,13 +141,18 @@ class DirCache:
         self.prefix, self.create = prefix, create
         self._open: dict[tuple[str, ...], tuple[contextlib.ExitStack, int]] = {}
 
-    def get(self, comps: tuple[str, ...]) -> int:
+    def get(self, comps: tuple[str, ...], *, create: bool | None = None) -> int:
+        """A descriptor for the directory; `create=False` never makes it (StorageMissing if it
+        is not there), whatever the cache was built with."""
         hit = self._open.pop(comps, None)
         if hit is None:
             stack = contextlib.ExitStack()
             fd = stack.enter_context(
                 open_dir(
-                    self.library, self.relative_dir, (*self.prefix, *comps), create=self.create
+                    self.library,
+                    self.relative_dir,
+                    (*self.prefix, *comps),
+                    create=self.create if create is None else create,
                 )
             )
             hit = (stack, fd)
@@ -429,9 +443,41 @@ class BackupEngine:
                 return self._refuse(root_id, kind, "BACKUP_KEY_MISSING", cfg, key)
             tree = collect_tree(db, root)
             relative_dir, label = root.relative_dir, root_label(root)
+            top = domain_nodes.root_node(db, root_id)
+            recorded_identity = (
+                (top.fs_dev, top.fs_ino)
+                if top.fs_dev is not None and top.fs_ino is not None
+                else None
+            )
+            seen_dev = db.scalar(  # the device the reconciler last saw this root's entries on
+                select(Node.fs_dev)
+                .where(Node.root_id == root_id, Node.parent_id == top.id, Node.fs_dev.is_not(None))
+                .limit(1)
+            )
+
+        # -- the directory must still be the one the reconciler saw (a replaced mount is not): the
+        # library device it must stay on, the identity recorded on the root node by an earlier
+        # run, and the device its entries were last seen on
+        library = settings.library_path
+        identity: tuple[int, int] | None = None
+        try:
+            with open_dir(library, relative_dir) as top_fd:
+                now_info = os.fstat(top_fd)
+            library_dev = os.stat(library).st_dev
+            identity = (s64(now_info.st_dev), s64(now_info.st_ino))
+        except StorageMissing:
+            if tree.files:  # the folder that holds known files is gone
+                return self._refuse(root_id, kind, "BACKUP_SOURCE_UNREADABLE", cfg, key)
+        except (OSError, StorageError):
+            return self._refuse(root_id, kind, "BACKUP_SOURCE_UNREADABLE", cfg, key)
+        if identity is not None and (
+            now_info.st_dev != library_dev
+            or (recorded_identity is not None and identity != recorded_identity)
+            or (seen_dev is not None and identity[0] != seen_dev)
+        ):
+            return self._refuse(root_id, kind, "BACKUP_SOURCE_CHANGED", cfg, key)
 
         # -- plan: fingerprints of what exists now (read only, no content)
-        library = settings.library_path
         cache = DirCache(library, relative_dir)
         current: dict[str, Fingerprint] = {}
         unreadable: set[str] = set()
@@ -450,6 +496,12 @@ class BackupEngine:
                 current[path] = fingerprint_of(info)
         finally:
             cache.close()
+
+        if len(unreadable) > UNREADABLE_MINIMUM and len(unreadable) > UNREADABLE_FRACTION * len(
+            tree.files
+        ):
+            # not a backup of this root: nothing is written, no chain starts, nothing is pruned
+            return self._refuse(root_id, kind, "BACKUP_SOURCE_UNREADABLE", cfg, key)
 
         carried_files = {
             p: fp
@@ -559,7 +611,36 @@ class BackupEngine:
             self._fail(run_id, archive_rel, code)
             log.error("backup run failed (%s): %s", code, type(exc).__name__)  # no paths
             return RunResult("failed", run_id, code)
+        if outcome.status == "ok":
+            if recorded_identity is None and identity is not None:  # first verified run
+                self._record_identity(root_id, identity)
+            self._prune(run_id)  # after the run is committed: its failure cannot undo the run
         return outcome
+
+    def _record_identity(self, root_id: uuid.UUID, identity: tuple[int, int]) -> None:
+        try:
+            with self.sessions() as db:
+                top = domain_nodes.root_node(db, root_id)
+                if top.fs_dev is None and top.fs_ino is None:
+                    top.fs_dev, top.fs_ino = identity
+                    db.commit()
+        except Exception as exc:  # the check is then skipped next time; never fails a good run
+            log.warning("could not record the root identity: %s", type(exc).__name__)
+
+    def _prune(self, run_id: uuid.UUID) -> None:
+        """Applies the size limit once the new run is verified and recorded. A failure here is
+        audited and shown as a warning; the run stays `ok` and its archive stays in place."""
+        try:
+            with self.sessions() as db:
+                retention.prune_to_limit(db, self.settings, load_config(db))
+        except Exception as exc:
+            log.error("backup pruning failed: %s", type(exc).__name__)  # no paths
+            try:
+                with self.sessions() as db:
+                    audit(db, "backup.prune_failed", run_id=str(run_id), error=type(exc).__name__)
+                    db.commit()
+            except Exception as audit_exc:  # nothing more to do; the log line above remains
+                log.error("backup pruning failure not audited: %s", type(audit_exc).__name__)
 
     def _fail(self, run_id: uuid.UUID, archive_rel: str, code: str) -> None:
         try:
@@ -603,10 +684,8 @@ class BackupEngine:
         if root is not None and root.owner_user_id:
             user_ids.add(root.owner_user_id)
         users = db.execute(
-            select(User.id, User.email, User.name, User.role, User.status).where(
-                User.id.in_(user_ids)
-            )
-        ).all()  # never the password hash, sessions or tokens
+            select(User.id, User.role).where(User.id.in_(user_ids))
+        ).all()  # ids and roles only: no email, name, password hash, session or token
         events = (
             db.execute(
                 select(FileEvent)
@@ -643,16 +722,7 @@ class BackupEngine:
                 }
                 for g in grants
             ],
-            "users": [
-                {
-                    "id": str(u.id),
-                    "email": u.email,
-                    "name": u.name,
-                    "role": u.role,
-                    "status": u.status,
-                }
-                for u in users
-            ],
+            "users": [{"id": str(u.id), "role": u.role} for u in users],
             "events": [
                 {
                     "id": e.id,
@@ -721,7 +791,11 @@ class BackupEngine:
             if cfg.encrypt:
                 if key is None:
                     raise RuntimeError("no key")
-                writer = crypto.EncryptingWriter(sink, crypto.parse_public_key(key.public))
+                writer = crypto.EncryptingWriter(
+                    sink,
+                    crypto.parse_public_key(key.public),
+                    crypto.archive_context(root_id, chain_id, seq),
+                )
                 file_key = writer.file_key
                 target = writer
             tar = tarfile.open(
@@ -784,7 +858,13 @@ class BackupEngine:
         if digest.hexdigest() != sink.sha.hexdigest():
             tmp.unlink(missing_ok=True)
             raise OSError("written archive does not match")
-        verify_archive(tmp, manifest_bytes, manifest, file_key)
+        verify_archive(
+            tmp,
+            manifest_bytes,
+            manifest,
+            file_key,
+            context=crypto.archive_context(root_id, chain_id, seq) if cfg.encrypt else None,
+        )
 
         # -- publish, unless the root changed state while we were reading it
         with self.sessions() as db:
@@ -871,7 +951,6 @@ class BackupEngine:
                 size_bytes=sink.size,
             )
             db.commit()
-            retention.prune_to_limit(db, settings, load_config(db))
         return RunResult("ok", run_id)
 
     @staticmethod
@@ -950,13 +1029,16 @@ def open_tar(
     encrypted: bool,
     recovery_key: str | None = None,
     file_key: bytes | None = None,
+    context: bytes | None = None,
 ) -> Iterator[tarfile.TarFile]:
     """The archive as a sequential tar stream, decrypted when it was written encrypted."""
     with open(path, "rb") as handle:
         stream: BinaryIO | io.BufferedReader = handle
         if encrypted:
             stream = io.BufferedReader(
-                crypto.DecryptingReader(handle, recovery_key=recovery_key, file_key=file_key)
+                crypto.DecryptingReader(
+                    handle, recovery_key=recovery_key, file_key=file_key, context=context
+                )
             )
         with tarfile.open(fileobj=stream, mode="r|gz") as tar:
             yield tar
@@ -969,6 +1051,7 @@ def verify_archive(
     file_key: bytes | None,
     *,
     recovery_key: str | None = None,
+    context: bytes | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Reads the whole archive back and checks every member of `files/` against the manifest
     stored in it (and against the expected manifest when given). Returns the stored manifest.
@@ -977,9 +1060,13 @@ def verify_archive(
     stored_manifest: dict[str, Any] | None = None
     stored_manifest_bytes = b""
     encrypted = file_key is not None or recovery_key is not None
-    with open_tar(path, encrypted=encrypted, recovery_key=recovery_key, file_key=file_key) as tar:
+    with open_tar(
+        path, encrypted=encrypted, recovery_key=recovery_key, file_key=file_key, context=context
+    ) as tar:
         for member in tar:
             if member.name == "meta/manifest.json":
+                if member.size > MAX_MANIFEST_BYTES:
+                    raise ValueError("manifest is larger than allowed")
                 extracted = tar.extractfile(member)
                 stored_manifest_bytes = extracted.read() if extracted else b""
                 stored_manifest = json.loads(stored_manifest_bytes)

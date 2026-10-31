@@ -121,11 +121,12 @@ export type BackupRun = {
   finished_at: string | null;
   size_bytes: number | null;
   error_code: string | null;
-  files_added: number;
-  files_changed: number;
-  files_deleted: number;
-  files_missing: number;
-  files_unstable: number;
+  // null for a personal folder: the administrator sees status, error code and size only.
+  files_added: number | null;
+  files_changed: number | null;
+  files_deleted: number | null;
+  files_missing: number | null;
+  files_unstable: number | null;
   encrypted: boolean;
 };
 export type BackupStatus = {
@@ -161,6 +162,7 @@ export type BackupStatus = {
     next_due: string | null;
   }[];
   recovery_key: string | null;
+  recovery_key_fingerprint: string | null;
 };
 export type RestorePoint = {
   id: string;
@@ -170,6 +172,10 @@ export type RestorePoint = {
   encrypted: boolean;
   chain_id: string;
   seq: number;
+  files_added: number;
+  files_changed: number;
+  files_deleted: number;
+  files_missing: number;
 };
 export type RestoreResult = {
   folder_node_id: string | null;
@@ -361,8 +367,10 @@ export const api = {
     call<BackupStatus>("PUT", "/api/v1/admin/backups/settings", b),
   runBackup: () =>
     call<{ status: string }>("POST", "/api/v1/admin/backups/run"),
-  rotateBackupKey: () =>
-    call<BackupStatus>("POST", "/api/v1/admin/backups/key/rotate"),
+  rotateBackupKey: (expectedFingerprint: string | null) =>
+    call<BackupStatus>("POST", "/api/v1/admin/backups/key/rotate", {
+      expected_fingerprint: expectedFingerprint,
+    }),
   restorePoints: (root: string) =>
     call<RestorePoint[]>("GET", `/api/v1/nodes/${enc(root)}/backups`),
   restoreBackup: (root: string, recovery_key: string, run_id: string | null) =>

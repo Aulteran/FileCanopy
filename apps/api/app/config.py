@@ -1,5 +1,6 @@
 """Runtime configuration. All values come from the environment; nothing here needs AI settings."""
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -114,10 +115,28 @@ class Settings(BaseSettings):
                         "backup_path must not equal, contain or sit inside the library or "
                         "app-data paths"
                     )
+            # the same directory reached by another path (a second bind mount of one folder)
+            backup_id = path_identity(backup)
+            if backup_id is not None and backup_id in (
+                path_identity(library),
+                path_identity(app_data),
+            ):
+                raise ConfigError(
+                    "backup_path is the same directory as the library or the app-data path"
+                )
         configured = self.setup_token.get_secret_value()
         if configured and len(configured) < 32:
             raise ConfigError("FILECANOPY_SETUP_TOKEN must be at least 32 characters")
         return self
+
+
+def path_identity(path: Path) -> tuple[int, int] | None:
+    """(st_dev, st_ino) of a directory, or None when it cannot be read (not there yet)."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return info.st_dev, info.st_ino
 
 
 def backup_dir(settings: Settings) -> Path | None:

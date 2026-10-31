@@ -6,7 +6,10 @@ point. Authorization is decided by the caller (the owner of a personal root, the
 for the shared tree); this module only needs the recovery key, which it never stores or logs.
 """
 
+import errno
 import gzip
+import hashlib
+import json
 import logging
 import os
 import secrets
@@ -16,10 +19,11 @@ import tarfile
 import uuid
 import zlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import IO
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
 from app.backup import crypto
@@ -30,12 +34,15 @@ from app.db.models import BackupRun, Node, StorageRoot
 from app.domain.nodes import root_node
 from app.storage.files import TMP_PREFIX
 from app.storage.names import InvalidName, existing_name, name_key
-from app.storage.resolver import DIR_FLAGS, open_dir
+from app.storage.resolver import DIR_FLAGS, StorageError, StorageMissing, open_dir
 
 log = logging.getLogger("filecanopy.backup")
 
 FILE_MODE = 0o640
 DIR_MODE = 0o750
+RESTORE_TMP = f"{TMP_PREFIX}restore-"  # a restore is built under this name, then renamed
+MAX_DELETED_BYTES = 128 * 1024 * 1024  # meta/deleted.txt: one short path per removed entry
+MAX_RUN_JSON_BYTES = 64 * 1024
 
 
 class RestoreError(Exception):
@@ -136,7 +143,10 @@ class _Writer:
         if not rel:
             return
         parts = _valid_parts(rel)
-        parent_fd = self.dir_fd(parts[:-1])
+        try:
+            parent_fd = self._dirs.get(tuple(parts[:-1]), create=False)
+        except StorageMissing:
+            return  # the parent was never restored (or is already gone): nothing to remove
         _rmtree_at(parent_fd, parts[-1])
         self._dirs.forget()  # a removed directory may be cached
 
@@ -183,6 +193,49 @@ class _Writer:
         self.files += 1
 
 
+def _check_archive_file(path: Path, run: BackupRun) -> None:
+    """The file on the volume must be the one the database recorded: same size, same SHA-256.
+    Done for the whole chain before anything is extracted."""
+    try:
+        info = os.lstat(path)
+    except OSError as exc:
+        raise RestoreError("BACKUP_ARCHIVE_MISSING") from exc
+    if not stat.S_ISREG(info.st_mode):
+        raise RestoreError("BACKUP_ARCHIVE_MISSING")
+    if run.size_bytes is None or run.archive_sha256 is None or info.st_size != run.size_bytes:
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as handle:
+            while block := handle.read(1024 * 1024):
+                digest.update(block)
+    except OSError as exc:
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED") from exc
+    if digest.hexdigest() != run.archive_sha256:
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
+
+
+def _check_run_json(
+    tar: tarfile.TarFile, member: tarfile.TarInfo, root: StorageRoot, run: BackupRun
+) -> None:
+    """`meta/run.json` is the first member and must name this root, chain and sequence."""
+    if member.name != "meta/run.json" or not member.isfile() or member.size > MAX_RUN_JSON_BYTES:
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
+    data = tar.extractfile(member)
+    try:
+        meta = json.loads(data.read() if data else b"")
+    except ValueError as exc:
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED") from exc
+    if (
+        not isinstance(meta, dict)
+        or meta.get("root_id") != str(root.id)
+        or meta.get("chain_id") != run.chain_id
+        or meta.get("seq") != run.seq
+        or meta.get("kind") != run.kind
+    ):
+        raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
+
+
 def restore(
     db: Session,
     settings: Settings,
@@ -191,6 +244,9 @@ def restore(
     run_id: uuid.UUID | None,
     recovery_key: str | None,
 ) -> RestoreResult:
+    if root.status != "active" or root.scan_state is not None or root.scan_paused_since is not None:
+        # a disabled, missing, suspended or import-busy root is not a place to write into
+        raise RestoreError("ROOT_NOT_ACTIVE")
     points = restore_points(db, root.id)
     if run_id is None:
         target = points[0] if points else None
@@ -210,8 +266,9 @@ def restore(
             raise RestoreError("BACKUP_KEY_MISMATCH")
     base = backups_root(settings)
     for r in chain:
-        if not r.archive_name or not (base / r.archive_name).is_file():
+        if not r.archive_name:
             raise RestoreError("BACKUP_ARCHIVE_MISSING")
+        _check_archive_file(base / r.archive_name, r)
 
     # a name nothing on disk or in the database uses (including missing nodes' names)
     taken = {
@@ -219,28 +276,31 @@ def restore(
         for n in db.scalars(select(Node).where(Node.parent_id == root_node(db, root.id).id))
     }
     stamp = f"{clock.utcnow():%Y-%m-%d %H%M}"
-    folder = f"Restored from backup {stamp}"
-    with open_dir(settings.library_path, root.relative_dir) as root_fd:
-        counter = 1
-        while True:
-            candidate = folder if counter == 1 else f"{folder} ({counter})"
-            if name_key(candidate) not in taken:
-                try:
-                    os.mkdir(candidate, DIR_MODE, dir_fd=root_fd)
-                    folder = candidate
-                    break
-                except FileExistsError:
-                    pass
-            counter += 1
+    work = f"{RESTORE_TMP}{secrets.token_hex(8)}"  # invisible to the app until it is complete
+    try:
+        with open_dir(settings.library_path, root.relative_dir) as root_fd:
+            os.mkdir(work, DIR_MODE, dir_fd=root_fd)
+    except (OSError, StorageError) as exc:
+        raise RestoreError("RESTORE_FAILED") from exc
 
-    writer = _Writer(settings, root, folder)
+    writer = _Writer(settings, root, work)
     try:
         for run in chain:
             archive = base / (run.archive_name or "")
-            with open_tar(archive, encrypted=run.encrypted, recovery_key=recovery_key) as tar:
+            context = crypto.archive_context(root.id, run.chain_id, run.seq)
+            with open_tar(
+                archive, encrypted=run.encrypted, recovery_key=recovery_key, context=context
+            ) as tar:
+                first = True
                 for member in tar:
+                    if first:
+                        _check_run_json(tar, member, root, run)
+                        first = False
+                        continue
                     name = member.name
                     if name == "meta/deleted.txt":
+                        if member.size > MAX_DELETED_BYTES:
+                            raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
                         data = tar.extractfile(member)
                         text = data.read().decode("utf-8") if data else ""
                         for line in text.splitlines():
@@ -251,10 +311,13 @@ def restore(
                         data = tar.extractfile(member)
                         if data is not None:
                             writer.write_file(name[len("files/") :], data, int(member.mtime))
+                if first:  # an archive without any member
+                    raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
         writer.close()
+        folder = _publish(settings, root, work, taken, stamp)
     except BaseException as exc:
         writer.close()
-        _discard(settings, root, folder)
+        _discard(settings, root, work)
         if isinstance(exc, (RestoreError, KeyboardInterrupt, SystemExit)):
             raise
         log.error("restore failed: %s", type(exc).__name__)  # no paths in the log
@@ -263,10 +326,55 @@ def restore(
             exc, (crypto.DecryptionError, tarfile.TarError, EOFError, zlib.error, gzip.BadGzipFile)
         ):
             raise RestoreError("BACKUP_ARCHIVE_DAMAGED") from exc
-        if isinstance(exc, (OSError, ValueError)):
+        if isinstance(exc, (OSError, ValueError, StorageError)):  # includes StorageEscape
             raise RestoreError("RESTORE_FAILED") from exc
         raise
     return RestoreResult(folder, writer.files, writer.bytes, target.id)
+
+
+def _publish(settings: Settings, root: StorageRoot, work: str, taken: set[str], stamp: str) -> str:
+    """Renames the finished folder to its final, visible name. A name already in use is never
+    taken (a directory renamed onto an empty one would replace it, so the name is checked first)."""
+    folder = f"Restored from backup {stamp}"
+    with open_dir(settings.library_path, root.relative_dir) as root_fd:
+        counter = 1
+        while True:
+            candidate = folder if counter == 1 else f"{folder} ({counter})"
+            counter += 1
+            if name_key(candidate) in taken:
+                continue
+            try:
+                os.lstat(candidate, dir_fd=root_fd)
+                continue
+            except FileNotFoundError:
+                pass
+            try:
+                os.rename(work, candidate, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+            except (FileExistsError, IsADirectoryError):
+                continue
+            except OSError as exc:
+                if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
+                    continue
+                raise
+            return candidate
+
+
+def sweep_stale(sessions: "sessionmaker[Session]", settings: Settings) -> int:
+    """Removes restore folders a crash left half-built. Run at startup, before restores can start
+    (one process); they carry the staging prefix, so the app never showed them."""
+    removed = 0
+    with sessions() as db:
+        dirs = [r.relative_dir for r in db.scalars(select(StorageRoot))]
+    for relative_dir in dirs:
+        try:
+            with open_dir(settings.library_path, relative_dir) as root_fd:
+                for entry in os.listdir(root_fd):
+                    if entry.startswith(RESTORE_TMP):
+                        _rmtree_at(root_fd, entry)
+                        removed += 1
+        except (OSError, StorageError):
+            continue
+    return removed
 
 
 def _discard(settings: Settings, root: StorageRoot, folder: str) -> None:

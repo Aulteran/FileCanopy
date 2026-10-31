@@ -26,7 +26,9 @@ This document deliberately avoids reopening already-approved product behavior. R
 13. **Instance admin visibility:** administration operations without content access; audit report may include anonymous counts but not filenames/personal metadata without grants.
 14. **Embedding storage:** Postgres pgvector optional extension, model ID/version and reindex strategy; time/cost metrics on i7-9750H CPU-only environment must be benchmarked, not guessed.
 
-15. **Backup recovery keys (M06c):** archives are encrypted to a public key and the recovery key is shown once, so an owner who restores their own folder needs the key from whoever holds it. Decide whether to add per-owner keys (with an administrator master key) or keep one instance key. See `docs/milestones/M06c-design-and-plan.md`, open question 1.
+15. **Backup recovery keys (M06c):** archives are encrypted to a public key and the recovery key is shown once, so an owner who restores their own folder needs the key from whoever holds it, and that one key opens every archive. **ADR-016 (Proposed, 2026-10-31)** proposes per-root key pairs, an owner recovery key and opt-in, audited administrator escrow. Needs an owner decision before owner self-restore is advertised. Until then the documented mitigation is to rotate the recovery key after giving it to an owner. See `docs/adr/ADR-016-per-root-backup-keys.md` and `docs/milestones/M06c-design-and-plan.md`.
+16. **Backup retention for frozen roots and deleted accounts (M06c):** backups of a root that is not active (disabled, missing) or whose account was removed are never pruned, so they keep using space. Decide the audited purge: who may trigger it (administrator for frozen shared/personal roots versus owner for their own), a confirmation that names the size and the last restore point, and whether the owner is notified. Documented as follow-up; not built.
+17. **Asynchronous restore (M06c, known limitation):** restore runs inside the request, one at a time. A background job with progress and cancellation is deferred; revisit when restores of very large folders are exercised.
 
 ## Confirmed defaults (do not reopen without owner consent)
 

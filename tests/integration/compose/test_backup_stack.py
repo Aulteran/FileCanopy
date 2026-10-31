@@ -119,7 +119,7 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     assert not any(w in status["warnings"] for w in ("last_run_failed", "key_missing"))
 
     archives = sorted((stack.backups / "filecanopy-backups").rglob("*.tar.gz.fcb"))
-    assert archives and archives[0].read_bytes()[:4] == b"FCB1"
+    assert archives and archives[0].read_bytes()[:4] == b"FCB2"
     assert b"alpha alpha" not in archives[0].read_bytes()  # encrypted, not just compressed
     assert stack.sql("select count(*) from backup_run where status = 'ok'") != "0"
     assert stack.sql("select count(*) from backup_chain_state") != "0"

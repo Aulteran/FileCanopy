@@ -1,6 +1,6 @@
 # M06c — Optional backups: design and acceptance plan
 
-**Status:** Implemented 2026-10-31 (Sonnet 5.5) on branch `m06-import-and-reconciliation`, after M06b. The independent Opus 5.5 review that ADR-015 and the plan ask for (key handling, pruning floor, restore authorization) has **not** been done yet; the sections "Review focus" and "Deviations and open questions" are the briefing for it.
+**Status:** Implemented 2026-10-31 (Sonnet 5.5) on branch `m06-import-and-reconciliation`, after M06b. An independent security review was done and its findings were fixed on 2026-10-31 (section "Security review fixes"); owner sign-off and the per-root key decision (ADR-016, Proposed) are pending.
 **Depends on:** M06a and M06b (done). **Decision:** [ADR-015](../adr/ADR-015-optional-backups.md) (Accepted).
 
 ## Scope
@@ -47,7 +47,7 @@ Rows hold counts, ids and sizes only. `snapshot` holds relative paths and lives 
 <root> = shared | personal-<account id>        <chain id> = <UTC time>-<4 hex>
 ```
 
-Inside an archive: `meta/run.json`, `meta/deleted.txt`, `meta/missing.txt`, `meta/metadata.json` (nodes, grants, the users those grants name, events; never password hashes, sessions or tokens), `files/...`, and `meta/manifest.json` last (size, mtime and SHA-256 of every member of `files/`).
+Inside an archive: `meta/run.json`, `meta/deleted.txt`, `meta/missing.txt`, `meta/metadata.json` (nodes, grants, the ids and roles of the users those grants name, events; never emails, names, password hashes, sessions or tokens), `files/...`, and `meta/manifest.json` last (size, mtime and SHA-256 of every member of `files/`).
 
 ## Manual restore (no app needed)
 
@@ -85,12 +85,38 @@ done
 1. **Asymmetric encryption.** ADR-015 says a key is "generated at setup and shown once". The key pair is X25519: the app keeps only the public half, so the database, the app data and the backup volume together cannot decrypt anything, and a run verifies its own archive with the in-memory file key. The consequence: **restoring needs the recovery key in the request**, so an owner restoring their own folder must be given the key by whoever holds it (normally the administrator). That key opens every archive on the volume, which the ADR already treats as host-level trust, but it weakens "owners restore their own folder" in practice. Options for a later ADR: per-owner keys (each owner gets a key at their first backup and the administrator holds a master), or storing the key wrapped by an administrator-held secret. Not decided here.
 2. **Chain state in the database, not previous manifests.** Because archives are encrypted with a key the app does not hold, the app cannot read the previous manifest. The previous run's file fingerprints are kept in `backup_chain_state`. Fingerprints are `lstat` values taken at backup time, not the reconciler's stored values and not the node `revision`; the database supplies only the eligible list.
 3. **No "less history than intended" warning.** There is no "intended history" setting. The page shows how many full backups the limit holds and roughly how many days that is, and warns when it holds fewer than the minimum.
-4. **Metadata dump contents.** Each per-root archive lists the owner and grantees of that root with their email, name and role so a restore can rebuild who could see what. It is encrypted by default; with encryption off it is readable by whoever reads the volume. Events are capped at 100 000 per run (later runs continue).
+4. **Metadata dump contents.** Each per-root archive lists the owner and grantees of that root with their id and role (no email or name) so a restore can rebuild who could see what. It is encrypted by default; with encryption off it is readable by whoever reads the volume. Events are capped at 100 000 per run (later runs continue).
 5. **Restore scope.** Whole root into a new folder only; no sub-folder or single-file restore, no progress display, synchronous in the request. A very large restore can take long.
 6. **Interval floor.** The interval is 5 minutes at least (hours in the UI); the scheduler thread checks every `backup_check_seconds` (60).
 7. **Dependency.** `cryptography` 50.0.2 moved from the dev requirements to the runtime requirements. Add it to the pre-release license audit (it is Apache-2.0 or BSD-3-Clause).
 8. **Single process.** The scheduler and restore lock are per process, like the reconciler.
 
-## Review focus (Opus 5.5, still to do)
+## Security review fixes (2026-10-31)
+
+An independent review of M06c found the items below; all but the two noted at the end are fixed, each with a regression test in `tests/unit/api/test_backup.py`.
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | Pruning could destroy the run's own verified archive (a prune error reached `_fail` after commit) | Pruning runs after the run is committed, in its own try/except (`BackupEngine._prune`): a failure is audited (`backup.prune_failed`) and shown as the `prune_failed` warning, and the run stays `ok`. `_delete_chain` marks rows `pruned_at` and commits before unlinking and tolerates any `OSError` per file, reporting the count. |
+| 3 | Restore trusted archive files | Before extracting, every archive of the chain is stream-hashed and compared with `archive_sha256` and `size_bytes`; `meta/run.json` must be the first member and match root, chain, sequence and kind; the encryption header (format `FCB2`, nothing is released so no compatibility) carries root, chain and sequence as authenticated context, so an archive moved to another run fails to decrypt. |
+| 4 | A full run on an unreadable, replaced or emptied mount could count toward the floor | A run is refused (`BACKUP_SOURCE_UNREADABLE`) when more than half (the reconciler's `MASS_FRACTION`) and more than 10 of the eligible files cannot be read, or the root folder is gone while files are known; refused (`BACKUP_SOURCE_CHANGED`) when the root directory is not on the library device, differs from the identity recorded on the root node, or is on another device than its entries were last seen on. The first verified run records the root identity (the reconciler never recorded one). A refused run writes nothing and creates no chain. |
+| 5 | Restore into a suspended or busy root | 409 `ROOT_NOT_ACTIVE` unless status is `active`, `scan_state` is null and `scan_paused_since` is null. |
+| 6 | `delete()` could recreate empty parent folders | Parents are opened with `create=False`; a missing parent means nothing to do. |
+| 7 | Concurrent key creation or rotation | Key row read `FOR UPDATE`; creation is insert-if-absent (primary key arbitrates); rotation accepts `expected_fingerprint` (compare-and-swap, 409 `KEY_CHANGED`); the fingerprint is returned with the key. |
+| 8 | Administrator saw per-user counts of personal roots | Admin status shows status, error code, size and time for personal roots (counts are null); owners see counts in restore points. |
+| 9 | Nesting compared only paths | `(st_dev, st_ino)` of the backup directory is compared with the library, app data and every storage root directory at startup (`Settings`, library and app data) and in `inspect_volume` (also roots); refused as `nested`. Same-device warning kept. |
+| 10 | Restore built under its final name | Built under `.filecanopy-tmp-restore-*`, renamed to `Restored from backup ...` at the end; stale temporary folders are swept at startup. |
+| 12 | Storage errors and a low-order X25519 key escaped | `StorageError`/`StorageEscape` become `RESTORE_FAILED`; the key-exchange `ValueError` becomes `DecryptionError`. |
+| 13 | Unbounded reads of `meta/deleted.txt` and the manifest | Capped (128 MiB and 512 MiB; `meta/run.json` 64 KiB). |
+| 14 | Frozen-root and deleted-account retention | Documented on the Backups page, in the README and `11_OPEN_DECISIONS.md` item 16; the `frozen_roots_kept` warning. The audited purge is follow-up, not built. |
+| - | `metadata.json` | Users reduced to id and role (no email or name). |
+| 2 | One key opens every archive | Not implemented (needs an ADR). **ADR-016 (Proposed)** added: per-root key pairs, owner recovery key, opt-in audited administrator escrow; listed in `11_OPEN_DECISIONS.md` item 15; mitigation now: UI and README say to rotate the recovery key after giving it to an owner; the M09 notes carry the constraint that a restore re-applies the most restrictive privacy label. |
+| 11 | Restore runs inside the request | Known limitation (one at a time, may be slow for very large folders); a background job is deferred (`11_OPEN_DECISIONS.md` item 17). |
+
+Evidence: `npm run check` clean; `npm run check:web` 17 vitest tests; `npm run check:api` 411 passed, 1 skipped (test_backup.py now 80 tests); `npm run test:compose` 26 passed; `npm run test:e2e` 19 passed.
+
+Remaining limits: the pre-extraction hash and the extraction are two reads of the archive (a file swapped between them is still caught by the in-archive checks, not by the hash); without a recorded root identity (before the first verified run) only the device and share checks apply; a directory renamed onto an empty directory replaces it on Linux, so the final restore name is checked first and a race with an external creator of the same name remains theoretically possible.
+
+## Review focus (done; kept as the briefing)
 
 Key handling (what the instance stores, what the key can open, rotation and loss), the pruning floor and the inactive-root rule (can a bad scan or a replaced mount ever cause good history to be removed?), restore authorization (`grant_admin_access` on a root node: personal owner only, administrator for the shared tree; uniform 403), the restore extractor (member names, fd-relative writes, free-space guard), and whether logs or audit can ever carry names, paths or keys.

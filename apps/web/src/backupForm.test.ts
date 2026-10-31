@@ -44,12 +44,18 @@ describe("backup messages", () => {
       "unencrypted",
       "key_missing",
       "volume_too_small",
+      "source_unreadable",
+      "volume_nested",
+      "prune_failed",
+      "frozen_roots_kept",
     ])
       expect(warningText(code)).not.toBe("Check the backup settings.");
     expect(warningText("something_new")).toBe("Check the backup settings.");
   });
   it("maps restore errors without echoing server text", () => {
     expect(backupError("BACKUP_KEY_MISMATCH")).toMatch(/does not belong/);
+    expect(backupError("ROOT_NOT_ACTIVE")).toMatch(/not available/);
+    expect(backupError("KEY_CHANGED")).toMatch(/changed by someone/);
     expect(backupError("NOPE")).toBeNull();
   });
 });

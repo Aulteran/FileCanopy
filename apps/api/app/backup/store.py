@@ -5,6 +5,8 @@ the transaction."""
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import clock
@@ -88,15 +90,48 @@ def load_key(db: Session) -> KeyInfo | None:
         return None
 
 
-def new_key(db: Session) -> str:
-    """Creates (or replaces) the instance key pair, stores the public half and returns the
-    recovery key text. The caller must show it once and drop it."""
+class KeyChanged(Exception):
+    """The key is not the one the caller expected (someone else made or rotated it first)."""
+
+
+def _lock_key_row(db: Session) -> AppSetting | None:
+    """The key row, locked for the rest of the transaction (`SELECT ... FOR UPDATE` on
+    PostgreSQL), so two requests cannot both create or rotate the key."""
+    return db.scalar(select(AppSetting).where(AppSetting.key == KEY_KEY).with_for_update())
+
+
+def _store_key(db: Session, row: AppSetting | None) -> tuple[str, str]:
     recovery, public, fp = crypto.generate_keypair()
     value: Any = {"public": public, "fingerprint": fp, "created_at": clock.utcnow().isoformat()}
-    row = db.get(AppSetting, KEY_KEY)
     if row is None:
         db.add(AppSetting(key=KEY_KEY, value=value))
     else:
         row.value = value
     db.flush()
-    return recovery
+    return recovery, fp
+
+
+def create_key_if_absent(db: Session) -> tuple[str, str] | None:
+    """Creates the instance key pair when there is none and returns (recovery key text,
+    fingerprint) to show once; returns None when a key already exists (including one that a
+    concurrent request just made: the primary key stops a second insert)."""
+    row = _lock_key_row(db)
+    if row is not None and load_key(db) is not None:
+        return None
+    try:
+        with db.begin_nested():
+            return _store_key(db, row)
+    except IntegrityError:
+        return None  # lost the race: the other request owns the one-time key
+
+
+def rotate_key(db: Session, expected_fingerprint: str | None = None) -> tuple[str, str]:
+    """Replaces the key pair. With `expected_fingerprint` (compare-and-swap) the rotation is
+    refused with KeyChanged unless the stored key is still that one."""
+    row = _lock_key_row(db)
+    current = load_key(db)
+    if expected_fingerprint is not None and (
+        current is None or current.fingerprint != expected_fingerprint
+    ):
+        raise KeyChanged
+    return _store_key(db, row)

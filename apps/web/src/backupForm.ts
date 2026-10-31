@@ -72,6 +72,14 @@ export const WARNINGS: Record<string, string> = {
     "The last backup of at least one folder failed. Existing backups were left untouched.",
   volume_too_small:
     "The last backup did not start because it would not fit without removing the minimum backups you keep. Add space or raise the limit.",
+  source_unreadable:
+    "A backup was refused because most of a folder's files could not be read (an unmounted, replaced or emptied folder looks like this). The earlier backups were left as they are.",
+  volume_nested:
+    "The backup folder is the same folder as your files or the app data, reached by another path. Backups are refused until it is a separate folder.",
+  prune_failed:
+    "The last backup was written and checked, but old backups could not be cleaned up. The folder may be over its limit; check that it is writable.",
+  frozen_roots_kept:
+    "Backups of folders that are disabled, missing or belong to a removed account are kept and never cleaned up automatically. There is no purge screen yet; they use space until one is added.",
 };
 
 export function warningText(code: string): string {
@@ -90,6 +98,10 @@ const RESTORE_ERRORS: Record<string, string> = {
   RESTORE_NO_SPACE: "There is not enough free space to restore.",
   RESTORE_FAILED: "The restore failed and nothing was kept.",
   RESTORE_IN_PROGRESS: "Another restore is running. Try again in a moment.",
+  ROOT_NOT_ACTIVE:
+    "This folder is not available right now (disabled, missing, syncing paused or being imported). Try again later.",
+  KEY_CHANGED:
+    "The recovery key was changed by someone else. Reload the page and look at the current key before creating another.",
   UNENCRYPTED_NOT_ACKNOWLEDGED:
     "Confirm that you understand the backups will not be encrypted.",
   BACKUP_VOLUME_UNAVAILABLE: "The backup folder cannot be used right now.",

@@ -6,10 +6,13 @@ shown to the administrator once and is never stored by the app, so a copy of the
 the backup volume cannot decrypt anything. The archive writer keeps the file key in memory for the
 duration of the run, which lets it verify what it just wrote without the recovery key.
 
-File layout: ``FCB1`` | ephemeral public key (32) | nonce prefix (4) | chunks. A chunk is a 4-byte
-big-endian ciphertext length plus AES-GCM ciphertext of up to 64 KiB. The nonce is the prefix plus
-a 64-bit chunk counter; the associated data is the 40-byte header plus a final-chunk flag, so
-truncation, reordering and a wrong key are all detected.
+File layout: ``FCB2`` | ephemeral public key (32) | nonce prefix (4) | context length (2) |
+context | chunks. The context names the run the archive belongs to (root, chain, sequence). A chunk
+is a 4-byte big-endian ciphertext length plus AES-GCM ciphertext of up to 64 KiB. The nonce is the
+prefix plus a 64-bit chunk counter; the associated data is the whole header (context included)
+plus a final-chunk flag, so truncation, reordering, a wrong key and an archive moved to another
+run's name are all detected. (The public key is public: whoever can write the volume can still
+forge a well-formed archive; the checksum the database holds is what catches that.)
 """
 
 import base64
@@ -26,11 +29,12 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-MAGIC = b"FCB1"
-HEADER_LEN = 4 + 32 + 4
+MAGIC = b"FCB2"
+FIXED_HEADER_LEN = 4 + 32 + 4 + 2
+MAX_CONTEXT = 512
 CHUNK = 64 * 1024
 KEY_PREFIX = "fcbk1-"
-INFO = b"filecanopy-backup-v1"
+INFO = b"filecanopy-backup-v2"
 
 
 class Sink(Protocol):
@@ -109,6 +113,11 @@ def _file_key(shared: bytes, ephemeral_public: bytes, recipient_public: bytes) -
     ).derive(shared)
 
 
+def archive_context(root_id: object, chain_id: str, seq: int) -> bytes:
+    """What an archive's header binds it to."""
+    return f"fcb|{root_id}|{chain_id}|{seq}".encode()
+
+
 def _nonce(prefix: bytes, counter: int) -> bytes:
     return prefix + struct.pack(">Q", counter)
 
@@ -117,8 +126,10 @@ class EncryptingWriter(io.RawIOBase):
     """A write-only file object that encrypts into `sink`. `close()` writes the final chunk but
     does not close the sink."""
 
-    def __init__(self, sink: Sink, recipient_public: bytes) -> None:
+    def __init__(self, sink: Sink, recipient_public: bytes, context: bytes = b"") -> None:
         super().__init__()
+        if len(context) > MAX_CONTEXT:
+            raise ValueError("context too long")
         self._sink = sink
         ephemeral = X25519PrivateKey.generate()
         eph_public = _public_raw(ephemeral)
@@ -126,7 +137,7 @@ class EncryptingWriter(io.RawIOBase):
         self.file_key = _file_key(shared, eph_public, recipient_public)
         self._aes = AESGCM(self.file_key)
         self._prefix = os.urandom(4)
-        self._header = MAGIC + eph_public + self._prefix
+        self._header = MAGIC + eph_public + self._prefix + struct.pack(">H", len(context)) + context
         self._sink.write(self._header)
         self._buffer = bytearray()
         self._counter = 0
@@ -164,7 +175,8 @@ class EncryptingWriter(io.RawIOBase):
 
 class DecryptingReader(io.RawIOBase):
     """Reads plaintext from an archive written by `EncryptingWriter`. Give either the recovery
-    key or the file key (the writer keeps it, for verification during a run)."""
+    key or the file key (the writer keeps it, for verification during a run). With `context`, an
+    archive that was written for a different run is refused."""
 
     def __init__(
         self,
@@ -172,19 +184,33 @@ class DecryptingReader(io.RawIOBase):
         *,
         recovery_key: str | None = None,
         file_key: bytes | None = None,
+        context: bytes | None = None,
     ) -> None:
         super().__init__()
         self._source = source
-        header = source.read(HEADER_LEN)
-        if len(header) != HEADER_LEN or header[:4] != MAGIC:
+        fixed = source.read(FIXED_HEADER_LEN)
+        if len(fixed) != FIXED_HEADER_LEN or fixed[:4] != MAGIC:
             raise DecryptionError("not an encrypted FileCanopy archive")
+        (context_len,) = struct.unpack(">H", fixed[40:42])
+        if context_len > MAX_CONTEXT:
+            raise DecryptionError("archive is damaged")
+        found = source.read(context_len)
+        if len(found) != context_len:
+            raise DecryptionError("archive is truncated")
+        header = fixed + found
         self._header = header
+        self.context = found  # authenticated by every chunk, so it is trustworthy once one opens
         self._prefix = header[36:40]
+        if context is not None and found != context:
+            raise DecryptionError("archive belongs to another run")
         if file_key is None:
             if recovery_key is None:
                 raise BadKey("a key is required")
             private = parse_recovery_key(recovery_key)
-            shared = private.exchange(X25519PublicKey.from_public_bytes(header[4:36]))
+            try:
+                shared = private.exchange(X25519PublicKey.from_public_bytes(header[4:36]))
+            except ValueError as exc:  # a low-order or malformed ephemeral key
+                raise DecryptionError("damaged archive header") from exc
             file_key = _file_key(shared, header[4:36], _public_raw(private))
         self._aes = AESGCM(file_key)
         self._counter = 0

@@ -15,6 +15,7 @@ ADRs record cross-cutting technical decisions. Each one is written as **Proposed
 | [ADR-011](ADR-011-import-identity-and-reconciliation.md) | Initial import, filesystem identity and reconciliation (M06) | Accepted |
 | [ADR-015](ADR-015-optional-backups.md) | Optional library backups (full plus changed-only chains, size-limited) | Accepted |
 | [ADR-012](ADR-012-authentication-and-bootstrap.md) | Local authentication, sessions and first-admin bootstrap (M02) | Accepted |
+| [ADR-016](ADR-016-per-root-backup-keys.md) | Per-root backup key pairs with administrator escrow and an owner recovery key | Proposed |
 
 Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-005 privacy labels, ADR-006 AI providers, ADR-007 email trust, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
 

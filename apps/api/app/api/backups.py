@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, get_db, http_error, require_admin
@@ -28,14 +28,16 @@ from app.backup.store import (
     INTERVAL_RANGE,
     MIN_CHAINS_RANGE,
     BackupConfig,
+    KeyChanged,
+    create_key_if_absent,
     load_config,
     load_key,
-    new_key,
     save_config,
 )
+from app.backup.store import rotate_key as rotate_stored_key
 from app.backup.volume import backups_root, folder_usage, inspect_volume
 from app.config import Settings
-from app.db.models import BackupRun, Node, StorageRoot
+from app.db.models import AuthAudit, BackupRun, Node, StorageRoot
 from app.domain.nodes import root_node
 from app.policy.deps import NodeContext, grant_admin_access
 from app.storage.service import ReconcilerService
@@ -48,6 +50,7 @@ RESTORE_STATUS = {
     "BACKUP_ARCHIVE_MISSING": 409,
     "BACKUP_ARCHIVE_DAMAGED": 409,
     "BACKUP_CHAIN_INCOMPLETE": 409,
+    "ROOT_NOT_ACTIVE": 409,
     "RESTORE_NO_SPACE": 409,
     "RESTORE_FAILED": 500,
 }
@@ -91,11 +94,13 @@ class RunOut(BaseModel):
     finished_at: datetime | None
     size_bytes: int | None
     error_code: str | None
-    files_added: int
-    files_changed: int
-    files_deleted: int
-    files_missing: int
-    files_unstable: int
+    # Per-file counts are shown for the shared tree only. For a personal root they are None: the
+    # administrator sees status, error code and size, and the owner sees counts in restore points.
+    files_added: int | None
+    files_changed: int | None
+    files_deleted: int | None
+    files_missing: int | None
+    files_unstable: int | None
     encrypted: bool
 
 
@@ -124,6 +129,7 @@ class StatusOut(BaseModel):
     estimates: EstimatesOut
     roots: list[RootOut]
     recovery_key: str | None = None  # present only in the response that created it
+    recovery_key_fingerprint: str | None = None  # of that key, to match it against the page
 
 
 class RestorePointOut(BaseModel):
@@ -134,6 +140,16 @@ class RestorePointOut(BaseModel):
     encrypted: bool
     chain_id: str
     seq: int
+    files_added: int
+    files_changed: int
+    files_deleted: int
+    files_missing: int
+
+
+class RotateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Compare-and-swap: refused with 409 KEY_CHANGED unless the stored key is still this one.
+    expected_fingerprint: str | None = Field(default=None, max_length=64)
 
 
 class RestoreBody(BaseModel):
@@ -171,7 +187,7 @@ def _body_of(cfg: BackupConfig) -> SettingsBody:
     return SettingsBody(**asdict(cfg), acknowledge_unencrypted=not cfg.encrypt)
 
 
-def _run_out(r: BackupRun) -> RunOut:
+def _run_out(r: BackupRun, *, counts: bool = True) -> RunOut:
     return RunOut(
         id=r.id,
         kind=r.kind,
@@ -179,16 +195,22 @@ def _run_out(r: BackupRun) -> RunOut:
         finished_at=r.finished_at,
         size_bytes=r.size_bytes,
         error_code=r.error_code,
-        files_added=r.files_added,
-        files_changed=r.files_changed,
-        files_deleted=r.files_deleted,
-        files_missing=r.files_missing,
-        files_unstable=r.files_unstable,
+        files_added=r.files_added if counts else None,
+        files_changed=r.files_changed if counts else None,
+        files_deleted=r.files_deleted if counts else None,
+        files_missing=r.files_missing if counts else None,
+        files_unstable=r.files_unstable if counts else None,
         encrypted=r.encrypted,
     )
 
 
-def build_status(db: Session, settings: Settings, *, recovery_key: str | None = None) -> StatusOut:
+def build_status(
+    db: Session,
+    settings: Settings,
+    *,
+    recovery_key: str | None = None,
+    recovery_fingerprint: str | None = None,
+) -> StatusOut:
     cfg, key = load_config(db), load_key(db)
     vol = inspect_volume(settings)
     used = 0
@@ -236,7 +258,7 @@ def build_status(db: Session, settings: Settings, *, recovery_key: str | None = 
                 if root.status == "active" and root.scan_state
                 else root.status,
                 chains=sum(1 for c in chains if c.root_id == root.id),
-                last_run=_run_out(last) if last else None,
+                last_run=_run_out(last, counts=root.kind == "shared") if last else None,
                 next_due=next_due,
             )
         )
@@ -269,6 +291,26 @@ def build_status(db: Session, settings: Settings, *, recovery_key: str | None = 
         warnings.append("last_run_failed")
     if any(r.status == "refused" and r.error_code == "BACKUP_VOLUME_TOO_SMALL" for r in latest):
         warnings.append("volume_too_small")
+    if any(
+        r.status == "refused"
+        and r.error_code in ("BACKUP_SOURCE_UNREADABLE", "BACKUP_SOURCE_CHANGED")
+        for r in latest
+    ):
+        warnings.append("source_unreadable")
+    if vol.reason == "nested":
+        warnings.append("volume_nested")
+    last_run_audit = db.scalar(
+        select(func.max(AuthAudit.id)).where(AuthAudit.action == "backup.run")
+    )
+    last_prune_failed = db.scalar(
+        select(func.max(AuthAudit.id)).where(AuthAudit.action == "backup.prune_failed")
+    )
+    if last_prune_failed is not None and (
+        last_run_audit is None or last_prune_failed > last_run_audit
+    ):
+        warnings.append("prune_failed")  # the run itself succeeded; old history was not removed
+    if any(r.status != "active" for r in roots):
+        warnings.append("frozen_roots_kept")  # their backups are kept and never pruned
     return StatusOut(
         settings=_body_of(cfg),
         volume=VolumeOut(
@@ -295,6 +337,7 @@ def build_status(db: Session, settings: Settings, *, recovery_key: str | None = 
         ),
         roots=root_out,
         recovery_key=recovery_key,
+        recovery_key_fingerprint=recovery_fingerprint,
     )
 
 
@@ -330,8 +373,11 @@ def save_settings(
         encrypt=body.encrypt,
     )
     recovery: str | None = None
-    if cfg.enabled and cfg.encrypt and load_key(db) is None:
-        recovery = new_key(db)  # shown once, in this response only
+    fingerprint: str | None = None
+    if cfg.enabled and cfg.encrypt:
+        created = create_key_if_absent(db)  # locked: only one request makes the one-time key
+        if created is not None:
+            recovery, fingerprint = created  # shown once, in this response only
     save_config(db, cfg)
     audit(
         db,
@@ -345,7 +391,7 @@ def save_settings(
     db.commit()
     if cfg.enabled:
         service_of(request).request_run()
-    return build_status(db, settings, recovery_key=recovery)
+    return build_status(db, settings, recovery_key=recovery, recovery_fingerprint=fingerprint)
 
 
 @router.post("/admin/backups/run", response_model=Queued, status_code=202)
@@ -366,14 +412,20 @@ def run_now(
 @router.post("/admin/backups/key/rotate", response_model=StatusOut)
 def rotate_key(
     request: Request,
+    body: RotateBody | None = None,
     admin: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> StatusOut:
     """New key pair for future archives (use after losing the recovery key, or when it may have
     leaked). Existing archives stay readable only with the key they were written for; each root
-    starts a new chain with a full backup on the next run."""
+    starts a new chain with a full backup on the next run. Rotate again after giving the key to
+    an owner for a restore: it opens every archive on the volume."""
     before = load_key(db)
-    recovery = new_key(db)
+    try:
+        recovery, fingerprint = rotate_stored_key(db, body.expected_fingerprint if body else None)
+    except KeyChanged as exc:
+        db.rollback()
+        raise http_error(409, "KEY_CHANGED") from exc
     audit(
         db,
         "backup.key_rotated",
@@ -384,7 +436,9 @@ def rotate_key(
     db.commit()
     if load_config(db).enabled:
         service_of(request).request_run()
-    return build_status(db, settings_of(request), recovery_key=recovery)
+    return build_status(
+        db, settings_of(request), recovery_key=recovery, recovery_fingerprint=fingerprint
+    )
 
 
 # ------------------------------------------------------------------ restore
@@ -414,6 +468,10 @@ def list_restore_points(
             encrypted=r.encrypted,
             chain_id=r.chain_id,
             seq=r.seq,
+            files_added=r.files_added,
+            files_changed=r.files_changed,
+            files_deleted=r.files_deleted,
+            files_missing=r.files_missing,
         )
         for r in restore_mod.restore_points(db, root.id)
     ]

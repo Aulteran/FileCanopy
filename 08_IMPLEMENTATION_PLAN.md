@@ -194,6 +194,8 @@
 
 **Tests/evidence:** fake clock idle timeout, parallel tab, background job not refreshing, inherited label, policy-disable migration.
 
+**Constraint carried from M06c (backups):** a restore from a backup must re-apply the most restrictive privacy label (the label recorded with the backed-up content or the label now on its original location, whichever is stricter) and must not turn Private or Confidential content into Normal content; restoring Confidential content needs the same fresh reauthentication as reading it, and background backup or restore jobs never refresh an unlock. Archives must carry labels in their metadata for this. See ADR-016 (Proposed) for the key model this assumes.
+
 ### M10 — Document previews and safe extraction
 
 **Phase:** documents · **Dependencies:** M09 · **Suggested Claude Code model:** Sonnet 5.5

@@ -45,6 +45,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
   const [saved, setSaved] = useState(false);
   const [recovery, setRecovery] = useState<string | null>(null);
   const [stored, setStored] = useState(false);
+  const [recoveryFp, setRecoveryFp] = useState<string | null>(null);
   // form fields as text, so partial input is not lost
   const [enabled, setEnabled] = useState(false);
   const [hours, setHours] = useState("24");
@@ -79,6 +80,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
 
   function take(next: BackupStatus): void {
     setRecovery(next.recovery_key);
+    setRecoveryFp(next.recovery_key_fingerprint);
     setStored(false);
     fill({ ...next, recovery_key: null });
   }
@@ -143,7 +145,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
       return;
     setError("");
     try {
-      take(await api.rotateBackupKey());
+      take(await api.rotateBackupKey(status?.key.fingerprint ?? null));
     } catch (err) {
       setError(message(err));
     }
@@ -175,6 +177,12 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
           <p>
             This key is shown once and is not stored by the app. Without it the
             encrypted backups cannot be read.
+            {recoveryFp ? ` Key fingerprint: ${recoveryFp}.` : ""}
+          </p>
+          <p>
+            The key opens every backup on the volume. If you give it to someone
+            so they can restore their own folder, create a new recovery key
+            afterwards (&ldquo;New recovery key&rdquo; below).
           </p>
           <pre className="key" aria-label="Recovery key">
             {recovery}
@@ -327,6 +335,12 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
       </dl>
 
       <h3>Folders</h3>
+      <p className="hint">
+        Backups of a folder that is disabled, missing or belongs to a removed
+        account are kept and are not cleaned up automatically, so they keep
+        using space. A separate, audited purge for them is planned but does not
+        exist yet.
+      </p>
       <table>
         <thead>
           <tr>

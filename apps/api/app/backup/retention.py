@@ -138,7 +138,11 @@ def check_feasible(
     return Feasibility(True, None, estimate_bytes, prunable)
 
 
-def _delete_chain(settings: Settings, db: Session, chain: Chain) -> int:
+def _delete_chain(settings: Settings, db: Session, chain: Chain) -> tuple[int, int]:
+    """Removes a chain. The rows are marked pruned and committed *before* any file is unlinked, so
+    a crash or a file error leaves orphaned files (wasted space, reported) and never a row that
+    still promises an archive that is gone. Returns (bytes freed, files that could not be
+    removed)."""
     base = backups_root(settings)
     rows = db.scalars(
         select(BackupRun).where(
@@ -147,31 +151,34 @@ def _delete_chain(settings: Settings, db: Session, chain: Chain) -> int:
             BackupRun.pruned_at.is_(None),
         )
     ).all()
-    freed = 0
-    chain_dirs: set[Path] = set()
-    for r in rows:
-        if not r.archive_name:
-            continue
-        archive = base / r.archive_name
-        chain_dirs.add(archive.parent)
-        for victim in (archive, archive.with_name(archive.name + ".json")):
-            try:
-                freed += victim.lstat().st_size
-                victim.unlink()
-            except FileNotFoundError:
-                pass
-    for d in chain_dirs:
-        try:
-            d.rmdir()
-        except OSError:  # not empty (foreign files) or already gone: leave it
-            pass
-    now = clock.utcnow()
+    names = [r.archive_name for r in rows if r.archive_name]
     db.execute(
         update(BackupRun)
         .where(BackupRun.root_id == chain.root_id, BackupRun.chain_id == chain.chain_id)
-        .values(pruned_at=now)
+        .values(pruned_at=clock.utcnow())
     )
-    return freed
+    db.commit()
+    freed = 0
+    errors = 0
+    chain_dirs: set[Path] = set()
+    for name in names:
+        archive = base / name
+        chain_dirs.add(archive.parent)
+        for victim in (archive, archive.with_name(archive.name + ".json")):
+            try:
+                size = victim.lstat().st_size
+                victim.unlink()
+                freed += size
+            except FileNotFoundError:
+                pass
+            except OSError:  # read-only volume, permissions, I/O error: keep going, report it
+                errors += 1
+    for d in chain_dirs:
+        try:
+            d.rmdir()
+        except OSError:  # not empty (foreign files or a failed unlink) or already gone
+            pass
+    return freed, errors
 
 
 def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[Chain]:
@@ -192,8 +199,7 @@ def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[C
             break  # over the limit but only protected chains remain: reported as a warning
         victim = victims[0]
         free_before = shutil.disk_usage(base).free
-        _delete_chain(settings, db, victim)
-        db.flush()
+        _freed, unlink_errors = _delete_chain(settings, db, victim)
         audit(
             db,
             "backup.pruned",
@@ -205,8 +211,20 @@ def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[C
             usage_after=folder_usage(base),
             free_before=free_before,
             free_after=shutil.disk_usage(base).free,
+            unlink_errors=unlink_errors,
         )
+        if unlink_errors:
+            audit(
+                db,
+                "backup.prune_failed",
+                root_id=str(victim.root_id),
+                chain_id=victim.chain_id,
+                error="FILES_NOT_REMOVED",
+                files=unlink_errors,
+            )
         db.commit()
         removed.append(victim)
         log.info("pruned an old backup chain (%s)", victim.root_id)
+        if unlink_errors:
+            break  # the volume refuses deletions: stop here instead of marking more chains
     return removed
