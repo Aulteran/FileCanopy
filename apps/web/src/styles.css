@@ -485,3 +485,62 @@ button.linklike {
   cursor: pointer;
   font: inherit;
 }
+
+/* backups (M06c) */
+.backups {
+  max-width: 760px;
+}
+.backups h1 {
+  margin-top: 0;
+  font-size: 1.4rem;
+}
+.backups section {
+  margin-bottom: 28px;
+}
+.backups .stack-form {
+  max-width: 460px;
+}
+.backups .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.backups .check input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+.backups pre.key {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: all;
+}
+.backups .warnings {
+  padding-left: 20px;
+  color: var(--danger);
+}
+.backups .facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+.backups .facts dt {
+  color: var(--muted);
+}
+.backups .facts dd {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .backups .facts {
+    grid-template-columns: 1fr;
+  }
+}
+.topbar .toplink {
+  color: var(--text);
+}
+.topbar .toplink[aria-current="page"] {
+  font-weight: 600;
+}

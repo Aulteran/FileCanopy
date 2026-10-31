@@ -1,6 +1,8 @@
 // Thin client for the FileCanopy API. Ids only: no function takes a path. Errors from the API are
 // `{detail: {code}}`; mutations need the CSRF token from the session (ADR-012).
 
+import type { BackupSettings } from "./backupForm";
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -109,6 +111,72 @@ export type OpResult = {
   node: Child;
   operation: { status: string } | null;
   replayed: boolean;
+};
+
+// Backups (ADR-015). Counts, sizes and status codes only: never names or paths.
+export type BackupRun = {
+  id: string;
+  kind: "full" | "incremental";
+  status: "running" | "ok" | "failed" | "refused";
+  finished_at: string | null;
+  size_bytes: number | null;
+  error_code: string | null;
+  files_added: number;
+  files_changed: number;
+  files_deleted: number;
+  files_missing: number;
+  files_unstable: number;
+  encrypted: boolean;
+};
+export type BackupStatus = {
+  settings: BackupSettings;
+  volume: {
+    configured: boolean;
+    usable: boolean;
+    reason: string | null;
+    same_device: boolean | null;
+    free_bytes: number | null;
+    total_bytes: number | null;
+    used_bytes: number;
+  };
+  key: {
+    present: boolean;
+    fingerprint: string | null;
+    created_at: string | null;
+  };
+  warnings: string[];
+  estimates: {
+    last_full_bytes: number;
+    avg_incremental_bytes: number;
+    chain_bytes: number;
+    chains_held: number | null;
+    history_days: number | null;
+  };
+  roots: {
+    kind: string;
+    user_id: string | null;
+    status: string;
+    chains: number;
+    last_run: BackupRun | null;
+    next_due: string | null;
+  }[];
+  recovery_key: string | null;
+};
+export type RestorePoint = {
+  id: string;
+  kind: "full" | "incremental";
+  finished_at: string | null;
+  size_bytes: number | null;
+  encrypted: boolean;
+  chain_id: string;
+  seq: number;
+};
+export type RestoreResult = {
+  folder_node_id: string | null;
+  folder_name: string;
+  files: number;
+  bytes_written: number;
+  run_id: string;
 };
 
 let csrf = "";
@@ -285,4 +353,21 @@ export const api = {
     ),
   cancelImport: (id: string) =>
     call<Batch>("POST", `/api/v1/imports/${enc(id)}/cancel`),
+
+  // Backups: settings for administrators; restore points and restore for a root's owner (or the
+  // administrator, for the shared tree).
+  backups: () => call<BackupStatus>("GET", "/api/v1/admin/backups"),
+  saveBackupSettings: (b: BackupSettings) =>
+    call<BackupStatus>("PUT", "/api/v1/admin/backups/settings", b),
+  runBackup: () =>
+    call<{ status: string }>("POST", "/api/v1/admin/backups/run"),
+  rotateBackupKey: () =>
+    call<BackupStatus>("POST", "/api/v1/admin/backups/key/rotate"),
+  restorePoints: (root: string) =>
+    call<RestorePoint[]>("GET", `/api/v1/nodes/${enc(root)}/backups`),
+  restoreBackup: (root: string, recovery_key: string, run_id: string | null) =>
+    call<RestoreResult>("POST", `/api/v1/nodes/${enc(root)}/backups/restore`, {
+      recovery_key: recovery_key || null,
+      run_id,
+    }),
 };

@@ -625,6 +625,10 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/storage",
     "/api/v1/admin/storage/shared-default-access",
     "/api/v1/admin/storage/network-ack",
+    "/api/v1/admin/backups",
+    "/api/v1/admin/backups/settings",
+    "/api/v1/admin/backups/run",
+    "/api/v1/admin/backups/key/rotate",
 }
 
 

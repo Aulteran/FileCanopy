@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
+import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
-import { folderPath, useRoute } from "./route";
+import { BACKUPS_PATH, folderPath, useRoute } from "./route";
 import { SetupScreen } from "./Setup";
 import { UnfinishedUploads } from "./UnfinishedUploads";
 
@@ -107,7 +108,7 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, go } = useRoute();
+  const { folderId, backups, go } = useRoute();
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
@@ -127,9 +128,9 @@ function Shell({
   useEffect(loadRoots, [loadRoots]);
 
   useEffect(() => {
-    if (roots && roots.length > 0 && folderId === null)
+    if (roots && roots.length > 0 && folderId === null && !backups)
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, go]);
+  }, [roots, folderId, backups, go]);
 
   async function logout(): Promise<void> {
     try {
@@ -150,9 +151,22 @@ function Shell({
 
   if (roots === null) return <p className="loading">Loading…</p>;
 
-  const header = (
+  const header = (withBackups: boolean) => (
     <header className="topbar">
       <span className="brand">FileCanopy</span>
+      {withBackups && (
+        <a
+          href={BACKUPS_PATH}
+          className="toplink"
+          aria-current={backups ? "page" : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            go(BACKUPS_PATH);
+          }}
+        >
+          Backups
+        </a>
+      )}
       <span className="who">{session.user.name}</span>
       <button onClick={() => void logout()}>Sign out</button>
     </header>
@@ -168,7 +182,7 @@ function Shell({
   if (setupRoot) {
     return (
       <div className="shell setup-only">
-        {header}
+        {header(false)}
         <main id="main" tabIndex={-1} className="content">
           <SetupScreen
             key={setupRoot.node_id}
@@ -194,7 +208,7 @@ function Shell({
       <a href="#main" className="skip">
         Skip to files
       </a>
-      {header}
+      {header(true)}
       <nav aria-label="Locations" className="sidenav">
         <ul>
           {roots.map((r) => (
@@ -231,7 +245,14 @@ function Shell({
           onEnded={onEnded}
           onChanged={() => setReload((n) => n + 1)}
         />
-        {folderId !== null && (
+        {backups && (
+          <BackupsPage
+            admin={session.user.role === "admin"}
+            roots={roots}
+            onEnded={onEnded}
+          />
+        )}
+        {!backups && folderId !== null && (
           <Browser
             key={`${folderId}:${reload}`}
             folderId={folderId}

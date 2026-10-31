@@ -87,7 +87,7 @@ def wait_status(m: Member, batch: str, wanted: tuple[str, ...], timeout: float =
 
 
 def test_migration_0006_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0007"
+    assert stack.sql("select version_num from alembic_version") == "0008"
     assert (
         stack.sql(
             "select count(*) from information_schema.tables "

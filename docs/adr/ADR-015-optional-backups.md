@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (owner, 2026-10-31)
 - **Date:** 2026-10-31
-- **Milestone:** not scheduled (proposed as its own milestone after M06b; the plan is unchanged until the owner schedules it)
+- **Milestone:** M06c (implemented 2026-10-31; [design and deviations](../milestones/M06c-design-and-plan.md))
 
 ## Context
 
@@ -77,3 +77,12 @@ Backups contain everyone's files, including Private and Confidential ones, and w
 ## Security and privacy impact
 
 See sections 5 and 6. Net new risks: a readable copy of all personal content on a volume the admin chooses (mitigated by encryption and per-root archives, and documented as host-level trust), and a path where a bad scan could prune good backups (mitigated by skipping suspended roots and the minimum-chains floor). An Opus 5.5 review is recommended before the milestone is signed off, focused on the key handling, the pruning floor and the restore authorization.
+
+## Implementation notes (M06c, 2026-10-31; to be confirmed by the owner)
+
+The decisions above stand. Where the implementation had to choose, it chose as follows; the milestone note lists the evidence and the open questions in full.
+
+- **Encryption is public-key.** The instance stores only an X25519 public key; the recovery key is shown once and never stored. Restoring therefore needs the recovery key in the request, which makes "owners restore their own folder" depend on the key holder handing the key over. Per-owner keys are an open question for a later ADR.
+- **Change detection** uses live `lstat` fingerprints compared with a snapshot kept in the application database (the archives are encrypted, so the previous manifest cannot be read by the app). The database supplies only the list of eligible entries.
+- **Pruning** protects the newest `min_chains_kept` chains of each root and every chain of a root that is not active, and a run is refused (not forced) when it cannot fit without breaking that floor.
+- The "less history than the admin intended" warning is replaced by an estimate of the full backups and days the limit holds.

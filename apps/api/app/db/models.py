@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -386,3 +387,56 @@ class ImportEntry(Base):
     dir_node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     tmp_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dst_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class BackupRun(Base):
+    """One backup run of one root (ADR-015). Counts and sizes only: never names, paths, content or
+    keys. Only `ok` rows that are not `pruned_at` take part in chains and retention."""
+
+    __tablename__ = "backup_run"
+    __table_args__ = (Index("ix_backup_run_root_started", "root_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    chain_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)  # full | incremental
+    # running | ok | failed | refused (could not start: volume, size limit)
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    archive_name: Mapped[str | None] = mapped_column(String(160), nullable=True)  # relative
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    uncompressed_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    archive_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    files_added: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_changed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_deleted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_missing: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_unstable: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    encrypted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    pruned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class BackupChainState(Base):
+    """What the newest verified run of a root contained (path -> size, mtime, inode), so the next
+    run can find changes without reading the (encrypted) archives. Private to the app database."""
+
+    __tablename__ = "backup_chain_state"
+
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), primary_key=True
+    )
+    chain_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)  # zlib JSON
+    encrypted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    last_archive: Mapped[str] = mapped_column(String(160), nullable=False)
+    event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)

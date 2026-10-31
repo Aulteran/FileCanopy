@@ -26,6 +26,8 @@ This document deliberately avoids reopening already-approved product behavior. R
 13. **Instance admin visibility:** administration operations without content access; audit report may include anonymous counts but not filenames/personal metadata without grants.
 14. **Embedding storage:** Postgres pgvector optional extension, model ID/version and reindex strategy; time/cost metrics on i7-9750H CPU-only environment must be benchmarked, not guessed.
 
+15. **Backup recovery keys (M06c):** archives are encrypted to a public key and the recovery key is shown once, so an owner who restores their own folder needs the key from whoever holds it. Decide whether to add per-owner keys (with an administrator master key) or keep one instance key. See `docs/milestones/M06c-design-and-plan.md`, open question 1.
+
 ## Confirmed defaults (do not reopen without owner consent)
 
 - No separate organizations/tenants; one instance = one family/group workspace.
