@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy (working name)",
-  "status": "m03_complete_m04_not_started",
+  "status": "m04_complete_m05_not_started",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -122,8 +122,8 @@
         "large file",
         "unauthorized download"
       ],
-      "notes": "Carry-over from M03 (2026-10-30): (1) call storage.resolver.ensure_root_dir() before the first write to a root (accounts created while the API runs have no directory until restart); (2) rewrite descendant lineages in the same transaction as a move; (3) decide the st_nlink > 1 (hardlink) policy; (4) from the M03 security review (low confidence, not vulnerabilities): block grant management and file operations under a disabled root (can_administer_grants and GrantAdminAccess ignore root.status), and filter disabled own roots from policy.entry_points; (5) every new file route must depend on a policy guard (route-inventory test enforces it).",
-      "status": "not_started"
+      "notes": "Done 2026-10-31 (Sonnet 5.5). Evidence: `npm run check` clean; `npm run check:api` ruff/format/mypy strict clean, 200 passed / 1 skipped (new tests/unit/api/test_files.py, 54 tests: real-file CRUD, name validation, listing, 96 MiB streamed round trip, upload limit, atomic write and DB-failure cleanup, no-overwrite for files and directories incl. host-created names, revision checks, interleaved/CAS/stolen-name concurrency, idempotency, uniform 403 matrix, disabled root, symlink/hardlink/FIFO refusal, missing-file reconcile, faked EXDEV cross-device move/copy with verify/DB-failure/source-changed cases, rename rollback and reconcile_needed, crash recovery, route inventory); `npm run test:compose` 14 passed incl. new test_files_stack.py on PostgreSQL behind nginx (5 MiB upload above the old nginx limit, move lineage rewrite, copy, 4 real concurrent renames: exactly one 200). Code: apps/api/app/{storage/files.py,domain/fileops.py,api/files.py}, migration 0004_file_operations, policy/deps.py guards, apps/web/nginx.conf upload location. ADR-013 Accepted. M03 carry-overs resolved: ensure_root_dir before writes; lineage rewrite in the move transaction; hardlinks (st_nlink>1) refused for read/copy, metadata ops allowed; disabled roots block grant admin and are hidden from entry_points; every route policy-guarded. Limits: no delete/trash/undo and no replace-on-upload (later milestones); no Range/conditional download; staging files `.filecanopy-tmp-*` are visible in the destination directory during an upload (M06 import must ignore them); renameat2/hardlink fallbacks and real second-mount EXDEV only faked/untested on NAS; folder rename without renameat2 is check-then-rename. Opus 5.5 race-safety review 2026-10-31: 13 findings; fixed concurrent-move lineage corruption (tree advisory lock + fresh re-read), single-process recovery at startup plus stale-claim release, no-hardlink rename fallback bug, download and copy_tree fd leaks, keyed-retry CAS, undo failures flagged, journal written before each filesystem step, replay access check, ctime in source-unchanged check, writes to missing roots refused. Cross-owner moves: owner decision 2026-10-31 (ADR-013 section 7): future cross-root move = copy + source to the source owner's trash with history (M07); interim M04 rule blocks root-changing moves (422 CROSS_ROOT_MOVE_UNSUPPORTED). Multi-process recovery limit documented. ADR-013 Accepted and M04 signed off by owner 2026-10-31. Pending: CI run on GitHub (PR).",
+      "status": "done"
     },
     {
       "id": "M05",

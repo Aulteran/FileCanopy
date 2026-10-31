@@ -54,6 +54,8 @@ services:
       FILECANOPY_TRUSTED_PROXY_HOPS: "1"
       FILECANOPY_COOKIE_SECURE: ${FILECANOPY_COOKIE_SECURE:-true}
       FILECANOPY_SETUP_TOKEN: ${FILECANOPY_SETUP_TOKEN:-}
+      # File operations (M04): upload size cap in bytes (default 10 GiB).
+      FILECANOPY_MAX_UPLOAD_BYTES: ${FILECANOPY_MAX_UPLOAD_BYTES:-10737418240}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data

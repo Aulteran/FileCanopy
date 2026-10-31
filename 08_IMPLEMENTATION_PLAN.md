@@ -91,10 +91,10 @@
 **Goal:** Build safe filesystem primitives and APIs for list, browse, folder create, upload, download, copy, move, rename with transaction journal.
 
 **Acceptance criteria:**
-- [ ] All file payloads remain real native files
-- [ ] Path escape, overwrite, conflict checks effective
-- [ ] Idempotent and revision-checked operations
-- [ ] Partial failure exposes reconcile status; does not silently lose source
+- [x] All file payloads remain real native files
+- [x] Path escape, overwrite, conflict checks effective
+- [x] Idempotent and revision-checked operations
+- [x] Partial failure exposes reconcile status; does not silently lose source
 
 **Tests/evidence:** atomic write, cross-device copy, concurrent rename, symlinks, large file, unauthorized download.
 
