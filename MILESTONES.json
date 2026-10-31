@@ -152,26 +152,35 @@
     {
       "id": "M06",
       "phase": "foundation",
-      "title": "Existing directory import and reconciliation",
+      "title": "Initial import and reconciliation",
       "depends_on": [
         "M05"
       ],
       "recommended_claude_code_model": "Sonnet 5.5",
-      "objective": "Live import workflow, dry-run backup warning, watcher + periodic rescan, external filesystem identity reconciliation.",
+      "objective": "First-setup import (folder or zip, UI) into an empty shared tree or personal folder, folder upload, watcher + periodic rescan, external filesystem identity reconciliation (ADR-011).",
       "acceptance_criteria": [
-        "Existing files remain in place (no forced copy)",
-        "Dry-run shows conflicts and backup warning",
+        "First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten",
+        "Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written",
+        "A root on a separately mounted drive is refused, and mounted drives inside a managed folder are listed as unsupported and never entered",
+        "Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits",
+        "Folder upload after setup merges folders and keeps both on file conflicts",
         "External moves/renames reflected or flagged as uncertain",
-        "External modifications attributed to external_filesystem"
+        "External modifications attributed to external_filesystem",
+        "Files removed outside the app shown as missing, never as deleted; mass disappearance suspends the root"
       ],
       "required_tests": [
         "large tree fixture",
         "restart scan",
         "out-of-band move",
         "mount path changes",
-        "network watcher fallback"
+        "network watcher fallback",
+        "zip-slip and zip-bomb fixtures",
+        "interrupted import resume",
+        "mounted-drive refusal (root and nested)",
+        "setup window closure",
+        "case-collision tree"
       ],
-      "notes": "Not started. Mount model decided 2026-10-31: the admin mounts any host folders into the container, and they stay inert (not scanned, watched or indexed) until an admin registers one through the UI import picker. Blockers, as of 2026-10-31: (1) ADR-011 (storage identity and filesystem reconciliation) is not written and is deferred to an Opus session; ADR-004 and ADR-013 defer identity, rescan and external-change rules to it. (2) ADR-011 must specify the picker: directories only, mounted paths only, and how it fits ADR-004's rule that the admin role never reads personal content. (3) Rescan interval and network-share policy are open (11_OPEN_DECISIONS items 5 and 11). (4) Import must ignore the `.filecanopy-tmp-*` staging prefix (M04 carry-over). (5) Whether file watchers fire for host-side changes on Docker Desktop for Windows bind mounts is unverified, so periodic rescan is the reliable path. The network watcher fallback will be tested by simulating a watcher outage, not on a real network share (owner decision 2026-10-31). Recommended model: Sonnet 5.5 for implementation; Opus 5.5 for the ADR-011 design review (08_IMPLEMENTATION_PLAN.md lists Sonnet 5.5 for M06).",
+      "notes": "Not started. ADR-011 accepted 2026-10-31. All M06 work goes on one branch (any M06a/M06b split shares it and one PR). Owner decisions 2026-10-31: import only at first setup into an empty root (shared tree by the admin, personal folder by its owner), via UI folder or zip (server-extracted); no mounted drives as or inside any managed folder (owner decision 2026-10-31; may return after the first full release on user request); after setup, folder upload only (merge, keep both); rescan every 15 minutes; network filesystems allowed with warning and no watcher; unique hash matches become uncertain inferred moves; missing nodes kept until dismissed; unsupported entries shown greyed out. Carry-overs: ignore the `.filecanopy-tmp-*` prefix (M04); watcher delivery on Docker Desktop for Windows bind mounts is unverified, so periodic rescan is the guarantee; the network watcher fallback is tested by simulation only. Proposed split for review: M06a reconciler (backend), M06b setup import + folder upload + UI. Recommended model: Sonnet 5.5 for implementation; Opus 5.5 security review of the zip extractor, setup authorization, matching rules and mass-change guard.",
       "status": "not_started"
     },
     {

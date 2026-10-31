@@ -112,19 +112,23 @@
 
 **Tests/evidence:** Playwright CRUD, keyboard accessibility, mobile basic, forbidden UI/API.
 
-### M06 — Existing directory import and reconciliation
+### M06 — Initial import and reconciliation
 
 **Phase:** foundation · **Dependencies:** M05 · **Suggested Claude Code model:** Sonnet 5.5
 
-**Goal:** Live import workflow, dry-run backup warning, watcher + periodic rescan, external filesystem identity reconciliation.
+**Goal:** First-setup import (folder or zip, UI) into an empty shared tree or personal folder, folder upload, watcher + periodic rescan, external filesystem identity reconciliation (ADR-011).
 
 **Acceptance criteria:**
-- [ ] Existing files remain in place (no forced copy)
-- [ ] Dry-run shows conflicts and backup warning
+- [ ] First-setup import of a folder or zip into the empty shared tree (admin) or into the user's own empty personal folder; the window closes on finish, skip or other content; nothing is overwritten
+- [ ] Pre-check shows totals, skipped and unsupported entries, in-import collisions and free space before anything is written
+- [ ] A root on a separately mounted drive is refused, and mounted drives inside a managed folder are listed as unsupported and never entered
+- [ ] Zip extraction refuses path traversal, symlink and encrypted entries, and decompression bombs, within configured limits
+- [ ] Folder upload after setup merges folders and keeps both on file conflicts
 - [ ] External moves/renames reflected or flagged as uncertain
 - [ ] External modifications attributed to external_filesystem
+- [ ] Files removed outside the app shown as missing, never as deleted; mass disappearance suspends the root
 
-**Tests/evidence:** large tree fixture, restart scan, out-of-band move, mount path changes, network watcher fallback.
+**Tests/evidence:** large tree fixture, restart scan, out-of-band move, mount path changes, network watcher fallback, zip-slip and zip-bomb fixtures, interrupted import resume, mounted-drive refusal (root and nested), setup window closure, case-collision tree.
 
 ### M07 — Audit trail, trash, and undo
 

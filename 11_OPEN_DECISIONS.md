@@ -15,13 +15,13 @@ This document deliberately avoids reopening already-approved product behavior. R
 2. **PostgreSQL version/pgvector:** pin currently supported tested versions and schema migrations. Full text does not require semantic search.
 3. **External OIDC provider details:** test authentik and Authelia with recommended OIDC flow; secure account linking; preserve built-in local login.
 4. **Inbound mailbox provider details:** IMAP poll, DKIM/SPF/DMARC validation availability, recipient alias handling. Do not assume every email provider preserves envelope recipient; quarantine ambiguous messages.
-5. **Filesystem strategy:** safe node IDs, journaling, symlink policy (MVP refuse following), rescan interval, network share disclaimers, case sensitivity and path collision behavior across platforms.
+5. **Filesystem strategy:** safe node IDs, journaling, symlink policy (MVP refuse following), rescan interval, network share disclaimers, case sensitivity and path collision behavior across platforms. *Proposed in ADR-011 (2026-10-31): 15-minute rescan, network filesystems allowed with warning and no watcher, case/Unicode collisions refused on creation and flagged when found.*
 6. **Confidential unlock credential with OIDC:** decide secure reauthentication flow using real identity provider vs separate unlock secret; no client-only PIN.
 7. **AI confidence thresholds:** must be tuned with synthetic test corpus and measured false positives. Can't take model's confidence number as calibrated fact.
 8. **Cloud data minimization:** Normal content may be cloud processed with explicit consent, but initial default is cloud off. Determine per-operation minimization and provider privacy disclosure at implementation time.
 9. **Quarantine retention & trash retention:** propose conservative defaults, configurable, avoid irreversible silent deletion.
 10. **Collection ACL model:** suggest owner + explicit shares; never use collection membership to override underlying file ACL.
-11. **Multiple file watchers on external live directory:** possible metadata reconciliation loss/duplicate; design testable conflict resolution rules.
+11. **Multiple file watchers on external live directory:** possible metadata reconciliation loss/duplicate; design testable conflict resolution rules. *Proposed in ADR-011: one reconciler per root under an advisory lock; watchers are hints only.*
 12. **Confidential local AI processing after unlock:** define short-lived authorized job token and behavior on expiry. Default to *no background confidential indexing* absent explicit foreground user approval.
 13. **Instance admin visibility:** administration operations without content access; audit report may include anonymous counts but not filenames/personal metadata without grants.
 14. **Embedding storage:** Postgres pgvector optional extension, model ID/version and reindex strategy; time/cost metrics on i7-9750H CPU-only environment must be benchmarked, not guessed.
@@ -33,7 +33,7 @@ This document deliberately avoids reopening already-approved product behavior. R
 - No full binary version history initially.
 - Personal folder defaults, shared main tree with configurable grants.
 - Confidential unlock auto-locks after five minutes of user inactivity within that folder.
-- Existing folder import works on live directories; warn strongly to back up first.
+- Existing folder import happens only at first setup (owner decision 2026-10-31, ADR-011): UI copy import into an empty shared or personal root. Mounted drives are not supported as or inside managed folders until after the first full release (revisit on user request).
 - Main tree uses instance AI; personal user chooses own/default/default local-only/none.
 - Protected folders never use cloud AI; local AI may be enabled.
 - Semantic search is optional and requires a verified embedding connection.

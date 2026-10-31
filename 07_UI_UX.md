@@ -25,13 +25,13 @@ Familiar OneDrive/Nextcloud-style file manager: stable left navigation, breadcru
 
 ## Onboarding sequence
 
-1. Confirm host storage prerequisites and independent backup warning; choose empty shared root or mount existing live directory.
+1. Confirm host storage prerequisites; choose an empty shared tree or a folder/zip import (copy, with a pre-check; ADR-011).
 2. Initialize first Administrator and session, force secure password setup. No default password.
 3. Select optional personal root behavior and confirm admin cannot automatically browse personal content in UI.
 4. Configure optional SMTP (skip allowed), add users/invite, choose shared root access.
 5. Select privacy feature enabled/disabled; explain Normal/Private/Confidential and plaintext-at-rest limitation.
 6. Optional AI wizard: disabled, cloud consent + provider, local generative endpoint, optional embeddings; do not auto-upload existing library when cloud AI connected.
-7. Import dry-run scan with preview and explicit backup acknowledgment; start background reconciliation/indexing.
+7. Run the chosen shared-tree import (pre-check first), then start background reconciliation/indexing. Each user's first sign-in offers the same empty-or-import choice for their personal folder; the window closes when setup is finished or skipped.
 
 ## Core file browser
 

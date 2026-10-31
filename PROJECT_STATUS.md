@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-10-31  
 **Stage:** M05 implemented (browser UI for folders and file operations); merged to `main`, ADR-014 accepted by owner 2026-10-31.  
-**Current milestone:** M06 — Existing directory import and reconciliation (not started; blocked until ADR-011 is proposed and approved; see Next session instruction).
+**Current milestone:** M06 — Initial import and reconciliation (not started; ADR-011 accepted 2026-10-31; see Next session instruction).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -41,6 +41,7 @@
 - 2026-10-31: M05 implemented (`apps/web`, `tests/e2e`; ADR-014 Proposed): React/TypeScript/Vite single-page app with first-run setup and sign-in, side navigation from `GET /roots`, folder browser with breadcrumbs, upload (button and drop), download, new folder, rename, move and copy, details panel, keyboard grid navigation, native dialogs and a phone layout. The `web` image now builds the bundle; nginx serves it with a same-origin CSP. Playwright (Python) browser tests run on the real Compose stack; new CI `e2e` job.
 - 2026-10-31: Owner decisions recorded. ADR-014 accepted, with a "Security and privacy impact" section added (documentation only; no new review). Working name "FileCanopy" kept for development; publication still needs name and trademark clearance (`11_OPEN_DECISIONS.md` item 1). No public alpha before the M24 release gate. Marketing website deferred: the owner will build it in a separate Claude Code session, not as part of the milestone plan.
 - 2026-10-31: M06 mount model decided. The admin mounts any host folders into the container; they are inert (not scanned, watched or indexed) until an admin registers one through the UI import picker. ADR-011 is deferred to an Opus session. The network watcher fallback will be tested by simulation, not on a real network share.
+- 2026-10-31: ADR-011 drafted (Proposed), replacing the mount-picker model above. Owner decisions: import only at first setup into an empty root (shared tree by the admin, personal folder by its owner) through a UI folder or zip import (copy, server-side zip extraction); no mounted drives as or inside any managed folder (dropped until after the first full release, on user request); after setup, ordinary folder upload (merge, keep both); rescan every 15 minutes; network filesystems allowed with warning; unique hash matches become uncertain inferred moves; missing nodes kept until dismissed; unsupported entries shown greyed out. M06 title, acceptance criteria and tests updated in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`; spec docs 01, 04, 07 and 11 updated.
 
 ## Verified implemented functionality
 
@@ -69,7 +70,7 @@
 
 ## Current blockers
 
-- M06 cannot start until ADR-011 (storage identity and reconciliation) is drafted and approved, planned for a later Opus session. The existing-folder mount model is decided. See Next session instruction.
+- M06 is unblocked: ADR-011 accepted 2026-10-31. M06 will be built on a single branch (see Next session instruction).
 
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
@@ -82,7 +83,7 @@
 
 ## Next session instruction
 
-M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and ADR-014 is accepted (2026-10-31). M06 has not started. Before M06 can start: (1) draft ADR-011 (storage identity, watcher and rescan, reconciliation rules, import picker rules) in an Opus session and get it approved; (2) mount model is decided: the admin mounts folders into the container, and they stay inert until registered through the UI import picker; (3) decide the rescan interval and network-share policy (`11_OPEN_DECISIONS.md` items 5 and 11); the network watcher fallback will be tested by simulation only. Recommended models: Sonnet 5.5 for implementation, Opus 5.5 for the ADR-011 design review. Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
+M05 is merged (PR #6, `0c3158b`, CI green including the new `e2e` job) and ADR-014 is accepted (2026-10-31). M06 has not started. Before M06 can start: ADR-011 is accepted (2026-10-31). Owner decision: all of M06 goes on one branch; if split into sessions, the parts share that branch and a single PR. Proposed session split: M06a (reconciler, mount refusal, `file_event`; backend) and M06b (setup import of folder/zip, folder upload, setup screens and drag-and-drop UI). The network watcher fallback will be tested by simulation only. Recommended models: Sonnet 5.5 for implementation, Opus 5.5 for the ADR-011 design review. Start M06 only on a new request. M07 must still implement the agreed cross-root move rule (copy + source to the source owner's trash + activity event; ADR-013 section 7), and the UI should then drop the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without progress, picker limited to 200 folders.
 
 ## Milestone session history
 
