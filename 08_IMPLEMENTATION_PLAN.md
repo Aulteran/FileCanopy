@@ -77,10 +77,10 @@
 **Goal:** Define storage node identities, personal/shared roots, grants, resource-scoped policy service and admin-without-personal-visibility invariant.
 
 **Acceptance criteria:**
-- [ ] Two user roles without admin personal read bypass
-- [ ] Effective ACL and subtree grants evaluated centrally
-- [ ] Each account has personal root; shared tree access configurable
-- [ ] Cross-user unauthorized metadata and path traversal rejected
+- [x] Two user roles without admin personal read bypass
+- [x] Effective ACL and subtree grants evaluated centrally
+- [x] Each account has personal root; shared tree access configurable
+- [x] Cross-user unauthorized metadata and path traversal rejected
 
 **Tests/evidence:** ACL matrix, private sibling non-disclosure, admin personal 403, path traversal, symlink escape.
 

@@ -89,4 +89,4 @@ A route-inventory unit test enumerates every `/api/v1` route and fails unless th
 
 ## Security and privacy impact
 
-This is the content-authorization boundary for every later feature. Requires Opus 5.5 security review of the M03 implementation (policy, grants API, storage resolver) before M03 is marked done.
+This is the content-authorization boundary for every later feature. Opus 5.5 security review of the M03 implementation (policy, grants API, storage resolver) was performed 2026-10-30: no findings at the >=8/10 confidence bar; minor observations recorded in `docs/milestones/M03-design-and-plan.md`.

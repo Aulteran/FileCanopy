@@ -1,6 +1,6 @@
 # M03 — Storage roots and centralized ACL engine: design and acceptance plan
 
-**Status:** Plan approved by owner (decisions below). No M03 code exists yet.
+**Status:** Done 2026-10-30; security review complete, signed off by owner. Plan approved by owner (decisions below).
 **Depends on:** M02 (done, ADR-012 accepted).
 **Decisions:** [ADR-004](../adr/ADR-004-acl-and-admin-separation.md) (Accepted).
 
@@ -101,6 +101,16 @@ Gates: `npm run check`, `npm run check:api` (ruff, format, mypy strict, pytest),
 4. `policy/` engine and dependency; ACL matrix and non-disclosure tests.
 5. API routes; admin storage endpoints; route-inventory test.
 6. Compose test; docs (`policy/README.md`, `storage/README.md`, `deploy/.env.example` notes); status updates; security review.
+
+## Implementation notes (deviations from the plan above)
+
+- Routes live in `app/api/nodes.py` (roots, node metadata, grants) and `app/api/admin_storage.py`; the planned separate `roots.py`/`grants.py` API files were merged.
+- `node_grant.granted_by` is nullable (`NULL` = instance default grant), so default shared grants need no fake grantor.
+- The migration backfill is verified on PostgreSQL in the Compose suite (drop the M03 tables, reset to `0002`, re-run `migrate` with an existing admin) instead of a SQLite migration unit test, because migration 0001 uses PostgreSQL-only SQL. Unit tests build the schema from the models.
+- Directories for accounts created while the API runs are created at the next API start (`ensure_roots`); M04 write paths must call `storage.resolver.ensure_root_dir()` on first use.
+- Filesystem-boundary refusal is unit-tested by faking `st_dev`; a real second mount was not exercised.
+- `st_nlink > 1` (hardlink) flagging is recorded as an M04 decision, as in ADR-004 §7; M03 has no file operations.
+- Opus 5.5 security review of policy, grants API and resolver (2026-10-30): no findings at the >=8/10 confidence bar. Low-confidence observations: an admin can grant themselves shared-tree access (allowed by ADR-004); grant management ignores a disabled root; `entry_points` lists one's own root even when disabled; `UNKNOWN_GRANTEE` covers both missing and disabled users; the mount check does not cover mounts at or above a root directory (host-level, outside the trust model). The disabled-root items are carried to M04.
 
 ## Owner decisions (2026-10-30)
 
