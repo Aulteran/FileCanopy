@@ -124,7 +124,36 @@ class Node(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     kind: Mapped[str] = mapped_column(String(8), nullable=False)  # dir | file
     lineage: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False
+    )  # active | busy | reconcile_needed
+    # Optimistic-concurrency token: bumped by every rename and move (ADR-013).
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # files only
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class FileOperation(Base):
+    """Journal row for one mutating file action (04_DATA_FILESYSTEM.md, action contract step 5).
+    `detail` holds ids, names, step names and error codes: never file content or absolute paths."""
+
+    __tablename__ = "file_operation"
+    __table_args__ = (
+        UniqueConstraint("actor_user_id", "idempotency_key", name="uq_file_operation_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True, nullable=True)
+    target_parent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    detail: Mapped[Any] = mapped_column(Json, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 

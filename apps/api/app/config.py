@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     # App-private data (previews, staging, trash, ...). Never exposed as user documents.
     app_data_path: Path = Path("/app-data")
 
+    # --- File operations (M04) ---
+    max_upload_bytes: int = Field(default=10 * 1024**3, ge=1)
+    # Bounds for one recursive copy or cross-device move, checked before anything is written.
+    max_tree_entries: int = Field(default=20000, ge=1)
+    max_tree_depth: int = Field(default=32, ge=1, le=64)
+    # Operations still `planned` after this long are treated as interrupted at startup recovery.
+    # The API runs as one process, so at startup every `planned` row is an orphan (default 0).
+    # Raise it only if several API processes ever share one database.
+    operation_stale_seconds: int = Field(default=0, ge=0)
+
     # --- Authentication (M02) ---
     # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at
     # startup and print it once in the API log while no administrator exists.

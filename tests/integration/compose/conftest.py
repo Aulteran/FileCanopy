@@ -3,7 +3,7 @@
 `app_stack` is one stack for the auth and storage suites (they only add accounts and never stop
 core services), so the images are started once instead of twice. Order matters: test_auth_stack
 runs first and performs the first-run setup that test_storage_stack then reuses; pass the files
-in that order (the default alphabetical order already does).
+in that order: auth, storage, files (pass them explicitly; alphabetical order puts files first).
 """
 
 import secrets

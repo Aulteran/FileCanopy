@@ -73,7 +73,7 @@ def can_administer_grants(db: Session, actor: Actor, node: Node) -> bool:
     """Personal tree: the owner (`share`). Shared tree: an active administrator. Administering a
     shared-tree grant is not holding access: reading still needs a grant on the admin's account."""
     root = db.get(StorageRoot, node.root_id)
-    if root is None:
+    if root is None or root.status == "disabled":  # nothing under a disabled root is managed
         return False
     if root.kind == "personal":
         return Privilege.SHARE in effective(db, actor, node)
@@ -90,7 +90,11 @@ def entry_points(db: Session, actor: Actor) -> list[Node]:
     own_root = db.scalar(
         select(Node)
         .join(StorageRoot, StorageRoot.id == Node.root_id)
-        .where(StorageRoot.owner_user_id == actor.user_id, Node.parent_id.is_(None))
+        .where(
+            StorageRoot.owner_user_id == actor.user_id,
+            Node.parent_id.is_(None),
+            StorageRoot.status != "disabled",
+        )
     )
     granted = list(
         db.scalars(

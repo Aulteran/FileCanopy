@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
-from app.db.models import Node
+from app.db.models import FileOperation, Node
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 
@@ -79,7 +79,29 @@ class GrantAdminAccess:
         return NodeContext(principal, node, engine.effective(db, actor, node))
 
 
+class OperationAccess:
+    """Guard for journal rows: visible to the actor who started the operation only. Other
+    people's and nonexistent ids are indistinguishable."""
+
+    policy_guard = True
+
+    def __call__(
+        self,
+        operation_id: uuid.UUID,
+        request: Request,
+        principal: Principal = Depends(current_principal),
+        db: Session = Depends(get_db),
+    ) -> FileOperation:
+        op = db.get(FileOperation, operation_id)
+        if op is None or op.actor_user_id != principal.user.id:
+            raise _deny(db, request, principal, operation_id, "operation")
+        return op
+
+
 # Module-level singletons: FastAPI dependencies are cached by identity, and route signatures stay
 # free of calls in argument defaults.
 traverse_access = NodeAccess(Privilege.TRAVERSE)
+list_access = NodeAccess(Privilege.LIST)
+read_access = NodeAccess(Privilege.READ)
+write_access = NodeAccess(Privilege.WRITE)
 grant_admin_access = GrantAdminAccess()

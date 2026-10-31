@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
 from app.api import admin_storage
+from app.api import files as file_routes
 from app.api import nodes as storage_nodes
 from app.auth import admin as auth_admin
 from app.auth import bootstrap
@@ -19,6 +20,7 @@ from app.auth.throttle import Throttle
 from app.config import Settings, load_settings
 from app.db.engine import make_engine
 from app.db.migrate import head_revision
+from app.domain.fileops import recover_operations
 from app.health import build_report
 from app.logging_config import configure_logging
 from app.storage.roots import ensure_roots
@@ -45,6 +47,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ensure_roots(sessions, cfg)
         except Exception as exc:  # roots are retried on the next start; the API still serves
             log.warning("storage roots not reconciled at startup: %s", type(exc).__name__)
+        try:
+            recover_operations(sessions, cfg)
+        except Exception as exc:  # flagged on the next start; never blocks serving
+            log.warning("file operation recovery failed: %s", type(exc).__name__)
         yield
         engine.dispose()
 
@@ -92,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(auth_admin.router)
     app.include_router(storage_nodes.router)
+    app.include_router(file_routes.router)
     app.include_router(admin_storage.router)
 
     return app
