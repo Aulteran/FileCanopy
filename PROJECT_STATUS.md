@@ -32,6 +32,7 @@
 - 2026-10-30: M02 implemented (`apps/api/app/auth/`, migration 0002, ADR-012 Proposed): first-admin setup token, Argon2id accounts, server-side sessions with strict HttpOnly cookies, CSRF + Origin checks, DB-backed login throttling, single-use hashed invitation/reset tokens, admin user-management API, auth audit table, scrubbed 422 bodies. nginx now forwards the original `Host`; Compose sets `FILECANOPY_TRUSTED_PROXY_HOPS=1`. See `deploy/.env.example` for `FILECANOPY_SETUP_TOKEN` / `FILECANOPY_COOKIE_SECURE`.
 - 2026-10-31: M02 merged to `main` (PR #1, `d08ddd8`). GitHub Actions CI ran for the first time and passed on both the PR and `main`: `npm run check`, `npm run check:api` (72 passed, 1 skipped) and `npm run test:compose` (10 passed on the Linux runner, which also exercises the `FILECANOPY_UID`/`FILECANOPY_GID` bind-mount ownership path).
 - 2026-10-30: M03 implemented (migration 0003, `app/storage`, `app/policy`, `app/domain`, `app/api`; ADR-004): personal root per account, shared root with configurable default grant (`editor`), folder grants (viewer/editor), one policy engine, uniform 403, fd-based no-symlink resolver, admin without personal read bypass. See `docs/milestones/M03-design-and-plan.md`.
+- 2026-10-31: M03 merged to `main` (PR #3, `937677b`) after GitHub Actions CI passed on the PR: `npm run check`, `npm run check:api` (146 passed, 1 skipped) and `npm run test:compose` (13 passed).
 
 ## Verified implemented functionality
 
@@ -48,7 +49,7 @@
 
 **Authentication (M02), verified 2026-10-30 on Docker 29.9.2:** `npm run check` clean; `npm run check:api` (pinned Python 3.13 image) ruff/format/mypy strict clean, 72 unit tests passed / 1 skipped, including the required brute-force/rate-limit, session-revocation, CSRF, token-replay and authz-negative tests; `npm run test:compose` 10 passed, including `test_auth_stack.py` (migration 0002 on PostgreSQL, setup-token flow, CSRF/Origin through nginx, token replay, throttling on the real client IP). Opus 5.5 security review of the M02 changes (2026-10-30): no findings at the >80%-confidence bar; accepted limits (per-account lockout, non-atomic burst counting) are recorded in ADR-012.
 
-**Storage/ACL (M03), verified 2026-10-30 on Docker 29.9.2:** `npm run check` clean; `check:api` ruff/format/mypy strict clean, 146 passed / 1 skipped; `test:compose` 13 passed (migration 0003 + backfill on PostgreSQL, bind-mount directories, symlinked root refused, admin personal 403 via nginx, lineage index). Not yet run on GitHub Actions. Opus 5.5 security review (2026-10-30): no findings at the >=8/10 confidence bar; low-confidence observations carried to M04 (see `MILESTONES.json` M04 notes). Signed off by owner.
+**Storage/ACL (M03), verified 2026-10-30 on Docker 29.9.2:** `npm run check` clean; `check:api` ruff/format/mypy strict clean, 146 passed / 1 skipped; `test:compose` 13 passed (migration 0003 + backfill on PostgreSQL, bind-mount directories, symlinked root refused, admin personal 403 via nginx, lineage index). GitHub Actions CI passed on PR #3 (2026-10-31, 5m3s, Linux runner). Opus 5.5 security review (2026-10-30): no findings at the >=8/10 confidence bar; low-confidence observations carried to M04 (see `MILESTONES.json` M04 notes). Signed off by owner.
 
 **CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
 
@@ -67,7 +68,7 @@
 
 ## Next session instruction
 
-Confirm CI passes for the `m03-storage-acl` branch and merge it. Then M04 only on a new request. Before starting M04, read the M03 carry-over in `MILESTONES.json` (M04 notes): call `ensure_root_dir()` before the first write, rewrite lineages in the same transaction as a move, decide the hardlink policy, block operations under a disabled root, filter disabled own roots from `entry_points`, and give every new route a policy guard.
+M03 is merged (PR #3). Start M04 only on a new request. Before starting M04, read the M03 carry-over in `MILESTONES.json` (M04 notes): call `ensure_root_dir()` before the first write, rewrite lineages in the same transaction as a move, decide the hardlink policy, block operations under a disabled root, filter disabled own roots from `entry_points`, and give every new route a policy guard.
 
 ## Milestone session history
 
