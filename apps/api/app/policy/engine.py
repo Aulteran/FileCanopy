@@ -121,3 +121,10 @@ def entry_points(db: Session, actor: Actor) -> list[Node]:
     result = [own_root] if own_root is not None else []
     result.extend(n for n in top if own_root is None or n.id != own_root.id)
     return result
+
+
+def filter_visible(db: Session, actor: Actor, node_ids: list[uuid.UUID]) -> list[uuid.UUID]:
+    """The ids the actor may see (`traverse`), in order. Anything that refers to nodes indirectly
+    (collections, search hits, notifications, saved links) must pass its references through here,
+    so a reference never reveals more than the node's own policy would."""
+    return [i for i in node_ids if Privilege.TRAVERSE in effective(db, actor, db.get(Node, i))]

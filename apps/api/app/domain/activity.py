@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import HIDDEN_NODE_STATUSES, FileEvent, Node, User
+from app.domain.grants import SHARE_ACTIONS
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 
@@ -32,6 +33,8 @@ PLAIN_KEYS = (
     "recovered",
     "proposal_id",
     "purge_after",
+    "grantee_name",
+    "level",
 )
 NODE_KEYS = ("copied_from", "from_node_id", "to_node_id", "from_parent_id", "to_parent_id")
 
@@ -71,6 +74,14 @@ def _can_see_node(db: Session, actor: Actor, raw: object, cache: dict[str, bool]
     return cache[key]
 
 
+def _may_see_sharing(db: Session, actor: Actor, node_id: uuid.UUID, cache: dict[str, bool]) -> bool:
+    key = f"share:{node_id}"
+    if key not in cache:
+        node = db.get(Node, node_id)
+        cache[key] = node is not None and engine.can_administer_grants(db, actor, node)
+    return cache[key]
+
+
 def node_activity(
     db: Session, actor_id: uuid.UUID, node: Node, *, limit: int, before: int | None
 ) -> tuple[list[EventOut], int | None]:
@@ -95,6 +106,8 @@ def node_activity(
     seen: dict[str, bool] = {}
     out: list[EventOut] = []
     for r in rows:
+        if r.action in SHARE_ACTIONS and not _may_see_sharing(db, actor, r.node_id, seen):
+            continue  # who else has access is for whoever manages the sharing, not for readers
         raw: dict[str, Any] = r.details if isinstance(r.details, dict) else {}
         details = {k: raw[k] for k in PLAIN_KEYS if k in raw}
         for k in NODE_KEYS:

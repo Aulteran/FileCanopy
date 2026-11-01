@@ -14,6 +14,7 @@ from app.api import files as file_routes
 from app.api import imports as import_routes
 from app.api import nodes as storage_nodes
 from app.api import reconcile as reconcile_routes
+from app.api import sharing as sharing_routes
 from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
 from app.auth import bootstrap
@@ -128,6 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(report, status_code=503 if report["status"] == "unavailable" else 200)
 
     app.include_router(auth_router.router)
+    app.include_router(sharing_routes.router)
     app.include_router(auth_admin.router)
     app.include_router(storage_nodes.router)
     app.include_router(file_routes.router)

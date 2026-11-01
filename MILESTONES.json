@@ -345,8 +345,8 @@
         "notification leakage",
         "collection placeholder references"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-01 on branch m08-sharing (see docs/milestones/M08-design-and-plan.md). Owner decisions taken as recommended unless the owner says otherwise: no expiry, no passwords or public links, only the owner (or the shared-tree admin) shares, folders only.",
+      "status": "in_review"
     },
     {
       "id": "M09",

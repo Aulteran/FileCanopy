@@ -9,6 +9,7 @@ const BACKUPS = /^\/backups\/?$/;
 const USERS = /^\/admin\/users\/?$/;
 const TRASH = /^\/trash\/?$/;
 const RECENT = /^\/recent\/?$/;
+const NOTICES = /^\/notifications\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
@@ -31,6 +32,7 @@ export const BACKUPS_PATH = "/backups";
 export const USERS_PATH = "/admin/users";
 export const TRASH_PATH = "/trash";
 export const RECENT_PATH = "/recent";
+export const NOTICES_PATH = "/notifications";
 
 export function isTrashPath(pathname: string): boolean {
   return TRASH.test(pathname);
@@ -38,6 +40,10 @@ export function isTrashPath(pathname: string): boolean {
 
 export function isRecentPath(pathname: string): boolean {
   return RECENT.test(pathname);
+}
+
+export function isNoticesPath(pathname: string): boolean {
+  return NOTICES.test(pathname);
 }
 
 export function isBackupsPath(pathname: string): boolean {
@@ -86,6 +92,7 @@ export function useRoute(): {
   users: boolean;
   trash: boolean;
   recent: boolean;
+  notices: boolean;
   go: (path: string, replace?: boolean) => void;
 } {
   const [path, setPath] = useState(window.location.pathname);
@@ -107,6 +114,7 @@ export function useRoute(): {
     users: isUsersPath(path),
     trash: isTrashPath(path),
     recent: isRecentPath(path),
+    notices: isNoticesPath(path),
     go,
   };
 }

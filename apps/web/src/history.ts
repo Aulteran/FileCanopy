@@ -43,6 +43,8 @@ export function describeAction(action: string): string {
   return ACTIONS[action] ?? action.replace(/_/g, " ");
 }
 
+const SHARING = new Set(["shared", "share_changed", "unshared", "share_left"]);
+
 const EVENTS: Record<string, string> = {
   created: "Created",
   uploaded: "Uploaded",
@@ -56,6 +58,10 @@ const EVENTS: Record<string, string> = {
   checked: "Checked after an interruption",
   modified: "Changed",
   deleted: "Removed outside the app",
+  shared: "Shared",
+  share_changed: "Sharing changed",
+  unshared: "Stopped sharing",
+  share_left: "Left the share",
 };
 
 function str(v: unknown): string | null {
@@ -70,7 +76,19 @@ export function describeEvent(ev: ActivityEvent): string {
   let text = base;
   if (ev.action === "renamed" && old && name)
     text = `Renamed from ${old} to ${name}`;
-  else if (ev.action === "checked") {
+  else if (SHARING.has(ev.action)) {
+    const who = str(ev.details.grantee_name) ?? "someone";
+    const level = ev.details.level === "editor" ? "edit" : "view";
+    text =
+      ev.action === "shared"
+        ? `Shared with ${who}, who can ${level}`
+        : ev.action === "share_changed"
+          ? `${who} can now ${level}`
+          : ev.action === "unshared"
+            ? `Stopped sharing with ${who}`
+            : `${who} left the share`;
+    if (ev.action === "share_left") return text; // the person acted on their own access
+  } else if (ev.action === "checked") {
     const how = str(ev.details.how);
     text =
       how === "released"

@@ -782,3 +782,26 @@ button.danger.primary {
   border-radius: 8px;
   background: var(--panel);
 }
+
+/* sharing (M08) */
+.people,
+.people-found,
+.notices {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.people li,
+.notices li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.people li > span:first-child {
+  flex: 1;
+}
+.notices li.unread {
+  font-weight: 600;
+}

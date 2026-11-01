@@ -47,7 +47,28 @@ export type NodeInfo = {
   scan_state: string | null;
   // An import held the scanner off this folder for a long time (managers only).
   scan_delayed: boolean;
+  // How many people a folder is shared with; null unless the caller manages its sharing.
+  shared_with: number | null;
 };
+export type Grant = {
+  node_id: string;
+  grantee_user_id: string;
+  grantee_name: string;
+  level: "viewer" | "editor";
+  created_at: string;
+};
+export type Person = { id: string; name: string; hint: string | null };
+export type Notice = {
+  id: string;
+  kind: "shared" | "unshared" | "share_left";
+  at: string;
+  read: boolean;
+  actor_name: string | null;
+  node_id: string | null;
+  node_name: string | null;
+  level: "viewer" | "editor" | null;
+};
+export type Notices = { unread: number; items: Notice[] };
 export type Child = {
   id: string;
   name: string;
@@ -430,6 +451,23 @@ export const api = {
     ),
 
   roots: () => call<EntryPoint[]>("GET", "/api/v1/roots"),
+  grants: (id: string) =>
+    call<Grant[]>("GET", `/api/v1/nodes/${enc(id)}/grants`),
+  putGrant: (id: string, user: string, level: "viewer" | "editor") =>
+    call<Grant>("PUT", `/api/v1/nodes/${enc(id)}/grants/${enc(user)}`, {
+      level,
+    }),
+  deleteGrant: (id: string, user: string) =>
+    call<{ status: string }>(
+      "DELETE",
+      `/api/v1/nodes/${enc(id)}/grants/${enc(user)}`,
+    ),
+  leaveShare: (id: string) =>
+    call<{ status: string }>("DELETE", `/api/v1/nodes/${enc(id)}/grants-mine`),
+  people: (q: string) => call<Person[]>("GET", `/api/v1/people?q=${enc(q)}`),
+  notifications: () => call<Notices>("GET", "/api/v1/notifications"),
+  markNoticesRead: () =>
+    call<{ status: string }>("POST", "/api/v1/notifications/read"),
   node: (id: string) => call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`),
   children: (id: string, after?: string | null) =>
     call<Children>(

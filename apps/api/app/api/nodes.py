@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
@@ -47,6 +47,8 @@ class NodeOut(BaseModel):
     # An import has held the reconciler off this root for a long time (bounded by a ceiling), so
     # changes made outside the app may show up late. Managers only.
     scan_delayed: bool = False
+    # Folders the caller may share: how many people they are shared with. Null for everyone else.
+    shared_with: int | None = None
 
 
 class GrantOut(BaseModel):
@@ -111,6 +113,11 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         and root is not None
         and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node)
     )
+    shared_with: int | None = None
+    if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node):
+        shared_with = db.scalar(
+            select(func.count()).select_from(NodeGrant).where(NodeGrant.node_id == node.id)
+        )
     return NodeOut(
         id=node.id,
         name=node.name,
@@ -122,6 +129,7 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         setup_state=root.setup_state if manage and root else None,
         scan_state=root.scan_state if manage and root else None,
         scan_delayed=bool(manage and root and root.scan_paused_since is not None),
+        shared_with=shared_with,
     )
 
 
@@ -185,5 +193,25 @@ def delete_grant(
     if not grants.revoke_grant(db, ctx.node, user_id, ctx.principal.user.id, client_ip(request)):
         db.rollback()
         raise http_error(404, "GRANT_NOT_FOUND")
+    db.commit()
+    return Ok()
+
+
+@router.delete("/nodes/{node_id}/grants-mine", response_model=Ok)
+def leave_share(
+    request: Request,
+    ctx: NodeContext = Depends(traverse_access),
+    db: Session = Depends(get_db),
+) -> Ok:
+    """A person gives up a folder someone else shared with them. Only a direct grant on a folder in
+    another person's personal area can be left; the shared tree is managed by the administrator."""
+    me = ctx.principal.user
+    root = db.get(StorageRoot, ctx.node.root_id)
+    if root is None or root.kind != "personal" or root.owner_user_id in (None, me.id):
+        raise http_error(422, "NOT_A_SHARE")
+    if not grants.revoke_grant(db, ctx.node, me.id, me.id, client_ip(request)):
+        db.rollback()
+        raise http_error(404, "GRANT_NOT_FOUND")
+    grants.notify(db, root.owner_user_id, "share_left", node_id=ctx.node.id, actor=me.id)
     db.commit()
     return Ok()
