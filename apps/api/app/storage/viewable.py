@@ -79,7 +79,10 @@ def parse_range(header: str, size: int) -> tuple[int, int] | str | None:
     if unit.strip().lower() != "bytes" or "," in spec:
         return None
     first, dash, last = spec.strip().partition("-")
-    if not dash or not (first.isascii() and last.isascii()):
+    # digits only (RFC 9110): int() alone would also accept "+5", " 5" and "1_000"
+    if not dash or not all(p == "" or (p.isascii() and p.isdigit()) for p in (first, last)):
+        return None
+    if first == "" and last == "":
         return None
     try:
         if first == "":  # suffix: the last N bytes

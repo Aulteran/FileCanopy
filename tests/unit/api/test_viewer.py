@@ -36,7 +36,7 @@ def test_view_serves_inline_with_a_server_chosen_type_and_safe_headers(fx: Fx, a
     r = view(alice, f)
     assert r.status_code == 200 and r.content == PDF
     assert r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == "inline"
+    assert r.headers["content-disposition"] == "inline; filename*=UTF-8''doc.PDF"
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["accept-ranges"] == "bytes"
     assert "sandbox" in r.headers["content-security-policy"]
@@ -171,3 +171,5 @@ def test_parse_range_unit() -> None:
     assert viewable.parse_range("bytes=0-", 0) == "unsatisfiable"
     assert viewable.parse_range("bytes=-3", 0) == "unsatisfiable"
     assert viewable.parse_range("bytes=٣-5", 10) is None  # non-ASCII digits are not accepted
+    for odd in ("bytes=+1-5", "bytes=1 -5", "bytes=1_0-5", "bytes=-", "bytes=1--5"):
+        assert viewable.parse_range(odd, 100) is None, odd

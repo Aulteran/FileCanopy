@@ -72,6 +72,13 @@ export function oneTimeLink(
   return `${origin}/${page}#token=${encodeURIComponent(token)}`;
 }
 
+// How many in-app navigations happened in this page load. Zero means the person arrived on a
+// link or after a reload, so "back" must not leave the app.
+let navigations = 0;
+export function hasInAppHistory(): boolean {
+  return navigations > 0;
+}
+
 export function useRoute(): {
   folderId: string | null;
   viewId: string | null;
@@ -88,6 +95,7 @@ export function useRoute(): {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const go = useCallback((to: string, replace = false) => {
+    if (!replace) navigations++;
     if (replace) window.history.replaceState(null, "", to);
     else window.history.pushState(null, "", to);
     setPath(window.location.pathname);

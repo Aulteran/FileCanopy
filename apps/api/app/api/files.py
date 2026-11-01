@@ -308,6 +308,8 @@ def _logged_view(
     if log_view:
         try:
             with request.app.state.auth.sessions() as session:
+                # Check-then-insert: two from-the-start requests at the very same instant could
+                # both write an entry. Accepted: the worst case is one duplicate line of history.
                 recent = session.scalar(
                     select(FileEvent.id)
                     .where(
@@ -348,7 +350,7 @@ def view(
     headers = {
         "Accept-Ranges": "bytes",
         "ETag": etag,
-        "Content-Disposition": "inline",
+        "Content-Disposition": f"inline; filename*=UTF-8''{quote(dl.name, safe='')}",
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'none'",

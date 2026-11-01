@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, type NodeInfo } from "./api";
 import { describeError, formatSize } from "./format";
-import { folderPath } from "./route";
+import { folderPath, hasInAppHistory } from "./route";
 import {
   TEXT_LIMIT,
   parseDelimited,
@@ -42,7 +42,7 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
   }, [nodeId, onEnded]);
 
   const back = useCallback(() => {
-    if (window.history.length > 1) window.history.back();
+    if (hasInAppHistory()) window.history.back();
     else go(node?.parent_id ? folderPath(node.parent_id) : "/", true);
   }, [go, node]);
 
@@ -78,7 +78,7 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
         />
       )}
       {node !== null && kind === "pdf" && (
-        <PdfView key={nodeId} nodeId={nodeId} />
+        <PdfView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
       )}
       {node !== null && kind === "image" && (
         <ImageView key={nodeId} nodeId={nodeId} name={node.name} />
@@ -87,6 +87,7 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
         <TextView
           key={nodeId}
           nodeId={nodeId}
+          onEnded={onEnded}
           delimiter={
             kind === "csv"
               ? node.name.toLowerCase().endsWith(".tsv")
@@ -227,9 +228,11 @@ type TextState =
 function TextView({
   nodeId,
   delimiter,
+  onEnded,
 }: {
   nodeId: string;
   delimiter: "," | "\t" | null;
+  onEnded: () => void;
 }) {
   const [data, setData] = useState<TextState>({ state: "loading" });
   const [table, setTable] = useState<Table | null>(null);
@@ -243,6 +246,10 @@ function TextView({
           credentials: "same-origin",
           signal: abort.signal,
         });
+        if (res.status === 401) {
+          onEnded();
+          return;
+        }
         if (!res.ok) {
           let code = "UNKNOWN";
           try {
@@ -267,7 +274,7 @@ function TextView({
       }
     })();
     return () => abort.abort();
-  }, [nodeId, delimiter]);
+  }, [nodeId, delimiter, onEnded]);
 
   if (data.state === "loading") return <p className="loading">Loading…</p>;
   if (data.state === "error")
@@ -367,7 +374,7 @@ function pdfMessage(err: unknown): string {
   return "This PDF could not be read.";
 }
 
-function PdfView({ nodeId }: { nodeId: string }) {
+function PdfView({ nodeId, onEnded }: { nodeId: string; onEnded: () => void }) {
   const [doc, setDoc] = useState<Doc | null>(null);
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -391,6 +398,7 @@ function PdfView({ nodeId }: { nodeId: string }) {
           cMapPacked: true,
           standardFontDataUrl: `${PDF_ASSETS}standard_fonts/`,
           wasmUrl: `${PDF_ASSETS}wasm/`,
+          iccUrl: `${PDF_ASSETS}iccs/`,
         });
         task = opened;
         loaded = await opened.promise;
@@ -404,14 +412,20 @@ function PdfView({ nodeId }: { nodeId: string }) {
         setFirstSize([vp.width, vp.height]);
         setDoc(loaded);
       } catch (err) {
-        if (live) setError(pdfMessage(err));
+        if (!live) return;
+        if (
+          (err as { name?: string })?.name === "UnexpectedResponseException" &&
+          (err as { status?: number }).status === 401
+        )
+          onEnded();
+        else setError(pdfMessage(err));
       }
     })();
     return () => {
       live = false;
       void task?.destroy();
     };
-  }, [nodeId]);
+  }, [nodeId, onEnded]);
 
   useEffect(() => {
     const el = scroller.current;

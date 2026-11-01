@@ -16,11 +16,23 @@ function pdfjsAssets(): Plugin {
   const dirs: [string, (name: string) => boolean][] = [
     ["cmaps", () => true],
     ["standard_fonts", () => true],
+    ["iccs", () => true],
     ["wasm", (name) => !name.startsWith("quickjs")],
   ];
   return {
     name: "filecanopy-pdfjs-assets",
     generateBundle() {
+      // Apache-2.0 section 4: a copy of the licence travels with every redistribution.
+      this.emitFile({
+        type: "asset",
+        fileName: "pdfjs/LICENSE",
+        source: readFileSync(join(root, "LICENSE")),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "THIRD_PARTY_NOTICES.md",
+        source: readFileSync(join(root, "..", "..", "THIRD_PARTY_NOTICES.md")),
+      });
       for (const [dir, keep] of dirs) {
         for (const name of readdirSync(join(root, dir))) {
           if (!keep(name)) continue;
