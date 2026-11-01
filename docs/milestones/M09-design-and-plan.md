@@ -1,6 +1,6 @@
 # M09 — Privacy labels and confidential unlock: threat model, design and acceptance plan
 
-- **Status:** design revised after Opus review (`reviews/M09-threat-model-opus-review.md`: 3 blockers, 10 should-fixes, folded in below), awaiting Opus re-check.
+- **Status:** built, PR open for Opus security review (2026-11-01). Design signed off by Opus after one revision (3 blockers, 10 should-fixes folded in below).
 - **Depends on:** M08 (done). **Spec:** 01 §Privacy, 03 §Privacy labels, M06c constraint on restores.
 - **Owner decisions taken unattended (safest default, recorded here; the owner can change them later):** see "Defaults chosen".
 
@@ -81,3 +81,17 @@ Shared-tree note: an administrator can already grant themselves access to shared
 - **S7** `LOCKED` is returned only when the actor would otherwise hold the privilege; otherwise the uniform `FORBIDDEN`. Five failed unlocks in a row revoke the session and are audited.
 - **S8** See the table (trash restore). **S9** See the table (imports). **S10** `Cache-Control: no-store` is already set on every `/api/v1` response by the middleware (checked); a test pins it for JSON of Confidential nodes.
 - **Nits**: unlock covers node X iff its scope id is in X's lineage and that scope is still Confidential (tested for move-under-another-Confidential and lower-then-raise); admin sees aggregate counts only; accounts without a local password fail closed on unlock (M13 revisits); the locked-descendant test is generated from the route inventory; the UI warns a minute before locking; a download in progress may finish its one response, Range requests re-check each time.
+
+
+## Built (PR)
+
+Migration 0011 (`node.privacy_label`, `confidential_unlock`); `policy.privacy` (labels, unlock rule, subtree check, label carrying, `ai_route_allowed`); lock applied inside `policy.engine.decide`; `LOCKED` 403 from the node guard; unlock, lock, lock-all, label and admin routes (`api/privacy.py`); five wrong unlocks end the session; unlocks removed on logout and session revocation; subtree rules for grants, move, copy, cross-root move, trash restore/purge/empty and import reports; activity rows of invisible nodes dropped; backups record the strictest label and a restore comes back with the strictest of recorded and current labels, written before the scanner can see the folder, and needs an unlock for Confidential; web: badge, Privacy dialog, locked card, countdown strip with Lock now, interactive header opt-in (timers never send it). 14 new API tests, 1 web unit test.
+
+## Not built / follow-ups
+
+- Per-path label re-application on restore (the restored top folder carries one strict label); single-file restore stays deferred.
+- A notice to the owner when a labeled folder goes missing outside the app (S6): reconcile never clears the label, but no notice yet.
+- Background import into a Confidential folder fails closed (a job has no session); the person unlocks and uploads again.
+- Admin screen for the instance switch (API exists: `GET/PUT /api/v1/admin/privacy`).
+- Share dialog and move dialog do not yet show "contains Confidential content"; the server refuses with `LOCKED`.
+- Browser e2e test for the locked card.
