@@ -85,7 +85,7 @@ Shared-tree note: an administrator can already grant themselves access to shared
 
 ## Built (PR)
 
-Migration 0011 (`node.privacy_label`, `confidential_unlock`); `policy.privacy` (labels, unlock rule, subtree check, label carrying, `ai_route_allowed`); lock applied inside `policy.engine.decide`; `LOCKED` 403 from the node guard; unlock, lock, lock-all, label and admin routes (`api/privacy.py`); five wrong unlocks end the session; unlocks removed on logout and session revocation; subtree rules for grants, move, copy, cross-root move, trash restore/purge/empty and import reports; activity rows of invisible nodes dropped; backups record the strictest label and a restore comes back with the strictest of recorded and current labels, written before the scanner can see the folder, and needs an unlock for Confidential; web: badge, Privacy dialog, locked card, countdown strip with Lock now, interactive header opt-in (timers never send it). 14 new API tests, 1 web unit test.
+Migration 0011 (`node.privacy_label`, `confidential_unlock`); `policy.privacy` (labels, unlock rule, subtree check, label carrying, `ai_route_allowed`); lock applied inside `policy.engine.decide`; `LOCKED` 403 from the node guard; unlock, lock, lock-all, label and admin routes (`api/privacy.py`); five wrong unlocks end the session; unlocks removed on logout and session revocation; subtree rules for grants, move, copy, cross-root move, trash restore/purge/empty and import reports; activity rows of invisible nodes dropped; backups record the strictest label and a restore comes back with the strictest of recorded and current labels, written before the scanner can see the folder, and needs an unlock for Confidential; web: badge, Privacy dialog, locked card, countdown strip with Lock now, interactive header opt-in per call (folder loads and the Keep open button send it; timers, pollers and downloads never do, so uploads, downloads and edits alone do not extend an unlock). 14 new API tests, 1 web unit test.
 
 ## Not built / follow-ups
 
@@ -95,3 +95,7 @@ Migration 0011 (`node.privacy_label`, `confidential_unlock`); `policy.privacy` (
 - Admin screen for the instance switch (API exists: `GET/PUT /api/v1/admin/privacy`).
 - Share dialog and move dialog do not yet show "contains Confidential content"; the server refuses with `LOCKED`.
 - Browser e2e test for the locked card.
+
+## After the Opus PR review
+
+Fixed: trashed Confidential folders can be unlocked (restore, purge) and no longer block the folders above them; purged and dismissed folders count for nothing (also for restore labels); the interactive header is truly opt-in; restore registers the labeled node (busy, so scans skip it) before the folder becomes visible and cleans up on failure; lowering a label needs an unlock also in the shared tree; non-user actors (AI agents) are never unlocked in the central decision; countdown is announced once at one minute; Keep open button; Privacy button for shared-tree admins. Still open: the Trash screen has no unlock prompt for a trashed Confidential item (API ready); an already-open viewer is not closed by the lock; lock-card styling vs mockup; browser e2e; route-inventory generated test.

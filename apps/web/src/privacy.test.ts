@@ -1,10 +1,17 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isInteractive } from "./api";
+import { interactiveHeaders } from "./api";
 
-describe("isInteractive", () => {
-  it("is true for a recent touch, false for background work or an idle page", () => {
-    expect(isInteractive(10_000, 5_000, false)).toBe(true);
-    expect(isInteractive(10_000, 5_000, true)).toBe(false); // pollers and timers
-    expect(isInteractive(100_000, 5_000, false)).toBe(false);
+describe("interactive header", () => {
+  it("is sent only when a caller asks for it", () => {
+    expect(interactiveHeaders(false)).toEqual({});
+    expect(interactiveHeaders(true)).toEqual({ "X-FC-Interactive": "1" });
+  });
+
+  it("pollers and timers never ask for it", () => {
+    for (const file of ["App.tsx", "Backups.tsx", "ScanBanner.tsx"]) {
+      const src = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
+      expect(src, file).not.toMatch(/interactive/i);
+    }
   });
 });

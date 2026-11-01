@@ -142,7 +142,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const loadList = useCallback(async (): Promise<void> => {
     const bg = background.current;
     background.current = false;
-    const kids = await api.children(folderId, null, bg);
+    const kids = await api.children(folderId, null, !bg);
     setItems(kids.items);
     setNext(kids.next_after);
   }, [folderId]);
@@ -151,7 +151,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     let live = true;
     (async () => {
       try {
-        const node = await api.node(folderId, background.current);
+        const node = await api.node(folderId, !background.current);
         const chain: NodeInfo[] = [node];
         for (let n = node; n.parent_id && chain.length < 64;) {
           n = await api.node(n.parent_id);
@@ -196,7 +196,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   async function loadMore(): Promise<void> {
     if (!next) return;
     try {
-      const kids = await api.children(folderId, next);
+      const kids = await api.children(folderId, next, true);
       setItems((prev) => [...prev, ...kids.items]);
       setNext(kids.next_after);
     } catch (err) {
@@ -206,9 +206,10 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   async function refresh(): Promise<void> {
     try {
+      const fromTimer = background.current;
       await loadList();
       // Also the folder itself: its setup window or scan state may have changed.
-      setInfo(await api.node(folderId));
+      setInfo(await api.node(folderId, !fromTimer));
     } catch (err) {
       setErrorText(fail(err));
     }
@@ -553,8 +554,12 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         <LockStrip
           info={info}
           onLocked={() => {
+            background.current = true; // the countdown reaching zero is not the person
             setState("loading");
             setTick((t) => t + 1);
+          }}
+          onKeepOpen={() => {
+            void api.node(info.id, true).then(setInfo);
           }}
         />
       )}
@@ -607,7 +612,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           New folder
         </button>
         <LabelBadge label={info.privacy_effective} />
-        {privileges.includes("manage") && info.kind === "dir" && (
+        {info.shared_with !== null && info.kind === "dir" && (
           <button onClick={() => setDialog("privacy")}>Privacy…</button>
         )}
         {info.shared_with !== null && info.kind === "dir" && (

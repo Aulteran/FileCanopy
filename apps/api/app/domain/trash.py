@@ -442,7 +442,10 @@ def trash(
         and existing.status in HIDDEN_NODE_STATUSES
         and Privilege.WRITE
         in engine.effective(
-            ctx.db, Actor(ctx.actor, session_id=ctx.session_id), existing, include_hidden=True
+            ctx.db,
+            Actor(ctx.actor, ctx.actor_kind, session_id=ctx.session_id),
+            existing,
+            include_hidden=True,
         )
     ):
         raise OpError(409, "ALREADY_TRASHED")

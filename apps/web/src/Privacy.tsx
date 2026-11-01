@@ -87,9 +87,11 @@ function clock(seconds: number): string {
 export function LockStrip({
   info,
   onLocked,
+  onKeepOpen,
 }: {
   info: NodeInfo;
   onLocked: () => void;
+  onKeepOpen: () => void;
 }) {
   const [left, setLeft] = useState(info.locks_in ?? 0);
   useEffect(() => setLeft(info.locks_in ?? 0), [info.locks_in]);
@@ -102,13 +104,17 @@ export function LockStrip({
   }, [left, onLocked]);
   if (info.locks_in === null) return null;
   return (
-    <div className="banner conf" role="status">
-      <span>
-        Unlocked · locks in {clock(left)}
-        {left <= 60
-          ? ". Click or press a key in this folder to keep it open."
-          : ""}
+    <div className="banner conf">
+      <span aria-hidden="true">Unlocked · locks in {clock(left)}</span>
+      {/* Announced once, at one minute left, not every second. */}
+      <span className="sr-only" role="status">
+        {left > 0 && left <= 60 ? "This folder locks in one minute." : ""}
       </span>
+      {left <= 60 && (
+        <button type="button" onClick={onKeepOpen}>
+          Keep open
+        </button>
+      )}
       <button
         type="button"
         onClick={() => {

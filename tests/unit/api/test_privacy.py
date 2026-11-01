@@ -221,3 +221,132 @@ def test_restore_gets_the_strictest_label(fx: Fx) -> None:
         root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
         assert restore_mod.required_label(db, root) == "private"  # pre-M09 backup: root decides
         assert restore_mod.required_label(db, root, "confidential") == "confidential"
+
+
+def trash_confidential(fx: Fx) -> tuple[Api, str]:
+    """Alice trashes the Confidential `2026` while it is unlocked; returns the trash item id."""
+    alice = Api(fx, "alice")
+    label(alice, fx.y2026, "confidential")
+    unlock(alice, fx.y2026)
+    node = alice.get(f"/nodes/{fx.y2026}").json()
+    r = alice.client.delete(
+        f"/api/v1/nodes/{fx.y2026}",
+        params={"expected_revision": 1},
+        headers=alice.headers,
+    )
+    assert r.status_code in (200, 202), r.text
+    assert node["privacy_effective"] == "confidential"
+    items = alice.get("/trash").json()["items"]
+    assert len(items) == 1
+    return alice, str(items[0]["id"])
+
+
+def test_a_trashed_confidential_folder_can_be_unlocked_and_restored(fx: Fx) -> None:
+    alice, item = trash_confidential(fx)
+    fx.w.offset += timedelta(seconds=400)  # the unlock has lapsed
+    # the folders above it are not held hostage by it
+    bob = Api(fx, "bob")
+    assert grant(alice, fx.taxes, bob.uid).status_code == 200
+    # restoring needs the unlock, and the trashed folder can be unlocked
+    r = alice.post(f"/trash/{item}/restore", json={})
+    assert r.status_code == 403 and code(r) == "LOCKED"
+    assert unlock(alice, fx.y2026).status_code == 200
+    assert alice.post(f"/trash/{item}/restore", json={}).status_code in (200, 201)
+
+
+def test_a_purged_confidential_folder_blocks_nothing(fx: Fx) -> None:
+    alice, item = trash_confidential(fx)
+    fx.w.offset += timedelta(seconds=400)
+    token = alice.get("/trash").json()["items"][0]["confirm_token"]
+    assert (
+        alice.client.delete(
+            f"/api/v1/trash/{item}", params={"confirm": token}, headers=alice.headers
+        ).status_code
+        == 403
+    )  # purging Confidential data needs the unlock
+    unlock(alice, fx.y2026)
+    assert alice.client.delete(
+        f"/api/v1/trash/{item}", params={"confirm": token}, headers=alice.headers
+    ).status_code in (200, 204)
+    fx.w.offset += timedelta(seconds=400)
+    bob = Api(fx, "bob")
+    assert grant(alice, fx.alice_root, bob.uid).status_code in (200, 422)  # not LOCKED
+    assert grant(alice, fx.taxes, bob.uid).status_code == 200
+
+
+def test_password_change_drops_unlocks(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    label(alice, fx.y2026, "confidential")
+    unlock(alice, fx.y2026)
+    r = alice.client.post(
+        "/api/v1/auth/password",
+        json={"current_password": PASSWORD, "new_password": PASSWORD + "-new-1"},
+        headers=alice.headers,
+    )
+    assert r.status_code == 200, r.text
+    with fx.w.ctx.sessions() as db:
+        assert db.scalars(select(ConfidentialUnlock)).all() == []
+
+
+def test_a_grantee_inside_the_scope_unlocks_without_seeing_the_parent(fx: Fx) -> None:
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    inner = uuid.UUID(alice.mkdir(fx.y2026, "Inner").json()["node"]["id"])
+    assert grant(alice, inner, bob.uid).status_code == 200
+    label(alice, fx.y2026, "confidential")
+    r = bob.get(f"/nodes/{inner}")
+    assert r.status_code == 403 and code(r) == "LOCKED"
+    assert "unlock_node_id" not in str(r.json()) and str(fx.y2026) not in r.text
+    assert unlock(bob, inner).status_code == 200
+    assert bob.get(f"/nodes/{inner}").status_code == 200
+    assert bob.get(f"/nodes/{fx.y2026}").status_code == 403  # the parent stays out of sight
+
+
+def test_ai_agent_actors_are_never_unlocked(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    fid = upload_id(alice, fx.y2026, "s.txt")
+    label(alice, fx.y2026, "confidential")
+    unlock(alice, fx.y2026)
+    with fx.w.ctx.sessions() as db:
+        node = db.get(Node, fid)
+        session_id = db.scalars(select(ConfidentialUnlock.session_id)).one()
+        assert node is not None
+        assert engine.effective(db, Actor(alice.uid, session_id=session_id), node)
+        ai = Actor(alice.uid, "ai_agent", session_id=session_id)
+        assert not engine.effective(db, ai, node)
+
+
+def test_lowering_in_the_shared_tree_needs_an_unlock(fx: Fx) -> None:
+    admin, hdr = fx.admin
+    r = admin.put(
+        f"/api/v1/nodes/{fx.shared_sub}/privacy", json={"label": "confidential"}, headers=hdr
+    )
+    assert r.status_code == 200, r.text  # an administrator may raise a label there
+    r = admin.put(
+        f"/api/v1/nodes/{fx.shared_sub}/privacy",
+        json={"label": "normal", "password": PASSWORD},
+        headers=hdr,
+    )
+    assert r.status_code == 403 and code(r) == "LOCKED"
+
+
+def test_restore_that_fails_leaves_no_unregistered_folder(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.backup import restore as restore_mod
+    from app.db.models import StorageRoot
+
+    alice = Api(fx, "alice")
+    label(alice, fx.y2026, "private")
+
+    def boom(*a: Any, **k: Any) -> uuid.UUID:
+        raise OSError("disk")
+
+    monkeypatch.setattr(restore_mod, "_register_folder", boom)
+    with fx.w.ctx.sessions() as db:
+        root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
+        with pytest.raises(OSError):
+            restore_mod._publish(
+                db, fx.w.settings, root, "nonexistent-work", set(), "2026-11-01 0000", "private"
+            )
+    lib = fx.w.settings.library_path / root.relative_dir
+    assert not any(p.name.startswith("Restored from backup") for p in lib.iterdir())

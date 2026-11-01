@@ -237,6 +237,12 @@ def set_label(
     if node.kind != "dir" or node.status != "active":
         raise http_error(422, "NOT_A_DIRECTORY")
     current, wanted = node.privacy_label, body.label
+    if privacy.RANK[wanted] < privacy.RANK[current] and privacy.locked_scopes_in(
+        db, principal.user.id, principal.session.id, node
+    ):
+        # Also in the shared tree, where an administrator needs no content access to get here:
+        # lowering needs the folder to be unlocked (and so a grant), not just the role.
+        raise http_error(403, "LOCKED")
     if privacy.RANK[wanted] > privacy.RANK[current] and not labels_enabled(db):
         raise http_error(409, "PRIVACY_LABELS_DISABLED")
     if privacy.RANK[wanted] < privacy.RANK[current]:

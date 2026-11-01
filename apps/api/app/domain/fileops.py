@@ -98,7 +98,7 @@ class Outcome:
 def _need(ctx: OpCtx, target: uuid.UUID | Node, privilege: Privilege) -> Node:
     node = ctx.db.get(Node, target) if isinstance(target, uuid.UUID) else target
     if node is None or privilege not in engine.effective(
-        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+        ctx.db, Actor(ctx.actor, ctx.actor_kind, session_id=ctx.session_id), node
     ):
         node_id = target if isinstance(target, uuid.UUID) else target.id
         audit(
@@ -563,7 +563,7 @@ def _replayed(ctx: OpCtx, op: FileOperation) -> Outcome:
     if node is None:
         raise OpError(409, "OPERATION_IN_PROGRESS")
     if Privilege.TRAVERSE not in engine.effective(
-        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+        ctx.db, Actor(ctx.actor, ctx.actor_kind, session_id=ctx.session_id), node
     ):
         raise OpError(403, "FORBIDDEN")  # the result moved somewhere this actor cannot see
     return Outcome(node, op, replay=True)

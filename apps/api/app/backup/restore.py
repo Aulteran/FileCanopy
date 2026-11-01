@@ -244,7 +244,11 @@ def required_label(db: Session, root: StorageRoot, recorded: str = "normal") -> 
     the root holds now. A pre-M09 backup records nothing, so the root's current labels decide
     (Normal when it has none)."""
     label = recorded
-    for own in db.scalars(select(Node.privacy_label).where(Node.root_id == root.id).distinct()):
+    for own in db.scalars(
+        select(Node.privacy_label)
+        .where(Node.root_id == root.id, Node.status.not_in(("purged", "dismissed")))
+        .distinct()
+    ):
         label = privacy.stricter(label, own)
     return label
 
@@ -301,6 +305,8 @@ def restore(
         raise RestoreError("LOCKED")  # unlock first; the recorded labels are re-checked below
     recorded_label = "normal"
     writer = _Writer(settings, root, work)
+    published = False
+    folder = ""
     try:
         for run in chain:
             archive = base / (run.archive_name or "")
@@ -336,11 +342,17 @@ def restore(
         label = required_label(db, root, recorded_label)
         if label == "confidential" and not unlocked:
             raise RestoreError("LOCKED")
-        folder = _publish(settings, root, work, taken, stamp)
-        _register_folder(db, settings, root, folder, label)
+        folder, node_id = _publish(db, settings, root, work, taken, stamp, label)
+        published = True
+        node = db.get(Node, node_id)
+        if node is not None:
+            node.status = "active"
+            db.commit()
     except BaseException as exc:
         writer.close()
-        _discard(settings, root, work)
+        _discard(settings, root, folder if published else work)
+        if published:
+            _forget_name(db, root, folder)
         if isinstance(exc, (RestoreError, KeyboardInterrupt, SystemExit)):
             raise
         log.error("restore failed: %s", type(exc).__name__)  # no paths in the log
@@ -356,25 +368,53 @@ def restore(
 
 
 def _register_folder(
-    db: Session, settings: Settings, root: StorageRoot, folder: str, label: str
-) -> None:
-    """Creates the folder's node, with its label, before anything can discover it as a Normal
-    node (the scanner finds it already known)."""
+    db: Session, settings: Settings, root: StorageRoot, work: str, name: str, label: str
+) -> uuid.UUID:
+    """Creates the folder's node with its label, still `busy`, before the folder becomes visible:
+    the scanner skips busy nodes, so it can never find the folder first and make it Normal."""
     from app.domain.fileops import _new_node, _stamp  # deferred: fileops builds on storage
 
     top = root_node(db, root.id)
     with open_dir(settings.library_path, root.relative_dir) as root_fd:
-        info = os.stat(folder, dir_fd=root_fd, follow_symlinks=False)
-    node = _new_node(top, folder, "dir", None)
+        info = os.stat(work, dir_fd=root_fd, follow_symlinks=False)  # same inode after the rename
+    node = _new_node(top, name, "dir", None)
     _stamp(node, info)
     node.privacy_label = label
+    node.status = "busy"
     db.add(node)
     db.commit()
+    return node.id
 
 
-def _publish(settings: Settings, root: StorageRoot, work: str, taken: set[str], stamp: str) -> str:
-    """Renames the finished folder to its final, visible name. A name already in use is never
-    taken (a directory renamed onto an empty one would replace it, so the name is checked first)."""
+def _forget_name(db: Session, root: StorageRoot, folder: str) -> None:
+    db.rollback()
+    top = root_node(db, root.id)
+    node = db.scalar(select(Node).where(Node.parent_id == top.id, Node.name == folder))
+    if node is not None:
+        db.delete(node)
+        db.commit()
+
+
+def _forget_node(db: Session, node_id: uuid.UUID) -> None:
+    db.rollback()
+    node = db.get(Node, node_id)
+    if node is not None:
+        db.delete(node)
+        db.commit()
+
+
+def _publish(
+    db: Session,
+    settings: Settings,
+    root: StorageRoot,
+    work: str,
+    taken: set[str],
+    stamp: str,
+    label: str,
+) -> tuple[str, uuid.UUID]:
+    """Renames the finished folder to its final, visible name and registers its node (with the
+    label) around the rename. A name already in use is never taken (a directory renamed onto an
+    empty one would replace it, so the name is checked first)."""
     folder = f"Restored from backup {stamp}"
     with open_dir(settings.library_path, root.relative_dir) as root_fd:
         counter = 1
@@ -388,15 +428,18 @@ def _publish(settings: Settings, root: StorageRoot, work: str, taken: set[str], 
                 continue
             except FileNotFoundError:
                 pass
+            node_id = _register_folder(db, settings, root, work, candidate, label)
             try:
                 os.rename(work, candidate, src_dir_fd=root_fd, dst_dir_fd=root_fd)
             except (FileExistsError, IsADirectoryError):
+                _forget_node(db, node_id)
                 continue
             except OSError as exc:
+                _forget_node(db, node_id)
                 if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
                     continue
                 raise
-            return candidate
+            return candidate, node_id
 
 
 def sweep_stale(sessions: "sessionmaker[Session]", settings: Settings) -> int:

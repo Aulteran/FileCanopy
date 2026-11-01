@@ -47,7 +47,9 @@ def decide(
     if node is None or not base.privileges:
         return base
     scope = privacy.confidential_scope(db, node)
-    if scope is None or privacy.live_unlock(db, actor.user_id, actor.session_id, scope):
+    if scope is None or (
+        actor.kind == "user" and privacy.live_unlock(db, actor.user_id, actor.session_id, scope)
+    ):
         return base
     if node.id == scope:
         return Decision(base.privileges & {Privilege.TRAVERSE})
@@ -62,7 +64,9 @@ def lock_scope(db: Session, actor: Actor, node: Node | None) -> uuid.UUID | None
     if not decide_ignoring_lock(db, actor, node).privileges:
         return None
     scope = privacy.confidential_scope(db, node)
-    if scope is None or privacy.live_unlock(db, actor.user_id, actor.session_id, scope):
+    if scope is None or (
+        actor.kind == "user" and privacy.live_unlock(db, actor.user_id, actor.session_id, scope)
+    ):
         return None
     return scope
 

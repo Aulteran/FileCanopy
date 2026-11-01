@@ -148,19 +148,13 @@ class ImportAccess:
         if batch is None or batch.actor_user_id != principal.user.id:
             raise _deny(db, request, principal, import_id, "import")
         target = db.get(Node, batch.target_node_id)
-        actor = Actor(principal.user.id, session_id=principal.session.id)
-        if (
-            target is not None
-            and privacy.live_unlock(
-                db,
-                actor.user_id,
-                actor.session_id,
-                privacy.confidential_scope(db, target) or target.id,
-            )
-            is None
-            and privacy.confidential_scope(db, target) is not None
+        scope = privacy.confidential_scope(db, target) if target is not None else None
+        if scope is not None and (
+            privacy.live_unlock(db, principal.user.id, principal.session.id, scope) is None
         ):
-            raise HTTPException(status_code=403, detail={"code": "LOCKED"})  # report names files
+            raise HTTPException(
+                status_code=403, detail={"code": "LOCKED"}
+            )  # the report names files
         return batch
 
 
@@ -221,7 +215,8 @@ class AdminAccess:
 # Module-level singletons: FastAPI dependencies are cached by identity, and route signatures stay
 # free of calls in argument defaults.
 traverse_access = NodeAccess(Privilege.TRAVERSE)
-unlock_access = NodeAccess(Privilege.TRAVERSE, ignore_lock=True)
+# include_hidden: a trashed Confidential folder must be unlockable to be restored or purged.
+unlock_access = NodeAccess(Privilege.TRAVERSE, include_hidden=True, ignore_lock=True)
 list_access = NodeAccess(Privilege.LIST)
 read_access = NodeAccess(Privilege.READ)
 write_access = NodeAccess(Privilege.WRITE)

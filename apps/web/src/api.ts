@@ -321,24 +321,15 @@ export function setCsrf(token: string): void {
 type Extra = {
   body?: BodyInit;
   headers?: Record<string, string>;
-  // Timers and pollers pass true: they must never keep a Confidential unlock alive.
-  background?: boolean;
+  // Opt-in: only a request the person just made says so. Timers and pollers never do, so they
+  // cannot keep a Confidential unlock alive (M09). The server renews only when it is set.
+  interactive?: boolean;
 };
 
-// The server renews a Confidential unlock only for a request the person made. A request counts
-// as theirs when they touched the page recently and the caller did not say it is background work.
-const INTERACTIVE_WINDOW_MS = 30_000;
-let lastInput = 0;
-if (typeof window !== "undefined") {
-  for (const ev of ["pointerdown", "keydown", "wheel"])
-    window.addEventListener(ev, () => (lastInput = Date.now()), true);
-}
-export function isInteractive(
-  now: number,
-  lastInputAt: number,
-  background: boolean,
-): boolean {
-  return !background && now - lastInputAt <= INTERACTIVE_WINDOW_MS;
+export function interactiveHeaders(
+  interactive: boolean,
+): Record<string, string> {
+  return interactive ? { "X-FC-Interactive": "1" } : {};
 }
 
 async function call<T>(
@@ -349,8 +340,7 @@ async function call<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { ...extra.headers };
   if (method !== "GET") headers["X-CSRF-Token"] = csrf;
-  if (isInteractive(Date.now(), lastInput, extra.background === true))
-    headers["X-FC-Interactive"] = "1";
+  Object.assign(headers, interactiveHeaders(extra.interactive === true));
   let body: BodyInit | undefined = extra.body;
   if (json !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -520,16 +510,16 @@ export const api = {
   notifications: () => call<Notices>("GET", "/api/v1/notifications"),
   markNoticesRead: () =>
     call<{ status: string }>("POST", "/api/v1/notifications/read"),
-  node: (id: string, background = false) =>
+  node: (id: string, interactive = false) =>
     call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`, undefined, {
-      background,
+      interactive,
     }),
-  children: (id: string, after?: string | null, background = false) =>
+  children: (id: string, after?: string | null, interactive = false) =>
     call<Children>(
       "GET",
       `/api/v1/nodes/${enc(id)}/children?limit=200${after ? `&after=${enc(after)}` : ""}`,
       undefined,
-      { background },
+      { interactive },
     ),
   unlock: (id: string, password: string) =>
     call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, {

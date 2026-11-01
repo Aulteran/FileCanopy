@@ -87,7 +87,7 @@ def _live(db: Session, node_id: uuid.UUID | str | None) -> Node | None:
 
 def _can_write(ctx: OpCtx, node: Node) -> bool:
     return Privilege.WRITE in engine.effective(
-        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+        ctx.db, Actor(ctx.actor, ctx.actor_kind, session_id=ctx.session_id), node
     )
 
 

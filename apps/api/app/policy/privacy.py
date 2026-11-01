@@ -121,11 +121,18 @@ def locked_scopes_in(
     scopes: set[uuid.UUID] = set()
     if (outer := confidential_scope(db, node)) is not None:
         scopes.add(outer)
+    # Gone content (purged, dismissed) holds nothing to protect. Folders in the trash count only
+    # when the node asked about is itself in the trash (restoring or purging that item): a folder
+    # above them is not held hostage by something its owner cannot reach.
+    ignored = {"purged", "dismissed"}
+    if node.status not in ("trashed", "purged"):
+        ignored.add("trashed")
     inner = db.scalars(
         select(Node).where(
             Node.lineage.startswith(node.lineage, autoescape=True),
             Node.id != node.id,
             Node.privacy_label == "confidential",
+            Node.status.not_in(ignored),
         )
     )
     for d in inner:
