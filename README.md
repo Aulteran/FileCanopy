@@ -1,115 +1,178 @@
-# FileCanopy — Claude Code Implementation Handoff
+# FileCanopy
 
-**Project codename:** FileCanopy (temporary; rename before public release if desired)  
-**Project status:** Design baseline approved; implementation not started  
-**Date:** 2026-10-30  
-**Intent:** Open-source, self-hosted, Docker-deployable, folder-first document and general file manager with optional AI.
+FileCanopy is a self-hosted file manager for your documents. You run it yourself with Docker, and it works on ordinary folders on your disk. Your files stay as normal files in a folder you choose, so you can always open them with any other program. The database only stores accounts, permissions and history. It is not a replacement for your files.
 
-## Golden rule
+> **Status: early development.** FileCanopy has no public release yet and no published Docker images. You build it from this repository. The core file manager works and is tested, but keep a separate copy of anything important.
 
-**Real, portable folders and files are the source of truth.** The software must work with AI disabled and must not convert uploaded documents into an opaque proprietary store. Users may stop running this application and continue using their actual documents with conventional file tools.
+## Key features
 
-## What this package is
+- **Your files stay normal files.** The library is a plain folder tree on your disk. Nothing is converted or hidden.
+- **Accounts and roles.** There is an administrator role and a user role. There is no open sign-up. An administrator invites people with a one-time link that they copy and send themselves, because email delivery is not built yet. Password reset works the same way.
+- **Personal and shared folders.** Each user gets a personal folder. There is also one shared folder, where folders can be given viewer or editor access.
+- **Everyday file work.** Browse folders, upload files and whole folders, download, create folders, rename, move and copy. Keyboard navigation and a phone-friendly layout are included.
+- **Import what you already have.** During first setup you can import an existing folder or a zip file.
+- **Trash, undo and history.** Deleted items go to a trash you can restore from, and recent actions can be undone. An activity log records actions and downloads.
+- **Optional backups.** Encrypted backups of the library can be written to a separate disk you choose. They are off by default.
+- **No AI required.** The app runs fully without any AI service. AI features are planned, not built.
 
-This is a complete *planning and development handoff*, not a working application. It is written so Claude Code can implement one small milestone at a time, with consistent architecture, explicit acceptance criteria, and persistent progress records. Never claim a feature is implemented simply because it appears in these specifications.
+## Quick start (Docker Compose)
 
-## Read in this order
-
-1. `CLAUDE.md` — permanent repository instructions for Claude Code.
-2. `01_PRODUCT_SPEC.md` — approved behaviors and non-goals.
-3. `03_SECURITY_PRIVACY.md` — non-negotiable security boundaries.
-4. `04_DATA_FILESYSTEM.md` — portable filesystem design and audit/undo model.
-5. `02_ARCHITECTURE.md` — recommended stack, component boundaries, and API contracts.
-6. `05_AI_AND_SEARCH.md` — optional AI, provider routing, embeddings, search, and budgets.
-7. `06_EMAIL_AND_MCP.md` — incoming email, outbound SMTP, and opt-in MCP.
-8. `07_UI_UX.md` — screens, onboarding, and flows.
-9. `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json` — ordered work units and gates.
-10. `09_TESTING_ACCEPTANCE.md` — requirements traceability and tests.
-11. `10_CLAUDE_CODE_HANDOFF.md` — exact session workflow, model routing, and prompts.
-12. `11_OPEN_DECISIONS.md` — intentionally unresolved or provisional choices.
-13. `PROJECT_STATUS.md` — living execution record; update after each milestone.
-
-## Core decisions already approved
-
-- Deployment: self-hosted Docker image with Docker Compose first; assess Docker Stack separately.
-- Files: traditional folders; real host-backed storage; existing directory imports operate on original files, not copies.
-- Library: PDFs and scanned documents are primary; also Word, spreadsheets, photos, archives, and general files.
-- AI: entirely optional; configurable cloud or local providers; per-user overrides for personal areas only.
-- Search: ordinary filename/full-text search without AI; semantic search optional **only when a compatible embedding endpoint is connected**.
-- Local embedding reference: EmbeddingGemma 2 via CPU-only llama.cpp on i7-9750H is a candidate, not a required dependency; Ollama is supported too.
-- AI organizing: automatically execute only high-confidence, low-risk permitted operations; otherwise queue for review. Collection creation is **suggest-only**.
-- Folders: Normal, Private, Confidential privacy levels; Private/Confidential never go to cloud AI; local AI only when explicitly enabled. Admin may disable privacy levels as a feature, subject to migration safeguards.
-- Confidential: permitted user must re-authenticate; unlock expires after five minutes of no user interaction with the protected folder.
-- Accounts: Administrator and User roles only; personal directory for each user; shared main working tree; per-folder grants and user-to-user folder sharing.
-- Admin: no automatic personal-folder document visibility in the UI, although a host filesystem administrator may directly access underlying files.
-- Email: multiple verified sender addresses per account; `personaldocs@...` to personal intake; `ingest@...` to shared intake; unknown senders quarantined for admin approval, optional SMTP notice.
-- Collections: separate sidebar section; virtual links to original files, optional AI suggestions to create; do not alter physical placement.
-- MCP: optional, disabled by default, user scoped, never bypass privacy or permissions.
-- History: per-file interaction/activity history, plus recoverable trash and reversible supported file operations; **not** full historical binary versioning.
-- Open source; brand name, exact license, and the initial public release boundary remain provisional.
-
-## Core release gates
-
-- **Core alpha:** fully usable multi-user file manager, ACLs, portable imports, history, trash/undo, backups guidance. No AI required.
-- **Document beta:** extraction/OCR, email ingress, optional AI classification/renaming/splitting with reviews, collections.
-- **Release candidate:** semantic search, chat, optional MCP, external OIDC, deployment hardening, threat-model tests.
-
-Never delay security tests until release candidate: every milestone that touches authentication, filesystem paths, or permissions must include negative authorization tests.
-
-## Working name and legal note
-
-`FileCanopy` is a placeholder. Do trademark, repository, package name, and domain checks before publishing. Do not imply affiliation with Paperless-ngx or adopt its branding without authorization. No Paperless-ngx source reuse is assumed.
-
-## First Claude Code task
-
-Read `prompts/FIRST_SESSION.md`. Start milestone `M00` only. Do not begin the next milestone without reviewing the completed acceptance checklist.
-
-## Development setup (M00)
-
-Requirements: Node.js 22 or newer and npm. No AI provider keys or real documents are needed.
+You need Docker with Docker Compose v2. The project has been tested on Docker Desktop for Windows and on Linux in CI.
 
 ```bash
-npm install
-npm run check
+git clone https://github.com/Aulteran/FileCanopy.git
+cd FileCanopy
+cp deploy/.env.example deploy/.env
 ```
 
-`npm run check` runs ESLint, the Prettier format check, the unit tests (`tests/unit`) and the secret scan (`scripts/secret-scan.mjs`). Individual commands: `npm run lint`, `npm run format`, `npm test`, `npm run secret-scan`.
-
-### Running the stack (M01)
-
-Requirements: Docker with Compose v2. No AI provider keys or real documents are needed.
+Open `deploy/.env` in a text editor and set `POSTGRES_PASSWORD` to a long random value. You can generate one with:
 
 ```bash
-cp deploy/.env.example deploy/.env      # then set POSTGRES_PASSWORD
-mkdir -p library app-data               # or point the two paths in deploy/.env elsewhere
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Then create the data folders and start the stack:
+
+```bash
+mkdir -p library app-data
 docker compose -f deploy/docker-compose.yml up -d --build --wait
 curl http://127.0.0.1:8080/api/v1/health
 ```
 
-`library/` is your ordinary document tree (bind mount, never converted or hidden); `app-data/` is app-private and must not overlap it. Optional workers: set `FILECANOPY_REDIS_URL` in `deploy/.env` and add `--profile workers`. Stop with `docker compose -f deploy/docker-compose.yml down` (add `-v` only to delete the database; documents are never touched).
+The health check should report `ok`. Then open **http://127.0.0.1:8080** in your browser.
 
-### Checks
+## First-run setup
 
-| Command | What it runs | Needs |
+1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN` in `deploy/.env`, the API prints a token to its log. Show it with:
+
+   ```bash
+   docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"
+   ```
+
+   If you set your own token, use that value instead. A restart can issue a new generated token, so check the log again if the old one stops working.
+2. **Create the administrator account.** This is the first account, and it is the only one that can be created without an invitation.
+3. **Optionally import existing files.** While the setup window is open, you can import an existing folder or zip into the shared folder or your personal folder. The window closes once you add content by hand, finish setup, or skip it.
+
+## Configuration
+
+All settings go in `deploy/.env`. The file `deploy/.env.example` lists every option with a comment. The most useful ones:
+
+| Setting | Default | What it does |
 |---|---|---|
-| `npm run check` | ESLint, Prettier, JS unit tests, secret scan | Node |
-| `npm run check:api` | ruff, mypy (strict), pytest unit tests in the pinned Python 3.13 image | Docker |
-| `npm run test:compose` | Real Compose tests: fresh install, restart/persistence, migrations, no-AI boot, optional-worker degradation | Docker, host Python + pytest (`python -m venv .venv && .venv/Scripts/pip install pytest==9.2.0`; on Linux/macOS use `.venv/bin/pip`) |
-| `npm run check:web` | TypeScript strict check and unit tests for `apps/web` | Node (`npm ci --prefix apps/web` first) |
-| `npm run test:e2e` | Browser tests (Playwright/Chromium) against a real Compose stack: setup, CRUD, keyboard, phone viewport, forbidden cases | Docker, host Python with `pytest` and `playwright` (`python -m playwright install chromium`) |
-| `npm run check:full` | all of the above | all of the above |
+| `POSTGRES_PASSWORD` | none (required) | Password for the database. Set it before the first start. |
+| `FILECANOPY_LIBRARY_PATH` | `../library` | Folder that holds your files. Relative paths are relative to `deploy/`. |
+| `FILECANOPY_APP_DATA_PATH` | `../app-data` | App-private working data. Must not be inside the library or the reverse. |
+| `FILECANOPY_HTTP_PORT` | `8080` | Port on your own computer where the web app is published. |
+| `FILECANOPY_SETUP_TOKEN` | empty (generated) | Your own setup token, at least 32 characters. |
+| `FILECANOPY_COOKIE_SECURE` | `true` | Sign-in cookies are sent over HTTPS only. Browsers exempt `http://localhost`. |
+| `FILECANOPY_MAX_UPLOAD_BYTES` | 10 GiB | Largest single upload. |
+| `FILECANOPY_UID` / `FILECANOPY_GID` | `10001` | On Linux, the user the app runs as. Set these to the owner of `library/` and `app-data/` (see `id -u` and `id -g`). |
 
-Open http://127.0.0.1:8080 after the stack is up: the first visit asks for the setup token printed in the API log (`docker compose -f deploy/docker-compose.yml logs api`). The browser UI (M05) covers folders and file operations; see `docs/milestones/M05-design-and-plan.md`. Module boundaries are placeholders under `apps/api/app/`, `apps/web/`, `workers/`, `deploy/` and `tests/`. See `docs/adr/` for the decisions behind the layout, and `PROJECT_STATUS.md` for what is verified.
+The `.env.example` file also covers import limits, how long import reports are kept, and backups.
 
-## Backups (optional, M06c)
+### Remote access
 
-Backups are off by default and the app needs no backup volume. To use them, add `deploy/docker-compose.backup.yml` and mount a separate folder (see `deploy/README.md`), then turn them on under Backups as an administrator. Things to know:
+The web app listens only on `127.0.0.1`, so it is reachable only from the same machine. To use it from other devices, put a TLS reverse proxy (for example Caddy, nginx or Traefik) in front of it, and keep `FILECANOPY_COOKIE_SECURE=true`. Do not expose the plain HTTP port to a network.
 
-- A backup copies everyone's files, including private ones. Archives are encrypted by default to a key pair whose **recovery key is shown once and never stored**; lose it and the encrypted backups cannot be read.
-- **Rotate the recovery key after giving it to an owner.** Restoring needs the key, and that one key opens every archive on the volume, not only the owner's folder. Give it out only for a restore, then use "New recovery key" (older archives stay readable only with the key they were made with). Per-folder keys are decided in `docs/adr/ADR-016-per-root-backup-keys.md` (accepted) but are not built yet.
-- Backups of a folder that is disabled, missing or belongs to a removed account are kept and are never cleaned up automatically, so they keep using space. An audited purge is planned follow-up work; there is no purge screen yet.
-- A restore runs inside the request and can take long for a very large folder (a background restore job is a known limitation, not built).
+## Where your data lives
+
+- **`library/`** is your files. Shared files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.
+- **`app-data/`** holds app-private working data, such as staged uploads during imports. Do not edit it by hand.
+- **The database** is a Docker volume named `pgdata`. It holds accounts, permissions, trash records and history. Your files do not depend on it: the project's tests check that documents survive a total database loss.
+
+## Updating
+
+Back up your library first (see [Backups](#backups)). Then:
+
+```bash
+git pull
+docker compose -f deploy/docker-compose.yml up -d --build --wait
+```
+
+Database migrations run automatically on start. Your `deploy/.env` file is ignored by git, so `git pull` does not change it.
+
+## Backups
+
+Backups are off by default, and the app does not need a backup disk to run. To turn them on:
+
+1. Set `FILECANOPY_BACKUP_PATH` in `deploy/.env` to a folder on a **separate disk or share**. It must not be inside `library/` or `app-data/`, and a copy on the same disk is not a real backup. The API user (`FILECANOPY_UID`/`FILECANOPY_GID`) must own that folder.
+2. Start the stack with the backup override file:
+
+   ```bash
+   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.backup.yml up -d --build --wait
+   ```
+
+3. Sign in as an administrator, open **Backups**, and turn backups on. The defaults are a run every 24 hours, with a full backup every 7 runs and smaller changed-only runs in between. Backups are encrypted by default.
+
+Things to know:
+
+- A backup copies everyone's files, including private ones.
+- **The recovery key is shown once and never stored.** Without it, encrypted backups cannot be read. Store it somewhere safe.
+- **Rotate the recovery key after you give it to someone.** Restoring needs the key, and that one key opens every archive on the backup disk. Give it out only for a restore, then create a new key from the Backups page. Older archives stay readable only with the key they were made with. Separate keys per folder are decided (ADR-016) but not built yet.
+- Backups of folders that are disabled, missing or belong to removed accounts are kept and never cleaned up automatically, so they keep using space. There is no screen for purging them yet.
+- A restore runs inside the web request, so restoring a very large folder can take a long time.
+- Restoring a single file or folder from a backup is planned but not built.
+
+## Stopping
+
+```bash
+docker compose -f deploy/docker-compose.yml down
+```
+
+This stops the containers and keeps your files and database. To start again, run `docker compose -f deploy/docker-compose.yml up -d --wait`.
+
+Adding `-v` also deletes the database volume. That removes accounts, permissions, trash records and history, but it does not delete the files in `library/`.
+
+## Security and privacy
+
+- **Administrators cannot open personal folders.** The administrator role does not let anyone browse, search or list another person's personal files. The only way in is a grant created by the owner of that folder.
+- **Passwords** are stored with Argon2id. Sign-in attempts are rate-limited, sessions are kept on the server, and cookies are HTTP-only.
+- **Host access is outside the app's trust model.** Anyone who can read the server's disk can read the files in `library/`, the same as any other folder on that machine.
+- **Not built yet:** privacy levels (Private and Confidential folders with re-authentication) are planned for M09. Sharing between people from the interface is planned for M08.
+- **No external security audit** has been done yet. Security work so far has been internal reviews plus automated tests.
+
+## Project status and roadmap
+
+| Area | Status |
+|---|---|
+| Repository, Docker stack, database | Done |
+| Sign-in, first administrator, invitations, password reset | Done |
+| Storage roots, permissions, file operations | Done |
+| Browser interface, setup import, folder uploads | Done |
+| Change detection for external edits, backups (optional) | Done |
+| Trash, undo and activity log | Done (M07) |
+| Sharing between people and personal-folder isolation | Planned (M08) |
+| Privacy levels and Confidential unlock | Planned (M09) |
+| Previews, OCR and full-text search | Planned (M10–M11) |
+| Email invitations, SMTP, OpenID Connect sign-in | Planned (M12) |
+| Email intake for personal and shared folders | Planned (M13–M14) |
+| PDF splitting, duplicate detection, collections | Planned (M17–M18) |
+| Optional AI (providers, organization proposals, local semantic search, chat) | Planned (M15–M16, M18–M20) |
+| Optional MCP integration | Planned (M21) |
+| Production packaging, Docker Stack variant, hardening, public release | Planned (M22–M24) |
+
+The full plan is in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`. The current state is recorded in `PROJECT_STATUS.md`, and design decisions are in `docs/adr/`.
+
+## For developers
+
+Requirements: Node.js 22 or newer, and Docker for the backend and end-to-end checks.
+
+```bash
+npm install
+npm run check        # lint, format, unit tests and secret scan
+npm run check:api    # Python checks in a pinned container
+npm run test:compose # real Compose stack tests
+npm run check:web    # web type checks and unit tests
+npm run test:e2e     # browser tests against a real stack
+npm run check:full   # everything above
+```
+
+Continuous integration runs on GitHub Actions. See `.github/workflows/ci.yml`.
+
+## Contributing
+
+There is no contributing guide yet. The project is built one milestone at a time, and design decisions are recorded as ADRs in `docs/adr/`. Please open an issue to discuss ideas before sending a large change.
 
 ## License
 
-FileCanopy is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). The project name and final public release terms remain provisional until the owner clears them for publication.
+FileCanopy is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). The license and the final public release terms are still provisional until a dependency license audit is done before release.
