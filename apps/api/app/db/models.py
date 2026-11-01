@@ -311,6 +311,50 @@ class AuthToken(Base):
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
+class UserIdentity(Base):
+    """A provider identity linked to one account (M12, ADR-020). The key is (issuer, subject);
+    `email_seen` is informational and is never used to find or merge accounts."""
+
+    __tablename__ = "user_identity"
+    __table_args__ = (
+        UniqueConstraint("issuer", "subject", name="uq_identity_issuer_subject"),
+        UniqueConstraint("user_id", "issuer", name="uq_identity_user_issuer"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    issuer: Mapped[str] = mapped_column(String(512), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_seen: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class OidcLogin(Base):
+    """One pending OIDC round trip: single use, ten minutes, bound to the starting browser by a
+    cookie. Holds the PKCE verifier and nonce; an invitation also holds the chosen password's
+    Argon2 hash and the invitation token's digest."""
+
+    __tablename__ = "oidc_login"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    state_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    binding_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    nonce: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_verifier: Mapped[str] = mapped_column(String(128), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(8), nullable=False)  # login | link | invite
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    new_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
 class LoginFailure(Base):
     """One failed authentication attempt, keyed by a hash (never the raw email or IP)."""
 

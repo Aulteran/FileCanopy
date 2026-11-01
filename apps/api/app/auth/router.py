@@ -1,5 +1,7 @@
 """Setup, login/logout, password change, and invitation/reset token redemption."""
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +24,7 @@ from app.auth.schemas import (
     AcceptInvitation,
     ChangePassword,
     CompleteReset,
+    ForgotPassword,
     Login,
     Ok,
     SessionOut,
@@ -36,12 +39,13 @@ from app.auth.service import (
     create_session,
     create_user,
     drop_unused_tokens,
+    issue_token,
     normalize_email,
     revoke_session_by_hash,
     revoke_sessions,
     valid_email,
 )
-from app.db.models import ConfidentialUnlock, User
+from app.db.models import AuthToken, ConfidentialUnlock, User
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -244,4 +248,43 @@ def complete_reset(body: CompleteReset, request: Request, db: Session = Depends(
     drop_unused_tokens(db, user.id)
     audit(db, "password.reset_completed", actor=user.id, target=user.id, ip=client_ip(request))
     db.commit()
+    return Ok()
+
+
+RESET_COOLDOWN_SECONDS = 60
+
+
+@router.post("/auth/password-reset/request", status_code=202, response_model=Ok)
+def request_reset(body: ForgotPassword, request: Request, db: Session = Depends(get_db)) -> Ok:
+    """Self-service "forgot password", only when mail is configured. The answer is the same for
+    every address (known, unknown, disabled, never activated) and the mail goes out from a
+    background thread, so neither the reply nor its timing says whether an account exists. Every
+    request counts against per-address and per-IP limits."""
+    ctx, ip = ctx_of(request), client_ip(request)
+    check_origin(request)
+    if not ctx.mailer.configured:
+        raise http_error(409, "EMAIL_NOT_CONFIGURED")
+    email = normalize_email(body.email)
+    keys = ctx.throttle.reset_request_keys(email, ip)
+    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+        db.commit()
+        raise _blocked(retry)
+    ctx.throttle.record_failure(db, keys)
+    user = db.scalar(select(User).where(User.email == email)) if valid_email(email) else None
+    message: tuple[str, str, str] | None = None
+    if user is not None and user.status == "active" and user.password_hash:
+        recent = db.scalar(
+            select(AuthToken).where(
+                AuthToken.user_id == user.id,
+                AuthToken.purpose == "reset",
+                AuthToken.created_at > clock.utcnow() - timedelta(seconds=RESET_COOLDOWN_SECONDS),
+            )
+        )
+        if recent is None:
+            token, _ = issue_token(db, user, "reset", ctx.settings.reset_ttl_seconds, None)
+            audit(db, "password.reset_requested", target=user.id, ip=ip)
+            message = ctx.mailer.reset(user.email, token)
+    db.commit()
+    if message is not None:
+        ctx.mailer.send_in_background(*message)
     return Ok()
