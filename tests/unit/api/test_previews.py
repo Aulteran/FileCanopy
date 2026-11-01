@@ -6,7 +6,6 @@ import hashlib
 import io
 import json
 import os
-import subprocess
 import sys
 import threading
 import uuid
@@ -208,6 +207,20 @@ def previews_dir(fx: Fx) -> Path:
 
 
 # ---------------------------------------------------------------- text extraction
+
+
+def processes_with(marker: str) -> list[str]:
+    """Command lines (from /proc, so no pgrep is needed) that contain `marker`."""
+    found = []
+    for entry in Path("/proc").iterdir():
+        if entry.name.isdigit():
+            try:
+                cmd = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+            except OSError:
+                continue
+            if marker in cmd:
+                found.append(cmd)
+    return found
 
 
 def test_extract_text_from_pdf_and_docx_and_cache_it(fx: Fx, alice: Api) -> None:
@@ -656,8 +669,7 @@ def test_sandbox_kills_a_child_that_runs_too_long() -> None:
     with pytest.raises(PreviewError) as info:
         run_child(argv, None, LIMITS)
     assert info.value.code == "TIMEOUT" and info.value.status == 504
-    found = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)  # noqa: S603, S607
-    assert found.stdout.strip() == ""  # the whole process group is gone
+    assert processes_with(marker) == []  # the whole process group is gone
 
 
 def test_sandbox_caps_output_and_memory() -> None:

@@ -66,6 +66,20 @@ def run_convert(tmp_path: Path, soffice: str, **kw: object) -> Path:
     return out
 
 
+def processes_with(marker: str) -> list[str]:
+    """Command lines (from /proc, so no pgrep is needed) that contain `marker`."""
+    found = []
+    for entry in Path("/proc").iterdir():
+        if entry.name.isdigit():
+            try:
+                cmd = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+            except OSError:
+                continue
+            if marker in cmd:
+                found.append(cmd)
+    return found
+
+
 def test_profile_pins_macro_security_and_active_content_off() -> None:
     reg = lo.REGISTRY
     assert '"MacroSecurityLevel" oor:op="fuse"><value>3</value>' in reg
@@ -105,8 +119,7 @@ def test_timeout_kills_the_whole_process_group(tmp_path: Path) -> None:
         run_convert(tmp_path, fake_soffice(tmp_path, body), timeout=1)
     assert info.value.code == "TIMEOUT" and time.monotonic() - start < 10
     time.sleep(0.3)
-    found = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)  # noqa: S603, S607
-    assert found.stdout.strip() == ""  # the grandchild did not survive
+    assert processes_with(marker) == []  # the grandchild did not survive
 
 
 @pytest.mark.parametrize(
