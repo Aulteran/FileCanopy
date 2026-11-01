@@ -40,13 +40,7 @@ import { viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
 type Dialog =
-  | null
-  | "folder"
-  | "rename"
-  | "move"
-  | "copy"
-  | "share"
-  | "privacy";
+  null | "folder" | "rename" | "move" | "copy" | "share" | "privacy";
 type Upload = {
   id: number;
   file: File;
@@ -159,7 +153,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       try {
         const node = await api.node(folderId, background.current);
         const chain: NodeInfo[] = [node];
-        for (let n = node; n.parent_id && chain.length < 64; ) {
+        for (let n = node; n.parent_id && chain.length < 64;) {
           n = await api.node(n.parent_id);
           chain.unshift(n);
         }
