@@ -345,8 +345,8 @@
         "notification leakage",
         "collection placeholder references"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Done 2026-11-01: PR #13 merged after Opus review and re-check sign-off, CI green. Defaults (no expiry, no passwords or public links, only the owner or shared-tree admin shares, folders only) were posted to the owner 2026-11-01 04:25Z and drew no objection. Follow-ups in docs/milestones/M08-design-and-plan.md and PROJECT_STATUS.md.",
+      "status": "done"
     },
     {
       "id": "M09",

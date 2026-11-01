@@ -6,6 +6,7 @@ import { Browser } from "./Browser";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
+  NOTICES_PATH,
   RECENT_PATH,
   TRASH_PATH,
   USERS_PATH,
@@ -14,6 +15,7 @@ import {
   useRoute,
 } from "./route";
 import { SetupScreen } from "./Setup";
+import { NotificationsPage } from "./Share";
 import { RecentPage, TrashPage } from "./Trash";
 import { TokenPage } from "./TokenPage";
 import { UnfinishedUploads } from "./UnfinishedUploads";
@@ -127,7 +129,20 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, viewId, backups, users, trash, recent, go } = useRoute();
+  const { folderId, viewId, backups, users, trash, recent, notices, go } =
+    useRoute();
+  const [unread, setUnread] = useState(0);
+  const refreshUnread = useCallback(() => {
+    api
+      .unreadCount()
+      .then((n) => setUnread(n.unread))
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    refreshUnread();
+    const t = setInterval(refreshUnread, 60000);
+    return () => clearInterval(t);
+  }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
@@ -156,10 +171,11 @@ function Shell({
       !backups &&
       !users &&
       !trash &&
-      !recent
+      !recent &&
+      !notices
     )
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, viewId, backups, users, trash, recent, go]);
+  }, [roots, folderId, viewId, backups, users, trash, recent, notices, go]);
 
   async function logout(): Promise<void> {
     try {
@@ -305,6 +321,18 @@ function Shell({
                 Recent actions
               </a>
             </li>
+            <li>
+              <a
+                href={NOTICES_PATH}
+                aria-current={notices ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(NOTICES_PATH);
+                }}
+              >
+                Notifications{unread > 0 ? ` (${unread} new)` : ""}
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -330,6 +358,13 @@ function Shell({
           <TrashPage
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
+          />
+        )}
+        {notices && (
+          <NotificationsPage
+            onEnded={onEnded}
+            go={go}
+            onRead={() => setUnread(0)}
           />
         )}
         {recent && (

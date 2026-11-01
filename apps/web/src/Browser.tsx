@@ -18,6 +18,7 @@ import {
 } from "./api";
 import { ActivityPanel } from "./Activity";
 import { NameDialog, TargetDialog } from "./Dialogs";
+import { ShareDialog } from "./Share";
 import { describeError, formatDate, formatSize, progressText } from "./format";
 import { describeUndoConflict } from "./history";
 import {
@@ -37,7 +38,7 @@ import { folderPath, viewPath } from "./route";
 import { viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
-type Dialog = null | "folder" | "rename" | "move" | "copy";
+type Dialog = null | "folder" | "rename" | "move" | "copy" | "share";
 type Upload = {
   id: number;
   file: File;
@@ -335,6 +336,21 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     await refresh();
   }
 
+  async function leave(): Promise<void> {
+    if (
+      !window.confirm(
+        `Stop using ${info?.name ?? "this folder"}? It will disappear from your list. The owner can share it again.`,
+      )
+    )
+      return;
+    try {
+      await api.leaveShare(folderId);
+      window.location.assign("/");
+    } catch (err) {
+      setErrorText(fail(err));
+    }
+  }
+
   async function rescan(): Promise<void> {
     try {
       await api.rescan(folderId);
@@ -551,6 +567,17 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         >
           New folder
         </button>
+        {info.shared_with !== null && info.kind === "dir" && (
+          <button onClick={() => setDialog("share")}>
+            Share{info.shared_with > 0 ? ` (${info.shared_with})` : ""}
+          </button>
+        )}
+        {info.parent_id === null &&
+          info.root_kind === "personal" &&
+          !info.can_manage &&
+          privileges.length > 0 && (
+            <button onClick={() => void leave()}>Stop using this share</button>
+          )}
         <button onClick={() => void rescan()}>Rescan</button>
         {!canWrite && <span className="hint">Read-only</span>}
       </div>
@@ -910,6 +937,19 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         </aside>
       </div>
 
+      {dialog === "share" && (
+        <ShareDialog
+          folderId={info.id}
+          folderName={info.name}
+          onClose={() => setDialog(null)}
+          onChanged={() => void api.node(info.id).then(setInfo)}
+          onEnded={onEnded}
+          onOpenFolder={(id) => {
+            setDialog(null);
+            go(folderPath(id));
+          }}
+        />
+      )}
       {dialog === "folder" && (
         <NameDialog
           title="New folder"

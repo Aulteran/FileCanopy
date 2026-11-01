@@ -11,6 +11,7 @@ import {
   api,
   type Child,
   type EntryPoint,
+  type Impact,
   type NodeInfo,
 } from "./api";
 import { describeError } from "./format";
@@ -200,6 +201,45 @@ export function TargetDialog({
   const canWrite = at?.my_privileges.includes("write") ?? false;
   const same = mode === "move" && target === currentParentId;
   const verb = mode === "move" ? "Move" : mode === "copy" ? "Copy" : "Restore";
+  // Who would start or stop seeing this item at the chosen place (move and copy only).
+  const [impact, setImpact] = useState<Impact | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkFailed, setCheckFailed] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  useEffect(() => {
+    setImpact(null);
+    setAgreed(false);
+    setCheckFailed(false);
+    if (mode === "restore" || !at || !canWrite) {
+      setChecking(false);
+      return;
+    }
+    setChecking(true); // the button stays off until the answer is in
+    let live = true;
+    api
+      .moveImpact(item.id, target, mode === "copy")
+      .then((i) => {
+        if (!live) return;
+        setImpact(i);
+        setChecking(false);
+      })
+      .catch(() => {
+        if (!live) return;
+        setCheckFailed(true); // fail closed: ask for an explicit tick
+        setChecking(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [mode, item.id, target, at, canWrite]);
+  const sees = (s: Impact["gain"]): string =>
+    s.hidden
+      ? "People who can open the destination folder"
+      : s.names.join(", ") + (s.names.length >= 10 ? " and others" : "");
+  const needsOk =
+    !same &&
+    (checkFailed ||
+      (!!impact && (impact.gain.affected || impact.lose.affected)));
   const crossArea =
     mode === "move" && pickedArea !== null && pickedArea !== startId;
 
@@ -293,6 +333,34 @@ export function TargetDialog({
           this move.
         </p>
       )}
+      {impact && impact.gain.affected && !same && (
+        <p className="banner warn" role="note">
+          <strong>This shares it with more people.</strong> {sees(impact.gain)}{" "}
+          will be able to {mode === "copy" ? "open the copy" : "open it"}.
+        </p>
+      )}
+      {impact && impact.lose.affected && !same && (
+        <p className="banner warn" role="note">
+          <strong>Some people will lose access.</strong> {sees(impact.lose)}{" "}
+          will no longer be able to open it.
+        </p>
+      )}
+      {checkFailed && !same && (
+        <p className="banner warn" role="alert">
+          <strong>Could not check who will have access.</strong> Others may gain
+          or lose access to this item.
+        </p>
+      )}
+      {needsOk && (
+        <label>
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+          />{" "}
+          I understand who will gain or lose access
+        </label>
+      )}
       {at && !canWrite && (
         <p className="hint">You cannot add items to this folder.</p>
       )}
@@ -306,7 +374,14 @@ export function TargetDialog({
         <button
           type="button"
           className="primary"
-          disabled={busy || !canWrite || same || areas !== null}
+          disabled={
+            busy ||
+            !canWrite ||
+            same ||
+            areas !== null ||
+            checking ||
+            (needsOk && !agreed)
+          }
           onClick={() => void choose()}
         >
           {verb} here

@@ -220,10 +220,10 @@
 **Goal:** Subtree shares, viewer/editor grants, Shared with Me virtual destination; permission notifications without personal metadata leaks.
 
 **Acceptance criteria:**
-- [ ] User may share nested personal subtree without revealing siblings
-- [ ] Web admin cannot browse unshared personal files
-- [ ] Grant/revoke changes take effect immediately
-- [ ] Shared to viewer is read-only even via API
+- [x] User may share nested personal subtree without revealing siblings (inherited access shown to the owner; move/copy impact warned)
+- [x] Web admin cannot browse unshared personal files
+- [x] Grant/revoke changes take effect immediately
+- [x] Shared to viewer is read-only even via API
 
 **Tests/evidence:** ACL combinatorics, revocation active session, notification leakage, collection placeholder references.
 

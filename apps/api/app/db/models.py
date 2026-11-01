@@ -228,6 +228,26 @@ class NodeGrant(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
+class Notification(Base):
+    """In-app notice for one recipient (M08). Holds ids and a kind only, never names or paths: the
+    text is built when it is read, and a folder name is shown only while the reader can still open
+    that folder, so a notice cannot outlive the access it talks about."""
+
+    __tablename__ = "notification"
+    __table_args__ = (Index("ix_notification_recipient_at", "recipient_user_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    recipient_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)  # shared|unshared|share_left
+    node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    level: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
 class AuthSession(Base):
     """Server-side session. Only the SHA-256 of the cookie token is stored."""
 

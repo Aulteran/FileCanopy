@@ -108,6 +108,11 @@ const MESSAGES: Record<string, string> = {
   INVITATION_PENDING:
     "That account has not accepted its invitation yet. Send a new invitation link instead.",
   CANCELLED: "Upload cancelled.",
+  UNKNOWN_GRANTEE: "That person does not have an active account here.",
+  CANNOT_GRANT_SELF: "You already own this folder.",
+  NOT_A_DIRECTORY: "Only folders can be shared.",
+  NOT_A_SHARE: "This folder was not shared with you by another person.",
+  GRANT_NOT_FOUND: "That person no longer has access.",
 };
 
 export function describeError(code: string): string {

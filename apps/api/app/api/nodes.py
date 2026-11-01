@@ -47,9 +47,14 @@ class NodeOut(BaseModel):
     # An import has held the reconciler off this root for a long time (bounded by a ceiling), so
     # changes made outside the app may show up late. Managers only.
     scan_delayed: bool = False
+    # Folders the caller may share: how many people they are shared with. Null for everyone else.
+    shared_with: int | None = None
 
 
 class GrantOut(BaseModel):
+    # For an inherited grant: the node it is set on (above this folder) and that folder's name.
+    inherited_from_id: uuid.UUID | None = None
+    inherited_from_name: str | None = None
     node_id: uuid.UUID
     grantee_user_id: uuid.UUID
     grantee_name: str
@@ -111,6 +116,9 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         and root is not None
         and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node)
     )
+    shared_with: int | None = None
+    if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node):
+        shared_with = len(grants.users_with_access(db, grants.chain_ids(node)))
     return NodeOut(
         id=node.id,
         name=node.name,
@@ -122,6 +130,7 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         setup_state=root.setup_state if manage and root else None,
         scan_state=root.scan_state if manage and root else None,
         scan_delayed=bool(manage and root and root.scan_paused_since is not None),
+        shared_with=shared_with,
     )
 
 
@@ -135,7 +144,7 @@ def list_grants(
         .where(NodeGrant.node_id == ctx.node.id)
         .order_by(NodeGrant.created_at, User.name)
     ).all()
-    return [
+    out = [
         GrantOut(
             node_id=g.node_id,
             grantee_user_id=g.grantee_user_id,
@@ -145,6 +154,31 @@ def list_grants(
         )
         for g, name in rows
     ]
+    # Access that comes from a bigger share above this folder, read-only here.
+    inherited = grants.inherited_grants(db, ctx.node)
+    names = {
+        r.id: r.name
+        for r in db.execute(
+            select(User.id, User.name).where(
+                User.status == "active", User.id.in_({g.grantee_user_id for g, _ in inherited})
+            )
+        )
+    }
+    for g, above in inherited:
+        if g.grantee_user_id not in names:
+            continue
+        out.append(
+            GrantOut(
+                inherited_from_id=above.id,
+                inherited_from_name=above.name,
+                node_id=g.node_id,
+                grantee_user_id=g.grantee_user_id,
+                grantee_name=names.get(g.grantee_user_id, "Someone"),
+                level=g.level,
+                created_at=g.created_at,
+            )
+        )
+    return out
 
 
 @router.put("/nodes/{node_id}/grants/{user_id}", response_model=GrantOut)
@@ -185,5 +219,25 @@ def delete_grant(
     if not grants.revoke_grant(db, ctx.node, user_id, ctx.principal.user.id, client_ip(request)):
         db.rollback()
         raise http_error(404, "GRANT_NOT_FOUND")
+    db.commit()
+    return Ok()
+
+
+@router.delete("/nodes/{node_id}/grants-mine", response_model=Ok)
+def leave_share(
+    request: Request,
+    ctx: NodeContext = Depends(traverse_access),
+    db: Session = Depends(get_db),
+) -> Ok:
+    """A person gives up a folder someone else shared with them. Only a direct grant on a folder in
+    another person's personal area can be left; the shared tree is managed by the administrator."""
+    me = ctx.principal.user
+    root = db.get(StorageRoot, ctx.node.root_id)
+    if root is None or root.kind != "personal" or root.owner_user_id in (None, me.id):
+        raise http_error(422, "NOT_A_SHARE")
+    if not grants.revoke_grant(db, ctx.node, me.id, me.id, client_ip(request)):
+        db.rollback()
+        raise http_error(404, "GRANT_NOT_FOUND")
+    grants.notify(db, root.owner_user_id, "share_left", node_id=ctx.node.id, actor=me.id)
     db.commit()
     return Ok()
