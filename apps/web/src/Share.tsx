@@ -98,7 +98,13 @@ export function ShareDialog({
         <label>
           Add people
           <input
-            value={chosen ? (chosen.hint ? `${chosen.name} (${chosen.hint})` : chosen.name) : query}
+            value={
+              chosen
+                ? chosen.hint
+                  ? `${chosen.name} (${chosen.hint})`
+                  : chosen.name
+                : query
+            }
             onChange={(e) => {
               setChosen(null);
               setQuery(e.target.value);
