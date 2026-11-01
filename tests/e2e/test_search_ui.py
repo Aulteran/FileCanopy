@@ -24,15 +24,16 @@ def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
 
     # the text is read in the background: wait for it, searching again until it shows
     found = False
+    box = page.get_by_role("searchbox", name="Search files")
+    box.fill("rhubarb")
+    box.press("Enter")
     for _ in range(40):
-        box = page.get_by_role("searchbox", name="Search files")
-        box.fill("rhubarb")
-        box.press("Enter")
         page.wait_for_timeout(500)
         if page.get_by_text("beside the compost heap").count():
             found = True
             break
         page.wait_for_timeout(1500)
+        page.reload()  # the same address would not search again by itself
     if not found:  # say what the server knows, so a failure explains itself
         docs = world.stack.sql("select count(*) from search_doc")
         jobs = world.stack.sql("select state || ':' || coalesce(error, '-') from search_job")
