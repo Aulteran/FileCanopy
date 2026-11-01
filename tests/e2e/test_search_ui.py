@@ -36,7 +36,7 @@ def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
     if not found:  # say what the server knows, so a failure explains itself
         docs = world.stack.sql("select count(*) from search_doc")
         jobs = world.stack.sql("select state || ':' || coalesce(error, '-') from search_job")
-        api = page.request.get("/api/v1/search?q=rhubarb")
+        api = page.request.get(page.url.split("/search")[0] + "/api/v1/search?q=rhubarb")
         body = world.stack.sql("select left(body, 80) || '|' || source from search_doc")
         raise AssertionError(
             f"text never found; rows={docs}; jobs={jobs!r}; doc={body!r}; "
