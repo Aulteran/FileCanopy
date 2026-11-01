@@ -63,7 +63,7 @@ def check_origin(request: Request) -> None:
         raise http_error(403, "CROSS_SITE_REQUEST")
     origin = request.headers.get("origin")
     if origin is not None and not origin_allowed(
-        origin, request.headers.get("host"), ctx_of(request).settings.allowed_origins
+        origin, request.headers.get("host"), ctx_of(request).settings.extra_origins
     ):
         raise http_error(403, "ORIGIN_NOT_ALLOWED")
 

@@ -1,0 +1,16 @@
+# Traefik file-provider configuration for FileCanopy. Entry points, the certificate resolver and
+# the file provider belong in your static configuration, see README.md. Traefik has no request
+# size limit by default and keeps the Host header (passHostHeader is true by default).
+http:
+  routers:
+    filecanopy:
+      rule: Host(`files.example.org`)
+      entryPoints: [websecure]
+      service: filecanopy
+      tls:
+        certResolver: letsencrypt
+  services:
+    filecanopy:
+      loadBalancer:
+        servers:
+          - url: http://web:8080

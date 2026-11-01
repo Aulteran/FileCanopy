@@ -517,6 +517,25 @@ def test_configured_origin_is_allowed(make_world: Callable[..., World]) -> None:
     )
 
 
+def test_public_url_is_an_allowed_origin(make_world: Callable[..., World]) -> None:
+    # A proxy that does not forward Host: the API sees an unrelated Host but the public URL works.
+    w = make_world(public_url="https://files.example.org/")
+    w.create_admin()
+    ok = login(w.browser(), "admin@example.com", Origin="https://files.example.org")
+    assert ok.status_code == 200
+    bad = login(w.browser(), "admin@example.com", Origin="https://evil.example")
+    assert bad.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["files.example.org", "ftp://files.example.org", "https://x.org/app", "https://x.org?a=1"],
+)
+def test_public_url_must_be_a_plain_origin(bad: str) -> None:
+    with pytest.raises(ValueError, match="PUBLIC_URL"):
+        Settings(database_url="sqlite://", public_url=bad)  # type: ignore[arg-type]
+
+
 # ---------------------------------------------------------------- invitation / reset tokens
 
 

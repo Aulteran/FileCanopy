@@ -190,10 +190,10 @@
 **Goal:** Running behind a TLS reverse proxy (Nginx Proxy Manager first, then Caddy, nginx, Traefik, Cloudflare Tunnel) is correct, documented and tested. Today it is untested: behind an outer proxy all users share one client IP (login throttle and audit), `X-Forwarded-Proto` is always `http`, `FILECANOPY_ALLOWED_ORIGINS` is not passed by Compose, and the README has no examples.
 
 **Acceptance criteria:**
-- [ ] Real client IP behind an outer proxy; spoofed `X-Forwarded-For` from an untrusted peer ignored
-- [ ] Sign-in, CSRF/Origin check and cookies work over HTTPS through each example proxy, also when the proxy does not preserve `Host`
-- [ ] Large streamed upload and download pass through each example proxy; size/timeout settings and the Cloudflare body limit documented
-- [ ] Tested examples in `deploy/proxy/` and an updated README remote-access section; optional HSTS
+- [x] Real client IP behind an outer proxy; spoofed `X-Forwarded-For` from an untrusted peer ignored
+- [x] Sign-in, CSRF/Origin check and cookies work over HTTPS through each example proxy, also when the proxy does not preserve `Host`
+- [x] Large streamed upload and download pass through each example proxy; size/timeout settings and the Cloudflare body limit documented
+- [x] Tested examples in `deploy/proxy/` and an updated README remote-access section; optional HSTS
 
 **Tests/evidence:** compose test with an outer proxy container (client IP, per-client throttle, spoofed header, Origin with and without Host, upload/download, cookie flags).
 
