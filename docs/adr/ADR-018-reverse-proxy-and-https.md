@@ -6,7 +6,7 @@
 
 ## Context
 
-FileCanopy publishes only `127.0.0.1:8080` (the bundled nginx `web` service). To use it from other devices the owner puts their own TLS reverse proxy (Caddy, nginx, Traefik, Cloudflare Tunnel) in front. A code and config review on 2026-11-01 found this works for basic browsing but has gaps, and none of it is tested:
+FileCanopy publishes only `127.0.0.1:8080` (the bundled nginx `web` service). To use it from other devices the owner puts their own TLS reverse proxy (Nginx Proxy Manager first, then Caddy, nginx, Traefik, Cloudflare Tunnel) in front. A code and config review on 2026-11-01 found this works for basic browsing but has gaps, and none of it is tested:
 
 1. **Client IP is wrong behind an outer proxy.** The bundled nginx sets `X-Forwarded-For $remote_addr` (it overwrites the header) and Compose sets `FILECANOPY_TRUSTED_PROXY_HOPS=1`. Behind an outer proxy `$remote_addr` is the outer proxy, so every user shares one IP. The per-IP login throttle (40 per 15 minutes) then locks all users out together, and audit rows record the proxy address.
 2. **`X-Forwarded-Proto` is always `http`** (nginx `$scheme`). The API does not read it today, but any future use (absolute links in email, MCP, OIDC redirects) would be wrong.
@@ -20,7 +20,7 @@ FileCanopy publishes only `127.0.0.1:8080` (the bundled nginx `web` service). To
 - Forward `X-Forwarded-Proto` from the outer proxy only when that proxy is trusted; otherwise use nginx `$scheme`.
 - Pass `FILECANOPY_ALLOWED_ORIGINS` through Compose and add a `FILECANOPY_PUBLIC_URL` documented as the recommended setting; the Origin check accepts it.
 - Optional `FILECANOPY_HSTS=true` header from nginx, off by default (a mistaken HSTS is hard to undo on a home domain).
-- Ship tested examples in `deploy/proxy/`: Caddy, nginx, Traefik, Cloudflare Tunnel, each with the upload size and timeout settings. Add a Compose override that joins a user-named external proxy network.
+- Ship tested examples in `deploy/proxy/`: Nginx Proxy Manager (owner's own setup, a primary target), Caddy, nginx, Traefik, Cloudflare Tunnel, each with the upload size and timeout settings. Add a Compose override that joins a user-named external proxy network.
 - Document the Cloudflare body-size limit honestly. Chunked or resumable single-file upload is a separate decision if owners need it; this ADR does not add it.
 
 ## Consequences
