@@ -250,12 +250,12 @@
 **Goal:** PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library. Builds on the M07d viewer: Word, Excel and PowerPoint files are converted to PDF by an optional sandboxed converter container (ADR-019) and shown in the same viewer.
 
 **Acceptance criteria:**
-- [ ] PDF and DOCX basic text extraction
-- [ ] Word/Excel/PowerPoint open in the viewer through the converter container (no network, read-only, limits, macros never run); without it, a friendly "download instead" message
-- [ ] Previews of Private/Confidential files need the local-processing opt-in and are removed with the file
-- [ ] Image thumbnail secure and access checked
-- [ ] ZIP stays inert, bounded inspection only
-- [ ] Parser errors do not corrupt originals
+- [x] PDF and DOCX basic text extraction
+- [x] Word/Excel/PowerPoint open in the viewer through the converter container (no network, read-only, limits, macros never run); without it, a friendly "download instead" message
+- [x] Previews of Private/Confidential files need the local-processing opt-in and are removed with the file
+- [x] Image thumbnail secure and access checked
+- [x] ZIP stays inert, bounded inspection only
+- [x] Parser errors do not corrupt originals
 
 **Tests/evidence:** malicious sample types, truncated PDF, zip-bomb fixture, permission on previews, resource timeout.
 

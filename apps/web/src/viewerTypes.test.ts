@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CSV_ROW_LIMIT, parseDelimited, viewKind } from "./viewerTypes";
+import {
+  CSV_ROW_LIMIT,
+  hasThumbnail,
+  parseDelimited,
+  viewKind,
+} from "./viewerTypes";
 
 describe("viewKind", () => {
   it("picks a screen from the extension, ignoring case", () => {
@@ -9,12 +14,21 @@ describe("viewKind", () => {
     expect(viewKind("notes.md")).toBe("text");
     expect(viewKind("data.tsv")).toBe("csv");
   });
+  it("shows Office files through the converter and zips as listings", () => {
+    expect(viewKind("report.DOCX")).toBe("office");
+    expect(viewKind("budget.xlsx")).toBe("office");
+    expect(viewKind("deck.pptx")).toBe("office");
+    expect(viewKind("backup.zip")).toBe("archive");
+    expect(hasThumbnail("a.PNG")).toBe(true);
+    expect(hasThumbnail("a.svg")).toBe(false);
+  });
   it("offers download for everything else", () => {
     expect(viewKind("README")).toBeNull();
     expect(viewKind("page.html")).toBeNull();
-    expect(viewKind("report.docx")).toBeNull();
+    expect(viewKind("macros.docm")).toBeNull();
+    expect(viewKind("book.xlsm")).toBeNull();
     expect(viewKind(".pdf.exe")).toBeNull();
-    expect(viewKind("archive.pdf.zip")).toBeNull();
+    expect(viewKind("archive.pdf.zip.exe")).toBeNull();
   });
 });
 

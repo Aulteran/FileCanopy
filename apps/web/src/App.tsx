@@ -3,6 +3,7 @@ import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
+import { PreviewSettings } from "./PreviewSettings";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
@@ -145,6 +146,7 @@ function Shell({
   }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
+  const [previewSettings, setPreviewSettings] = useState(false);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
@@ -225,6 +227,9 @@ function Shell({
           Users
         </a>
       )}
+      <button type="button" onClick={() => setPreviewSettings(true)}>
+        Preview settings
+      </button>
       <span className="who">{session.user.name}</span>
       <button onClick={() => void logout()}>Sign out</button>
     </header>
@@ -387,6 +392,9 @@ function Shell({
           />
         )}
       </main>
+      {previewSettings && (
+        <PreviewSettings onClose={() => setPreviewSettings(false)} />
+      )}
     </div>
   );
 }

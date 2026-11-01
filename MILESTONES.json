@@ -398,8 +398,8 @@
         "permission on previews",
         "resource timeout"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-01 on branch m10-previews (migration 0012). Design: docs/milestones/M10-design-and-plan.md. Sealed optional converter container in converter/ (Compose profile converter). Parsing of PDF/DOCX/images/zips in a limited child process. Private/Confidential derivatives need the per-user local-processing opt-in. Macro non-execution rests on the pinned LibreOffice profile; an end-to-end macro test could not be built (headless conversion did not fire a load macro even with security at low). Awaiting Opus review.",
+      "status": "in_review"
     },
     {
       "id": "M11",

@@ -80,6 +80,11 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     password_changed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # M10: the person lets this server open Private and Confidential files for previews, text
+    # extraction and thumbnails. Off by default; never involves a cloud service.
+    local_processing_opt_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class StorageRoot(Base):

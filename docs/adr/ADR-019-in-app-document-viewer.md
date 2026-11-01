@@ -35,6 +35,13 @@ What exists now (checked 2026-11-01):
 - Scanned PDFs (JPEG 2000 and JBIG2 images) were tested under the strict CSP. Without `'wasm-unsafe-eval'` PDF.js cannot compile its WebAssembly decoders, logs one warning and decodes with its bundled JavaScript fallbacks; the page draws correctly (e2e `test_scanned_pdf_with_a_jpeg2000_image_draws_under_the_strict_csp`). So `'wasm-unsafe-eval'` was **not** added. It stays available here if large scans prove too slow; that would be an owner decision.
 - PDF.js's licence ships as `/pdfjs/LICENSE` and the notices as `/THIRD_PARTY_NOTICES.md` (Apache-2.0 section 4).
 
+## Implementation notes (M10, 2026-11-01)
+
+- Office files are shown through `GET /nodes/{id}/preview` (a cached PDF) in the same PDF view, with an "approximate preview" banner. Formats: docx, xlsx, pptx, odt, ods, odp, doc, xls, ppt; macro-enabled types are refused. Limits as in section 8, plus a zip-bomb check of the package before it reaches the converter.
+- The local-processing opt-in is a per-user switch (default off). For a personal root both the requester and the owner need it. It is checked on every derivative read, so withdrawing it makes cached derivatives unreachable at once. Showing a PDF or image the browser renders itself still needs none.
+- Macro non-execution rests on the pinned profile (`MacroSecurityLevel=3`, `DisableActiveContent`). An end-to-end macro test was attempted and dropped: headless conversion did not fire an on-load Basic macro even with security at "low", so it could not show the setting working.
+- Details: `docs/milestones/M10-design-and-plan.md`.
+
 ## Alternatives considered
 
 | Option | Why not (or why later) |

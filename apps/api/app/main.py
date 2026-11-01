@@ -13,6 +13,7 @@ from app.api import backups as backup_routes
 from app.api import files as file_routes
 from app.api import imports as import_routes
 from app.api import nodes as storage_nodes
+from app.api import previews as preview_routes
 from app.api import privacy as privacy_routes
 from app.api import reconcile as reconcile_routes
 from app.api import sharing as sharing_routes
@@ -32,6 +33,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
+from app.preview.service import PreviewService
 from app.storage.roots import ensure_roots
 from app.storage.service import ReconcilerService
 
@@ -73,7 +75,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             reconciler.start()
         backups.start()  # does nothing without a configured backup volume
         trash_service.start()
+        previews.start()
         yield
+        previews.stop()
         trash_service.stop()
         backups.stop()
         import_runner.shutdown()
@@ -84,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     import_runner = ImportRunner(sessions, cfg)
     backups = BackupService(sessions, cfg)
     trash_service = TrashService(sessions, cfg)
+    previews = PreviewService(cfg, sessions)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
     app.state.auth = AuthContext(cfg, sessions, Passwords(cfg), Throttle(cfg))
@@ -92,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.imports = import_runner
     app.state.backup = backups
     app.state.trash = trash_service
+    app.state.previews = previews
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -135,6 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_admin.router)
     app.include_router(storage_nodes.router)
     app.include_router(file_routes.router)
+    app.include_router(preview_routes.router)
     app.include_router(trash_routes.router)
     app.include_router(reconcile_routes.router)
     app.include_router(import_routes.router)

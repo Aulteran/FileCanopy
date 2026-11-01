@@ -122,6 +122,22 @@ const MESSAGES: Record<string, string> = {
   NOT_A_DIRECTORY: "Only folders can be shared.",
   NOT_A_SHARE: "This folder was not shared with you by another person.",
   GRANT_NOT_FOUND: "That person no longer has access.",
+  CONVERTER_UNAVAILABLE:
+    "Previews of Word, Excel and PowerPoint files need an optional add-on that is not running here.",
+  NOT_PREVIEWABLE: "There is no preview for this kind of file.",
+  LOCAL_PROCESSING_OPT_IN_REQUIRED:
+    "This file is Private or Confidential. Opening it this way means this server reads it to make a preview. That stays on your own server and is never sent to a cloud service, but you have to allow it first.",
+  TOO_LARGE: "This file is too large to preview.",
+  TOO_MANY_PAGES: "This document has too many pages to preview.",
+  ENCRYPTED:
+    "This file is protected with a password, so it cannot be previewed.",
+  UNREADABLE: "This file is damaged or incomplete.",
+  CONVERT_FAILED: "The preview could not be made from this file.",
+  TIMEOUT: "Making the preview took too long.",
+  PREVIEW_BUSY: "The preview service is busy. Try again in a moment.",
+  PREVIEW_FAILED: "The preview could not be made.",
+  OUTPUT_TOO_LARGE: "The preview would be too large.",
+  UNSUPPORTED: "This kind of file cannot be previewed.",
 };
 
 export function describeError(code: string): string {

@@ -9,7 +9,7 @@ import logging
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import BinaryIO, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -338,6 +338,54 @@ def _logged_view(
     yield from chunks
 
 
+def inline_response(
+    request: Request,
+    *,
+    user_id: uuid.UUID,
+    node_id: uuid.UUID,
+    name: str,
+    file: BinaryIO,
+    size: int,
+    etag: str,
+    mime: str,
+    range_header: str | None,
+    if_range: str | None,
+) -> StreamingResponse:
+    """Serves an open file inline for the viewer: single `Range`, server-chosen type, sandboxed,
+    `viewed` logged once. Shared by `/view` and the converted Office preview (ADR-019). Takes
+    ownership of `file` (closed when the response ends or is refused)."""
+    headers = {
+        "Accept-Ranges": "bytes",
+        "ETag": etag,
+        "Content-Disposition": f"inline; filename*=UTF-8''{quote(name, safe='')}",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'none'",
+    }
+    start, end, status = 0, size - 1, 200
+    parsed = (
+        viewable.parse_range(range_header, size)
+        if range_header and (if_range is None or if_range == etag)
+        else None
+    )
+    if parsed == "unsatisfiable":
+        file.close()
+        raise http_error(416, "RANGE_NOT_SATISFIABLE", {"Content-Range": f"bytes */{size}"})
+    if isinstance(parsed, tuple):
+        start, end = parsed
+        status = 206
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        file.seek(start)
+    length = max(end - start + 1, 0)
+    headers["Content-Length"] = str(length)
+    return StreamingResponse(
+        _logged_view(request, user_id, node_id, name, start == 0, files.read_chunks(file, length)),
+        status_code=status,
+        media_type=mime,
+        headers=headers,
+    )
+
+
 @router.get("/nodes/{node_id}/view")
 def view(
     request: Request,
@@ -352,43 +400,17 @@ def view(
         dl, vt = fileops.open_view(_ctx(request, ctx.principal, db), ctx.node.id)
     except OpError as err:
         raise _http(err) from err
-    etag = f'"{dl.revision}-{dl.mtime_ns}"'
-    headers = {
-        "Accept-Ranges": "bytes",
-        "ETag": etag,
-        "Content-Disposition": f"inline; filename*=UTF-8''{quote(dl.name, safe='')}",
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'none'",
-    }
-    start, end, status = 0, dl.size - 1, 200
-    parsed = (
-        viewable.parse_range(range_header, dl.size)
-        if range_header and (if_range is None or if_range == etag)
-        else None
-    )
-    if parsed == "unsatisfiable":
-        dl.file.close()
-        raise http_error(416, "RANGE_NOT_SATISFIABLE", {"Content-Range": f"bytes */{dl.size}"})
-    if isinstance(parsed, tuple):
-        start, end = parsed
-        status = 206
-        headers["Content-Range"] = f"bytes {start}-{end}/{dl.size}"
-        dl.file.seek(start)
-    length = max(end - start + 1, 0)
-    headers["Content-Length"] = str(length)
-    return StreamingResponse(
-        _logged_view(
-            request,
-            ctx.principal.user.id,
-            ctx.node.id,
-            dl.name,
-            start == 0,
-            files.read_chunks(dl.file, length),
-        ),
-        status_code=status,
-        media_type=vt.mime,
-        headers=headers,
+    return inline_response(
+        request,
+        user_id=ctx.principal.user.id,
+        node_id=ctx.node.id,
+        name=dl.name,
+        file=dl.file,
+        size=dl.size,
+        etag=f'"{dl.revision}-{dl.mtime_ns}"',
+        mime=vt.mime,
+        range_header=range_header,
+        if_range=if_range,
     )
 
 

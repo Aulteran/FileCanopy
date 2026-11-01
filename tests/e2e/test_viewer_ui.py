@@ -166,17 +166,17 @@ def test_unsupported_damaged_and_forged_files_get_a_friendly_page(
     world: World, browser: Browser
 ) -> None:
     page = sign_in(browser, world, world.alice_mail)
-    upload(page, "report.docx", b"PK\x03\x04 not really")
+    upload(page, "tool.bin", b"PK\x03\x04 not really")
     upload(page, "broken.pdf", make_pdf(3)[:200])  # truncated
     upload(page, "fake.png", b"<html>not a png</html>")
     expect(page.get_by_role("row").filter(has_text="fake.png")).to_be_visible()
 
     # a type the viewer does not handle: no link into the viewer, download only
-    select(page, "report.docx")
+    select(page, "tool.bin")
     expect(page.get_by_role("link", name="Open")).to_have_count(0)
     expect(page.get_by_role("link", name="Download")).to_be_visible()
 
-    page.goto(f"{world.base}/view/{_node_id(page, world, 'report.docx')}")
+    page.goto(f"{world.base}/view/{_node_id(page, world, 'tool.bin')}")
     expect(page.get_by_role("heading", name="No preview here")).to_be_visible()
     expect(page.get_by_role("link", name="Download").first).to_be_visible()
 
