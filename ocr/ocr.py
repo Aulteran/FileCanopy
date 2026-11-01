@@ -14,7 +14,8 @@ from pathlib import Path
 
 IMAGE_EXT = {"png", "jpg", "jpeg", "tif", "tiff", "webp", "gif"}
 LANGS = os.environ.get("OCR_LANGS", "eng")
-RENDER_DPI = os.environ.get("OCR_DPI", "200")
+# Longest side of a rendered page in pixels: a page declared as 200 m wide cannot exhaust memory.
+SCALE_TO = os.environ.get("OCR_SCALE_TO", "2600")
 MAX_TEXT_BYTES = 8 * 1024 * 1024
 # Tesseract under one thread keeps CPU use predictable on a small home server.
 ENV = {
@@ -85,7 +86,17 @@ def recognize(
         raise OcrError("OCR_FAILED")
     try:
         _run(
-            ["pdftoppm", "-r", RENDER_DPI, "-l", str(max_pages), "-gray", "-png", str(data), "pg"],
+            [
+                "pdftoppm",
+                "-scale-to",
+                SCALE_TO,
+                "-l",
+                str(max_pages),
+                "-gray",
+                "-png",
+                str(data),
+                "pg",
+            ],
             deadline,
             work,
         )

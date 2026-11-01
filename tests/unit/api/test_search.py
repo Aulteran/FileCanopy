@@ -486,3 +486,41 @@ def test_status_counts_only_the_callers_own_folder(fx: Fx, alice: Api) -> None:
     assert bob.get("/search/status").json()["indexed"] == 0
     assert clock.utcnow() is not None
     _ = select  # keep the import used in case of future queries
+
+
+# ---------------------------------------------------------------- review B1 / B2
+
+
+def test_a_name_hit_never_carries_text_the_person_may_not_see(fx: Fx, alice: Api) -> None:
+    label(alice, fx.private, "private")
+    put_optin(alice, True)
+    n = nid(alice.upload(fx.private, "persimmon.txt", b"secret: persimmon recipe"))
+    run_index(fx)
+    hit = find(alice, "persimmon")
+    assert [h["name"] for h in hit] == ["persimmon.txt"] and "recipe" in (hit[0]["snippet"] or "")
+    put_optin(alice, False)  # consent withdrawn: the stale row must not leak through the name hit
+    hit = find(alice, "persimmon")
+    assert [h["name"] for h in hit] == ["persimmon.txt"]
+    assert hit[0]["snippet"] is None and hit[0]["match"] == "name"
+    assert n in docs(fx)  # still stored until the sweep, but never shown
+
+
+def test_text_indexed_as_normal_is_not_shown_once_the_file_is_confidential(
+    fx: Fx, alice: Api
+) -> None:
+    n = nid(alice.upload(fx.other, "plain.txt", b"ordinary words: guava"))
+    m = nid(alice.upload(fx.alice_root, "mover.txt", b"moves later: kumquat"))
+    run_index(fx)
+    assert names(find(alice, "guava")) == ["plain.txt"]
+    put_optin(alice, True)
+    label(alice, fx.taxes, "confidential")  # raised over the already indexed file
+    assert unlock(alice, fx.taxes, PASSWORD).status_code == 200
+    assert n in docs(fx)
+    assert find(alice, "guava") == []  # no text hit
+    by_name = find(alice, "plain")
+    assert [h["name"] for h in by_name] == ["plain.txt"] and by_name[0]["snippet"] is None
+    # moved into the Confidential folder while unlocked: same
+    assert alice.move(m, fx.y2026, 1).status_code in (200, 201)
+    assert find(alice, "kumquat") == []
+    moved = find(alice, "mover")
+    assert [h["name"] for h in moved] == ["mover.txt"] and moved[0]["snippet"] is None

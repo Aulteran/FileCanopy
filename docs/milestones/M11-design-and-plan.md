@@ -56,3 +56,7 @@ Not in scope: semantic search or embeddings (M15+), indexing Confidential conten
 | Index updates on modification and permission change | unit: edit file → stale row hidden then re-indexed; share revoked → hits vanish at once; label raised → row removed |
 | Worker crash/retry | unit: lease expiry re-claimed; transient error retried with back-off; permanent error marked failed and not retried until the file changes |
 | OCR container sealed | compose-file test, image test (network none, read-only, limits), replies treated as untrusted |
+
+## Review round 1 (Opus) and what changed
+
+B1: a name hit no longer gets a snippet unless the person may read the text now (same READ, label and consent decision as a content-only hit); a stale row of a file whose consent was withdrawn is ignored. B2: text is never returned for a file whose effective label is Confidential, so text indexed while the file was Normal is not shown after a label raise or a move into a Confidential folder (the hourly sweeper still deletes the row). Tests for both. Also: `http://` sealed-container URLs are accepted only for loopback hosts; `pdftoppm` renders pages scaled to 2600 px on the long side so a huge declared page cannot exhaust memory. Known limits kept: the shared tree is indexed through the oldest active administrator, so a shared file that administrator cannot read waits (fails closed), and shared Private files need that administrator's opt-in; `/search` has no throttle beyond the per-request scan cap of 1000 candidates per query part.

@@ -145,17 +145,15 @@ def search(
         if not rows2:
             break
         for node, body in rows2:
+            # Text is shown only after the same decision a download would get (B1/B2): the stale
+            # row of a file that is now Private without consent, or inside Confidential, is
+            # ignored even when the name already matched.
+            if not _may_show_text(db, actor, node):
+                continue
             if node.id in hits:
                 hits[node.id].match = "name+content"
                 hits[node.id].snippet = snippet_of(body, terms)
                 continue
-            if Privilege.READ not in engine.effective(db, actor, node):
-                continue
-            if privacy.effective_label(db, node) != "normal":
-                try:
-                    require_processing_allowed(db, node, actor.user_id)
-                except PreviewError:
-                    continue
             hits[node.id] = Hit(
                 node.id, node.name, node.kind, node.parent_id, "content", snippet_of(body, terms)
             )
@@ -164,6 +162,20 @@ def search(
         if len(hits) >= limit:
             break
     return _finish(db, actor, list(hits.values())[:limit])
+
+
+def _may_show_text(db: Session, actor: Actor, node: Node) -> bool:
+    if Privilege.READ not in engine.effective(db, actor, node):
+        return False
+    label = privacy.effective_label(db, node)
+    if label == "confidential":
+        return False  # background indexing never covers Confidential; a stale row is not shown
+    if label != "normal":
+        try:
+            require_processing_allowed(db, node, actor.user_id)
+        except PreviewError:
+            return False
+    return True
 
 
 def _finish(db: Session, actor: Actor, hits: list[Hit]) -> list[Hit]:

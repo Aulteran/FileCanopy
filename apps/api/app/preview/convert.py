@@ -19,6 +19,7 @@ ERROR_BODY_LIMIT = 4096
 # Codes a converter may report; anything else becomes CONVERT_FAILED.
 KNOWN = {"TOO_LARGE", "ENCRYPTED", "CONVERT_FAILED", "TIMEOUT", "PREVIEW_BUSY", "UNSUPPORTED"}
 MAX_PDF_BYTES = 256 * 1024 * 1024
+LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
 class UnixConnection(http.client.HTTPConnection):
@@ -38,7 +39,8 @@ def _connection(url: str, timeout: float) -> http.client.HTTPConnection:
     parsed = urlparse(url)
     if parsed.scheme == "unix" and parsed.path:
         return UnixConnection(parsed.path, timeout)
-    if parsed.scheme == "http" and parsed.hostname:  # development and tests
+    # Development and tests only: a sealed container is reached by Unix socket, not a network.
+    if parsed.scheme == "http" and parsed.hostname in LOOPBACK:
         return http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
     raise PreviewError("CONVERTER_UNAVAILABLE", 503)
 
