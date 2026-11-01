@@ -623,6 +623,17 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/auth/password",
     "/api/v1/auth/invitations/accept",
     "/api/v1/auth/password-reset/complete",
+    "/api/v1/auth/password-reset/request",  # M12: uniform answer, instance mail only
+    "/api/v1/auth/config",  # M12: public sign-in options
+    "/api/v1/auth/oidc/login/start",  # M12: sign-in provider round trip; no node addressed
+    "/api/v1/auth/oidc/link/start",
+    "/api/v1/auth/oidc/invitation/start",
+    "/api/v1/auth/oidc/callback",
+    "/api/v1/auth/oidc/identity",
+    "/api/v1/auth/oidc/unlink",
+    "/api/v1/admin/auth-config",
+    "/api/v1/admin/smtp/test",
+    "/api/v1/admin/users/{user_id}/identity",
     "/api/v1/roots",  # actor-scoped entry points; not addressed by node id
     "/api/v1/admin/users",
     "/api/v1/admin/users/{user_id}",

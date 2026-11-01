@@ -742,7 +742,7 @@ def test_admin_api_never_exposes_secrets(world: World) -> None:
         assert "argon2" not in t and "password" not in t.lower()
         assert not any(h in t for h in hashes)
     for item in json.loads(texts[0]):
-        assert set(item) == {"id", "email", "name", "role", "status", "created_at"}
+        assert set(item) == {"id", "email", "name", "role", "status", "created_at", "sso_linked"}
 
 
 def test_extra_fields_are_rejected_on_admin_writes(world: World) -> None:

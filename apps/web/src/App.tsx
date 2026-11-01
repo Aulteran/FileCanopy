@@ -3,7 +3,10 @@ import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
+import { AccountDialog } from "./Account";
 import { PreviewSettings } from "./PreviewSettings";
+import { describeError } from "./format";
+import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
@@ -67,6 +70,8 @@ export function App() {
 function SignedInApp() {
   const [boot, setBoot] = useState<Boot>({ state: "loading" });
   const [failed, setFailed] = useState(false);
+  // The outcome of a single sign-on round trip, if this page load is its return.
+  const [sso] = useState(takeSsoResult);
 
   const start = useCallback(async () => {
     setFailed(false);
@@ -108,11 +113,12 @@ function SignedInApp() {
   }
   if (boot.state === "loading") return <p className="loading">Loading…</p>;
   if (boot.state === "ready") {
-    return <Shell session={boot.session} onEnded={ended} />;
+    return <Shell session={boot.session} onEnded={ended} sso={sso} />;
   }
   return (
     <Auth
       setupRequired={boot.state === "setup"}
+      ssoResult={ssoIsError(sso) ? sso : null}
       onSession={(session) => setBoot({ state: "ready", session })}
       onSetupDone={() => setBoot({ state: "login" })}
     />
@@ -128,9 +134,11 @@ function rootLabel(r: EntryPoint): string {
 function Shell({
   session,
   onEnded,
+  sso,
 }: {
   session: Session;
   onEnded: () => void;
+  sso: string | null;
 }) {
   const {
     folderId,
@@ -158,6 +166,8 @@ function Shell({
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [previewSettings, setPreviewSettings] = useState(false);
+  // Returning from the provider after linking opens Account with the result.
+  const [account, setAccount] = useState(sso === "linked" || ssoIsError(sso));
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
@@ -274,6 +284,9 @@ function Shell({
       )}
       <button type="button" onClick={() => setPreviewSettings(true)}>
         Preview settings
+      </button>
+      <button type="button" onClick={() => setAccount(true)}>
+        Account
       </button>
       <span className="who">{session.user.name}</span>
       <button onClick={() => void logout()}>Sign out</button>
@@ -440,6 +453,18 @@ function Shell({
           />
         )}
       </main>
+      {account && (
+        <AccountDialog
+          onClose={() => setAccount(false)}
+          notice={
+            sso === "linked"
+              ? "Your account is linked."
+              : ssoIsError(sso)
+                ? describeError(sso)
+                : undefined
+          }
+        />
+      )}
       {previewSettings && (
         <PreviewSettings onClose={() => setPreviewSettings(false)} />
       )}

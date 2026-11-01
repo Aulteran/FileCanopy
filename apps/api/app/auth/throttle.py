@@ -38,6 +38,14 @@ class Throttle:
             (_h("ip", ip), s.throttle_max_per_ip),
         ]
 
+    def reset_request_keys(self, email: str, ip: str) -> list[Key]:
+        """ "Forgot password" asks: a few per address (so nobody can flood one inbox or keep
+        replacing a person's reset link) and the usual per-IP ceiling."""
+        return [
+            (_h("reset-acct", email), 3),
+            (_h("reset-ip", ip), self._s.throttle_max_per_ip),
+        ]
+
     def ip_keys(self, kind: str, ip: str) -> list[Key]:
         return [(_h(kind, ip), self._s.throttle_max_per_ip)]
 

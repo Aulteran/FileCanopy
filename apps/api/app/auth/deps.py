@@ -10,10 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
+from app.auth.oidc import OidcProvider
 from app.auth.security import Passwords, csrf_token_for, digest, digest_equal, origin_allowed
 from app.auth.throttle import Throttle
 from app.config import Settings
 from app.db.models import AuthSession, User
+from app.notifications.mail import Mailer
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 SEEN_GRANULARITY = timedelta(seconds=60)
@@ -25,6 +27,8 @@ class AuthContext:
     sessions: "sessionmaker[Session]"
     passwords: Passwords
     throttle: Throttle
+    mailer: Mailer
+    oidc: OidcProvider
 
     @property
     def cookie_name(self) -> str:

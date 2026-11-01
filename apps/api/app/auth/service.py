@@ -92,8 +92,22 @@ def issue_token(
 def consume_token(db: Session, token: str, purpose: str) -> User | None:
     """Atomically marks the token used. Unknown, expired, replayed and wrong-purpose tokens all
     yield None; the conditional UPDATE makes concurrent replays race to a single winner."""
+    return consume_token_hash(db, digest(token), purpose)
+
+
+def token_usable(db: Session, token: str, purpose: str) -> User | None:
+    """The user a token would redeem for, without consuming it (None if it would not redeem)."""
     row = db.scalar(
         select(AuthToken).where(AuthToken.token_hash == digest(token), AuthToken.purpose == purpose)
+    )
+    if row is None or row.used_at is not None or row.expires_at <= clock.utcnow():
+        return None
+    return db.get(User, row.user_id)
+
+
+def consume_token_hash(db: Session, token_hash: str, purpose: str) -> User | None:
+    row = db.scalar(
+        select(AuthToken).where(AuthToken.token_hash == token_hash, AuthToken.purpose == purpose)
     )
     if row is None:
         return None

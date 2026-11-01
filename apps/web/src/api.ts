@@ -19,12 +19,33 @@ export type User = { id: string; email: string; name: string; role: string };
 export type Account = User & {
   status: "invited" | "active" | "disabled";
   created_at: string;
+  sso_linked: boolean;
 };
-// A one-time invitation or reset secret, returned once at issuance and never again.
+// A one-time invitation or reset secret, returned once at issuance and never again. `token` is
+// null when the link was emailed: the administrator never sees a link that was sent to the person.
 export type OneTimeToken = {
-  token: string;
+  token: string | null;
   purpose: "invitation" | "reset";
   expires_at: string;
+  delivery: "manual" | "email_sent" | "email_failed";
+};
+export type AuthConfig = {
+  oidc: { enabled: boolean; label: string };
+  password_reset_by_email: boolean;
+};
+export type AdminAuthConfig = {
+  smtp: {
+    configured: boolean;
+    host: string | null;
+    from: string | null;
+    security: string | null;
+  };
+  oidc: {
+    enabled: boolean;
+    issuer: string | null;
+    label: string;
+    redirect_uri: string | null;
+  };
 };
 export type Session = { user: User; csrf_token: string };
 
@@ -474,6 +495,36 @@ export const api = {
       password,
       name,
     }),
+  authConfig: () => call<AuthConfig>("GET", "/api/v1/auth/config"),
+  forgotPassword: (email: string) =>
+    call<{ status: string }>("POST", "/api/v1/auth/password-reset/request", {
+      email,
+    }),
+  oidcLoginStart: () =>
+    call<{ authorization_url: string }>(
+      "POST",
+      "/api/v1/auth/oidc/login/start",
+      {},
+    ),
+  oidcInvitationStart: (token: string, password: string, name: string | null) =>
+    call<{ authorization_url: string }>(
+      "POST",
+      "/api/v1/auth/oidc/invitation/start",
+      { token, password, name },
+    ),
+  oidcLinkStart: (password: string) =>
+    call<{ authorization_url: string }>(
+      "POST",
+      "/api/v1/auth/oidc/link/start",
+      { password },
+    ),
+  oidcUnlink: (password: string) =>
+    call<{ status: string }>("POST", "/api/v1/auth/oidc/unlink", { password }),
+  oidcIdentity: () =>
+    call<{ linked: boolean; label: string | null }>(
+      "GET",
+      "/api/v1/auth/oidc/identity",
+    ),
   completeReset: (token: string, password: string) =>
     call<{ status: string }>("POST", "/api/v1/auth/password-reset/complete", {
       token,
@@ -482,7 +533,12 @@ export const api = {
 
   // User administration (administrators only; the server enforces it).
   users: () => call<Account[]>("GET", "/api/v1/admin/users"),
-  inviteUser: (b: { email: string; name: string; role: "admin" | "member" }) =>
+  inviteUser: (b: {
+    email: string;
+    name: string;
+    role: "admin" | "member";
+    send_email?: boolean;
+  }) =>
     call<{ user: Account; token: OneTimeToken }>(
       "POST",
       "/api/v1/admin/users",
@@ -492,10 +548,26 @@ export const api = {
     id: string,
     b: { role?: "admin" | "member"; status?: "active" | "disabled" },
   ) => call<Account>("PATCH", `/api/v1/admin/users/${enc(id)}`, b),
-  reissueInvitation: (id: string) =>
-    call<OneTimeToken>("POST", `/api/v1/admin/users/${enc(id)}/invitation`),
-  issueReset: (id: string) =>
-    call<OneTimeToken>("POST", `/api/v1/admin/users/${enc(id)}/password-reset`),
+  reissueInvitation: (id: string, sendEmail = false) =>
+    call<OneTimeToken>(
+      "POST",
+      `/api/v1/admin/users/${enc(id)}/invitation`,
+      sendEmail ? { send_email: true } : undefined,
+    ),
+  issueReset: (id: string, sendEmail = false) =>
+    call<OneTimeToken>(
+      "POST",
+      `/api/v1/admin/users/${enc(id)}/password-reset`,
+      sendEmail ? { send_email: true } : undefined,
+    ),
+  adminAuthConfig: () =>
+    call<AdminAuthConfig>("GET", "/api/v1/admin/auth-config"),
+  smtpTest: () => call<{ status: string }>("POST", "/api/v1/admin/smtp/test"),
+  unlinkIdentity: (id: string) =>
+    call<{ status: string }>(
+      "DELETE",
+      `/api/v1/admin/users/${enc(id)}/identity`,
+    ),
   revokeSessions: (id: string) =>
     call<{ status: string }>(
       "POST",

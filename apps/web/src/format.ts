@@ -141,6 +141,24 @@ const MESSAGES: Record<string, string> = {
   PREVIEW_FAILED: "The preview could not be made.",
   OUTPUT_TOO_LARGE: "The preview would be too large.",
   UNSUPPORTED: "This kind of file cannot be previewed.",
+  EMAIL_NOT_CONFIGURED:
+    "This server cannot send email. Copy the link and give it to the person yourself.",
+  EMAIL_SEND_FAILED:
+    "The test message could not be sent. Check the mail settings.",
+  OIDC_DISABLED: "Single sign-on is not set up on this server.",
+  OIDC_UNAVAILABLE:
+    "The sign-in provider cannot be reached right now. Sign in with your password instead.",
+  OIDC_FAILED: "The sign-in provider did not accept the request.",
+  OIDC_DENIED: "Sign-in with the provider was cancelled or refused.",
+  OIDC_STATE_INVALID:
+    "That sign-in attempt expired or did not start here. Start again.",
+  ID_TOKEN_INVALID: "The sign-in provider's answer could not be verified.",
+  OIDC_NOT_LINKED:
+    "That provider account is not linked to a FileCanopy account. Sign in with your password, then link it from Account.",
+  OIDC_EMAIL_MISMATCH:
+    "The provider did not confirm the email address this invitation was sent to.",
+  IDENTITY_IN_USE:
+    "That provider account is already linked to a FileCanopy account, or this account already has one.",
 };
 
 export function describeError(code: string): string {

@@ -71,10 +71,19 @@ class CompleteReset(Strict):
     password: str = Field(max_length=1024)
 
 
+class AdminUserOut(UserOut):
+    sso_linked: bool = False
+
+
 class CreateUser(Strict):
     email: str = Field(max_length=320)
     name: str = Field(min_length=1, max_length=200)
     role: Literal["admin", "member"] = "member"
+    send_email: bool = False
+
+
+class SendOptions(Strict):
+    send_email: bool = False
 
 
 class UpdateUser(Strict):
@@ -91,9 +100,52 @@ class TokenOut(BaseModel):
     expires_at: datetime
 
 
+class IssuedToken(BaseModel):
+    """`token` is present for a manual link and absent when the link was emailed: the
+    administrator never sees a link that was sent to the person."""
+
+    token: str | None
+    purpose: str
+    expires_at: datetime
+    delivery: Literal["manual", "email_sent", "email_failed"]
+
+
 class UserWithToken(BaseModel):
     user: UserOut
-    token: TokenOut
+    token: IssuedToken
+
+
+class ForgotPassword(Strict):
+    email: str = Field(max_length=320)
+
+
+class OidcStartLink(Strict):
+    password: str = Field(max_length=1024)
+
+
+class OidcStartInvite(Strict):
+    token: str = Field(max_length=256)
+    password: str = Field(max_length=1024)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class AuthorizationUrl(BaseModel):
+    authorization_url: str
+
+
+class OidcPublic(BaseModel):
+    enabled: bool
+    label: str
+
+
+class AuthConfig(BaseModel):
+    oidc: OidcPublic
+    password_reset_by_email: bool
+
+
+class IdentityOut(BaseModel):
+    linked: bool
+    label: str | None = None
 
 
 class Ok(BaseModel):

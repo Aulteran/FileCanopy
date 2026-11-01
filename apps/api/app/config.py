@@ -138,6 +138,29 @@ class Settings(BaseSettings):
     session_absolute_seconds: int = 30 * 24 * 3600
     invitation_ttl_seconds: int = 72 * 3600
     reset_ttl_seconds: int = 3600
+    # --- Outbound mail (M12, ADR-020). Empty host = not configured: invitations and resets are
+    # then shared as one-time links by the administrator and "forgot password" is hidden.
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    smtp_timeout_seconds: int = Field(default=10, ge=1, le=120)
+    # "none" is accepted for a loopback relay only, unless this says otherwise.
+    smtp_allow_plaintext: bool = False
+
+    # --- OIDC sign-in (M12, ADR-020). Empty issuer or client id = off; local sign-in is unaffected.
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: SecretStr = SecretStr("")
+    oidc_scopes: str = "openid email profile"
+    oidc_label: str = Field(default="Single sign-on", max_length=60)
+    oidc_require_email_verified: bool = True
+    # Lab setups only: allow an http issuer that is not on loopback.
+    oidc_allow_http: bool = False
+    oidc_timeout_seconds: int = Field(default=10, ge=1, le=60)
+
     # Argon2id cost (defaults: RFC 9106 low-memory profile). Lower only in tests.
     argon2_time_cost: int = Field(default=3, ge=1)
     argon2_memory_kib: int = Field(default=65536, ge=8)
@@ -164,6 +187,53 @@ class Settings(BaseSettings):
         default = {"http": 80, "https": 443}[parsed.scheme]
         port = "" if parsed.port in (None, default) else f":{parsed.port}"
         return f"{parsed.scheme}://{host}{port}"
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_from)
+
+    @property
+    def oidc_enabled(self) -> bool:
+        return bool(self.oidc_issuer and self.oidc_client_id)
+
+    @property
+    def oidc_redirect_uri(self) -> str:
+        return f"{self._public_origin()}/api/v1/auth/oidc/callback"
+
+    @model_validator(mode="after")
+    def _mail_and_oidc(self) -> "Settings":
+        if self.smtp_host or self.smtp_from:
+            if not self.smtp_configured:
+                raise ConfigError("smtp_host and smtp_from must both be set")
+            if not self.public_url:
+                raise ConfigError("SMTP needs FILECANOPY_PUBLIC_URL (links in mail use it)")
+            if "@" not in self.smtp_from or any(c in self.smtp_from for c in "\r\n"):
+                raise ConfigError("smtp_from must be an email address")
+            if (
+                self.smtp_security == "none"
+                and not self.smtp_allow_plaintext
+                and self.smtp_host not in ("localhost", "127.0.0.1", "::1")
+            ):
+                raise ConfigError(
+                    "smtp_security=none is only allowed for a loopback host "
+                    "(or set FILECANOPY_SMTP_ALLOW_PLAINTEXT=true)"
+                )
+        if self.oidc_issuer or self.oidc_client_id:
+            if not self.oidc_enabled:
+                raise ConfigError("oidc_issuer and oidc_client_id must both be set")
+            if not self.public_url:
+                raise ConfigError("OIDC needs FILECANOPY_PUBLIC_URL (the redirect URI uses it)")
+            issuer = urlparse(self.oidc_issuer)
+            loopback = (issuer.hostname or "") in ("localhost", "127.0.0.1", "::1")
+            if issuer.scheme != "https" and not (
+                issuer.scheme == "http" and (loopback or self.oidc_allow_http)
+            ):
+                raise ConfigError("oidc_issuer must be an https URL")
+            if not issuer.netloc or issuer.query or issuer.fragment:
+                raise ConfigError("oidc_issuer must be a plain URL")
+            if "openid" not in self.oidc_scopes.split():
+                raise ConfigError("oidc_scopes must include openid")
+        return self
 
     @model_validator(mode="after")
     def _paths_must_be_separate(self) -> "Settings":

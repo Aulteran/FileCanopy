@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { ApiError, api } from "./api";
+import { useEffect, useState, type FormEvent } from "react";
+import { ApiError, api, type AuthConfig } from "./api";
 import { describeError } from "./format";
 import { tokenFromHash, type TokenPage as Kind } from "./route";
 
@@ -26,7 +26,37 @@ export function TokenPage({ kind }: { kind: Kind }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const invite = kind === "invite";
+  const [config, setConfig] = useState<AuthConfig | null>(null);
+  useEffect(() => {
+    if (invite) api.authConfig().then(setConfig, () => setConfig(null));
+  }, [invite]);
   const title = invite ? "Accept your invitation" : "Choose a new password";
+
+  // "Accept with <provider>": the same password and name, then the provider proves who you are.
+  // Nothing is consumed until the provider answers, so a failure leaves the link usable.
+  async function withProvider(form: HTMLFormElement): Promise<void> {
+    if (!token) return;
+    const data = new FormData(form);
+    const password = String(data.get("password") ?? "");
+    if (password !== String(data.get("confirm") ?? "")) {
+      setError(describeError("PASSWORDS_DIFFER"));
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const name = String(data.get("name") ?? "").trim();
+      const { authorization_url } = await api.oidcInvitationStart(
+        token,
+        password,
+        name || null,
+      );
+      window.location.assign(authorization_url);
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+      setBusy(false);
+    }
+  }
 
   async function submit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
@@ -119,6 +149,26 @@ export function TokenPage({ kind }: { kind: Kind }) {
           <button type="submit" className="primary" disabled={busy}>
             {invite ? "Set password" : "Change password"}
           </button>
+          {invite && config?.oidc.enabled && (
+            <>
+              <p className="hint">
+                Or link your {config.oidc.label} account now. You still choose a
+                password above: it unlocks Confidential folders and works if the
+                provider is unavailable. Your {config.oidc.label} email must
+                match the address this invitation was sent to.
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={(e) => {
+                  const f = e.currentTarget.form;
+                  if (f && f.reportValidity()) void withProvider(f);
+                }}
+              >
+                Set password and continue with {config.oidc.label}
+              </button>
+            </>
+          )}
         </form>
       )}
     </main>

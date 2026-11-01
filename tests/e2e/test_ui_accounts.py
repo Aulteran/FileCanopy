@@ -206,3 +206,21 @@ def test_picker_offers_folders_past_the_first_page(world: World, browser: Browse
     page.get_by_role("button", name="Load more").click()
     open_folder(page, "f229")
     expect(row(page, "item.txt")).to_be_visible()
+
+
+def test_mail_and_single_sign_on_are_off_by_default(world: World, browser: Browser) -> None:
+    admin = sign_in(browser, world, "admin@example.com")
+    admin.get_by_role("link", name="Users").click()
+    panel = admin.get_by_role("region", name="Mail and single sign-on")
+    expect(panel).to_contain_text("Email is not configured.")
+    expect(panel).to_contain_text("Single sign-on is not configured.")
+    # without mail there is no "email it" choice: the manual link flow is the only one
+    expect(admin.get_by_label("Email the invitation link")).to_have_count(0)
+    admin.get_by_role("button", name="Account").click()
+    expect(admin.get_by_text("Single sign-on is not set up on this server.")).to_be_visible()
+    # the sign-in page offers neither a provider button nor "Forgot your password?"
+    page = browser.new_context().new_page()
+    page.goto(world.base)
+    expect(page.get_by_role("button", name="Sign in", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Forgot your password?")).to_have_count(0)
+    expect(page.get_by_role("button", name=re.compile("Sign in with"))).to_have_count(0)

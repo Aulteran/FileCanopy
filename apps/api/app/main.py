@@ -23,6 +23,8 @@ from app.auth import admin as auth_admin
 from app.auth import bootstrap
 from app.auth import router as auth_router
 from app.auth.deps import AuthContext, scrub_validation_errors
+from app.auth.oidc import OidcProvider
+from app.auth.oidc_router import router as oidc_router
 from app.auth.security import Passwords
 from app.auth.throttle import Throttle
 from app.backup.service import BackupService
@@ -34,6 +36,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
+from app.notifications.mail import Mailer
 from app.preview.hardening import make_undumpable
 from app.preview.service import PreviewService
 from app.search.indexer import Indexer
@@ -89,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         previews.stop()
         trash_service.stop()
         backups.stop()
+        app.state.auth.mailer.shutdown()
         import_runner.shutdown()
         reconciler.stop()
         engine.dispose()
@@ -101,7 +105,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     indexer = Indexer(cfg, sessions, previews)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
-    app.state.auth = AuthContext(cfg, sessions, Passwords(cfg), Throttle(cfg))
+    app.state.auth = AuthContext(
+        cfg, sessions, Passwords(cfg), Throttle(cfg), Mailer(cfg), OidcProvider(cfg)
+    )
     app.state.setup_token_issued = False
     app.state.reconciler = reconciler
     app.state.imports = import_runner
@@ -147,6 +153,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(report, status_code=503 if report["status"] == "unavailable" else 200)
 
     app.include_router(auth_router.router)
+    app.include_router(oidc_router)
     app.include_router(sharing_routes.router)
     app.include_router(privacy_routes.router)
     app.include_router(auth_admin.router)
