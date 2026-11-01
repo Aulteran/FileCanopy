@@ -505,8 +505,3 @@ a.zoom:hover img {
   color: var(--text);
   cursor: pointer;
 }
-
-/* Keep section titles clear of the sticky header when jumping to an anchor. */
-section[id] {
-  scroll-margin-top: 60px;
-}
