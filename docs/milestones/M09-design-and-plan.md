@@ -1,6 +1,6 @@
 # M09 — Privacy labels and confidential unlock: threat model, design and acceptance plan
 
-- **Status:** built, PR open for Opus security review (2026-11-01). Design signed off by Opus after one revision (3 blockers, 10 should-fixes folded in below).
+- **Status:** done 2026-11-01 (PR #14, Opus signed off after the PR review and a re-check, CI green).
 - **Depends on:** M08 (done). **Spec:** 01 §Privacy, 03 §Privacy labels, M06c constraint on restores.
 - **Owner decisions taken unattended (safest default, recorded here; the owner can change them later):** see "Defaults chosen".
 

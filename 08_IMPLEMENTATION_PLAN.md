@@ -234,10 +234,10 @@
 **Goal:** Normal/Private/Confidential label inheritance; server-enforced extra reauth; five-minute idle unlock; optional feature disable transition.
 
 **Acceptance criteria:**
-- [ ] Private/Confidential content blocked from cloud-routing policy
-- [ ] Confidential requires fresh reauth and locks after 5 minutes idle
-- [ ] UI cannot bypass expired lock with existing preview URL
-- [ ] Disable privacy feature never silently downgrades protected folders
+- [x] Private/Confidential content blocked from cloud-routing policy
+- [x] Confidential requires fresh reauth and locks after 5 minutes idle
+- [x] UI cannot bypass expired lock with existing preview URL
+- [x] Disable privacy feature never silently downgrades protected folders
 
 **Tests/evidence:** fake clock idle timeout, parallel tab, background job not refreshing, inherited label, policy-disable migration.
 
