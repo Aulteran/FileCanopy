@@ -548,13 +548,17 @@ def test_missing_unsupported_collision_and_suspended_states(
     banner.get_by_role("button", name="Apply these changes").click()
     wait_until(page, lambda: banner.count() == 0)
     expect(banner).to_have_count(0)
-    assert (
-        int(
-            stack.sql(
-                f"select count(*) from node where parent_id = '{bulk}' and status = 'missing'"
+    # the change is applied by the scanner a moment after the banner goes away
+    wait_until(
+        page,
+        lambda: (
+            int(
+                stack.sql(
+                    f"select count(*) from node where parent_id = '{bulk}' and status = 'missing'"
+                )
             )
-        )
-        == 130
+            == 130
+        ),
     )
     # the administrator sees only a status code for someone else's root
     page.close()

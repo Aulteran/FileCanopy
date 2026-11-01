@@ -70,6 +70,18 @@ Trash is outside the roots, so new backups no longer contain a trashed item; old
 - Every node query must exclude `trashed` and `purged` (enforced in the shared node loaders and policy layer, covered by the route-inventory test).
 - Undo of delete is restore; undo of copy and of an import batch moves the created entries to trash rather than deleting them.
 
+## Implementation notes (M07a, 2026-11-01)
+
+Small choices made while implementing; none changes a decision above.
+
+- `trash_item.status` gains a transient `busy` value (restore or purge running), so a second request cannot race the first.
+- Nodes carry `trash_item_id`. Trashing a folder that already contains an earlier trash item leaves that item's nodes under their own id, so restoring the outer item never revives an entry that is not on disk in it.
+- Restore stays inside the item's own root. Moving trashed content into a different root would be a cross-root move (ADR-013 section 7), which keeps the original with its owner; "Restore to..." therefore lists folders of the same root only (`422 RESTORE_TARGET_OTHER_ROOT`).
+- Automatic purges are journaled as `file_operation` rows under the account that trashed the item (the column needs an account), marked `system` and `retention` in the row and the event; the activity event itself has actor kind `system`.
+- Raising the retention, or turning purging on after `0`, extends deadlines or gives items without one a fresh `now + days`, so switching it on never deletes anything at once.
+- A manual "delete forever" and "empty trash" take a confirmation token derived from the item id, entry count and size (or the set of items for a root), so a stale screen cannot delete something that changed.
+- Empty trash on the shared tree is for the administrator (the root's manager), who can empty it without being able to read the items; on a personal root it is the owner.
+
 ## Alternatives considered
 
 - **Trash in `/app-data` (as `03_SECURITY_PRIVACY.md` reads today):** keeps every app-managed file out of the library mount, but every delete becomes a cross-device copy with a free-space requirement, slow for large folders, with a larger crash-recovery surface. Acceptable if the owner prefers strict separation; the plan's tests would then add free-space refusal and interrupted-copy recovery.
@@ -82,3 +94,14 @@ Trash is outside the roots, so new backups no longer contain a trashed item; old
 - Trash metadata follows the same centralized policy as live nodes; no administrator bypass for personal roots; unauthorized requests get the same `404`/`403` shape as for live nodes so names do not leak.
 - No host paths in API responses, logs or activity details.
 - Private/Confidential labels (M09) must be kept on trash items and re-applied on restore; restore of Confidential content will need the M09 unlock. M07 stores the original parent so M09 can compute the inherited label.
+
+## Decision addendum: recovering a `reconcile_needed` item (M07 review, 2026-11-01)
+
+The Opus review of M07a found that an item flagged `reconcile_needed` could only be deleted forever: restore refuses it, and no route let a person check it. The owner chose a check-and-release action:
+
+- **Who:** the same people who can see the item (ADR-017 §3), and the root's manager for the whole root.
+- **What it does:** re-reads the entry in the item's trash directory and the node row, without changing anything first. If the entry is still in the trash and its node is still `trashed` under this item, the item returns to `in_trash` and the person can restore it or delete it forever as usual. Otherwise the item stays `reconcile_needed` and the response says why (`entry_missing`, `entry_changed`, `node_moved_on`).
+- **What it never does:** it never deletes, never restores on its own, and never guesses. Delete forever keeps its existing confirmation.
+- **Activity:** each check writes one `checked` event on the node and one audit row.
+- **Timing:** M07b, with the Trash page UI. It needs its own unit tests (each reason code) and one compose test before M07 sign-off.
+- **Scope:** the same action covers `trash`, `restore`, `purge` and `xmove` operations left `reconcile_needed`; the copy left at a cross-root destination stays for the scanner to adopt, as today.

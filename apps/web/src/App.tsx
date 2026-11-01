@@ -5,12 +5,15 @@ import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
 import {
   BACKUPS_PATH,
+  RECENT_PATH,
+  TRASH_PATH,
   USERS_PATH,
   folderPath,
   tokenPageOf,
   useRoute,
 } from "./route";
 import { SetupScreen } from "./Setup";
+import { RecentPage, TrashPage } from "./Trash";
 import { TokenPage } from "./TokenPage";
 import { UnfinishedUploads } from "./UnfinishedUploads";
 import { UsersPage } from "./Users";
@@ -123,7 +126,7 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, backups, users, go } = useRoute();
+  const { folderId, backups, users, trash, recent, go } = useRoute();
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
@@ -144,9 +147,17 @@ function Shell({
   useEffect(loadRoots, [loadRoots]);
 
   useEffect(() => {
-    if (roots && roots.length > 0 && folderId === null && !backups && !users)
+    if (
+      roots &&
+      roots.length > 0 &&
+      folderId === null &&
+      !backups &&
+      !users &&
+      !trash &&
+      !recent
+    )
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, backups, users, go]);
+  }, [roots, folderId, backups, users, trash, recent, go]);
 
   async function logout(): Promise<void> {
     try {
@@ -238,33 +249,63 @@ function Shell({
         Skip to files
       </a>
       {header(true)}
-      <nav aria-label="Locations" className="sidenav">
-        <ul>
-          {roots.map((r) => (
-            <li key={r.node_id}>
+      <div className="sidenav">
+        <nav aria-label="Locations">
+          <ul>
+            {roots.map((r) => (
+              <li key={r.node_id}>
+                <a
+                  href={folderPath(r.node_id)}
+                  aria-current={activeRoot === r.node_id ? "page" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(folderPath(r.node_id));
+                  }}
+                >
+                  {rootLabel(r)}
+                </a>
+                {r.setup_open && (
+                  <button
+                    className="linklike flag"
+                    aria-label={`Set up ${r.name}`}
+                    onClick={() => setSetupFor(r.node_id)}
+                  >
+                    (set up)
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <nav aria-label="Trash and history">
+          <ul>
+            <li>
               <a
-                href={folderPath(r.node_id)}
-                aria-current={activeRoot === r.node_id ? "page" : undefined}
+                href={TRASH_PATH}
+                aria-current={trash ? "page" : undefined}
                 onClick={(e) => {
                   e.preventDefault();
-                  go(folderPath(r.node_id));
+                  go(TRASH_PATH);
                 }}
               >
-                {rootLabel(r)}
+                Trash
               </a>
-              {r.setup_open && (
-                <button
-                  className="linklike flag"
-                  aria-label={`Set up ${r.name}`}
-                  onClick={() => setSetupFor(r.node_id)}
-                >
-                  (set up)
-                </button>
-              )}
             </li>
-          ))}
-        </ul>
-      </nav>
+            <li>
+              <a
+                href={RECENT_PATH}
+                aria-current={recent ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(RECENT_PATH);
+                }}
+              >
+                Recent actions
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
       <main id="main" tabIndex={-1} className="content">
         {roots !== null && roots.length === 0 && (
           <p>No storage locations are available to you.</p>
@@ -282,6 +323,18 @@ function Shell({
           ))}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
+        )}
+        {trash && (
+          <TrashPage
+            onEnded={onEnded}
+            onChanged={() => setReload((n) => n + 1)}
+          />
+        )}
+        {recent && (
+          <RecentPage
+            onEnded={onEnded}
+            onChanged={() => setReload((n) => n + 1)}
+          />
         )}
         {!backups && folderId !== null && (
           <Browser

@@ -14,6 +14,7 @@ from app.api import files as file_routes
 from app.api import imports as import_routes
 from app.api import nodes as storage_nodes
 from app.api import reconcile as reconcile_routes
+from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
 from app.auth import bootstrap
 from app.auth import router as auth_router
@@ -26,6 +27,7 @@ from app.db.engine import make_engine
 from app.db.migrate import head_revision
 from app.domain.fileops import recover_operations
 from app.domain.imports import ImportRunner, recover_imports
+from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
 from app.storage.roots import ensure_roots
@@ -54,6 +56,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except Exception as exc:  # roots are retried on the next start; the API still serves
             log.warning("storage roots not reconciled at startup: %s", type(exc).__name__)
         try:
+            ensure_trash_base(cfg.library_path)
+        except Exception as exc:  # deletes answer 503 TRASH_UNAVAILABLE; the rest still serves
+            log.warning("trash directory not ready at startup: %s", type(exc).__name__)
+        try:
             recover_operations(sessions, cfg)
         except Exception as exc:  # flagged on the next start; never blocks serving
             log.warning("file operation recovery failed: %s", type(exc).__name__)
@@ -64,7 +70,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if cfg.reconciler_enabled:  # after recovery; never blocks serving
             reconciler.start()
         backups.start()  # does nothing without a configured backup volume
+        trash_service.start()
         yield
+        trash_service.stop()
         backups.stop()
         import_runner.shutdown()
         reconciler.stop()
@@ -73,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     reconciler = ReconcilerService(sessions, cfg)
     import_runner = ImportRunner(sessions, cfg)
     backups = BackupService(sessions, cfg)
+    trash_service = TrashService(sessions, cfg)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
     app.state.auth = AuthContext(cfg, sessions, Passwords(cfg), Throttle(cfg))
@@ -80,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.reconciler = reconciler
     app.state.imports = import_runner
     app.state.backup = backups
+    app.state.trash = trash_service
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -121,6 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_admin.router)
     app.include_router(storage_nodes.router)
     app.include_router(file_routes.router)
+    app.include_router(trash_routes.router)
     app.include_router(reconcile_routes.router)
     app.include_router(import_routes.router)
     app.include_router(admin_storage.router)

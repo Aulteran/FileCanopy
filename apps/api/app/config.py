@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # that the scan proceeds and the root reports "scan delayed".
     scan_pause_ceiling_seconds: int = Field(default=1800, ge=1)
 
+    # --- Trash retention (M07a, ADR-017) ---
+    # The hourly check that deletes trash items past their deadline. The retention itself is an
+    # instance setting (`trash_retention_days`, default 30), not an environment value.
+    trash_purge_enabled: bool = True
+    trash_check_seconds: int = Field(default=3600, ge=1)
+
     # --- Optional backups (M06c, ADR-015) ---
     # Separate mount for backups. Empty = not configured: the feature stays off and the app is
     # unaffected. Must not equal, contain or sit inside the library or app-data paths.

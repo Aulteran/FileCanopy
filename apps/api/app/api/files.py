@@ -5,7 +5,9 @@ re-checks every additional node (targets, parents) through the same engine. Muta
 optional `Idempotency-Key` header; rename and move require the node's current `revision`.
 """
 
+import logging
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
 from typing import Literal
 from urllib.parse import quote
@@ -18,8 +20,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, get_db, http_error
-from app.db.models import FileOperation, Node
-from app.domain import fileops
+from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, Node
+from app.domain import events, fileops
 from app.domain.fileops import OpCtx, OpError, Outcome
 from app.policy.deps import (
     NodeContext,
@@ -31,6 +33,7 @@ from app.policy.deps import (
 from app.storage import files
 
 router = APIRouter(prefix="/api/v1", tags=["files"])
+log = logging.getLogger("filecanopy.files")
 
 ConflictMode = Literal["reject", "keep_both"]
 IdempotencyKey = Header(default=None, alias="Idempotency-Key")
@@ -166,7 +169,7 @@ def list_children(
             .where(
                 Node.parent_id == ctx.node.id,
                 Node.name_key.in_(keys),
-                Node.status != "dismissed",
+                Node.status.not_in(HIDDEN_NODE_STATUSES),
             )
             .group_by(Node.name_key)
             .having(func.count() > 1)
@@ -224,6 +227,37 @@ async def upload_file(
     return _result(out)
 
 
+def _logged_download(
+    request: Request,
+    user_id: uuid.UUID,
+    node_id: uuid.UUID,
+    name: str,
+    size: int,
+    chunks: Iterator[bytes],
+) -> Iterator[bytes]:
+    """Records the download in the file's history once the first chunk was read, so a refused
+    request or one whose read fails at once is never logged as a download (M07 plan, owner
+    decision 2026-11-01). The history write never blocks the download itself."""
+    first = next(chunks, None)  # an error here propagates: nothing was sent, nothing is logged
+    try:
+        with request.app.state.auth.sessions() as session:
+            events.record(
+                session,
+                node_id,
+                "downloaded",
+                source="ui",
+                actor_user_id=user_id,
+                name=name,
+                size=size,
+            )
+            session.commit()
+    except Exception as exc:
+        log.warning("download not recorded: %s", type(exc).__name__)
+    if first is not None:
+        yield first
+    yield from chunks
+
+
 @router.get("/nodes/{node_id}/content")
 def download(
     request: Request,
@@ -242,7 +276,14 @@ def download(
         "Content-Security-Policy": "sandbox",
     }
     return StreamingResponse(
-        files.read_chunks(dl.file, dl.size),
+        _logged_download(
+            request,
+            ctx.principal.user.id,
+            ctx.node.id,
+            dl.name,
+            dl.size,
+            files.read_chunks(dl.file, dl.size),
+        ),
         media_type="application/octet-stream",  # never a guessed type: no inline rendering
         headers=headers,
     )

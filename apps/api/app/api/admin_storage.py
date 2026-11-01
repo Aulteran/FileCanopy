@@ -6,13 +6,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.auth.deps import Principal, client_ip, get_db, require_admin
+from app.auth.deps import Principal, client_ip, get_db, http_error, require_admin
 from app.auth.service import audit
-from app.db.models import AppSetting, StorageRoot
-from app.domain import nodes
+from app.db.models import AppSetting, StorageRoot, TrashItem
+from app.domain import nodes, trash
+from app.policy.deps import admin_access
 
 router = APIRouter(prefix="/api/v1/admin/storage", tags=["admin"])
 
@@ -20,6 +21,9 @@ router = APIRouter(prefix="/api/v1/admin/storage", tags=["admin"])
 class PersonalRootStatus(BaseModel):
     user_id: uuid.UUID
     status: str  # a status code only; `scan_suspended` is reported here, never names or counts
+    # Trash totals only (ADR-017 §3): never names, and no access to what is in it.
+    trash_items: int = 0
+    trash_bytes: int = 0
 
 
 class StorageOverview(BaseModel):
@@ -29,7 +33,15 @@ class StorageOverview(BaseModel):
     fs_type: str | None
     network_acknowledged: bool
     shared_default_access: str
+    shared_trash_items: int = 0
+    shared_trash_bytes: int = 0
+    trash_retention_days: int | None = None  # null: the stored setting is unreadable
     personal_roots: list[PersonalRootStatus]
+
+
+class RetentionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    days: int
 
 
 class DefaultAccessBody(BaseModel):
@@ -50,6 +62,19 @@ def storage_overview(
 ) -> StorageOverview:
     roots = list(db.scalars(select(StorageRoot).order_by(StorageRoot.created_at)))
     shared = next((r for r in roots if r.kind == "shared"), None)
+    totals = {
+        row.root_id: (int(row.n), int(row.size))
+        for row in db.execute(
+            select(
+                TrashItem.root_id,
+                func.count().label("n"),
+                func.coalesce(func.sum(TrashItem.size_bytes), 0).label("size"),
+            )
+            .where(TrashItem.status.in_(trash.LIVE_ITEM_STATUSES))
+            .group_by(TrashItem.root_id)
+        )
+    }
+    shared_n, shared_size = totals.get(shared.id, (0, 0)) if shared else (0, 0)
     return StorageOverview(
         shared_root_node_id=nodes.root_node(db, shared.id).id if shared else None,
         shared_root_status=_status(shared) if shared else None,
@@ -57,8 +82,16 @@ def storage_overview(
         fs_type=shared.fs_type if shared else None,
         network_acknowledged=db.get(AppSetting, NETWORK_ACK_KEY) is not None,
         shared_default_access=nodes.shared_default_access(db),
+        shared_trash_items=shared_n,
+        shared_trash_bytes=shared_size,
+        trash_retention_days=trash.get_retention(db),
         personal_roots=[
-            PersonalRootStatus(user_id=r.owner_user_id, status=_status(r))
+            PersonalRootStatus(
+                user_id=r.owner_user_id,
+                status=_status(r),
+                trash_items=totals.get(r.id, (0, 0))[0],
+                trash_bytes=totals.get(r.id, (0, 0))[1],
+            )
             for r in roots
             if r.kind == "personal" and r.owner_user_id is not None
         ],
@@ -81,6 +114,22 @@ def set_default_access(
         ip=client_ip(request),
         value=body.value,
     )
+    db.commit()
+    return body
+
+
+@router.put("/trash-retention", response_model=RetentionBody)
+def set_trash_retention(
+    body: RetentionBody,
+    request: Request,
+    admin: Principal = Depends(admin_access),
+    db: Session = Depends(get_db),
+) -> RetentionBody:
+    """Days an item stays in the trash: 7 to 3650, or 0 to never delete automatically. Lowering it
+    never shortens items already in the trash (ADR-017 §4)."""
+    if not trash.valid_retention(body.days):
+        raise http_error(422, "INVALID_RETENTION")
+    trash.set_retention(db, body.days, by=admin.user.id, ip=client_ip(request))
     db.commit()
     return body
 

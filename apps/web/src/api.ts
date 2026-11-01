@@ -7,6 +7,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    // UNDO_CONFLICT carries why: changed, moved, name_taken, missing or no_access.
+    readonly reason: string | null = null,
   ) {
     super(code);
   }
@@ -118,9 +120,81 @@ export type ScanInfo = {
   reason: string | null;
 };
 export type Children = { items: Child[]; next_after: string | null };
+export type Operation = {
+  id: string;
+  action: string;
+  status: string;
+  // Present when the server recorded what is needed to undo it.
+  detail?: { undo?: unknown } | null;
+};
 export type OpResult = {
   node: Child;
-  operation: { status: string } | null;
+  operation: Operation | null;
+  replayed: boolean;
+};
+
+// Trash, activity and undo (M07, ADR-017).
+export type TrashItem = {
+  id: string;
+  root_node_id: string | null;
+  name: string;
+  kind: string;
+  size_bytes: number;
+  entry_count: number;
+  trashed_by_name: string | null;
+  trashed_at: string;
+  reason: string;
+  purge_after: string | null;
+  days_left: number | null;
+  expiring: boolean;
+  status: string;
+  original_parent_id: string | null;
+  original_parent_name: string | null;
+  confirm_token: string;
+};
+export type TrashRoot = {
+  root_node_id: string;
+  kind: string;
+  item_count: number;
+  total_size: number;
+  empty_token: string;
+  flagged_count: number;
+};
+export type TrashList = {
+  items: TrashItem[];
+  next_after: string | null;
+  roots: TrashRoot[];
+  retention_days: number | null;
+};
+export type CheckResult = {
+  released: boolean;
+  reason: "entry_missing" | "entry_changed" | "node_moved_on" | null;
+  item: TrashItem;
+};
+export type ActivityEvent = {
+  id: number;
+  node_id: string;
+  at: string;
+  action: string;
+  actor_kind: string;
+  actor_name: string | null;
+  source: string;
+  details: Record<string, unknown>;
+};
+export type Recent = {
+  id: string;
+  kind: "operation" | "import";
+  action: string;
+  name: string | null;
+  at: string;
+  node_id: string | null;
+  reversible: boolean;
+  undone: boolean;
+};
+export type UndoResult = {
+  operation: Operation | null;
+  trashed: number;
+  left_in_place: { node_id: string; name: string; reason: string }[];
   replayed: boolean;
 };
 
@@ -229,13 +303,17 @@ async function call<T>(
   }
   if (!res.ok) {
     let code = "UNKNOWN";
+    let reason: string | null = null;
     try {
-      const data = (await res.json()) as { detail?: { code?: string } };
+      const data = (await res.json()) as {
+        detail?: { code?: string; reason?: string };
+      };
       code = data.detail?.code ?? code;
+      reason = data.detail?.reason ?? null;
     } catch {
       /* non-JSON error page from a proxy */
     }
-    throw new ApiError(res.status, code);
+    throw new ApiError(res.status, code, reason);
   }
   return (await res.json()) as T;
 }
@@ -401,6 +479,62 @@ export const api = {
       { target_parent_id, expected_revision, on_conflict: "keep_both" },
       { headers: key() },
     ),
+  // Delete moves to the trash; nothing here deletes forever except `deleteForever`.
+  deleteNode: (id: string, expected_revision: number) =>
+    call<{ item: TrashItem; operation: Operation | null; replayed: boolean }>(
+      "DELETE",
+      `/api/v1/nodes/${enc(id)}?expected_revision=${expected_revision}`,
+      undefined,
+      { headers: key() },
+    ),
+  trash: (after?: string | null) =>
+    call<TrashList>(
+      "GET",
+      `/api/v1/trash?limit=100${after ? `&after=${enc(after)}` : ""}`,
+    ),
+  restoreItem: (
+    id: string,
+    target_parent_id: string | null,
+    on_conflict: "keep_both" | "fail" = "keep_both",
+  ) =>
+    call<OpResult>(
+      "POST",
+      `/api/v1/trash/${enc(id)}/restore`,
+      { target_parent_id, on_conflict },
+      { headers: key() },
+    ),
+  deleteForever: (id: string, confirm: string) =>
+    call<TrashItem>(
+      "DELETE",
+      `/api/v1/trash/${enc(id)}?confirm=${enc(confirm)}`,
+    ),
+  emptyTrash: (rootNode: string, confirm: string) =>
+    call<{ purged: number; failed: number; bytes: number }>(
+      "POST",
+      `/api/v1/roots/${enc(rootNode)}/trash/empty`,
+      { confirm },
+    ),
+  checkRoot: (rootNode: string) =>
+    call<{ checked: number; released: number; still_flagged: number }>(
+      "POST",
+      `/api/v1/roots/${enc(rootNode)}/trash/check`,
+    ),
+  checkItem: (id: string) =>
+    call<CheckResult>("POST", `/api/v1/trash/${enc(id)}/check`),
+  activity: (id: string, before?: number | null) =>
+    call<{ items: ActivityEvent[]; next_before: number | null }>(
+      "GET",
+      `/api/v1/nodes/${enc(id)}/activity?limit=30${before ? `&before=${before}` : ""}`,
+    ),
+  recent: () => call<Recent[]>("GET", "/api/v1/activity/mine?limit=20"),
+  undoOperation: (id: string) =>
+    call<UndoResult>("POST", `/api/v1/operations/${enc(id)}/undo`, undefined, {
+      headers: key(),
+    }),
+  undoImport: (id: string) =>
+    call<UndoResult>("POST", `/api/v1/imports/${enc(id)}/undo`, undefined, {
+      headers: key(),
+    }),
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
 
   // Reconciliation (M06a routes, M06b UI)

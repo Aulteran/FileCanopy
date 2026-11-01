@@ -370,7 +370,7 @@ dialog h2 {
 /* phone: the side navigation becomes a strip above the content, the details panel moves below */
 @media (max-width: 760px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto 1fr;
     grid-template-areas:
       "top"
@@ -381,6 +381,16 @@ dialog h2 {
     border-right: 0;
     border-bottom: 1px solid var(--line);
     padding: 4px 8px;
+  }
+  .sidenav {
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+  .sidenav nav {
+    min-width: 0;
+    max-width: 100%;
   }
   .sidenav ul {
     display: flex;
@@ -593,4 +603,76 @@ select {
   .users table td {
     display: block;
   }
+}
+
+/* Trash, recent actions, undo (M07b) */
+.toast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  background: var(--sel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.toast span {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.trash-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.trash-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trash-item .actions {
+  flex-wrap: wrap;
+}
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.meta.expiring {
+  color: var(--danger);
+}
+button.danger {
+  color: var(--danger);
+}
+button.danger.primary {
+  background: var(--danger);
+  color: var(--accent-text);
+  border-color: var(--danger);
+}
+.notice {
+  margin: 0.25rem 0;
+}
+.timeline {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+.timeline li {
+  margin-bottom: 0.4rem;
+  overflow-wrap: anywhere;
+}
+.timeline time {
+  color: var(--muted);
 }

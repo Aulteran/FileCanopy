@@ -34,8 +34,23 @@ const MESSAGES: Record<string, string> = {
     "This item changed since the list was loaded. The list was refreshed; try again.",
   NODE_BUSY: "Another operation is using this item. Try again in a moment.",
   RECONCILE_NEEDED: "This item needs a rescan before it can be changed.",
-  CROSS_ROOT_MOVE_UNSUPPORTED:
-    "Moving between My files and a shared area is not supported yet. Use Copy instead.",
+  ALREADY_TRASHED: "That item is already in the Trash.",
+  TRASH_UNAVAILABLE:
+    "The Trash is not available (its storage is missing or on another drive), so nothing was deleted. Ask your administrator.",
+  TRASH_ITEM_UNAVAILABLE:
+    "That Trash item is busy or was already handled. The list was refreshed.",
+  PARENT_UNAVAILABLE:
+    "The folder it came from is gone. Use “Restore to…” and pick another folder.",
+  RESTORE_TARGET_OTHER_ROOT:
+    "An item can only be restored inside the area it was deleted from.",
+  CONFIRMATION_REQUIRED:
+    "The item changed since you looked. Review it and confirm again.",
+  CANNOT_TRASH_ROOT: "A top-level folder cannot be deleted.",
+  NOT_REVERSIBLE: "That action cannot be undone.",
+  OPERATION_IN_PROGRESS: "That is still running. Try again in a moment.",
+  SOURCE_CHANGED:
+    "The item changed while it was being moved, so it was left where it was.",
+  INSUFFICIENT_STORAGE: "There is not enough free space on the drive.",
   INVALID_TARGET: "That folder cannot be the destination.",
   UPLOAD_TOO_LARGE: "That file is larger than the upload limit.",
   INVALID_NAME: "That name is not allowed.",

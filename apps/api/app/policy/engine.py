@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Node, NodeGrant, StorageRoot, User
+from app.db.models import HIDDEN_NODE_STATUSES, Node, NodeGrant, StorageRoot, User
 from app.policy.model import ALL_PRIVILEGES, LEVELS, Actor, Privilege
 
 
@@ -36,8 +36,12 @@ def lineage_ids(node: Node) -> list[uuid.UUID]:
     return [uuid.UUID(part) for part in node.lineage.strip("/").split("/")]
 
 
-def decide(db: Session, actor: Actor, node: Node | None) -> Decision:
-    if node is None or node.status == "dismissed":  # dismissed nodes behave as nonexistent
+def decide(
+    db: Session, actor: Actor, node: Node | None, *, include_hidden: bool = False
+) -> Decision:
+    """Hidden (dismissed, trashed, purged) nodes behave as nonexistent. Only the trash code asks
+    about them (`include_hidden`), to decide who may see or restore a trashed item (ADR-017 §3)."""
+    if node is None or (node.status in HIDDEN_NODE_STATUSES and not include_hidden):
         return DENY
     user = db.get(User, actor.user_id)
     if user is None or user.status != "active":  # disabled/unknown accounts are always denied
@@ -58,8 +62,10 @@ def decide(db: Session, actor: Actor, node: Node | None) -> Decision:
     return Decision(granted)
 
 
-def effective(db: Session, actor: Actor, node: Node | None) -> frozenset[Privilege]:
-    return decide(db, actor, node).privileges
+def effective(
+    db: Session, actor: Actor, node: Node | None, *, include_hidden: bool = False
+) -> frozenset[Privilege]:
+    return decide(db, actor, node, include_hidden=include_hidden).privileges
 
 
 def require(db: Session, actor: Actor, node_id: uuid.UUID, privilege: Privilege) -> Node:
@@ -106,7 +112,7 @@ def entry_points(db: Session, actor: Actor) -> list[Node]:
             .where(
                 NodeGrant.grantee_user_id == actor.user_id,
                 StorageRoot.status.not_in(UNUSABLE_ROOT_STATUSES),
-                Node.status != "dismissed",
+                Node.status.not_in(HIDDEN_NODE_STATUSES),
             )
         )
     )

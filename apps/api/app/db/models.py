@@ -26,6 +26,10 @@ from sqlalchemy.types import TypeDecorator
 
 from app.storage.names import name_key
 
+# Node statuses that behave as nonexistent for every user route, scan and backup. Dismissed nodes
+# and trashed or purged ones (ADR-017) keep their rows for history but release their names.
+HIDDEN_NODE_STATUSES = ("dismissed", "trashed", "purged")
+
 BigPK = BigInteger().with_variant(Integer(), "sqlite")  # SQLite autoincrements INTEGER only
 Json = JSON().with_variant(JSONB(), "postgresql")
 
@@ -129,8 +133,8 @@ class Node(Base):
             "parent_id",
             "name",
             unique=True,
-            sqlite_where=text("status NOT IN ('dismissed','missing')"),
-            postgresql_where=text("status NOT IN ('dismissed','missing')"),
+            sqlite_where=text("status NOT IN ('dismissed','missing','trashed','purged')"),
+            postgresql_where=text("status NOT IN ('dismissed','missing','trashed','purged')"),
         ),
         Index("ix_node_parent_name_key", "parent_id", "name_key"),
         Index(
@@ -155,7 +159,10 @@ class Node(Base):
     lineage: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
         String(16), nullable=False
-    )  # active | busy | reconcile_needed | missing | dismissed
+    )  # active | busy | reconcile_needed | missing | dismissed | trashed | purged
+    # The trash item that holds this node (and its subtree) while status is trashed or purged;
+    # a nested item trashed earlier keeps its own id, so restoring the outer one cannot revive it.
+    trash_item_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True, nullable=True)
     # Optimistic-concurrency token: bumped by every rename and move (ADR-013).
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # files only
@@ -298,10 +305,13 @@ class ScanRun(Base):
 
 
 class FileEvent(Base):
-    """Minimal append-only per-node event log (ADR-011 §9); M07 builds the activity UI on it.
-    `details` hold ids, safe names and an uncertainty flag: never host paths or content."""
+    """Append-only per-node activity log (ADR-011 §9, ADR-017). `details` hold ids, safe names and
+    an uncertainty flag: never host paths, content or email addresses. `correlation_id` is the
+    `file_operation` (or import batch) the event belongs to; an `ai_agent` event names the user it
+    acted for in `on_behalf_of_user_id` and never an `actor_user_id`."""
 
     __tablename__ = "file_event"
+    __table_args__ = (Index("ix_file_event_node_at", "node_id", "at"),)
 
     id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
     node_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
@@ -309,8 +319,36 @@ class FileEvent(Base):
     actor_kind: Mapped[str] = mapped_column(String(24), nullable=False)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     action: Mapped[str] = mapped_column(String(24), nullable=False)
-    source: Mapped[str] = mapped_column(String(8), nullable=False)  # ui|import|scan|watcher
+    source: Mapped[str] = mapped_column(String(8), nullable=False)  # ui|import|scan|watcher|system
     details: Mapped[Any] = mapped_column(Json, nullable=False)
+    correlation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True, nullable=True)
+    on_behalf_of_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+
+
+class TrashItem(Base):
+    """One trashed top entry (ADR-017 §2). The on-disk location is derived from `root_id` and `id`;
+    no host path is stored. Visible per ADR-017 §3 only."""
+
+    __tablename__ = "trash_item"
+    __table_args__ = (Index("ix_trash_item_root_status", "root_id", "status"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("storage_root.id"), nullable=False)
+    node_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
+    original_parent_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(8), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    entry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    trashed_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("app_user.id"), nullable=False)
+    trashed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # deleted | moved_out | import_undone | copy_undone
+    reason: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Null only while automatic purging is off (retention 0); a later setting backfills it.
+    purge_after: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # in_trash | busy (restore or purge running) | restored | purged | reconcile_needed
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class ImportBatch(Base):

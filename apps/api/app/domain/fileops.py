@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
-from app.db.models import FileOperation, Node, StorageRoot
+from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, Node, StorageRoot
 from app.domain import events, setup
 from app.domain.nodes import path_components
 from app.policy import engine
@@ -59,10 +59,27 @@ class OpError(Exception):
 
 @dataclass
 class OpCtx:
+    """Who acts. `actor` is always an account: an AI agent acts for a user under that user's
+    privileges (`actor_kind="ai_agent"` with the approved `proposal_id`), so it passes the same
+    policy checks and its events name both."""
+
     db: Session
     settings: Settings
     actor: uuid.UUID
     ip: str | None = None
+    actor_kind: str = "user"
+    proposal_id: str | None = None
+
+    def event_actor(self) -> dict[str, Any]:
+        """Keyword arguments naming the actor for `events.record`."""
+        if self.actor_kind == events.AI_AGENT:
+            return {
+                "actor_kind": events.AI_AGENT,
+                "on_behalf_of": self.actor,
+                "proposal_id": self.proposal_id,
+                "source": "ai",
+            }
+        return {"actor_kind": "user", "actor_user_id": self.actor, "source": "ui"}
 
 
 @dataclass
@@ -170,7 +187,9 @@ def _db_has(
     form), so content stays safe for case-insensitive clients (ADR-011 §6); dismissed nodes
     release their name."""
     column = Node.name == name if exact else Node.name_key == name_key(name)
-    query = select(Node.id).where(Node.parent_id == parent_id, Node.status != "dismissed", column)
+    query = select(Node.id).where(
+        Node.parent_id == parent_id, Node.status.not_in(HIDDEN_NODE_STATUSES), column
+    )
     if exclude is not None:
         query = query.where(Node.id != exclude)
     return db.scalar(query.limit(1)) is not None
@@ -372,7 +391,7 @@ def list_children(
 ) -> tuple[list[Node], str | None]:
     node = _need(ctx, node_id, Privilege.LIST)
     _usable_for_read(node, "dir")
-    query = select(Node).where(Node.parent_id == node.id, Node.status != "dismissed")
+    query = select(Node).where(Node.parent_id == node.id, Node.status.not_in(HIDDEN_NODE_STATUSES))
     if after is not None:
         query = query.where(Node.name > after)
     rows = list(ctx.db.scalars(query.order_by(Node.name).limit(limit + 1)))
@@ -448,7 +467,12 @@ def create_folder(ctx: OpCtx, parent_id: uuid.UUID, name: str, key: str | None) 
                 ctx.db.add(node)
                 setup.close_window(ctx.db, parent.root_id, "content", actor=ctx.actor, ip=ctx.ip)
                 events.record(
-                    ctx.db, node.id, "created", source="ui", actor_user_id=ctx.actor, name=clean
+                    ctx.db,
+                    node.id,
+                    "folder_created",
+                    correlation_id=op.id,
+                    **ctx.event_actor(),
+                    name=clean,
                 )
                 op.node_id = node.id
                 _set(op, "committed")
@@ -589,10 +613,11 @@ class Upload:
                     events.record(
                         ctx.db,
                         node.id,
-                        "created",
-                        source="ui",
-                        actor_user_id=ctx.actor,
+                        "uploaded",
+                        correlation_id=op.id,
+                        **ctx.event_actor(),
                         name=chosen,
+                        size=info.st_size,
                     )
                     op.node_id = node.id
                     _set(op, "committed", size=info.st_size, sha256=stage.sha256)
@@ -683,8 +708,11 @@ def relocate(
     name: str | None,
     on_conflict: str,
     key: str | None,
+    undo_of: uuid.UUID | None = None,
 ) -> Outcome:
-    """Rename (same folder) or move. Needs write access on the old parent and the new parent."""
+    """Rename (same folder) or move. Needs write access on the old parent and the new parent.
+    Across roots the move is a verified copy plus the source going to its owner's trash
+    (ADR-013 §7, ADR-017). `undo_of` marks the inverse of an earlier operation (the undo module)."""
     node = _need(ctx, node_id, Privilege.WRITE)
     if node.parent_id is None:
         raise OpError(422, "CANNOT_MOVE_ROOT")
@@ -697,9 +725,20 @@ def relocate(
     if new_parent.kind != "dir":
         raise OpError(422, "NOT_A_DIRECTORY")
     if new_parent.root_id != node.root_id:
-        # Interim rule (ADR-013 section 7): moving content between roots would take it out of
-        # its owner's tree with no trash or history. M07 turns this into copy + source to trash.
-        raise OpError(422, "CROSS_ROOT_MOVE_UNSUPPORTED")
+        from app.domain import trash  # deferred: trash builds on this module
+
+        return trash.cross_root_move(
+            ctx,
+            node,
+            old_parent,
+            new_parent,
+            action=action,
+            expected_revision=expected_revision,
+            name=name,
+            on_conflict=on_conflict,
+            key=key,
+            undo_of=undo_of,
+        )
     if new_parent.lineage.startswith(node.lineage):
         raise OpError(422, "INVALID_TARGET")  # into itself or its own subtree
     if on_conflict not in ("reject", "keep_both"):
@@ -735,6 +774,7 @@ def relocate(
             "src_name": node.name,
             "dst_parent": str(new_parent.id),
             "dst_name": new_name,
+            **({"undo_of": str(undo_of)} if undo_of is not None else {}),
         },
     )
     if replay:
@@ -823,10 +863,36 @@ def relocate(
                 _apply_move(
                     ctx, fresh, target, chosen, old_lineage=old_lineage, old_root=old_root_id
                 )
+                events.record(
+                    ctx.db,
+                    node.id,
+                    "undone"
+                    if undo_of is not None
+                    else ("renamed" if action == "rename" else "moved"),
+                    correlation_id=op.id,
+                    **ctx.event_actor(),
+                    old_name=old_name,
+                    name=chosen,
+                    from_parent_id=str(old_parent.id),
+                    to_parent_id=str(target.id),
+                    **_undo_marker(undo_of),
+                )
+                fresh = ctx.db.get(Node, node.id)
+                post = {} if undo_of is not None or fresh is None else {
+                    "undo": {
+                        "kind": "relocate",
+                        "revision": fresh.revision,
+                        "src_parent": str(old_parent.id),
+                        "src_name": old_name,
+                        "dst_parent": str(target.id),
+                        "dst_name": chosen,
+                        "action": action,
+                    }
+                }  # fmt: skip
                 if via_copy:
-                    _set(op, "reconcile_needed", step="remove_source")
+                    _set(op, "reconcile_needed", step="remove_source", **post)
                 else:
-                    _set(op, "committed")
+                    _set(op, "committed", **post)
                 audit(
                     ctx.db,
                     f"file.{action}",
@@ -1010,9 +1076,14 @@ def copy(
                 raise OpError(409, "NAME_CONFLICT")
             try:
                 _parent_unchanged(ctx.db, target, revision)
-                top = _insert_copied(ctx, target, created)
+                top = _insert_copied(ctx, target, created, op, src)
                 op.node_id = top.id
-                _set(op, "committed", entries=len(created))
+                _set(
+                    op,
+                    "committed",
+                    entries=len(created),
+                    undo={"kind": "copy", "top": str(top.id), "revision": top.revision},
+                )
                 audit(
                     ctx.db,
                     "file.copy",
@@ -1033,8 +1104,28 @@ def copy(
     return Outcome(top, op)
 
 
-def _insert_copied(ctx: OpCtx, target: Node, created: list[files.TreeEntry]) -> Node:
-    """Creates fresh node identities for every copied entry, parents before children."""
+def _undo_marker(undo_of: uuid.UUID | None) -> dict[str, Any]:
+    return {"operation_id": str(undo_of)} if undo_of is not None else {}
+
+
+def _copy_marker(moved: bool, src: Node, entries: int, is_top: bool) -> dict[str, Any]:
+    if not is_top:
+        return {}
+    return {("from_node_id" if moved else "copied_from"): str(src.id), "entries": entries}
+
+
+def _insert_copied(
+    ctx: OpCtx,
+    target: Node,
+    created: list[files.TreeEntry],
+    op: FileOperation,
+    src: Node,
+    *,
+    moved: bool = False,
+) -> Node:
+    """Creates fresh node identities for every copied entry, parents before children. The top
+    entry's history says where it came from (`copied`, or `moved_in` for a cross-root move whose
+    source records `moved_out`); the rest are plain `created`."""
     by_rel: dict[tuple[str, ...], Node] = {}
     top: Node | None = None
     for entry in sorted(created, key=lambda e: (len(e.rel), e.rel)):
@@ -1042,12 +1133,21 @@ def _insert_copied(ctx: OpCtx, target: Node, created: list[files.TreeEntry]) -> 
         node = _new_node(
             parent, entry.rel[-1], entry.kind, entry.size if entry.kind == "file" else None
         )
+        if entry.new_stat is not None:
+            _stamp(node, entry.new_stat, entry.sha256)
         ctx.db.add(node)
+        is_top = len(entry.rel) == 1
         events.record(
-            ctx.db, node.id, "created", source="ui", actor_user_id=ctx.actor, name=entry.rel[-1]
+            ctx.db,
+            node.id,
+            ("moved_in" if moved else "copied") if is_top else "created",
+            correlation_id=op.id,
+            **ctx.event_actor(),
+            name=entry.rel[-1],
+            **_copy_marker(moved, src, len(created), is_top),
         )
         by_rel[entry.rel] = node
-        if len(entry.rel) == 1:
+        if is_top:
             top = node
     ctx.db.flush()
     if top is None:
@@ -1088,6 +1188,9 @@ def recover_operations(sessions: "sessionmaker[Session]", settings: Settings) ->
                 _set(op, "reconcile_needed", step="recovery_error")
             counts[outcome] += 1
             db.commit()
+        from app.domain import trash  # deferred: trash builds on this module
+
+        trash.release_orphan_items(db)
         # A claim whose journal row is gone or finished (for example the release itself failed)
         # would block the node forever.
         in_flight = select(FileOperation.node_id).where(
@@ -1105,6 +1208,10 @@ def recover_operations(sessions: "sessionmaker[Session]", settings: Settings) ->
 def _recover_one(ctx: OpCtx, op: FileOperation) -> str:
     d = op.detail or {}
     db = ctx.db
+    if op.action in ("trash", "restore", "purge", "xmove"):
+        from app.domain import trash  # deferred: trash builds on this module
+
+        return trash.recover_one(ctx, op)
     if op.action in ("rename", "move"):
         node = db.get(Node, op.node_id) if op.node_id else None
         if node is None or node.status != "busy" or "src_ino" not in d:
@@ -1135,6 +1242,18 @@ def _recover_one(ctx: OpCtx, op: FileOperation) -> str:
                 d["dst_name"],
                 old_lineage=node.lineage,
                 old_root=node.root_id,
+            )
+            events.record(
+                db,
+                node.id,
+                "renamed" if op.action == "rename" else "moved",
+                correlation_id=op.id,
+                **ctx.event_actor(),
+                old_name=d["src_name"],
+                name=d["dst_name"],
+                from_parent_id=d["src_parent"],
+                to_parent_id=d["dst_parent"],
+                recovered=True,
             )
             _set(op, "committed", step="recovered_forward")
             return "committed"

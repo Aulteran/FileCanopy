@@ -3,6 +3,8 @@ import {
   folderIdFrom,
   folderPath,
   isBackupsPath,
+  isRecentPath,
+  isTrashPath,
   isUsersPath,
   oneTimeLink,
   tokenFromHash,
@@ -50,5 +52,16 @@ describe("routes", () => {
     expect(tokenFromHash("#token=")).toBeNull();
     expect(tokenFromHash("#other=1")).toBeNull();
     expect(tokenFromHash(`#token=${"x".repeat(257)}`)).toBeNull();
+  });
+});
+
+describe("trash routes", () => {
+  it("knows the trash and recent actions pages and nothing like them", () => {
+    expect(isTrashPath("/trash")).toBe(true);
+    expect(isTrashPath("/trash/")).toBe(true);
+    expect(isTrashPath("/trash/x")).toBe(false);
+    expect(isTrashPath("/f/trash")).toBe(false);
+    expect(isRecentPath("/recent")).toBe(true);
+    expect(isRecentPath("/recent/x")).toBe(false);
   });
 });

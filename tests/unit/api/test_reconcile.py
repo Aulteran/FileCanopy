@@ -142,7 +142,7 @@ def test_app_writes_are_not_external_changes(fx: Fx, alice: Api) -> None:
     assert result.counts.get("modified", 0) == 0 and result.counts.get("created", 0) == 0
     assert [(e.action, e.actor_kind) for e in all_events(fx)] == settle_events  # nothing new
     created = events(fx, f)
-    assert [e.action for e in created] == ["created"]
+    assert [e.action for e in created] == ["uploaded"]
     assert created[0].actor_kind == "user" and created[0].actor_user_id == alice.uid
     assert row(fx, f).content_hash is not None  # uploads store the hash they computed
 
@@ -176,7 +176,7 @@ def test_external_modification_bumps_revision_and_clears_hash(fx: Fx, alice: Api
     assert after.id == before.id and after.size == 7
     assert after.revision == before.revision + 1
     assert after.content_hash is None
-    assert actions(fx, f) == ["created", "external_modified"]
+    assert actions(fx, f) == ["uploaded", "external_modified"]
     assert events(fx, f)[-1].actor_kind == "external_filesystem"
     # same size, newer mtime is also a modification
     path.write_bytes(b"THREE!!")
@@ -305,7 +305,7 @@ def test_vanished_file_is_missing_and_can_reappear(fx: Fx, alice: Api) -> None:
     path.unlink()
     scan(fx)
     assert row(fx, f).status == "missing"
-    assert actions(fx, f) == ["created", "missing"]
+    assert actions(fx, f) == ["uploaded", "missing"]
     assert alice.download(f).status_code == 409 and code(alice.download(f)) == "CONTENT_MISSING"
     items = {i["name"]: i for i in alice.children(fx.taxes)}
     assert items["gone.txt"]["status"] == "missing"  # shown, not hidden
@@ -450,7 +450,10 @@ def test_admin_overview_shows_only_a_status_code_for_a_suspended_personal_root(f
     body = admin.get("/admin/storage").json()
     statuses = [p["status"] for p in body["personal_roots"]]
     assert "scan_suspended" in statuses
-    assert all(set(p) == {"user_id", "status"} for p in body["personal_roots"])
+    assert all(
+        set(p) == {"user_id", "status", "trash_items", "trash_bytes"}
+        for p in body["personal_roots"]
+    )
 
 
 def test_library_relocation_with_preserved_mtimes_is_silent(fx: Fx, alice: Api) -> None:

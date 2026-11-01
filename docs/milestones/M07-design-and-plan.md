@@ -1,6 +1,6 @@
 # M07 — Audit trail, trash, and undo: design and acceptance plan
 
-- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). No M07 code is written yet.
+- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). **M07a (backend) implemented 2026-11-01, Opus-reviewed and signed off; M07b (UI) implemented 2026-11-01 on the same branch (`m07-audit-trash-undo`), awaiting owner sign-off.**
 - **Depends on:** M06 (done, signed off 2026-10-31). **Decision record:** ADR-017 (Accepted 2026-11-01): trash location, visibility, retention.
 - **Suggested models:** Sonnet 5.5 for the code; Opus 5.5 for the recovery and authorization review before sign-off.
 
@@ -78,3 +78,38 @@ Additional checks this plan commits to:
 2. **ADR-017 section 4, retention defaults:** 30 days, admin-configurable 7 to 3650 or never, no space-pressure purge, deadline fixed at trash time.
 3. **Split and branch:** M07a and M07b on one branch and one PR, as M06 was.
 4. **Download events:** decided by the owner 2026-11-01: every successful download is logged (not listings or metadata reads; failed or refused downloads are not logged). Visible to anyone with `read` on the file.
+
+
+## M07a implementation notes (2026-11-01)
+
+What was built, and where it differs from the plan above in detail (none of it changes an accepted decision):
+
+- **Code:** `app/domain/trash.py` (trash, restore, purge, retention job, cross-root move, startup recovery), `app/domain/undo.py`, `app/domain/activity.py`, `app/api/trash.py`, migration `0009_trash_activity`, `file_event.correlation_id` and `on_behalf_of_user_id`, `node.trash_item_id`, `trash_item`. The shared `HIDDEN_NODE_STATUSES` (dismissed, trashed, purged) is applied by the policy engine, listings, name checks, the reconciler and the backup metadata.
+- **Journal actions** are the primitives (`trash`, `restore`, `purge`, `xmove`, `rename`, `move`); an undo is the inverse primitive with `undo_of` in its detail and a single `undone` event instead of a separate `undo` action. The original operation gets `undone_by`.
+- **Routes:** the empty-trash route is `POST /roots/{node_id}/trash/empty` (the id is the root node as listed by `/roots`); `GET /trash?root_id=` takes a root node id too. `DELETE /nodes/{id}?expected_revision=` carries the revision in the query. The retention setting is `PUT /api/v1/admin/storage/trash-retention`.
+- **Undo kinds:** rename and same-root move, trash, copy, cross-root move (restore the original first, then trash the copy, so a failure in between leaves two copies), and `POST /imports/{id}/undo`.
+- **Copy and import undo** trash the largest subtrees made only of untouched entries (revision unchanged, same file on disk) as one item; everything else, including entries added later, is reported in `left_in_place` and left alone.
+- **Downloads** are written after the response body starts; a failure to write the event never blocks the download.
+- **Recovery** covers trash, restore, purge and cross-root move (see `tests/unit/api/test_trash_recovery.py`). A cross-root crash always leaves the source usable and reports `reconcile_needed` when a copy exists at the destination.
+- **Review follow-up (2026-11-01):** an item in `reconcile_needed` gets a check-and-release action in M07b (ADR-017, decision addendum). Until it exists, only permanent deletion is offered for such items.
+- **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).
+
+## M07b implementation notes (2026-11-01)
+
+- **Code:** `apps/web/src/{Trash.tsx,Activity.tsx,history.ts}` (Trash page, Recent actions page, activity timeline, plain-language text), changes in `Browser.tsx` (Delete, undo toast, history panel), `Dialogs.tsx` (Move offers other areas; Restore to…), `App.tsx` and `route.ts` (`/trash`, `/recent`), `api.ts`, `format.ts` (messages), `styles.css`. Backend: `trash.check_release` and `trash.check_release_root` with `POST /trash/{id}/check` and `POST /roots/{id}/trash/check`; the trash list now reports `flagged_count` per manageable root.
+- **Undo toast** lives in the folder view and shows after rename, move, copy, delete and folder upload; **Recent actions** (sidebar) lists the caller's latest operations and import batches with Undo. An `UNDO_CONFLICT` shows its reason (`changed`, `moved`, `name_taken`, `missing`, `no_access`), says nothing was changed, and names the safe alternative.
+- **Check and release** (ADR-017 addendum): a button on a flagged item, and one banner button for the root's manager that checks the whole root. It changes no files; a result that is not "released" says why and leaves Delete forever as the only other action.
+- **Move across areas:** the picker has "Other areas…" listing the entry points the person can see; choosing another area shows that the original goes to the Trash of the area it came from.
+- **Navigation:** Trash and Recent actions are in a second navigation landmark ("Trash and history") so the Locations list is unchanged.
+- **Tests:** vitest (`history.test.ts`, routes); unit tests in `test_trash_recovery.py`; compose `test_trash_stack.py`; e2e `test_trash_ui.py`.
+- **Not done:** no multi-select delete; the activity panel loads when opened (30 events per page); the Trash page shows no per-item activity; screen-reader behaviour is checked through roles and names only.
+
+### M07b review follow-up (2026-11-01, Opus review; fixes by Sonnet)
+
+- **Check and release is atomic:** the item moves to `in_trash` with a status-guarded update, and is refused (`409 TRASH_ITEM_UNAVAILABLE`) while a delete forever or restore of it is running or journaled.
+- **Folders are checked inside:** the item directory must hold exactly the entries (names, kinds, file sizes) of the nodes that belong to the item, within the tree limits; any difference is `entry_changed`.
+- **Bytes without a Trash entry:** a `trash` or cross-root move left `reconcile_needed` with its bytes in the trash directory (inode matching the journal) is given a Trash entry by the root manager's "Check and release" (`trash.adopted` audit row; the entry keeps the original actor and reason `moved_out` for a move). If the inode does not match, nothing is touched. The Trash page counts these in the interrupted-items banner.
+- **Undo toast** is offered only when the server returned an undo record (so not for Create folder).
+- **Sign-off:** the owner's M07a sign-off is his project-chat message of 2026-11-01 ("I don't think there's anything left to do for M07a").
+- **Tests:** compose `test_trash_stack.py` is in the CI `app` matrix (after the import suite) and the files suite only checks its own users' nodes, so order does not matter; the kill test waits for eight finished deletes before killing the API and asserts that fewer than 60 finished and the per-file node states.
+

@@ -55,7 +55,7 @@ def js(c: Client, method: str, path: str, body: dict[str, Any] | None = None, **
 
 
 def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0008"
+    assert stack.sql("select version_num from alembic_version") == "0009"
     assert stack.sql(
         "select count(*) from information_schema.columns "
         "where table_name = 'node' and column_name in ('revision', 'size')"
@@ -175,7 +175,15 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
 
     # journal rows are in PostgreSQL; nothing is left half-done; no staging files remain
     assert stack.sql("select count(*) from file_operation where status = 'planned'") == "0"
-    assert stack.sql("select count(*) from node where status <> 'active'") == "0"
+    # (only this test's own users: another suite may have trashed or purged nodes of its own)
+    mine = f"'{user_id(stack, alice_mail)}', '{user_id(stack, bob_mail)}'"
+    assert (
+        stack.sql(
+            "select count(*) from node n join storage_root r on r.id = n.root_id "
+            f"where n.status <> 'active' and r.owner_user_id in ({mine})"
+        )
+        == "0"
+    )
     leftovers = [p for p in stack.library.rglob(".filecanopy-tmp-*")]
     assert leftovers == []
 
