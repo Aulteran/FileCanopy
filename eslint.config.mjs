@@ -14,4 +14,11 @@ export default [
       globals: globals.node,
     },
   },
+  {
+    files: ["site/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: globals.browser,
+    },
+  },
 ];
