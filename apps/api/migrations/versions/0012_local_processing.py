@@ -17,6 +17,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Idempotent: the Compose migration test rewinds the version number but keeps `app_user`.
+    columns = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("app_user")}
+    if "local_processing_opt_in" in columns:
+        return
     with op.batch_alter_table("app_user") as batch:
         batch.add_column(
             sa.Column(
