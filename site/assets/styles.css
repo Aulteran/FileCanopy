@@ -299,10 +299,7 @@ section.alt {
 .gallery figcaption b {
   color: var(--text);
 }
-.gallery .phone {
-  max-width: 300px;
-  margin: 0 auto;
-}
+
 .note {
   font-size: 14px;
   color: var(--muted);
@@ -434,5 +431,36 @@ footer .wrap {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+}
+
+.phone-block {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 40px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 56px;
+}
+.phone-block p {
+  color: var(--muted);
+  margin-top: 8px;
+  max-width: 30rem;
+}
+.phone-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgb(20 40 28/0.2));
+}
+@media (max-width: 640px) {
+  .phone-block {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 24px;
+  }
+  .phone-img {
+    max-width: 260px;
   }
 }
