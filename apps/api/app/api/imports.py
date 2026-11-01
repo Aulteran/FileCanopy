@@ -10,7 +10,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 from sqlalchemy import select
@@ -470,6 +470,31 @@ async def put_import_entry(
         result_name=result.result_name,
         reason=result.reason,
     )
+
+
+@router.post("/imports/{import_id}/undo")
+def undo_import(
+    request: Request,
+    batch: ImportBatch = Depends(import_access),
+    principal: Principal = Depends(import_list_access),
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> Any:
+    """Moves everything this batch created to the trash (nothing is deleted), except entries that
+    changed since: those stay where they are and are listed in `left_in_place`."""
+    from app.api.trash import undo_out
+    from app.domain import undo as undo_domain
+
+    ctx = OpCtx(db, request.app.state.auth.settings, principal.user.id, client_ip(request))
+    try:
+        result = undo_domain.undo_import(ctx, batch, idempotency_key)
+    except undo_domain.UndoConflict as conflict:
+        raise HTTPException(
+            status_code=409, detail={"code": "UNDO_CONFLICT", "reason": conflict.reason}
+        ) from conflict
+    except OpError as err:
+        raise http_error(err.status, err.code) from err
+    return undo_out(result)
 
 
 @router.post("/imports/{import_id}/cancel", response_model=BatchOut)

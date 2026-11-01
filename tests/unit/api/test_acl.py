@@ -266,9 +266,16 @@ def test_admin_personal_403_and_no_leak_in_admin_storage(fx: Fx) -> None:
         "fs_type",
         "network_acknowledged",
         "shared_default_access",
+        "shared_trash_items",
+        "shared_trash_bytes",
+        "trash_retention_days",
         "personal_roots",
     }
-    assert all(set(p) == {"user_id", "status"} for p in body["personal_roots"])
+    # Trash totals only (ADR-017 §3): counts and sizes, never names.
+    assert all(
+        set(p) == {"user_id", "status", "trash_items", "trash_bytes"}
+        for p in body["personal_roots"]
+    )
     text = overview.text.lower()
     assert "alice" not in text and "new" not in text and str(fx.taxes) not in text
     assert body["shared_root_node_id"] == str(fx.shared_root)

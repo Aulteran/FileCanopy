@@ -303,6 +303,7 @@ class TreeEntry:
     size: int
     src_stat: os.stat_result
     sha256: str | None = None
+    new_stat: os.stat_result | None = None  # the copy as written (files only)
 
 
 def scan_tree(
@@ -400,7 +401,7 @@ def copy_tree(
                         new, sha = copy_file(
                             src_parent, rel[-1], parent_fd, target[-1], expect=info
                         )
-                        created.append(TreeEntry(target, "file", new.st_size, info, sha))
+                        created.append(TreeEntry(target, "file", new.st_size, info, sha, new))
                 finally:
                     os.close(src_parent)
             finally:
@@ -470,6 +471,34 @@ def remove_verified_source(
             os.close(parent_fd)
     fsync_dir(src_dir)
     return leftover
+
+
+MAX_PURGE_DEPTH = 256
+
+
+def remove_tree(dir_fd: int, name: str, _depth: int = 0) -> int:
+    """Deletes the entry `name` under `dir_fd`: a file is unlinked, a directory emptied and removed
+    depth first. Nothing is followed (a symlink is unlinked, never entered) and no name is
+    validated, because a host-made entry may carry any name. Returns the number of entries removed.
+    Used only for permanent deletion from the trash (ADR-017)."""
+    if _depth > MAX_PURGE_DEPTH:
+        raise OSError(errno.ENAMETOOLONG, "tree too deep")
+    info = os.lstat(name, dir_fd=dir_fd)
+    if not stat.S_ISDIR(info.st_mode):
+        os.unlink(name, dir_fd=dir_fd)
+        return 1
+    child = os.open(name, DIR_FLAGS, dir_fd=dir_fd)
+    removed = 0
+    try:
+        with os.scandir(child) as it:
+            names = [entry.name for entry in it]
+        for entry_name in names:
+            removed += remove_tree(child, entry_name, _depth + 1)
+    finally:
+        os.close(child)
+    os.rmdir(name, dir_fd=dir_fd)
+    fsync_dir(dir_fd)
+    return removed + 1
 
 
 def read_chunks(fileobj: BinaryIO, limit: int) -> Iterator[bytes]:

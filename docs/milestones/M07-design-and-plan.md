@@ -1,6 +1,6 @@
 # M07 — Audit trail, trash, and undo: design and acceptance plan
 
-- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). No M07 code is written yet.
+- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). **M07a (backend) implemented 2026-11-01 on branch `m07-audit-trash-undo`; awaiting the Opus recovery and authorization review.** M07b (UI) not started.
 - **Depends on:** M06 (done, signed off 2026-10-31). **Decision record:** ADR-017 (Accepted 2026-11-01): trash location, visibility, retention.
 - **Suggested models:** Sonnet 5.5 for the code; Opus 5.5 for the recovery and authorization review before sign-off.
 
@@ -78,3 +78,17 @@ Additional checks this plan commits to:
 2. **ADR-017 section 4, retention defaults:** 30 days, admin-configurable 7 to 3650 or never, no space-pressure purge, deadline fixed at trash time.
 3. **Split and branch:** M07a and M07b on one branch and one PR, as M06 was.
 4. **Download events:** decided by the owner 2026-11-01: every successful download is logged (not listings or metadata reads; failed or refused downloads are not logged). Visible to anyone with `read` on the file.
+
+
+## M07a implementation notes (2026-11-01)
+
+What was built, and where it differs from the plan above in detail (none of it changes an accepted decision):
+
+- **Code:** `app/domain/trash.py` (trash, restore, purge, retention job, cross-root move, startup recovery), `app/domain/undo.py`, `app/domain/activity.py`, `app/api/trash.py`, migration `0009_trash_activity`, `file_event.correlation_id` and `on_behalf_of_user_id`, `node.trash_item_id`, `trash_item`. The shared `HIDDEN_NODE_STATUSES` (dismissed, trashed, purged) is applied by the policy engine, listings, name checks, the reconciler and the backup metadata.
+- **Journal actions** are the primitives (`trash`, `restore`, `purge`, `xmove`, `rename`, `move`); an undo is the inverse primitive with `undo_of` in its detail and a single `undone` event instead of a separate `undo` action. The original operation gets `undone_by`.
+- **Routes:** the empty-trash route is `POST /roots/{node_id}/trash/empty` (the id is the root node as listed by `/roots`); `GET /trash?root_id=` takes a root node id too. `DELETE /nodes/{id}?expected_revision=` carries the revision in the query. The retention setting is `PUT /api/v1/admin/storage/trash-retention`.
+- **Undo kinds:** rename and same-root move, trash, copy, cross-root move (restore the original first, then trash the copy, so a failure in between leaves two copies), and `POST /imports/{id}/undo`.
+- **Copy and import undo** trash the largest subtrees made only of untouched entries (revision unchanged, same file on disk) as one item; everything else, including entries added later, is reported in `left_in_place` and left alone.
+- **Downloads** are written after the response body starts; a failure to write the event never blocks the download.
+- **Recovery** covers trash, restore, purge and cross-root move (see `tests/unit/api/test_trash_recovery.py`). A cross-root crash always leaves the source usable and reports `reconcile_needed` when a copy exists at the destination.
+- **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).

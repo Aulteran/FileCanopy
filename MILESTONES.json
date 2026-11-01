@@ -263,8 +263,8 @@
         "authorization on audit",
         "reboot after partial operation"
       ],
-      "notes": "Planning 2026-10-31; owner approved ADR-017 (trash location, visibility, retention; open decision 9) and the acceptance plan in docs/milestones/M07-design-and-plan.md on 2026-11-01, including logging every successful download. Split into M07a (backend) and M07b (UI) on one branch and one PR. No code yet.",
-      "status": "not_started"
+      "notes": "Planning 2026-10-31; owner approved ADR-017 (trash location, visibility, retention; open decision 9) and the acceptance plan in docs/milestones/M07-design-and-plan.md on 2026-11-01, including logging every successful download. Split into M07a (backend) and M07b (UI) on one branch and one PR.  M07a (backend) implemented 2026-11-01 on branch m07-audit-trash-undo (migration 0009, app/domain/trash.py, undo.py, activity.py, app/api/trash.py); unit suite 460+ passed, ruff and mypy clean; migration verified up/down/up on PostgreSQL 17. Awaiting Opus recovery and authorization review, then M07b (UI).",
+      "status": "in_progress"
     },
     {
       "id": "M08",

@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
 from app.config import Settings
-from app.db.models import FileOperation, Node, ScanRun, StorageRoot
+from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, Node, ScanRun, StorageRoot
 from app.domain import events, setup
 from app.domain.fileops import serialize_tree_changes
 from app.domain.nodes import path_components
@@ -240,7 +240,7 @@ class Planner:
     # -- helpers
     def _children(self, node_id: uuid.UUID) -> list[Snap]:
         rows = self.db.scalars(
-            select(Node).where(Node.parent_id == node_id, Node.status != "dismissed")
+            select(Node).where(Node.parent_id == node_id, Node.status.not_in(HIDDEN_NODE_STATUSES))
         )
         return [_snap(n) for n in rows]
 
@@ -629,7 +629,7 @@ class Applier:
                 .where(
                     Node.parent_id == parent_id,
                     Node.name == name,
-                    Node.status.not_in(("dismissed", "missing")),
+                    Node.status.not_in((*HIDDEN_NODE_STATUSES, "missing")),
                 )
                 .limit(1)
             )

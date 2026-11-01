@@ -70,6 +70,18 @@ Trash is outside the roots, so new backups no longer contain a trashed item; old
 - Every node query must exclude `trashed` and `purged` (enforced in the shared node loaders and policy layer, covered by the route-inventory test).
 - Undo of delete is restore; undo of copy and of an import batch moves the created entries to trash rather than deleting them.
 
+## Implementation notes (M07a, 2026-11-01)
+
+Small choices made while implementing; none changes a decision above.
+
+- `trash_item.status` gains a transient `busy` value (restore or purge running), so a second request cannot race the first.
+- Nodes carry `trash_item_id`. Trashing a folder that already contains an earlier trash item leaves that item's nodes under their own id, so restoring the outer item never revives an entry that is not on disk in it.
+- Restore stays inside the item's own root. Moving trashed content into a different root would be a cross-root move (ADR-013 section 7), which keeps the original with its owner; "Restore to..." therefore lists folders of the same root only (`422 RESTORE_TARGET_OTHER_ROOT`).
+- Automatic purges are journaled as `file_operation` rows under the account that trashed the item (the column needs an account), marked `system` and `retention` in the row and the event; the activity event itself has actor kind `system`.
+- Raising the retention, or turning purging on after `0`, extends deadlines or gives items without one a fresh `now + days`, so switching it on never deletes anything at once.
+- A manual "delete forever" and "empty trash" take a confirmation token derived from the item id, entry count and size (or the set of items for a root), so a stale screen cannot delete something that changed.
+- Empty trash on the shared tree is for the administrator (the root's manager), who can empty it without being able to read the items; on a personal root it is the owner.
+
 ## Alternatives considered
 
 - **Trash in `/app-data` (as `03_SECURITY_PRIVACY.md` reads today):** keeps every app-managed file out of the library mount, but every delete becomes a cross-device copy with a free-space requirement, slow for large folders, with a larger crash-recovery surface. Acceptable if the owner prefers strict separation; the plan's tests would then add free-space refusal and interrupted-copy recovery.

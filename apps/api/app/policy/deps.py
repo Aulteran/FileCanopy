@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
-from app.db.models import FileOperation, ImportBatch, Node
+from app.db.models import FileOperation, ImportBatch, Node, TrashItem
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 
@@ -41,8 +41,11 @@ class NodeAccess:
 
     policy_guard = True
 
-    def __init__(self, privilege: Privilege) -> None:
+    def __init__(self, privilege: Privilege, *, include_hidden: bool = False) -> None:
         self.privilege = privilege
+        # Only DELETE uses this: a retry of a delete that already succeeded must reach the
+        # service, which answers it from the journal. The privileges themselves are unchanged.
+        self.include_hidden = include_hidden
 
     def __call__(
         self,
@@ -53,7 +56,7 @@ class NodeAccess:
     ) -> NodeContext:
         actor = Actor(principal.user.id)
         node = db.get(Node, node_id)
-        privileges = engine.effective(db, actor, node)
+        privileges = engine.effective(db, actor, node, include_hidden=self.include_hidden)
         if node is None or self.privilege not in privileges:
             raise _deny(db, request, principal, node_id, self.privilege.value)
         return NodeContext(principal, node, privileges)
@@ -129,11 +132,58 @@ class ImportListAccess:
         return principal
 
 
+class TrashItemAccess:
+    """Guard for one trash item: visible per ADR-017 §3 only. Unauthorized and nonexistent ids are
+    indistinguishable."""
+
+    policy_guard = True
+
+    def __call__(
+        self,
+        item_id: uuid.UUID,
+        request: Request,
+        principal: Principal = Depends(current_principal),
+        db: Session = Depends(get_db),
+    ) -> TrashItem:
+        from app.domain import trash
+
+        item = db.get(TrashItem, item_id)
+        if item is None or not trash.item_visible(db, principal.user.id, item):
+            raise _deny(db, request, principal, item_id, "trash")
+        return item
+
+
+class ActorAccess:
+    """Guard for actor-scoped listings (the trash list, the caller's recent actions): it
+    authenticates the caller (session and CSRF) and returns the principal; the handler filters to
+    what that person may see."""
+
+    policy_guard = True
+
+    def __call__(self, principal: Principal = Depends(current_principal)) -> Principal:
+        return principal
+
+
+class AdminAccess:
+    """Guard for instance settings: an active administrator. No content access."""
+
+    policy_guard = True
+
+    def __call__(self, principal: Principal = Depends(current_principal)) -> Principal:
+        if principal.user.role != "admin":
+            raise http_error(403, "FORBIDDEN")
+        return principal
+
+
 # Module-level singletons: FastAPI dependencies are cached by identity, and route signatures stay
 # free of calls in argument defaults.
 traverse_access = NodeAccess(Privilege.TRAVERSE)
 list_access = NodeAccess(Privilege.LIST)
 read_access = NodeAccess(Privilege.READ)
 write_access = NodeAccess(Privilege.WRITE)
+trash_access = NodeAccess(Privilege.WRITE, include_hidden=True)
+trash_item_access = TrashItemAccess()
+actor_access = ActorAccess()
+admin_access = AdminAccess()
 grant_admin_access = GrantAdminAccess()
 import_list_access = ImportListAccess()

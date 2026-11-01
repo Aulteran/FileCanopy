@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
-**Last updated:** 2026-10-31  
-**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. M07 is in planning: the owner accepted ADR-017 (trash location and retention) and approved the M07 acceptance plan on 2026-11-01, including logging every successful download.  
-**Current milestone:** M07 — Audit trail, trash, and undo: planning only (`docs/milestones/M07-design-and-plan.md`, ADR-017 Accepted). No M07 code yet.
+**Last updated:** 2026-11-01  
+**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. The owner accepted ADR-017 (trash location and retention) and approved the M07 acceptance plan on 2026-11-01, including logging every successful download. **M07a (backend) is implemented** on branch `m07-audit-trash-undo` (no PR yet), awaiting the Opus recovery and authorization review.  
+**Current milestone:** M07 — Audit trail, trash, and undo: M07a (backend) implemented, review pending; M07b (UI) not started (`docs/milestones/M07-design-and-plan.md`, ADR-017 Accepted).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
@@ -25,6 +25,8 @@
 - [ ] Public release readiness gate (M22–M24).
 
 ## Recent changes
+
+- 2026-11-01: M07a implemented (backend only) on branch `m07-audit-trash-undo`: migration `0009_trash_activity`; activity events with actor kind, source, correlation id and the `ai_agent` actor (stub-tested); every successful download logged; delete to the hidden library trash `.filecanopy-trash` with restore (original or chosen folder of the same root, keep-both or fail), delete forever and empty trash with confirmation tokens; retention (30 days default, 7 to 3650 or 0 = never, deadline fixed at trash time, hourly purge in the API process, nothing purged when the setting or trash is unreadable); undo for rename, same-root move, trash, copy, cross-root move and import batches with `409 UNDO_CONFLICT` reasons; the cross-root move of ADR-013 section 7 (verified copy, source to the source owner's trash); startup recovery for trash, restore, purge and cross-root moves. Evidence: `check:api` equivalent run locally (ruff, ruff format, mypy strict clean; 458 passed / 1 skipped, 48 new tests in `test_trash.py`, `test_undo.py`, `test_trash_recovery.py`); migration verified upgrade, downgrade, upgrade on PostgreSQL 17. **Not run:** the Compose stack tests and e2e (the compose tests only had their expected migration version bumped to `0009`), and no compose test for trash exists yet. See `docs/milestones/M07-design-and-plan.md` (M07a implementation notes) and ADR-017 (implementation notes).
 
 - 2026-10-31: M06d implemented (UI only, no backend change): admin Users page with one-time links (token in the URL fragment), `/invite` and `/reset` pages, XHR upload byte progress with Cancel, move/copy picker paging. `npm run check` clean; web 25 vitest tests; `test:e2e` 24 passed. See `docs/milestones/M06d-design-and-plan.md`. Not verified in CI yet.
 
@@ -84,11 +86,11 @@
 
 **CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
 
-**Not implemented:** delete/trash/undo (including undoing a whole import batch), replacing existing files, `Range` downloads, resuming a *finished* import batch (retrying files that failed inside it is done with "Upload folder"), sharing UI, OIDC, email delivery of invitations/resets, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
+**Not implemented:** trash/undo UI (the API exists since M07a), replacing existing files, `Range` downloads, resuming a *finished* import batch (retrying files that failed inside it is done with "Upload folder"), sharing UI, OIDC, email delivery of invitations/resets, previews, multi-select, search, activity UI (the API exists since M07a), job processing (heartbeat worker only), AI. Specs are not implementation evidence.
 
 ## Current blockers
 
-- **M07 owner decisions are made (2026-11-01):** ADR-017 is accepted (trash retention defaults and visibility; open decision 9) and the acceptance plan in `docs/milestones/M07-design-and-plan.md` is approved, including download logging. M07a can start on request. Trash location is decided (owner, 2026-10-31): a hidden library-level `.filecanopy-trash` outside every root, which amends `03_SECURITY_PRIVACY.md` for trash.
+- **M07a needs its independent review** (Opus 5.5: recovery paths, authorization on trash and activity, cross-root move) before sign-off; M07b (UI) follows on the same branch. The Compose-stack tests for trash (kill the API mid-trash and restart, real PostgreSQL behind nginx) are still to be written and run. M07 owner decisions are made (2026-11-01): ADR-017 accepted; trash is the hidden library-level `.filecanopy-trash`, which amends `03_SECURITY_PRIVACY.md`.
 - ADR-016 (per-root backup keys) was accepted 2026-10-31 but is not built yet; until it is, the documented mitigation stays: rotate the recovery key after giving it to an owner. It does not block M07.
 - Health endpoint stays unauthenticated by design (Docker/nginx probes; fixed reason codes only), see ADR-012.
 - Final brand is deferred until preparation for public release. License is provisionally `AGPL-3.0-only`; the dependency license audit is still required before release (see below).
@@ -101,7 +103,7 @@
 
 ## Next session instruction
 
-M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and undo**, now that the owner has approved ADR-017 and the M07 acceptance plan (2026-11-01; `docs/milestones/M07-design-and-plan.md`). The plan splits M07 into M07a (backend: activity events, trash, restore, purge, undo, cross-root moves, import-batch undo) and M07b (UI: Trash page, activity panel, undo, end-to-end tests), on one branch and one PR, as M06 was. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + `moved_out` event; ADR-013 section 7), after which the UI drops the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without byte progress, picker limited to 200 folders, restore of a single folder or file from a backup.
+M06 (a, b, c) is merged and signed off. **M07a (backend) is implemented on `m07-audit-trash-undo`**; next is the independent Opus review of it, then **M07b (UI)** on the same branch (Trash page, activity panel, undo toasts, cross-root Move enabled, e2e; see the plan). The notes below describe the M07 plan as approved (2026-11-01; `docs/milestones/M07-design-and-plan.md`). The plan splits M07 into M07a (backend: activity events, trash, restore, purge, undo, cross-root moves, import-batch undo) and M07b (UI: Trash page, activity panel, undo, end-to-end tests), on one branch and one PR, as M06 was. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + `moved_out` event; ADR-013 section 7), after which the UI drops the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without byte progress, picker limited to 200 folders, restore of a single folder or file from a backup.
 
 ## Post-M06 to-do
 
@@ -124,4 +126,5 @@ M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and 
 | 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 since accepted (2026-10-31), not built |
 | 2026-10-31 | M06d Account screens, upload progress, picker paging | Implemented (UI only; awaiting sign-off and CI) | `check` clean; web 25 vitest tests; `test:e2e` 24 passed (5 new) | Owner sign-off; single-file restore is its own later milestone; M07 on request |
 | 2026-10-31 | M06c Optional backups | Implemented and committed (superseded by the sign-off row above) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
+| 2026-11-01 | M07a Audit trail, trash and undo (backend) | Implemented on `m07-audit-trash-undo` (no PR); awaiting Opus review | ruff/format/mypy clean; 458 passed / 1 skipped (48 new); migration 0009 up/down/up on PostgreSQL 17; compose and e2e not run | Opus review, then M07b (UI) |
 | 2026-11-01 | M07 planning | ADR-017 accepted and acceptance plan approved by owner | No code; docs only | M07a (backend) on request, then M07b (UI) |

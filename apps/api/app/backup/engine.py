@@ -48,6 +48,7 @@ from app.backup.store import BackupConfig, KeyInfo, load_config, load_key
 from app.backup.volume import backups_root, inspect_volume
 from app.config import Settings
 from app.db.models import (
+    HIDDEN_NODE_STATUSES,
     BackupChainState,
     BackupRun,
     FileEvent,
@@ -662,7 +663,7 @@ class BackupEngine:
         node_rows = db.execute(
             select(
                 Node.id, Node.parent_id, Node.name, Node.kind, Node.status, Node.size, Node.revision
-            ).where(Node.root_id == root_id)
+            ).where(Node.root_id == root_id, Node.status.not_in(HIDDEN_NODE_STATUSES))
         ).all()
         node_ids = [r.id for r in node_rows]
         grants = (

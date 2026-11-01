@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
-from app.db.models import ImportBatch, ImportEntry, Node, StorageRoot, User
+from app.db.models import HIDDEN_NODE_STATUSES, ImportBatch, ImportEntry, Node, StorageRoot, User
 from app.domain import events, setup
 from app.domain.fileops import (
     OpCtx,
@@ -872,7 +872,11 @@ def _ensure_dir_node(ctx: OpCtx, batch: ImportBatch, entry_idx: int | None, targ
         key = name_key(entry.name)
         for existing in db.scalars(
             select(Node)
-            .where(Node.parent_id == parent.id, Node.name_key == key, Node.status != "dismissed")
+            .where(
+                Node.parent_id == parent.id,
+                Node.name_key == key,
+                Node.status.not_in(HIDDEN_NODE_STATUSES),
+            )
             .order_by(Node.created_at)
         ):
             if existing.kind == "dir" and existing.status == "active":
@@ -895,7 +899,7 @@ def _ensure_dir_node(ctx: OpCtx, batch: ImportBatch, entry_idx: int | None, targ
                     db.add(node)
                     events.record(
                         db, node.id, "imported", source="import", actor_user_id=ctx.actor,
-                        name=cand, kind="dir",
+                        correlation_id=batch.id, name=cand, kind="dir",
                     )  # fmt: skip
                     fresh = _entry(db, batch.id, entry_idx)
                     if fresh is None:
@@ -1070,7 +1074,7 @@ class EntryUpload:
                 db.add(node)
                 events.record(
                     db, node.id, "imported", source="import", actor_user_id=ctx.actor,
-                    name=chosen, kind="file",
+                    correlation_id=self.batch_id, name=chosen, kind="file",
                 )  # fmt: skip
                 entry = _entry(db, self.batch_id, self.index)
                 if entry is None:
@@ -1486,7 +1490,8 @@ def _adopt(db: Session, entry: ImportEntry, parent: Node, dir_fd: int) -> str:
     events.record(
         db, node.id, "imported", source="import",
         actor_user_id=batch.actor_user_id if batch else None,
-        actor_kind="user" if batch else "system", name=name, kind="file",
+        actor_kind="user" if batch else "system", correlation_id=entry.batch_id,
+        name=name, kind="file",
     )  # fmt: skip
     entry.status = "done" if name == entry.name else "renamed"
     entry.node_id, entry.result_name = node.id, name

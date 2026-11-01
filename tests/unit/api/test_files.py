@@ -603,25 +603,6 @@ def test_move_into_itself_or_a_descendant_is_refused(fx: Fx, alice: Api) -> None
     assert alice.move(fx.alice_root, a, 1).status_code in (403, 422)
 
 
-def test_cross_root_moves_are_refused_until_trash_exists(fx: Fx, alice: Api) -> None:
-    """Interim rule (ADR-013 section 7): content never leaves a root by a move. Copy works."""
-    sub = nid(alice.mkdir(fx.taxes, "Shareme"))
-    leaf = nid(alice.upload(sub, "x.txt", b"x"))
-    r = alice.move(sub, fx.shared_sub, 1)
-    assert r.status_code == 422 and code(r) == "CROSS_ROOT_MOVE_UNSUPPORTED"
-    assert disk(fx, leaf).read_bytes() == b"x" and node_row(fx, sub).status == "active"
-    assert alice.copy(sub, fx.shared_sub).status_code == 201  # the supported way across roots
-    # an editor of someone else's folder cannot take content into their own tree
-    fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
-    carol = Api(fx, "carol")
-    f = nid(alice.upload(fx.taxes, "m.txt", b"m"))
-    mine = fx.root_of("carol@example.com")
-    r = carol.move(f, mine, 1)
-    assert r.status_code == 422 and code(r) == "CROSS_ROOT_MOVE_UNSUPPORTED"
-    assert disk(fx, f).read_bytes() == b"m"
-    assert carol.copy(f, mine).status_code == 201  # copying is fine; the original stays put
-
-
 def test_move_needs_write_on_both_ends(fx: Fx, alice: Api) -> None:
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     fx.grant(fx.alice, fx.private, "carol@example.com", "viewer")
