@@ -6,9 +6,19 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import { ApiError, api, type Batch, type Child, type NodeInfo } from "./api";
+import {
+  ApiError,
+  api,
+  type Batch,
+  type Child,
+  type NodeInfo,
+  type OpResult,
+  type UndoResult,
+} from "./api";
+import { ActivityPanel } from "./Activity";
 import { NameDialog, TargetDialog } from "./Dialogs";
 import { describeError, formatDate, formatSize, progressText } from "./format";
+import { describeUndoConflict } from "./history";
 import {
   activeUploads,
   droppedEntries,
@@ -86,6 +96,11 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const [focusIx, setFocusIx] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState("");
+  // The last action that can still be undone, shown next to the notice until something else happens.
+  // Held in an object: React would call a bare function passed to the state setter.
+  const [undoable, setUndoable] = useState<{
+    run: () => Promise<UndoResult>;
+  } | null>(null);
   const [errorText, setErrorText] = useState("");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -172,18 +187,67 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   /** Runs a mutation from a dialog; a stale revision refreshes the list before the error shows. */
   async function mutate(
-    run: () => Promise<unknown>,
+    run: () => Promise<OpResult>,
     done: string,
   ): Promise<void> {
+    let result: OpResult;
     try {
-      await run();
+      result = await run();
     } catch (err) {
       if (err instanceof ApiError && err.code === "REVISION_CONFLICT")
         await refresh();
       throw err;
     }
     setDialog(null);
-    setNotice(done);
+    offerUndo(done, result.operation?.id ?? null);
+    await refresh();
+  }
+
+  /** Shows what just happened and, when the server journaled it, a way to take it back. */
+  function offerUndo(text: string, operationId: string | null): void {
+    setNotice(text);
+    setErrorText("");
+    setUndoable(
+      operationId === null
+        ? null
+        : { run: () => api.undoOperation(operationId) },
+    );
+  }
+
+  async function undoLast(): Promise<void> {
+    const last = undoable;
+    if (!last) return;
+    setUndoable(null);
+    try {
+      const res = await last.run();
+      setNotice(
+        res.left_in_place.length > 0
+          ? `Undone, except ${res.left_in_place.length} item(s) that changed since and were left in place.`
+          : "Undone.",
+      );
+    } catch (err) {
+      setNotice("");
+      setErrorText(
+        err instanceof ApiError && err.code === "UNDO_CONFLICT"
+          ? describeUndoConflict(err.reason)
+          : fail(err),
+      );
+    }
+    await refresh();
+  }
+
+  async function deleteSelected(): Promise<void> {
+    if (!selected) return;
+    try {
+      const r = await api.deleteNode(selected.id, selected.revision);
+      setSelectedId(null);
+      offerUndo(`Moved ${selected.name} to the Trash`, r.operation?.id ?? null);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "REVISION_CONFLICT")
+        await refresh();
+      setErrorText(fail(err));
+      return;
+    }
     await refresh();
   }
 
@@ -246,6 +310,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           ? `Folder ${name} was not uploaded completely`
           : `Uploaded folder ${name}`,
       );
+      setUndoable({ run: () => api.undoImport(batch.id) });
     } catch (err) {
       patch({
         state: "error",
@@ -509,6 +574,20 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       <p role="alert" className="error">
         {errorText}
       </p>
+      {undoable && (
+        <div className="toast" aria-label="Last action">
+          <span>{notice}</span>
+          <button onClick={() => void undoLast()}>Undo</button>
+          <button
+            aria-label="Dismiss"
+            onClick={() => {
+              setUndoable(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {jobs.length > 0 && (
         <ul className="uploads" aria-label="Folder uploads">
@@ -709,6 +788,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                 <dt>Modified</dt>
                 <dd>{formatDate(selected.updated_at)}</dd>
               </dl>
+              <ActivityPanel nodeId={selected.id} />
               {selected.kind === "other" && (
                 <p className="hint">
                   Not supported:{" "}
@@ -768,6 +848,13 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                       onClick={() => setDialog("copy")}
                     >
                       Copy…
+                    </button>
+                    <button
+                      disabled={!canWrite}
+                      title={noWrite}
+                      onClick={() => void deleteSelected()}
+                    >
+                      Delete
                     </button>
                   </>
                 )}

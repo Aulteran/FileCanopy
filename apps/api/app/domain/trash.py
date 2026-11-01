@@ -15,6 +15,7 @@ never a lost file.
 import hashlib
 import logging
 import os
+import stat
 import threading
 import uuid
 from collections.abc import Iterator
@@ -1487,6 +1488,103 @@ def release_orphan_items(db: Session) -> int:
         item.status = "in_trash" if held else "reconcile_needed"
         released += 1
     return released
+
+
+@dataclass
+class CheckResult:
+    item: TrashItem
+    released: bool
+    reason: str | None  # entry_missing | entry_changed | node_moved_on
+
+
+def check_release(ctx: OpCtx, item_id: uuid.UUID) -> CheckResult:
+    """The "check and release" action for an item flagged `reconcile_needed` (ADR-017 addendum).
+    Looks again at the bytes in the trash and at the node row. If both still match what was trashed,
+    the item goes back to `in_trash` (and can be restored or deleted as usual). Otherwise it stays
+    flagged and the answer says why: `entry_missing`, `entry_changed` or `node_moved_on`. Nothing is
+    deleted, moved or renamed by this action. One event and one audit row either way."""
+    db = ctx.db
+    item = db.get(TrashItem, item_id)
+    if item is None or not item_visible(db, ctx.actor, item):
+        audit(db, "access.denied", actor=ctx.actor, ip=ctx.ip, item_id=str(item_id))
+        db.commit()
+        raise OpError(403, "FORBIDDEN")
+    return _check_item(ctx, item)
+
+
+def check_release_root(ctx: OpCtx, root_node: Node) -> dict[str, int]:
+    """The same check for every flagged item of one root, for the root's manager (the owner of a
+    personal folder, an administrator for the shared tree), who may not be able to see each item."""
+    if not can_manage_root(ctx.db, ctx.actor, root_node):
+        audit(ctx.db, "access.denied", actor=ctx.actor, ip=ctx.ip, node_id=str(root_node.id))
+        ctx.db.commit()
+        raise OpError(403, "FORBIDDEN")
+    flagged = list(
+        ctx.db.scalars(
+            select(TrashItem).where(
+                TrashItem.root_id == root_node.root_id, TrashItem.status == "reconcile_needed"
+            )
+        )
+    )
+    released = 0
+    for item in flagged:
+        if _check_item(ctx, item).released:
+            released += 1
+    return {"checked": len(flagged), "released": released, "still_flagged": len(flagged) - released}
+
+
+def _check_item(ctx: OpCtx, item: TrashItem) -> CheckResult:
+    db = ctx.db
+    if item.status != "reconcile_needed":
+        raise OpError(409, "TRASH_ITEM_UNAVAILABLE")
+    node = db.get(Node, item.node_id)
+    reason: str | None = None
+    if (
+        node is None
+        or node.trash_item_id != item.id
+        or node.status
+        not in (
+            "trashed",
+            "reconcile_needed",
+        )
+    ):
+        reason = "node_moved_on"
+    else:
+        entry = _entry_at_trash(ctx, item.root_id, item.id, item.original_name)
+        if entry is None:
+            reason = "entry_missing"
+        elif (item.kind == "dir") != stat.S_ISDIR(entry.st_mode) or (
+            item.kind == "file"
+            and (
+                not stat.S_ISREG(entry.st_mode)
+                or (node.size is not None and entry.st_size != node.size)
+            )
+        ):
+            reason = "entry_changed"
+    if reason is None:
+        assert node is not None  # noqa: S101
+        item.status = "in_trash"
+        if node.status != "trashed":
+            db.execute(update(Node).where(Node.id == node.id).values(status="trashed"))
+    events.record(
+        db,
+        item.node_id,
+        "checked",
+        **ctx.event_actor(),
+        name=item.original_name,
+        trash_item_id=str(item.id),
+        how="released" if reason is None else reason,
+    )
+    audit(
+        db,
+        "trash.checked",
+        actor=ctx.actor,
+        ip=ctx.ip,
+        item_id=str(item.id),
+        result="released" if reason is None else reason,
+    )
+    db.commit()
+    return CheckResult(item=item, released=reason is None, reason=reason)
 
 
 def _flag_node(db: Session, op: FileOperation, node: Node) -> str:

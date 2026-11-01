@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.files import (
@@ -71,6 +71,13 @@ class TrashRootOut(BaseModel):
     item_count: int
     total_size: int
     empty_token: str
+    flagged_count: int  # interrupted items that need "check and release"
+
+
+class CheckRootOut(BaseModel):
+    checked: int
+    released: int
+    still_flagged: int
 
 
 class TrashListOut(BaseModel):
@@ -95,6 +102,12 @@ class EmptyOut(BaseModel):
     purged: int
     failed: int
     bytes: int
+
+
+class CheckOut(BaseModel):
+    released: bool
+    reason: Literal["entry_missing", "entry_changed", "node_moved_on"] | None
+    item: TrashItemOut
 
 
 class TrashedOut(BaseModel):
@@ -265,8 +278,17 @@ def _manageable_roots(
                 )
             )
         )
+        flagged = (
+            db.scalar(
+                select(func.count())
+                .select_from(TrashItem)
+                .where(TrashItem.root_id == root.id, TrashItem.status == "reconcile_needed")
+            )
+            or 0
+        )
         roots.append(
             TrashRootOut(
+                flagged_count=int(flagged),
                 root_node_id=node.id,
                 kind=root.kind,
                 item_count=len(items),
@@ -301,6 +323,26 @@ def restore_item(
     return _result(out)
 
 
+@router.post("/trash/{item_id}/check", response_model=CheckOut)
+def check_item(
+    request: Request,
+    item: TrashItem = Depends(trash_item_access),
+    principal: Principal = Depends(actor_access),
+    db: Session = Depends(get_db),
+) -> CheckOut:
+    """ "Check and release" for an item flagged `reconcile_needed`: looks again at what is in the
+    trash and puts the item back to normal if it still matches. Changes no files."""
+    try:
+        result = trash.check_release(_ctx(request, principal, db), item.id)
+    except OpError as err:
+        raise _http(err) from err
+    return CheckOut(
+        released=result.released,
+        reason=result.reason,  # type: ignore[arg-type]
+        item=_item_out(db, principal.user.id, result.item),
+    )
+
+
 @router.delete("/trash/{item_id}", response_model=TrashItemOut)
 def delete_forever(
     request: Request,
@@ -316,6 +358,22 @@ def delete_forever(
     except OpError as err:
         raise _http(err) from err
     return _item_out(db, principal.user.id, done)
+
+
+@router.post("/roots/{node_id}/trash/check", response_model=CheckRootOut)
+def check_root(
+    request: Request,
+    ctx: NodeContext = Depends(grant_admin_access),
+    db: Session = Depends(get_db),
+) -> CheckRootOut:
+    """ "Check and release" for every interrupted item of one root, for its manager."""
+    if ctx.node.parent_id is not None:
+        raise http_error(422, "NOT_A_ROOT")
+    try:
+        result = trash.check_release_root(_ctx(request, ctx.principal, db), ctx.node)
+    except OpError as err:
+        raise _http(err) from err
+    return CheckRootOut(**result)
 
 
 @router.post("/roots/{node_id}/trash/empty", response_model=EmptyOut)

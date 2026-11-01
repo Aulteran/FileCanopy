@@ -6,12 +6,18 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ApiError, api, type Child, type NodeInfo } from "./api";
+import {
+  ApiError,
+  api,
+  type Child,
+  type EntryPoint,
+  type NodeInfo,
+} from "./api";
 import { describeError } from "./format";
 
 // Native <dialog>: focus is trapped and Escape closes it. The parent unmounts it on close, which
 // is too early for the browser to restore focus, so the opener is remembered and refocused here.
-function Modal({
+export function Modal({
   title,
   onClose,
   children,
@@ -116,8 +122,8 @@ export function NameDialog({
 }
 
 type TargetProps = {
-  mode: "move" | "copy";
-  item: Child;
+  mode: "move" | "copy" | "restore";
+  item: Pick<Child, "id" | "name">;
   startId: string; // topmost visible folder of the item's tree: the picker never leaves it
   currentParentId: string;
   onSubmit: (targetId: string) => Promise<void>;
@@ -141,6 +147,10 @@ export function TargetDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(startId);
+  // Move only: other areas (My files, shared folders) can be chosen, and the original then goes
+  // to the trash of the area it came from (ADR-013, ADR-017).
+  const [areas, setAreas] = useState<EntryPoint[] | null>(null);
+  const [pickedArea, setPickedArea] = useState<string | null>(null);
   const shown = useRef(target); // the folder whose list is on screen, for late pages
   shown.current = target;
 
@@ -189,7 +199,17 @@ export function TargetDialog({
 
   const canWrite = at?.my_privileges.includes("write") ?? false;
   const same = mode === "move" && target === currentParentId;
-  const verb = mode === "move" ? "Move" : "Copy";
+  const verb = mode === "move" ? "Move" : mode === "copy" ? "Copy" : "Restore";
+  const crossArea =
+    mode === "move" && pickedArea !== null && pickedArea !== startId;
+
+  async function showAreas(): Promise<void> {
+    try {
+      setAreas(await api.roots());
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
 
   async function choose(): Promise<void> {
     setBusy(true);
@@ -207,37 +227,72 @@ export function TargetDialog({
       <p className="hint">
         Destination: <strong>{at?.name ?? "…"}</strong>
       </p>
-      <ul className="picker" aria-label="Folders">
-        {at?.parent_id && target !== startId && (
-          <li>
-            <button type="button" onClick={() => setTarget(at.parent_id!)}>
-              ↑ Up one level
-            </button>
-          </li>
-        )}
-        {folders.map((f) => (
-          <li key={f.id}>
-            <button type="button" onClick={() => setTarget(f.id)}>
-              {f.name}
-            </button>
-          </li>
-        ))}
-        {at && folders.length === 0 && next === null && (
-          <li className="hint">No subfolders</li>
-        )}
-        {next !== null && (
-          <li>
-            <button
-              type="button"
-              className="linklike"
-              disabled={loadingMore}
-              onClick={() => void more()}
-            >
-              Show more folders
-            </button>
-          </li>
-        )}
-      </ul>
+      {areas !== null ? (
+        <ul className="picker" aria-label="Areas">
+          {areas.map((a) => (
+            <li key={a.node_id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPickedArea(a.node_id);
+                  setTarget(a.node_id);
+                  setAreas(null);
+                }}
+              >
+                {a.kind === "shared_with_me" && a.owner_name
+                  ? `${a.name} (from ${a.owner_name})`
+                  : a.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="picker" aria-label="Folders">
+          {mode === "move" && at && (
+            <li>
+              <button type="button" onClick={() => void showAreas()}>
+                ↑ Other areas…
+              </button>
+            </li>
+          )}
+          {at?.parent_id && target !== startId && (
+            <li>
+              <button type="button" onClick={() => setTarget(at.parent_id!)}>
+                ↑ Up one level
+              </button>
+            </li>
+          )}
+          {folders.map((f) => (
+            <li key={f.id}>
+              <button type="button" onClick={() => setTarget(f.id)}>
+                {f.name}
+              </button>
+            </li>
+          ))}
+          {at && folders.length === 0 && next === null && (
+            <li className="hint">No subfolders</li>
+          )}
+          {next !== null && (
+            <li>
+              <button
+                type="button"
+                className="linklike"
+                disabled={loadingMore}
+                onClick={() => void more()}
+              >
+                Show more folders
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+      {crossArea && (
+        <p className="hint" role="note">
+          This moves the item to another area. The original goes to the Trash of
+          the area it came from, where its owner can restore it. You can undo
+          this move.
+        </p>
+      )}
       {at && !canWrite && (
         <p className="hint">You cannot add items to this folder.</p>
       )}
@@ -251,7 +306,7 @@ export function TargetDialog({
         <button
           type="button"
           className="primary"
-          disabled={busy || !canWrite || same}
+          disabled={busy || !canWrite || same || areas !== null}
           onClick={() => void choose()}
         >
           {verb} here

@@ -1,6 +1,6 @@
 # M07 — Audit trail, trash, and undo: design and acceptance plan
 
-- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). **M07a (backend) implemented 2026-11-01 on branch `m07-audit-trash-undo`; awaiting the Opus recovery and authorization review.** M07b (UI) not started.
+- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). **M07a (backend) implemented 2026-11-01, Opus-reviewed and signed off; M07b (UI) implemented 2026-11-01 on the same branch (`m07-audit-trash-undo`), awaiting owner sign-off.**
 - **Depends on:** M06 (done, signed off 2026-10-31). **Decision record:** ADR-017 (Accepted 2026-11-01): trash location, visibility, retention.
 - **Suggested models:** Sonnet 5.5 for the code; Opus 5.5 for the recovery and authorization review before sign-off.
 
@@ -93,3 +93,13 @@ What was built, and where it differs from the plan above in detail (none of it c
 - **Recovery** covers trash, restore, purge and cross-root move (see `tests/unit/api/test_trash_recovery.py`). A cross-root crash always leaves the source usable and reports `reconcile_needed` when a copy exists at the destination.
 - **Review follow-up (2026-11-01):** an item in `reconcile_needed` gets a check-and-release action in M07b (ADR-017, decision addendum). Until it exists, only permanent deletion is offered for such items.
 - **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).
+
+## M07b implementation notes (2026-11-01)
+
+- **Code:** `apps/web/src/{Trash.tsx,Activity.tsx,history.ts}` (Trash page, Recent actions page, activity timeline, plain-language text), changes in `Browser.tsx` (Delete, undo toast, history panel), `Dialogs.tsx` (Move offers other areas; Restore to…), `App.tsx` and `route.ts` (`/trash`, `/recent`), `api.ts`, `format.ts` (messages), `styles.css`. Backend: `trash.check_release` and `trash.check_release_root` with `POST /trash/{id}/check` and `POST /roots/{id}/trash/check`; the trash list now reports `flagged_count` per manageable root.
+- **Undo toast** lives in the folder view and shows after rename, move, copy, delete and folder upload; **Recent actions** (sidebar) lists the caller's latest operations and import batches with Undo. An `UNDO_CONFLICT` shows its reason (`changed`, `moved`, `name_taken`, `missing`, `no_access`), says nothing was changed, and names the safe alternative.
+- **Check and release** (ADR-017 addendum): a button on a flagged item, and one banner button for the root's manager that checks the whole root. It changes no files; a result that is not "released" says why and leaves Delete forever as the only other action.
+- **Move across areas:** the picker has "Other areas…" listing the entry points the person can see; choosing another area shows that the original goes to the Trash of the area it came from.
+- **Navigation:** Trash and Recent actions are in a second navigation landmark ("Trash and history") so the Locations list is unchanged.
+- **Tests:** vitest (`history.test.ts`, routes); unit tests in `test_trash_recovery.py`; compose `test_trash_stack.py`; e2e `test_trash_ui.py`.
+- **Not done:** no multi-select delete; the activity panel loads when opened (30 events per page); the Trash page shows no per-item activity; screen-reader behaviour is checked through roles and names only.

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
-// Routes: "/" (go to the first root), "/f/<node id>", "/backups", "/admin/users", and the two
+// Routes: "/" (go to the first root), "/f/<node id>", "/backups", "/admin/users", "/trash", "/recent", and the two
 // one-time link pages "/invite" and "/reset" (the secret is in the URL fragment). No router
 // dependency.
 const FOLDER = /^\/f\/([0-9a-fA-F-]{36})\/?$/;
 const BACKUPS = /^\/backups\/?$/;
 const USERS = /^\/admin\/users\/?$/;
+const TRASH = /^\/trash\/?$/;
+const RECENT = /^\/recent\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
@@ -18,6 +20,16 @@ export function folderPath(id: string): string {
 
 export const BACKUPS_PATH = "/backups";
 export const USERS_PATH = "/admin/users";
+export const TRASH_PATH = "/trash";
+export const RECENT_PATH = "/recent";
+
+export function isTrashPath(pathname: string): boolean {
+  return TRASH.test(pathname);
+}
+
+export function isRecentPath(pathname: string): boolean {
+  return RECENT.test(pathname);
+}
 
 export function isBackupsPath(pathname: string): boolean {
   return BACKUPS.test(pathname);
@@ -55,6 +67,8 @@ export function useRoute(): {
   folderId: string | null;
   backups: boolean;
   users: boolean;
+  trash: boolean;
+  recent: boolean;
   go: (path: string, replace?: boolean) => void;
 } {
   const [path, setPath] = useState(window.location.pathname);
@@ -72,6 +86,8 @@ export function useRoute(): {
     folderId: folderIdFrom(path),
     backups: isBackupsPath(path),
     users: isUsersPath(path),
+    trash: isTrashPath(path),
+    recent: isRecentPath(path),
     go,
   };
 }

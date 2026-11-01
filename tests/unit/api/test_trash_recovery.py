@@ -36,7 +36,8 @@ def fx(make_world: Callable[..., World]) -> Fx:
 
 def recover(fx: Fx) -> dict[str, int]:
     return fileops.recover_operations(
-        fx.w.ctx.sessions, fx.w.settings.model_copy(update={"operation_stale_seconds": 0})
+        fx.w.ctx.sessions,
+        fx.w.settings.model_copy(update={"operation_stale_seconds": 0}),
     )
 
 
@@ -206,6 +207,108 @@ def test_restore_crash_with_the_file_gone_everywhere_is_flagged(fx: Fx) -> None:
     assert trash.purge_due(fx.w.ctx.sessions, fx.w.settings)["purged"] == 0
 
 
+# ------------------------------------------------------------------ check and release
+
+
+def flag_item(fx: Fx, item: str, _unused: None = None) -> None:
+    with fx.w.ctx.sessions() as db:
+        db.execute(
+            update(TrashItem)
+            .where(TrashItem.id == uuid.UUID(item))
+            .values(status="reconcile_needed")
+        )
+        db.commit()
+
+
+def check_events(fx: Fx, node: uuid.UUID) -> list[FileEvent]:
+    with fx.w.ctx.sessions() as db:
+        return list(
+            db.scalars(
+                select(FileEvent).where(FileEvent.node_id == node, FileEvent.action == "checked")
+            )
+        )
+
+
+def test_check_releases_an_item_whose_bytes_are_still_there(fx: Fx) -> None:
+    f, item = trashed(fx)
+    flag_item(fx, item)
+    me = P(fx, "alice")
+    assert me.restore(item).status_code == 409
+    r = me.post(f"/trash/{item}/check")
+    assert r.status_code == 200, r.text
+    assert r.json()["released"] is True and r.json()["reason"] is None
+    assert r.json()["item"]["status"] == "in_trash"
+    assert me.restore(item).status_code == 200
+    assert disk(fx, f).read_bytes() == b"x"
+    events = check_events(fx, f)
+    assert len(events) == 1 and events[0].details["how"] == "released"
+
+
+def test_check_says_entry_missing_and_changes_nothing(fx: Fx) -> None:
+    f, item = trashed(fx)
+    (item_dir(fx, f, uuid.UUID(item)) / "a.txt").unlink()
+    flag_item(fx, item)
+    me = P(fx, "alice")
+    r = me.post(f"/trash/{item}/check")
+    assert r.status_code == 200
+    assert r.json()["released"] is False and r.json()["reason"] == "entry_missing"
+    assert r.json()["item"]["status"] == "reconcile_needed"
+    assert len(check_events(fx, f)) == 1
+    # still deletable by a person
+    token = r.json()["item"]["confirm_token"]
+    assert me.purge(item, token).status_code == 200
+
+
+def test_check_says_entry_changed_when_the_kind_or_size_differs(fx: Fx) -> None:
+    f, item = trashed(fx)
+    entry = item_dir(fx, f, uuid.UUID(item)) / "a.txt"
+    entry.write_bytes(b"much longer than before")  # a host edit inside the trash
+    flag_item(fx, item)
+    me = P(fx, "alice")
+    r = me.post(f"/trash/{item}/check")
+    assert r.json()["reason"] == "entry_changed" and r.json()["released"] is False
+    assert entry.read_bytes() == b"much longer than before"  # untouched
+
+
+def test_check_says_node_moved_on_when_the_node_is_no_longer_held(fx: Fx) -> None:
+    f, item = trashed(fx)
+    flag_item(fx, item)
+    set_status(fx, f, "active")
+    me = P(fx, "alice")
+    r = me.post(f"/trash/{item}/check")
+    assert r.json()["reason"] == "node_moved_on" and r.json()["released"] is False
+    assert node_row(fx, f).status == "active"
+
+
+def test_check_only_for_flagged_items_and_only_for_people_who_can_see_them(
+    fx: Fx,
+) -> None:
+    f, item = trashed(fx)
+    me = P(fx, "alice")
+    assert me.post(f"/trash/{item}/check").status_code == 409  # not flagged
+    flag_item(fx, item)
+    assert P(fx, "bob").post(f"/trash/{item}/check").status_code == 403
+    assert P(fx, "admin2").post(f"/trash/{item}/check").status_code == 403  # no admin bypass
+    assert check_events(fx, f) == []
+
+
+def test_a_root_manager_checks_every_flagged_item_of_the_root(fx: Fx) -> None:
+    f1, item1 = trashed(fx, "one.txt")
+    f2, item2 = trashed(fx, "two.txt")
+    flag_item(fx, item1)
+    flag_item(fx, item2)
+    (item_dir(fx, f2, uuid.UUID(item2)) / "two.txt").unlink()
+    me = P(fx, "alice")
+    listed = me.trash_list()["roots"]
+    assert [r["flagged_count"] for r in listed] == [2]
+    r = me.post(f"/roots/{fx.alice_root}/trash/check")
+    assert r.status_code == 200, r.text
+    assert r.json() == {"checked": 2, "released": 1, "still_flagged": 1}
+    assert me.restore(item1).status_code == 200
+    assert P(fx, "bob").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
+    assert P(fx, "admin2").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
+
+
 # ------------------------------------------------------------------ permanent delete
 
 
@@ -305,7 +408,9 @@ def test_cross_root_crash_after_the_copy_leaves_both_and_flags_it(fx: Fx) -> Non
     assert op_row(fx, op).status == "reconcile_needed"
 
 
-def test_cross_root_crash_after_the_source_reached_the_trash_puts_it_back(fx: Fx) -> None:
+def test_cross_root_crash_after_the_source_reached_the_trash_puts_it_back(
+    fx: Fx,
+) -> None:
     f = nid(P(fx, "alice").upload(fx.alice_root, "m.txt", b"payload"))
     tid = uuid.uuid4()
     detail = xmove_detail(fx, f, tid, "m.txt")
