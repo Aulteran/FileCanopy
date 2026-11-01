@@ -204,12 +204,12 @@
 **Goal:** Click a file and read it in the app: a full-page viewer with scrolling, zoom and Download. PDF through self-hosted PDF.js, images, and text/CSV, all served through an access-checked `Range` endpoint. Word, Excel and PowerPoint follow in M10 through a sandboxed converter.
 
 **Acceptance criteria:**
-- [ ] Clicking a PDF, image, text or CSV file opens the viewer; folders still open as folders
-- [ ] `GET /nodes/{id}/view` uses the same ACL as download; the administrator gets nothing in personal folders; unlisted types refused
-- [ ] PDF.js self-hosted, scripting and eval off; CSP changes limited to `worker-src 'self'` (and wasm only if needed)
-- [ ] SVG shown only as a picture; no user content ever inserted as HTML
-- [ ] One `viewed` event per open in the activity panel; downloads unchanged
-- [ ] Works with no AI and no extra container; phone-width layout
+- [x] Clicking a PDF, image, text or CSV file opens the viewer; folders still open as folders
+- [x] `GET /nodes/{id}/view` uses the same ACL as download; the administrator gets nothing in personal folders; unlisted types refused
+- [x] PDF.js self-hosted, scripting and eval off; CSP changes limited to `worker-src 'self'` (and wasm only if needed)
+- [x] SVG shown only as a picture; no user content ever inserted as HTML
+- [x] One `viewed` event per open in the activity panel; downloads unchanged
+- [x] Works with no AI and no extra container; phone-width layout
 
 **Tests/evidence:** cross-user and admin denial, type mismatch, PDF with JavaScript, truncated/encrypted PDF, scripted SVG, Range edge cases, viewed logged once, e2e open/scroll/zoom, CSP header test.
 

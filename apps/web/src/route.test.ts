@@ -9,6 +9,8 @@ import {
   oneTimeLink,
   tokenFromHash,
   tokenPageOf,
+  viewIdFrom,
+  viewPath,
 } from "./route";
 
 const ID = "3f2b8c1e-aaaa-4bbb-8ccc-0123456789ab";
@@ -63,5 +65,16 @@ describe("trash routes", () => {
     expect(isTrashPath("/f/trash")).toBe(false);
     expect(isRecentPath("/recent")).toBe(true);
     expect(isRecentPath("/recent/x")).toBe(false);
+  });
+});
+
+describe("viewer route", () => {
+  it("round-trips a node id and ignores anything else", () => {
+    expect(viewIdFrom(viewPath(ID))).toBe(ID);
+    expect(viewIdFrom(`/view/${ID}/`)).toBe(ID);
+    expect(viewIdFrom(`/view/${ID}/x`)).toBeNull();
+    expect(viewIdFrom("/view/../etc/passwd")).toBeNull();
+    expect(viewIdFrom(`/f/${ID}`)).toBeNull();
+    expect(folderIdFrom(viewPath(ID))).toBeNull();
   });
 });

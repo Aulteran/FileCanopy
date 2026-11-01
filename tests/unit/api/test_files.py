@@ -1024,6 +1024,7 @@ def test_file_routes_exist_and_are_all_policy_guarded(fx: Fx) -> None:
         ("POST", "/api/v1/nodes/{node_id}/folders"),
         ("POST", "/api/v1/nodes/{node_id}/files"),
         ("GET", "/api/v1/nodes/{node_id}/content"),
+        ("GET", "/api/v1/nodes/{node_id}/view"),
         ("POST", "/api/v1/nodes/{node_id}/rename"),
         ("POST", "/api/v1/nodes/{node_id}/move"),
         ("POST", "/api/v1/nodes/{node_id}/copy"),

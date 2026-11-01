@@ -84,7 +84,8 @@ a.button {
   text-align: center;
 }
 
-button.primary {
+button.primary,
+a.button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
@@ -675,4 +676,109 @@ button.danger.primary {
 }
 .timeline time {
   color: var(--muted);
+}
+
+/* viewer (M07d) */
+.viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.viewer-title {
+  flex: 1 1 12em;
+  margin: 0;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+.viewer-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.viewer-zoom {
+  min-width: 4ch;
+  text-align: center;
+}
+.viewer-page {
+  margin-left: 8px;
+  color: var(--muted);
+}
+.viewer-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 12rem);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.viewer-pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+}
+.viewer-sheet {
+  flex: none;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+}
+.viewer-sheet canvas {
+  display: block;
+}
+.viewer-image {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.viewer-text {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  max-height: calc(100vh - 12rem);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+.viewer-table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.viewer-table th,
+.viewer-table td {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+.viewer-table th {
+  position: sticky;
+  top: 0;
+  background: var(--sel);
+}
+.viewer-banner {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--sel);
+}
+.viewer-note {
+  max-width: 36rem;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
 }

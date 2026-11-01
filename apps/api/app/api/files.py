@@ -8,7 +8,7 @@ optional `Idempotency-Key` header; rename and move require the node's current `r
 import logging
 import uuid
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 from urllib.parse import quote
 
@@ -19,8 +19,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.auth import clock
 from app.auth.deps import Principal, client_ip, get_db, http_error
-from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, Node
+from app.db.models import HIDDEN_NODE_STATUSES, FileEvent, FileOperation, Node
 from app.domain import events, fileops
 from app.domain.fileops import OpCtx, OpError, Outcome
 from app.policy.deps import (
@@ -30,7 +31,7 @@ from app.policy.deps import (
     read_access,
     write_access,
 )
-from app.storage import files
+from app.storage import files, viewable
 
 router = APIRouter(prefix="/api/v1", tags=["files"])
 log = logging.getLogger("filecanopy.files")
@@ -285,6 +286,100 @@ def download(
             files.read_chunks(dl.file, dl.size),
         ),
         media_type="application/octet-stream",  # never a guessed type: no inline rendering
+        headers=headers,
+    )
+
+
+VIEW_DEDUPE = timedelta(seconds=60)
+
+
+def _logged_view(
+    request: Request,
+    user_id: uuid.UUID,
+    node_id: uuid.UUID,
+    name: str,
+    log_view: bool,
+    chunks: Iterator[bytes],
+) -> Iterator[bytes]:
+    """One `viewed` event per open (ADR-019 §7): written once the first chunk was read, only on a
+    request from the start of the file (the viewer's other Range requests add nothing), and not
+    again for the same person and file within a minute (PDF.js may open the file twice)."""
+    first = next(chunks, None)
+    if log_view:
+        try:
+            with request.app.state.auth.sessions() as session:
+                recent = session.scalar(
+                    select(FileEvent.id)
+                    .where(
+                        FileEvent.node_id == node_id,
+                        FileEvent.action == "viewed",
+                        FileEvent.actor_user_id == user_id,
+                        FileEvent.at > clock.utcnow() - VIEW_DEDUPE,
+                    )
+                    .limit(1)
+                )
+                if recent is None:
+                    events.record(
+                        session, node_id, "viewed", source="ui", actor_user_id=user_id, name=name
+                    )
+                    session.commit()
+        except Exception as exc:
+            log.warning("view not recorded: %s", type(exc).__name__)
+    if first is not None:
+        yield first
+    yield from chunks
+
+
+@router.get("/nodes/{node_id}/view")
+def view(
+    request: Request,
+    ctx: NodeContext = Depends(read_access),
+    db: Session = Depends(get_db),
+    range_header: str | None = Header(default=None, alias="Range"),
+    if_range: str | None = Header(default=None, alias="If-Range"),
+) -> StreamingResponse:
+    """Inline read for the viewer (ADR-019): same ACL as download, a server-chosen type from an
+    allow-list, single `Range` support. The answer is never HTML and is sandboxed."""
+    try:
+        dl, vt = fileops.open_view(_ctx(request, ctx.principal, db), ctx.node.id)
+    except OpError as err:
+        raise _http(err) from err
+    etag = f'"{dl.revision}-{dl.mtime_ns}"'
+    headers = {
+        "Accept-Ranges": "bytes",
+        "ETag": etag,
+        "Content-Disposition": "inline",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'none'",
+    }
+    start, end, status = 0, dl.size - 1, 200
+    parsed = (
+        viewable.parse_range(range_header, dl.size)
+        if range_header and (if_range is None or if_range == etag)
+        else None
+    )
+    if parsed == "unsatisfiable":
+        dl.file.close()
+        raise http_error(416, "RANGE_NOT_SATISFIABLE", {"Content-Range": f"bytes */{dl.size}"})
+    if isinstance(parsed, tuple):
+        start, end = parsed
+        status = 206
+        headers["Content-Range"] = f"bytes {start}-{end}/{dl.size}"
+        dl.file.seek(start)
+    length = max(end - start + 1, 0)
+    headers["Content-Length"] = str(length)
+    return StreamingResponse(
+        _logged_view(
+            request,
+            ctx.principal.user.id,
+            ctx.node.id,
+            dl.name,
+            start == 0,
+            files.read_chunks(dl.file, length),
+        ),
+        status_code=status,
+        media_type=vt.mime,
         headers=headers,
     )
 

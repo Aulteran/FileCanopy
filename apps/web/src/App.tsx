@@ -3,6 +3,7 @@ import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
+import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
   RECENT_PATH,
@@ -126,7 +127,7 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, backups, users, trash, recent, go } = useRoute();
+  const { folderId, viewId, backups, users, trash, recent, go } = useRoute();
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
@@ -151,13 +152,14 @@ function Shell({
       roots &&
       roots.length > 0 &&
       folderId === null &&
+      viewId === null &&
       !backups &&
       !users &&
       !trash &&
       !recent
     )
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, backups, users, trash, recent, go]);
+  }, [roots, folderId, viewId, backups, users, trash, recent, go]);
 
   async function logout(): Promise<void> {
     try {
@@ -335,6 +337,9 @@ function Shell({
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
           />
+        )}
+        {viewId !== null && (
+          <Viewer key={viewId} nodeId={viewId} go={go} onEnded={onEnded} />
         )}
         {!backups && folderId !== null && (
           <Browser

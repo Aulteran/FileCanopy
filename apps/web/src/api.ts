@@ -536,6 +536,7 @@ export const api = {
       headers: key(),
     }),
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
+  viewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/view`,
 
   // Reconciliation (M06a routes, M06b UI)
   rescan: (id: string) =>

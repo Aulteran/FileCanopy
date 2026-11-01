@@ -33,7 +33,8 @@ import {
   toManifest,
   type Picked,
 } from "./importer";
-import { folderPath } from "./route";
+import { folderPath, viewPath } from "./route";
+import { viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
 type Dialog = null | "folder" | "rename" | "move" | "copy";
@@ -75,6 +76,13 @@ type Props = {
   /** Open the full-page setup screen of the root this folder belongs to. */
   onOpenSetup: () => void;
 };
+
+/** A file the in-app viewer can open (the server checks again). */
+function canView(c: Child): boolean {
+  return (
+    c.kind === "file" && c.status === "active" && viewKind(c.name) !== null
+  );
+}
 
 function rowClass(c: Child, selected: boolean): string | undefined {
   const parts = [
@@ -429,6 +437,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         return;
       case "Enter":
         if (item.kind === "dir") go(folderPath(item.id));
+        else if (canView(item)) go(viewPath(item.id));
         else setSelectedId(item.id);
         e.preventDefault();
         return;
@@ -739,6 +748,17 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                         >
                           {c.name}
                         </a>
+                      ) : canView(c) ? (
+                        <a
+                          href={viewPath(c.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            go(viewPath(c.id));
+                          }}
+                        >
+                          {c.name}
+                        </a>
                       ) : (
                         c.name
                       )}
@@ -820,6 +840,18 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                       Remove from list
                     </button>
                   </>
+                )}
+                {canView(selected) && privileges.includes("read") && (
+                  <a
+                    className="button primary"
+                    href={viewPath(selected.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(viewPath(selected.id));
+                    }}
+                  >
+                    Open
+                  </a>
                 )}
                 {selected.kind === "file" &&
                   selected.status === "active" &&

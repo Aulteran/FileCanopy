@@ -31,7 +31,7 @@ from app.domain import events, setup
 from app.domain.nodes import path_components
 from app.policy import engine
 from app.policy.model import Actor, Privilege
-from app.storage import files
+from app.storage import files, viewable
 from app.storage.identity import fingerprint
 from app.storage.names import InvalidName, name_key
 from app.storage.resolver import (
@@ -432,6 +432,26 @@ def open_download(ctx: OpCtx, node_id: uuid.UUID) -> Download:
     return Download(
         os.fdopen(fd, "rb", buffering=0), info.st_size, node.name, node.revision, info.st_mtime_ns
     )
+
+
+def open_view(ctx: OpCtx, node_id: uuid.UUID) -> tuple[Download, viewable.ViewType]:
+    """Opens a file for the in-app viewer (ADR-019): same access and path safety as a download,
+    plus an allow-listed type whose first bytes match."""
+    node = _need(ctx, node_id, Privilege.READ)
+    _usable_for_read(node, "file")
+    vt = viewable.classify(node.name)
+    if vt is None:
+        raise OpError(415, "NOT_VIEWABLE")
+    dl = open_download(ctx, node_id)
+    try:
+        head = dl.file.read(viewable.SNIFF_BYTES) or b""
+        dl.file.seek(0)
+        if not viewable.matches_content(vt.kind, vt.mime, head):
+            raise OpError(415, "TYPE_MISMATCH")
+    except BaseException:
+        dl.file.close()
+        raise
+    return dl, vt
 
 
 # ------------------------------------------------------------------ create folder
