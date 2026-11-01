@@ -36,7 +36,12 @@ def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
     if not found:  # say what the server knows, so a failure explains itself
         docs = world.stack.sql("select count(*) from search_doc")
         jobs = world.stack.sql("select state || ':' || coalesce(error, '-') from search_job")
-        raise AssertionError(f"text never found; search_doc rows={docs}; jobs={jobs!r}")
+        api = page.request.get("/api/v1/search?q=rhubarb")
+        body = world.stack.sql("select left(body, 80) || '|' || source from search_doc")
+        raise AssertionError(
+            f"text never found; rows={docs}; jobs={jobs!r}; doc={body!r}; "
+            f"api={api.status} {api.text()[:300]!r}; page={page.inner_text('main')[:300]!r}"
+        )
     expect(page.get_by_text("Text", exact=True).first).to_be_visible()
     page.get_by_role("link", name="Show in folder").first.click()
     expect(page.get_by_role("row").filter(has_text="garden-plan.txt")).to_be_visible()
