@@ -171,10 +171,11 @@ function Shell({
       !backups &&
       !users &&
       !trash &&
-      !recent
+      !recent &&
+      !notices
     )
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, viewId, backups, users, trash, recent, go]);
+  }, [roots, folderId, viewId, backups, users, trash, recent, notices, go]);
 
   async function logout(): Promise<void> {
     try {
