@@ -22,6 +22,8 @@ RUN groupadd --system --gid 10001 filecanopy \
 # Mount point of the optional converter's socket volume (M10): owned by the converter's user so a
 # fresh volume is writable by it whichever container starts first. The API only connects to it.
 RUN mkdir -p /run/converter && chown 10002:10002 /run/converter && chmod 0755 /run/converter
+# The same for the optional OCR container (M11), uid 10003.
+RUN mkdir -p /run/ocr && chown 10003:10003 /run/ocr && chmod 0755 /run/ocr
 COPY apps/api apps/api
 COPY workers workers
 USER 10001:10001

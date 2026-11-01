@@ -655,6 +655,12 @@ export const api = {
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
   viewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/view`,
   previewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/preview`,
+  search: (q: string, folder?: string) =>
+    call<{ hits: SearchHit[] }>(
+      "GET",
+      `/api/v1/search?q=${enc(q)}${folder ? `&folder=${enc(folder)}` : ""}`,
+    ),
+  searchStatus: () => call<SearchStatus>("GET", "/api/v1/search/status"),
   thumbnailUrl: (id: string) => `/api/v1/nodes/${enc(id)}/thumbnail`,
   archive: (id: string) =>
     call<ArchiveListing>("GET", `/api/v1/nodes/${enc(id)}/archive`),
@@ -752,4 +758,20 @@ export const api = {
       recovery_key: recovery_key || null,
       run_id,
     }),
+};
+
+export type SearchHit = {
+  node_id: string;
+  name: string;
+  kind: string;
+  parent_id: string | null;
+  match: "name" | "content";
+  snippet: string | null;
+};
+
+export type SearchStatus = {
+  enabled: boolean;
+  ocr_available: boolean;
+  indexed: number;
+  waiting: number;
 };

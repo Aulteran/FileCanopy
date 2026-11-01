@@ -4,9 +4,12 @@ import {
   folderPath,
   isBackupsPath,
   isRecentPath,
+  isSearchPath,
   isTrashPath,
   isUsersPath,
   oneTimeLink,
+  searchPath,
+  searchQueryFrom,
   tokenFromHash,
   tokenPageOf,
   viewIdFrom,
@@ -76,5 +79,17 @@ describe("viewer route", () => {
     expect(viewIdFrom("/view/../etc/passwd")).toBeNull();
     expect(viewIdFrom(`/f/${ID}`)).toBeNull();
     expect(folderIdFrom(viewPath(ID))).toBeNull();
+  });
+});
+
+describe("search routes", () => {
+  it("builds and reads the results address", () => {
+    expect(isSearchPath("/search")).toBe(true);
+    expect(isSearchPath("/search/")).toBe(true);
+    expect(isSearchPath("/search/x")).toBe(false);
+    expect(searchPath("  tax & more  ")).toBe("/search?q=tax%20%26%20more");
+    expect(searchQueryFrom("?q=tax%20%26%20more")).toBe("tax & more");
+    expect(searchQueryFrom("")).toBe("");
+    expect(searchQueryFrom(`?q=${"a".repeat(300)}`)).toHaveLength(200);
   });
 });

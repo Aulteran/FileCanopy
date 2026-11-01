@@ -90,6 +90,21 @@ class Settings(BaseSettings):
     # Cached derivatives (converted PDFs, extracted text, thumbnails) are trimmed oldest first.
     preview_cache_max_bytes: int = Field(default=2 * 1024**3, ge=1)
 
+    # --- Search and OCR (M11) ---
+    # Background indexing of file text for full-text search. Filename search always works.
+    search_enabled: bool = True
+    search_scan_seconds: int = Field(default=30, ge=1)
+    search_batch: int = Field(default=200, ge=1, le=5000)
+    search_max_attempts: int = Field(default=5, ge=1, le=20)
+    search_lease_seconds: int = Field(default=300, ge=10)
+    search_body_max_chars: int = Field(default=1_000_000, ge=1000)
+    search_text_max_bytes: int = Field(default=5 * 1024**2, ge=1024)
+    # Base URL of the sealed OCR container (unix:///run/ocr/ocr.sock). Empty = OCR off.
+    ocr_url: str = ""
+    ocr_timeout_seconds: int = Field(default=120, ge=5)
+    ocr_max_pages: int = Field(default=50, ge=1, le=500)
+    ocr_max_bytes: int = Field(default=50 * 1024**2, ge=1)
+
     # --- Optional backups (M06c, ADR-015) ---
     # Separate mount for backups. Empty = not configured: the feature stays off and the app is
     # unaffected. Must not equal, contain or sit inside the library or app-data paths.

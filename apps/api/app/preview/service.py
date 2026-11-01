@@ -107,6 +107,26 @@ class PreviewService:
         self.cache.put_bytes(node_id, key, "json", json.dumps(result).encode())
         return result
 
+    def extract_text(self, file: BinaryIO, size: int, ext: str) -> str:
+        """Text of a PDF or DOCX for the search index: same limited worker, nothing cached."""
+        limit = self.settings.preview_pdf_extract_max_bytes if ext == "pdf" else MAX_DOCX_BYTES
+        if size > limit:
+            raise PreviewError("TOO_LARGE", 413)
+        with self.gate:
+            out = run_worker(
+                "extract",
+                file,
+                self.limits(self.settings.preview_text_max_chars * 4 + 4096),
+                {"ext": ext, "max_chars": self.settings.search_body_max_chars},
+            )
+        try:
+            text = json.loads(out).get("text")
+        except (ValueError, AttributeError):
+            raise PreviewError("PREVIEW_FAILED") from None
+        if not isinstance(text, str):
+            raise PreviewError("PREVIEW_FAILED")
+        return text
+
     def thumbnail(
         self, node_id: uuid.UUID, file: BinaryIO, size: int, revision: int, mtime_ns: int
     ) -> Path:

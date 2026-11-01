@@ -527,3 +527,42 @@ class BackupChainState(Base):
     last_archive: Mapped[str] = mapped_column(String(160), nullable=False)
     event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class SearchDoc(Base):
+    """Extracted text of one file, for full-text search (M11). A derivative: it is only ever read
+    through `app.search.query`, which re-decides access per person. The row records which version
+    of the file it came from; a mismatch hides it until the indexer replaces it."""
+
+    __tablename__ = "search_doc"
+
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), primary_key=True
+    )
+    root_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source: Mapped[str] = mapped_column(String(8), nullable=False)  # text | ocr
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    indexed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class SearchJob(Base):
+    """One indexing job per file. Leased while running, so a crashed worker's job is taken again."""
+
+    __tablename__ = "search_job"
+
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    state: Mapped[str] = mapped_column(
+        String(8), index=True, nullable=False
+    )  # queued|running|failed
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    run_after: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(32), nullable=True)

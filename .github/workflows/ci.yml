@@ -109,6 +109,19 @@ jobs:
       - run: python -m pip install pytest==9.2.0
       - run: python -m pytest -c apps/api/pyproject.toml -m compose -q tests/integration/converter
 
+  # The sealed OCR image, built and run for real (M11): real Tesseract on a generated picture and a
+  # scanned PDF. Only on pull requests and manual runs.
+  ocr:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install pytest==9.2.0 pillow==13.0.0
+      - run: python -m pytest -c apps/api/pyproject.toml -m compose -q tests/integration/ocr
+
   # Real Chromium against the real stack (M05). Runs on pull requests and manual runs, like compose.
   e2e:
     if: github.event_name != 'push'

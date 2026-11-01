@@ -9,12 +9,14 @@ import {
   BACKUPS_PATH,
   NOTICES_PATH,
   RECENT_PATH,
+  searchPath,
   TRASH_PATH,
   USERS_PATH,
   folderPath,
   tokenPageOf,
   useRoute,
 } from "./route";
+import { SearchPage } from "./Search";
 import { SetupScreen } from "./Setup";
 import { NotificationsPage } from "./Share";
 import { RecentPage, TrashPage } from "./Trash";
@@ -130,8 +132,17 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, viewId, backups, users, trash, recent, notices, go } =
-    useRoute();
+  const {
+    folderId,
+    viewId,
+    backups,
+    users,
+    trash,
+    recent,
+    notices,
+    search,
+    go,
+  } = useRoute();
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(() => {
     api
@@ -174,10 +185,22 @@ function Shell({
       !users &&
       !trash &&
       !recent &&
-      !notices
+      !notices &&
+      search === null
     )
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, viewId, backups, users, trash, recent, notices, go]);
+  }, [
+    roots,
+    folderId,
+    viewId,
+    backups,
+    users,
+    trash,
+    recent,
+    notices,
+    search,
+    go,
+  ]);
 
   async function logout(): Promise<void> {
     try {
@@ -226,6 +249,28 @@ function Shell({
         >
           Users
         </a>
+      )}
+      {withBackups && (
+        <form
+          className="searchbox"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = new FormData(e.currentTarget).get("q");
+            if (typeof q === "string" && q.trim()) go(searchPath(q));
+          }}
+        >
+          <input
+            key={search ?? ""}
+            type="search"
+            name="q"
+            aria-label="Search files"
+            placeholder="Search files"
+            defaultValue={search ?? ""}
+            maxLength={200}
+          />
+          <button type="submit">Search</button>
+        </form>
       )}
       <button type="button" onClick={() => setPreviewSettings(true)}>
         Preview settings
@@ -377,6 +422,9 @@ function Shell({
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
           />
+        )}
+        {search !== null && search.trim() !== "" && (
+          <SearchPage key={search} q={search} go={go} onEnded={onEnded} />
         )}
         {viewId !== null && (
           <Viewer key={viewId} nodeId={viewId} go={go} onEnded={onEnded} />
