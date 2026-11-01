@@ -1,6 +1,6 @@
 # FileCanopy website
 
-The public product site. Plain HTML and CSS, no build step, no JavaScript, no framework. It is independent of the app and its Docker stack.
+The public product site. Plain HTML and CSS, no build step, no framework, and one tiny optional script (`assets/lightbox.js`) for click-to-enlarge screens; everything works without it. It is independent of the app and its Docker stack.
 
 - `index.html`: the single page.
 - `assets/`: stylesheet, logo, self-hosted fonts (SIL OFL, licences included) and screenshots.

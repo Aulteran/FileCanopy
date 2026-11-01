@@ -464,3 +464,43 @@ footer .wrap {
     max-width: 260px;
   }
 }
+a.zoom {
+  display: block;
+  cursor: zoom-in;
+  color: inherit;
+}
+a.zoom:hover img {
+  opacity: 0.92;
+}
+#lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 96vh;
+  overflow: visible;
+}
+#lightbox::backdrop {
+  background: rgb(10 20 14/0.82);
+}
+#lightbox img {
+  display: block;
+  max-width: 96vw;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  border-radius: var(--r-m);
+  background: var(--surface);
+}
+#lightbox .close {
+  position: absolute;
+  top: -44px;
+  right: 0;
+  font: 700 15px var(--font-body);
+  padding: 6px 14px;
+  border-radius: var(--r-m);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}

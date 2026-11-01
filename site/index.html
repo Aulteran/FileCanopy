@@ -168,96 +168,124 @@
           </div>
           <div class="gallery">
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/upload-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="Upload review dialog"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/upload-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/upload-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="Upload review dialog"
+              /></a>
               <figcaption>
                 <b>Uploads.</b> See what will be added before anything is
                 copied.
               </figcaption>
             </figure>
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/share-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="Share dialog for a folder"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/share-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/share-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="Share dialog for a folder"
+              /></a>
               <figcaption>
                 <b>Sharing.</b> Give people viewer or editor access to a folder.
               </figcaption>
             </figure>
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/trash-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="Trash page with restore buttons"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/trash-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/trash-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="Trash page with restore buttons"
+              /></a>
               <figcaption>
                 <b>Trash.</b> Restore deleted items, or remove them for good.
               </figcaption>
             </figure>
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/locked-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="Locked folder asking for a password"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/locked-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/locked-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="Locked folder asking for a password"
+              /></a>
               <figcaption>
                 <b>Locked folders.</b> Confidential folders ask for your
                 password again.
               </figcaption>
             </figure>
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/setup-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="First-run setup"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/setup-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/setup-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="First-run setup"
+              /></a>
               <figcaption>
                 <b>First-run setup.</b> Create the administrator, and import
                 what you already have.
               </figcaption>
             </figure>
             <figure class="shot">
-              <img
-                loading="lazy"
-                src="assets/shots/backups-desktop-light.png"
-                width="1268"
-                height="781"
-                alt="Backups page"
-              />
+              <a
+                class="zoom"
+                href="assets/shots/backups-desktop-light.png"
+                data-zoom
+                ><img
+                  loading="lazy"
+                  src="assets/shots/backups-desktop-light.png"
+                  width="1268"
+                  height="781"
+                  alt="Backups page"
+              /></a>
               <figcaption>
                 <b>Backups.</b> Encrypted, to a disk you choose.
               </figcaption>
             </figure>
           </div>
           <div class="phone-block">
-            <picture>
-              <source
-                srcset="assets/shots/browser-phone-dark.png"
-                media="(prefers-color-scheme: dark)"
-              />
-              <img
-                loading="lazy"
-                class="phone-img"
-                src="assets/shots/browser-phone-light.png"
-                width="390"
-                height="801"
-                alt="FileCanopy on a phone"
-              />
-            </picture>
+            <a
+              class="zoom"
+              href="assets/shots/browser-phone-light.png"
+              data-zoom
+              ><picture>
+                <source
+                  srcset="assets/shots/browser-phone-dark.png"
+                  media="(prefers-color-scheme: dark)"
+                />
+                <img
+                  loading="lazy"
+                  class="phone-img"
+                  src="assets/shots/browser-phone-light.png"
+                  width="390"
+                  height="801"
+                  alt="FileCanopy on a phone"
+                /> </picture
+            ></a>
             <div>
               <h3>On your phone</h3>
               <p>
@@ -463,5 +491,12 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
         >
       </div>
     </footer>
+    <dialog id="lightbox" aria-label="Enlarged screen">
+      <form method="dialog">
+        <button class="close" aria-label="Close">Close</button>
+      </form>
+      <img alt="" />
+    </dialog>
+    <script src="assets/lightbox.js"></script>
   </body>
 </html>
