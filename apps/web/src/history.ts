@@ -46,6 +46,7 @@ export function describeAction(action: string): string {
 const EVENTS: Record<string, string> = {
   created: "Created",
   uploaded: "Uploaded",
+  viewed: "Viewed",
   renamed: "Renamed",
   moved: "Moved",
   copied: "Copied",

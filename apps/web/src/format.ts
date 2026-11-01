@@ -28,6 +28,9 @@ export function formatDate(iso: string): string {
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {
   FORBIDDEN: "You do not have access to that.",
+  NOT_VIEWABLE: "This kind of file cannot be shown here.",
+  TYPE_MISMATCH:
+    "This file does not look like what its name says, so it is not shown here.",
   UNAUTHENTICATED: "Your session has ended. Sign in again.",
   NAME_CONFLICT: "An item with that name already exists here.",
   REVISION_CONFLICT:

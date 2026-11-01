@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-// Routes: "/" (go to the first root), "/f/<node id>", "/backups", "/admin/users", "/trash", "/recent", and the two
+// Routes: "/" (go to the first root), "/f/<node id>", "/view/<node id>" (the document viewer), "/backups", "/admin/users", "/trash", "/recent", and the two
 // one-time link pages "/invite" and "/reset" (the secret is in the URL fragment). No router
 // dependency.
 const FOLDER = /^\/f\/([0-9a-fA-F-]{36})\/?$/;
+const VIEW = /^\/view\/([0-9a-fA-F-]{36})\/?$/;
 const BACKUPS = /^\/backups\/?$/;
 const USERS = /^\/admin\/users\/?$/;
 const TRASH = /^\/trash\/?$/;
@@ -12,6 +13,14 @@ const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
   return FOLDER.exec(pathname)?.[1] ?? null;
+}
+
+export function viewIdFrom(pathname: string): string | null {
+  return VIEW.exec(pathname)?.[1] ?? null;
+}
+
+export function viewPath(id: string): string {
+  return `/view/${id}`;
 }
 
 export function folderPath(id: string): string {
@@ -63,8 +72,16 @@ export function oneTimeLink(
   return `${origin}/${page}#token=${encodeURIComponent(token)}`;
 }
 
+// How many in-app navigations happened in this page load. Zero means the person arrived on a
+// link or after a reload, so "back" must not leave the app.
+let navigations = 0;
+export function hasInAppHistory(): boolean {
+  return navigations > 0;
+}
+
 export function useRoute(): {
   folderId: string | null;
+  viewId: string | null;
   backups: boolean;
   users: boolean;
   trash: boolean;
@@ -78,12 +95,14 @@ export function useRoute(): {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const go = useCallback((to: string, replace = false) => {
+    if (!replace) navigations++;
     if (replace) window.history.replaceState(null, "", to);
     else window.history.pushState(null, "", to);
     setPath(window.location.pathname);
   }, []);
   return {
     folderId: folderIdFrom(path),
+    viewId: viewIdFrom(path),
     backups: isBackupsPath(path),
     users: isUsersPath(path),
     trash: isTrashPath(path),
