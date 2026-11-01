@@ -478,8 +478,8 @@
         "Google token handling",
         "reauth single use and subject match"
       ],
-      "notes": "Implemented 2026-11-01 on branch m12b-oidc-only-pin (migration 0015). Design and threat model: docs/milestones/M12b-design-and-plan.md. Opus security review pending.",
-      "status": "in_review"
+      "notes": "Implemented 2026-11-01 on branch m12b-oidc-only-pin (migration 0015); merged via PR #19 (161c797) after Opus review round 1 (2 blockers fixed: Google is never a PIN proof, link invitations for unlinked people in provider-only mode; plus a PostgreSQL concurrency test) and round 2 sign-off, all seven CI jobs green, 2026-11-01. Design, threat model and review changes: docs/milestones/M12b-design-and-plan.md. Open: passwordless Google people reset a PIN only via emailed link (owner choice: delayed reset with email notice instead); issuer string stored verbatim; idle auto-lock of the whole session.",
+      "status": "done"
     },
     {
       "id": "M13",
