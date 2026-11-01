@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FileCanopy: a self-hosted file manager that keeps your files as normal files</title>
+<meta name="description" content="FileCanopy is a free, open-source file manager you run yourself with Docker. It works on ordinary folders on your disk, with sharing, trash and undo, previews and search. No AI required.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="assets/logo.svg" alt="" width="32" height="32"><span>File<span>Canopy</span></span></a>
+  <nav class="main" aria-label="Main">
+    <a href="#features">Features</a><a href="#screens">Screens</a><a href="#quick-start">Quick start</a><a href="#status">Status</a><a href="#links">Docs</a>
+    <a href="https://github.com/Aulteran/FileCanopy">GitHub</a>
+  </nav>
+</div></header>
+
+<main id="main">
+<div class="hero"><div class="wrap">
+  <span class="pill">Early development · open source · AGPL-3.0</span>
+  <h1>Your files, in a folder you own.</h1>
+  <p class="lede">FileCanopy is a self-hosted file manager. You run it with Docker, and it works on ordinary folders on your disk. Your files stay normal files, so you can always open them with any other program.</p>
+  <div class="cta">
+    <a class="btn primary" href="#quick-start">Quick start</a>
+    <a class="btn" href="https://github.com/Aulteran/FileCanopy">View on GitHub</a>
+  </div>
+  <figure class="shot">
+    <picture>
+      <source srcset="assets/shots/browser-desktop-dark.png" media="(prefers-color-scheme: dark)">
+      <img src="assets/shots/browser-desktop-light.png" width="1268" height="781" alt="FileCanopy folder view showing a Taxes folder with files, a details panel and sharing info">
+    </picture>
+  </figure>
+  <p class="note">Screens on this page are design previews, not live screenshots. The real interface is still being brought in line with them.</p>
+</div></div>
+
+<section id="features"><div class="wrap">
+  <div class="head"><div class="eyebrow">What it does</div><h2>A file manager that stays out of your way</h2>
+  <p>The database only keeps accounts, permissions and history. It never replaces your files.</p></div>
+  <div class="grid">
+    <div class="card"><h3>Normal files, always</h3><p>The library is a plain folder tree on your disk. Nothing is converted, hidden or locked in.</p></div>
+    <div class="card"><h3>Personal and shared folders</h3><p>Everyone gets a personal folder. A shared folder lets you give others viewer or editor access, and administrators can’t open anyone’s personal files.</p></div>
+    <div class="card"><h3>Everyday file work</h3><p>Browse, upload files and whole folders, download, rename, move and copy. Works with the keyboard and on a phone.</p></div>
+    <div class="card"><h3>Trash, undo and history</h3><p>Deleted items go to a trash you can restore from, recent actions can be undone, and an activity log records who did what.</p></div>
+    <div class="card"><h3>Private and Confidential folders</h3><p>Label folders as Private or Confidential. Confidential folders ask for your password again and lock when you step away.</p></div>
+    <div class="card"><h3>Previews and search</h3><p>View PDFs, images and text in the app. Office documents open through an optional sandboxed converter. Search file names and contents, with optional OCR for scans.</p></div>
+    <div class="card"><h3>Import what you have</h3><p>During first setup, import an existing folder or a zip file.</p></div>
+    <div class="card"><h3>Optional encrypted backups</h3><p>Back up the library to a separate disk you choose. Off by default.</p></div>
+    <div class="card"><h3>No AI required</h3><p>FileCanopy runs fully without any AI service. AI features are on the roadmap and will be optional.</p></div>
+  </div>
+</div></section>
+
+<section id="screens" class="alt"><div class="wrap">
+  <div class="head"><div class="eyebrow">Screens</div><h2>Warm, friendly and readable</h2>
+  <p>Light and dark themes follow your device. Lists are comfortable by default, with a compact option.</p></div>
+  <div class="gallery">
+    <figure class="shot"><img loading="lazy" src="assets/shots/upload-desktop-light.png" width="1268" height="781" alt="Upload review dialog"><figcaption><b>Uploads.</b> See what will be added before anything is copied.</figcaption></figure>
+    <figure class="shot"><img loading="lazy" src="assets/shots/share-desktop-light.png" width="1268" height="781" alt="Share dialog for a folder"><figcaption><b>Sharing.</b> Give people viewer or editor access to a folder.</figcaption></figure>
+    <figure class="shot"><img loading="lazy" src="assets/shots/trash-desktop-light.png" width="1268" height="781" alt="Trash page with restore buttons"><figcaption><b>Trash.</b> Restore deleted items, or remove them for good.</figcaption></figure>
+    <figure class="shot"><img loading="lazy" src="assets/shots/locked-desktop-light.png" width="1268" height="781" alt="Locked folder asking for a password"><figcaption><b>Locked folders.</b> Confidential folders ask for your password again.</figcaption></figure>
+    <figure class="shot"><img loading="lazy" src="assets/shots/backups-desktop-light.png" width="1268" height="781" alt="Backups page"><figcaption><b>Backups.</b> Encrypted, to a disk you choose.</figcaption></figure>
+    <figure class="shot phone"><img loading="lazy" src="assets/shots/browser-phone-light.png" width="390" height="800" alt="FileCanopy on a phone"><figcaption><b>On your phone.</b> The same files, with a layout made for small screens.</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="quick-start"><div class="wrap">
+  <div class="head"><div class="eyebrow">Quick start</div><h2>Running in a few minutes</h2>
+  <p>You need Docker with Docker Compose v2. There are no published Docker images yet, so you build from the repository.</p></div>
+  <ol class="steps">
+    <li><h3>Get the code and create your settings file</h3><p>Then open <code>deploy/.env</code> and set <code>POSTGRES_PASSWORD</code> to a long random value.</p>
+<pre>git clone https://github.com/Aulteran/FileCanopy.git
+cd FileCanopy
+cp deploy/.env.example deploy/.env
+python -c "import secrets; print(secrets.token_urlsafe(32))"</pre></li>
+    <li><h3>Start the stack</h3><p>This creates the folders for your files and app data, then builds and starts everything.</p>
+<pre>mkdir -p library app-data
+docker compose -f deploy/docker-compose.yml up -d --build --wait
+curl http://127.0.0.1:8080/api/v1/health</pre></li>
+    <li><h3>Open the app and finish setup</h3><p>Go to <code>http://127.0.0.1:8080</code>. The first visit asks for a one-time setup token, which the API prints to its log. Then create the administrator account and, if you like, import an existing folder or zip.</p>
+<pre>docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre></li>
+  </ol>
+  <p style="margin-top:28px" class="callout"><b>Using it from other devices?</b> The app listens only on <code>127.0.0.1</code>. Put a TLS reverse proxy in front of it; setups for Nginx Proxy Manager, nginx, Caddy, Traefik and Cloudflare Tunnel are in the <a href="https://github.com/Aulteran/FileCanopy/blob/main/deploy/proxy/README.md">proxy guide</a>. The <a href="https://github.com/Aulteran/FileCanopy#readme">README</a> covers configuration, updating, backups and where your data lives.</p>
+</div></section>
+
+<section id="status" class="alt"><div class="wrap">
+  <div class="head"><div class="eyebrow">Status</div><h2>Early development</h2>
+  <p>There is no public release yet, and no external security audit. Keep a separate copy of anything important. Anyone with access to the server’s disk can read the library, like any other folder on that machine.</p></div>
+  <table>
+    <thead><tr><th scope="col">Area</th><th scope="col">Status</th></tr></thead>
+    <tbody>
+      <tr><td>Docker stack, sign-in, administrator, invitations</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Personal and shared folders, permissions, file operations, browser interface</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Import, change detection, optional backups</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Trash, undo, activity log</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Sharing between people</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Privacy levels and Confidential unlock</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Document viewer, previews, OCR and full-text search</td><td><span class="tag done">Built</span></td></tr>
+      <tr><td>Redesigned interface (the screens above)</td><td><span class="tag plan">Planned</span></td></tr>
+      <tr><td>Email invitations, SMTP, OpenID Connect sign-in; email intake</td><td><span class="tag plan">Planned</span></td></tr>
+      <tr><td>PDF splitting, duplicate detection, collections</td><td><span class="tag plan">Planned</span></td></tr>
+      <tr><td>Optional AI (organization proposals, semantic search, chat) and optional MCP</td><td><span class="tag plan">Planned</span></td></tr>
+      <tr><td>Production packaging and public release</td><td><span class="tag plan">Planned</span></td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section id="links"><div class="wrap">
+  <div class="head"><div class="eyebrow">Learn more</div><h2>Docs and source</h2></div>
+  <div class="links">
+    <a class="card" href="https://github.com/Aulteran/FileCanopy"><b>GitHub repository</b><p>Source code, issues and the full README.</p></a>
+    <a class="card" href="https://github.com/Aulteran/FileCanopy/wiki"><b>Wiki</b><p>User documentation. It is being written and will be filled in as the project matures.</p></a>
+    <a class="card" href="https://github.com/Aulteran/FileCanopy/tree/main/docs/adr"><b>Design decisions</b><p>The reasoning behind how FileCanopy works, written down as short records.</p></a>
+    <a class="card" href="https://github.com/Aulteran/FileCanopy/issues"><b>Ideas and problems</b><p>Open an issue to discuss an idea before sending a large change.</p></a>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>FileCanopy is free software under the <a href="https://github.com/Aulteran/FileCanopy/blob/main/LICENSE">AGPL-3.0</a>.</span>
+  <span>Fonts: Bricolage Grotesque and Atkinson Hyperlegible (SIL OFL).</span>
+</div></footer>
+</body>
+</html>
