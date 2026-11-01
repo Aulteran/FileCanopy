@@ -74,6 +74,8 @@ The `.env.example` file also covers import limits, how long import reports are k
 
 The web app listens only on `127.0.0.1`, so it is reachable only from the same machine. To use it from other devices, put a TLS reverse proxy (for example Caddy, nginx or Traefik) in front of it, and keep `FILECANOPY_COOKIE_SECURE=true`. Do not expose the plain HTTP port to a network.
 
+**Not yet tested.** Behind a proxy, make sure it forwards the original `Host` header and allows large request bodies (uploads can be many GiB). Until reverse proxy support is finished (planned milestone M07c, see `docs/adr/ADR-018-reverse-proxy-and-https.md`), all users appear to share the proxy's IP address for sign-in throttling.
+
 ## Where your data lives
 
 - **`library/`** is your files. Shared files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.

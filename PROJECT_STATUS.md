@@ -109,6 +109,8 @@ M06 (a, b, c) is merged and signed off. **M07a (backend) is implemented on `m07-
 
 ## Post-M06 to-do
 
+- [ ] **Reverse proxy and HTTPS support (M07c, ADR-018 Proposed) — not built.** Review 2026-11-01: behind an outer TLS proxy, browsing works if `Host` is preserved, but all users share one client IP (login throttle, audit), `X-Forwarded-Proto` is always `http`, `FILECANOPY_ALLOWED_ORIGINS` is not passed by Compose, and nothing is tested. The README paragraph on remote access has no examples. Needs owner approval of ADR-018, then a Sonnet session.
+
 - [ ] **Bulk-import CLI (immich-go style, token-authenticated, resumable, built on the import API) — deferred.** Owner decision 2026-10-31: do not build it during M06. Today's import API (`/nodes/{id}/folder-uploads`, `/imports/{id}/resume`, per-file `PUT`) was shaped so a CLI can reuse it; it would need API tokens (not part of M06) and a resumable client.
 
 ## Milestone session history

@@ -267,6 +267,31 @@
       "status": "done"
     },
     {
+      "id": "M07c",
+      "phase": "foundation",
+      "title": "Reverse proxy and HTTPS support",
+      "depends_on": [
+        "M07"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 review of trusted-proxy handling",
+      "objective": "Make running behind a TLS reverse proxy (Caddy, nginx, Traefik, Cloudflare Tunnel) correct, documented and tested. See ADR-018.",
+      "acceptance_criteria": [
+        "Client IP for throttling and audit is the real client behind an outer proxy; a spoofed X-Forwarded-For from an untrusted peer is ignored",
+        "Sign-in, CSRF/Origin check and cookies work over HTTPS through each example proxy, including a proxy that does not preserve Host (via FILECANOPY_PUBLIC_URL / ALLOWED_ORIGINS)",
+        "A large streamed upload and a download pass through each example proxy, with documented size and timeout settings and the Cloudflare body limit stated",
+        "Tested examples in deploy/proxy/ (Caddy, nginx, Traefik, Cloudflare Tunnel) and README remote-access section updated; optional HSTS"
+      ],
+      "required_tests": [
+        "compose test with an outer proxy container: real client IP, throttle isolation per client",
+        "spoofed forwarded header ignored",
+        "origin check with and without Host preserved",
+        "upload and download through proxy",
+        "cookie flags over HTTPS"
+      ],
+      "notes": "Added 2026-11-01 after owner asked whether reverse proxy is supported. Review found: nothing tested; README has one sentence and no examples; behind an outer proxy all users share one IP (nginx overwrites X-Forwarded-For with $remote_addr, hops=1), X-Forwarded-Proto always http, ALLOWED_ORIGINS not passed by Compose, 127.0.0.1-only port binding needs a documented proxy network. Not implemented. Decision in ADR-018 (Proposed, needs owner approval). M22 keeps final packaging; proxy work moves here.",
+      "status": "not_started"
+    },
+    {
       "id": "M08",
       "phase": "foundation",
       "title": "Sharing and personal-folder isolation",
