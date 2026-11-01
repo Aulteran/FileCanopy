@@ -266,10 +266,10 @@
 **Goal:** Tesseract/OCRmyPDF background processing, searchable extracted text, filename and full-text search (no embeddings required).
 
 **Acceptance criteria:**
-- [ ] Scanned PDFs become searchable after OCR
-- [ ] Search works with all AI off
-- [ ] Search results filtered by ACL and unlock
-- [ ] Index updates on file modification and permission change
+- [x] Scanned PDFs become searchable after OCR
+- [x] Search works with all AI off
+- [x] Search results filtered by ACL and unlock
+- [x] Index updates on file modification and permission change
 
 **Tests/evidence:** OCR fixture, no-AI search, ACL revocation, index invalidation, worker crash/retry.
 
