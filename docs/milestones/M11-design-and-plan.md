@@ -33,9 +33,9 @@ Not in scope: semantic search or embeddings (M15+), indexing Confidential conten
 
 - **Tables (migration 0013)**: `search_doc(node_id PK, root_id, revision, mtime_ns, size, source text|ocr, body, indexed_at)` with a generated `tsvector` column and GIN index on PostgreSQL; `search_job(node_id PK, revision, mtime_ns, size, state queued|running|failed, attempts, run_after, lease_until, error)`.
 - **Modules** `app/search/`: `indexer.py` (scan, claim, run, sweep, thread loop), `query.py` (candidates, policy filter, snippets), route `app/api/search.py`; `app/preview/ocr.py` (client for the OCR container); `ocr/` (container: Dockerfile, server).
-- **Engines**: PostgreSQL uses `websearch_to_tsquery(config, q)` with the configured text-search config (default `simple`, language-neutral; the owner can set e.g. `english`). SQLite (unit tests and development) uses an all-words `LIKE` match with identical semantics for the tests.
+- **Engines**: PostgreSQL uses `websearch_to_tsquery(config, q)` with the configured text-search config (`simple`, language-neutral; stemming per language is a later option because the GIN index is built for one configuration). SQLite (unit tests and development) uses an all-words `LIKE` match with identical semantics for the tests.
 - **Files indexed**: txt, md, csv, pdf, docx directly; png, jpg, jpeg, tif, tiff, webp, gif and PDFs with (almost) no text through OCR when the OCR container is configured.
-- **Settings**: `FILECANOPY_SEARCH_ENABLED` (default on), `FILECANOPY_SEARCH_LANGUAGE`, `FILECANOPY_OCR_URL` (empty = off, `unix:///run/ocr/ocr.sock`), caps and intervals.
+- **Settings**: `FILECANOPY_SEARCH_ENABLED` (default on), `FILECANOPY_OCR_URL` (empty = off, `unix:///run/ocr/ocr.sock`), caps and intervals.
 - **Routes**: `GET /api/v1/search?q=&folder=&limit=` (any signed-in person), `GET /api/v1/search/status` (index counts for the person's own files; shows whether OCR is available).
 
 ## Defaults chosen (owner can override)

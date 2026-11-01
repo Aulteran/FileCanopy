@@ -73,10 +73,16 @@ services:
       # `converter` profile (COMPOSE_PROFILES=converter) and set this to
       # unix:///run/converter/converter.sock (the socket in the volume shared with the converter).
       FILECANOPY_CONVERTER_URL: ${FILECANOPY_CONVERTER_URL:-}
+      # Search (M11): text of your files is indexed in the background for full-text search. Set to
+      # false to keep only filename search. OCR (scanned PDFs and pictures) needs the `ocr` profile
+      # (COMPOSE_PROFILES=ocr) and this set to unix:///run/ocr/ocr.sock.
+      FILECANOPY_SEARCH_ENABLED: ${FILECANOPY_SEARCH_ENABLED:-true}
+      FILECANOPY_OCR_URL: ${FILECANOPY_OCR_URL:-}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data
       - converter-socket:/run/converter
+      - ocr-socket:/run/ocr
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
@@ -140,6 +146,32 @@ services:
       CONVERTER_TIMEOUT_SECONDS: ${FILECANOPY_CONVERTER_TIMEOUT_SECONDS:-60}
       CONVERTER_MAX_BYTES: ${FILECANOPY_PREVIEW_OFFICE_MAX_BYTES:-52428800}
 
+  # Optional sealed OCR container (M11, ocr/README.md): Tesseract for scanned PDFs and pictures.
+  # Off unless the `ocr` profile is started. Sealed exactly like the converter: no network (Unix
+  # socket in a volume only the API shares), no library, app data or secrets, read-only root with
+  # a small non-executable tmpfs, non-root user, no capabilities, no privilege escalation, limits.
+  ocr:
+    build: { context: ../ocr }
+    image: filecanopy-ocr:dev
+    profiles: [ocr]
+    restart: unless-stopped
+    network_mode: none
+    user: "10003:10003"
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,mode=1777,noexec,nosuid,nodev
+    volumes:
+      - ocr-socket:/run/ocr
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: 2
+    pids_limit: 128
+    environment:
+      OCR_TIMEOUT_SECONDS: ${FILECANOPY_OCR_TIMEOUT_SECONDS:-120}
+      OCR_MAX_BYTES: ${FILECANOPY_OCR_MAX_BYTES:-52428800}
+
   redis:
     image: redis:7-alpine
     profiles: [workers]
@@ -168,3 +200,5 @@ volumes:
   pgdata:
   # Holds only the converter's Unix socket; mounted by the API and the converter and nothing else.
   converter-socket:
+  # Holds only the OCR container's Unix socket; mounted by the API and the OCR container alone.
+  ocr-socket:
