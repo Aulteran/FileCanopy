@@ -199,7 +199,7 @@
 
 ### M07d — In-app document viewer (PDF, images, text)
 
-**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 security review · **Design:** [ADR-019](docs/adr/ADR-019-in-app-document-viewer.md) (Proposed) and the viewer mockup; both need owner approval first. Added 2026-11-01 at the owner's request.
+**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 security review · **Design:** [ADR-019](docs/adr/ADR-019-in-app-document-viewer.md) (Accepted 2026-11-01) and the viewer mockup. Added 2026-11-01 at the owner's request.
 
 **Goal:** Click a file and read it in the app: a full-page viewer with scrolling, zoom and Download. PDF through self-hosted PDF.js, images, and text/CSV, all served through an access-checked `Range` endpoint. Word, Excel and PowerPoint follow in M10 through a sandboxed converter.
 
@@ -215,7 +215,7 @@
 
 ### M08 — Sharing and personal-folder isolation
 
-**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Opus 5.5 review; Sonnet 5.5 coding
+**Phase:** foundation · **Dependencies:** M07, M07c, M07d (owner decision 2026-11-01: both go before M08) · **Suggested Claude Code model:** Opus 5.5 review; Sonnet 5.5 coding
 
 **Goal:** Subtree shares, viewer/editor grants, Shared with Me virtual destination; permission notifications without personal metadata leaks.
 

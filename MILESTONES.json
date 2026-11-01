@@ -299,7 +299,7 @@
         "M07"
       ],
       "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 security review",
-      "objective": "Click a file and read it in the app: full-page viewer for PDF (self-hosted PDF.js), images and text/CSV through an access-checked Range endpoint. ADR-019 (Proposed).",
+      "objective": "Click a file and read it in the app: full-page viewer for PDF (self-hosted PDF.js), images and text/CSV through an access-checked Range endpoint. ADR-019 (Accepted 2026-11-01).",
       "acceptance_criteria": [
         "Clicking a PDF, image, text or CSV file opens the viewer",
         "/view endpoint uses the same ACL as download; admin gets nothing in personal folders; unlisted types refused",
@@ -319,7 +319,7 @@
         "e2e open/scroll/zoom",
         "CSP header test"
       ],
-      "notes": "Added 2026-11-01 at owner request. Needs owner approval of ADR-019 and the viewer mockup before starting. Office documents follow in M10.",
+      "notes": "Added 2026-11-01 at owner request. ADR-019 accepted by the owner 2026-11-01; viewer mockup shared. Runs before M08 (owner decision). Office documents follow in M10.",
       "status": "not_started"
     },
     {
@@ -327,7 +327,9 @@
       "phase": "foundation",
       "title": "Sharing and personal-folder isolation",
       "depends_on": [
-        "M07"
+        "M07",
+        "M07c",
+        "M07d"
       ],
       "recommended_claude_code_model": "Opus 5.5 review; Sonnet 5.5 coding",
       "objective": "Subtree shares, viewer/editor grants, Shared with Me virtual destination; permission notifications without personal metadata leaks.",

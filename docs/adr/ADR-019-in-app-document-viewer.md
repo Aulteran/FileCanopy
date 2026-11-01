@@ -1,6 +1,6 @@
 # ADR-019: In-app document viewer (PDF, images, text, Office documents)
 
-- **Status:** Proposed (needs owner approval)
+- **Status:** Accepted (owner decision 2026-11-01, on the recommendation to accept)
 - **Date:** 2026-11-01
 - **Milestone:** M07d (PDF, images, text, CSV); Office documents in M10
 
@@ -45,7 +45,7 @@ What exists now (checked 2026-11-01):
 - The M07d viewer ships before M08 and M09. It is covered by the ACL today, and M09 extends its tests with the privacy-label and lock cases above.
 - `Range` support on `/view` is new code and is tested against the same ACL and path-safety suites as download.
 - A new optional container (`converter`) and its image size are a deployment cost; it is a Compose profile, off by default, and documented.
-- Needs a viewer screen design (the mockup artifact for this ADR) approved by the owner before M07d starts.
+- Needs a viewer screen design (the mockup artifact for this ADR) approved by the owner before M07d starts (the owner approved the ADR 2026-11-01; the mockup has been shared for review).
 
 ## Test evidence required
 
