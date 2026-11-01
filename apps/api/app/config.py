@@ -160,6 +160,15 @@ class Settings(BaseSettings):
     # Lab setups only: allow an http issuer that is not on loopback.
     oidc_allow_http: bool = False
     oidc_timeout_seconds: int = Field(default=10, ge=1, le=60)
+    # Google Workspace only (M12b): require this `hd` claim in the ID token. Empty = no pin.
+    oidc_hosted_domain: str = ""
+    # Break-glass (M12b): ignore the "OIDC-only" switch so password sign-in works again.
+    force_local_login: bool = False
+
+    # --- Confidential PIN (M12b). The pepper keeps a database-only leak from being crackable
+    # offline (a six-digit PIN has only 10^6 values). Empty = generate a 256-bit pepper file in
+    # app-data on first use.
+    pin_pepper: SecretStr = SecretStr("")
 
     # Argon2id cost (defaults: RFC 9106 low-memory profile). Lower only in tests.
     argon2_time_cost: int = Field(default=3, ge=1)
@@ -191,6 +200,10 @@ class Settings(BaseSettings):
     @property
     def smtp_configured(self) -> bool:
         return bool(self.smtp_host and self.smtp_from)
+
+    @property
+    def oidc_is_google(self) -> bool:
+        return self.oidc_issuer.rstrip("/") == "https://accounts.google.com"
 
     @property
     def oidc_enabled(self) -> bool:
@@ -231,6 +244,8 @@ class Settings(BaseSettings):
                 raise ConfigError("oidc_issuer must be an https URL")
             if not issuer.netloc or issuer.query or issuer.fragment:
                 raise ConfigError("oidc_issuer must be a plain URL")
+            if self.oidc_hosted_domain and not self.oidc_is_google:
+                raise ConfigError("oidc_hosted_domain only applies to Google sign-in")
             if "openid" not in self.oidc_scopes.split():
                 raise ConfigError("oidc_scopes must include openid")
         return self

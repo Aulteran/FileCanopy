@@ -297,6 +297,7 @@ def test_public_config_is_off_by_default(make_world: Callable[..., World]) -> No
     assert make_world().browser().get("/api/v1/auth/config").json() == {
         "oidc": {"enabled": False, "label": "Single sign-on"},
         "password_reset_by_email": False,
+        "password_login": True,
     }
 
 

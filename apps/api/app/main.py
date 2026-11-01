@@ -20,11 +20,13 @@ from app.api import search as search_routes
 from app.api import sharing as sharing_routes
 from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
-from app.auth import bootstrap
+from app.auth import bootstrap, oidc_only
 from app.auth import router as auth_router
 from app.auth.deps import AuthContext, scrub_validation_errors
 from app.auth.oidc import OidcProvider
 from app.auth.oidc_router import router as oidc_router
+from app.auth.pin import PinService
+from app.auth.pin_router import router as pin_router
 from app.auth.security import Passwords
 from app.auth.throttle import Throttle
 from app.backup.service import BackupService
@@ -105,8 +107,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     indexer = Indexer(cfg, sessions, previews)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
+    passwords = Passwords(cfg)
     app.state.auth = AuthContext(
-        cfg, sessions, Passwords(cfg), Throttle(cfg), Mailer(cfg), OidcProvider(cfg)
+        cfg,
+        sessions,
+        passwords,
+        Throttle(cfg),
+        Mailer(cfg),
+        OidcProvider(cfg),
+        PinService(cfg, passwords),
     )
     app.state.setup_token_issued = False
     app.state.reconciler = reconciler
@@ -154,9 +163,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(auth_router.router)
     app.include_router(oidc_router)
+    app.include_router(pin_router)
     app.include_router(sharing_routes.router)
     app.include_router(privacy_routes.router)
     app.include_router(auth_admin.router)
+    app.include_router(oidc_only.router)
     app.include_router(storage_nodes.router)
     app.include_router(file_routes.router)
     app.include_router(preview_routes.router)

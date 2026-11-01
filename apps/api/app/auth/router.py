@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import bootstrap, clock
+from app.auth import bootstrap, clock, oidc_only
 from app.auth.deps import (
     Principal,
     check_origin,
@@ -18,6 +18,7 @@ from app.auth.deps import (
     get_db,
     http_error,
     presented_session_hash,
+    principal_even_if_locked,
     set_session_cookie,
 )
 from app.auth.schemas import (
@@ -122,6 +123,7 @@ def login(
 ) -> SessionOut:
     ctx, ip = ctx_of(request), client_ip(request)
     check_origin(request)
+    oidc_only.require_password_login(db, ctx.settings)  # answers before looking at the account
     email = normalize_email(body.email)
     keys = ctx.throttle.login_keys(email, ip)
     if (retry := ctx.throttle.retry_after(db, keys)) is not None:
@@ -153,15 +155,24 @@ def login(
 
 
 @router.get("/auth/session", response_model=SessionOut)
-def session_info(principal: Principal = Depends(current_principal)) -> SessionOut:
-    return SessionOut(user=UserOut.of(principal.user), csrf_token=principal.csrf_token)
+def session_info(
+    request: Request,
+    principal: Principal = Depends(principal_even_if_locked),
+    db: Session = Depends(get_db),
+) -> SessionOut:
+    return SessionOut(
+        user=UserOut.of(principal.user),
+        csrf_token=principal.csrf_token,
+        locked=principal.session.locked_at is not None,
+        pin_set=ctx_of(request).pins.is_set(db, principal.user.id),
+    )
 
 
 @router.post("/auth/logout", response_model=Ok)
 def logout(
     request: Request,
     response: Response,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(principal_even_if_locked),
     db: Session = Depends(get_db),
 ) -> Ok:
     principal.session.revoked_at = clock.utcnow()
@@ -224,6 +235,7 @@ def accept_invitation(
     body: AcceptInvitation, request: Request, db: Session = Depends(get_db)
 ) -> Ok:
     ctx = ctx_of(request)
+    oidc_only.require_password_login(db, ctx.settings)
     user = _redeem(db, request, body.token, "invitation", "invited")
     _policy(body.password, user.email)  # raising here rolls back, so the token is not consumed
     user.password_hash = ctx.passwords.hash(body.password)
@@ -240,6 +252,7 @@ def accept_invitation(
 @router.post("/auth/password-reset/complete", response_model=Ok)
 def complete_reset(body: CompleteReset, request: Request, db: Session = Depends(get_db)) -> Ok:
     ctx = ctx_of(request)
+    oidc_only.require_password_login(db, ctx.settings)
     user = _redeem(db, request, body.token, "reset", "active")
     _policy(body.password, user.email)
     user.password_hash = ctx.passwords.hash(body.password)
@@ -262,6 +275,7 @@ def request_reset(body: ForgotPassword, request: Request, db: Session = Depends(
     request counts against per-address and per-IP limits."""
     ctx, ip = ctx_of(request), client_ip(request)
     check_origin(request)
+    oidc_only.require_password_login(db, ctx.settings)
     if not ctx.mailer.configured:
         raise http_error(409, "EMAIL_NOT_CONFIGURED")
     email = normalize_email(body.email)

@@ -16,7 +16,7 @@ from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import clock
+from app.auth import clock, oidc_only
 from app.auth.deps import (
     Principal,
     check_origin,
@@ -74,12 +74,14 @@ def _blocked(retry: int) -> Exception:
 
 
 @router.get("/config", response_model=AuthConfig)
-def auth_config(request: Request) -> AuthConfig:
+def auth_config(request: Request, db: Session = Depends(get_db)) -> AuthConfig:
     """Public: what the sign-in page may offer. No secrets, no hosts."""
     s = ctx_of(request).settings
+    only = oidc_only.effective(db, s)
     return AuthConfig(
         oidc=OidcPublic(enabled=s.oidc_enabled, label=s.oidc_label),
-        password_reset_by_email=s.smtp_configured,
+        password_reset_by_email=s.smtp_configured and not only,
+        password_login=not only,
     )
 
 
@@ -99,7 +101,7 @@ def _start(
     verifier, challenge = new_pkce()
     state, binding, nonce = new_token(), new_token(), new_token()
     # Contact the provider first: if it is down, nothing is stored.
-    url = ctx.oidc.authorization_url(state, nonce, challenge)
+    url = ctx.oidc.authorization_url(state, nonce, challenge, reauth=purpose == "reauth")
     now = clock.utcnow()
     db.execute(delete(OidcLogin).where(OidcLogin.expires_at < now - timedelta(hours=1)))
     db.add(
@@ -184,6 +186,39 @@ def _start_link(
     return _start(request, response, db, "link", user_id=user_id, session_id=session_id)
 
 
+@router.post("/oidc/reauth/start", response_model=AuthorizationUrl)
+def reauth_start(
+    request: Request,
+    response: Response,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Asks the provider to check this person again. The result is a single-use marker on this
+    session (set or reset the PIN, turn on OIDC-only); it changes nothing by itself."""
+    _require_enabled(request)
+    check_origin(request)
+    settings = ctx_of(request).settings
+    linked = db.scalar(
+        select(UserIdentity.id).where(
+            UserIdentity.user_id == principal.user.id, UserIdentity.issuer == settings.oidc_issuer
+        )
+    )
+    if linked is None:
+        raise http_error(409, "OIDC_NOT_LINKED")
+    _throttled_start(request, db)
+    return _provider_call(
+        db,
+        lambda: _start(
+            request,
+            response,
+            db,
+            "reauth",
+            user_id=principal.user.id,
+            session_id=principal.session.id,
+        ),
+    )
+
+
 @router.post("/oidc/invitation/start", response_model=AuthorizationUrl)
 def invitation_start(
     body: OidcStartInvite, request: Request, response: Response, db: Session = Depends(get_db)
@@ -201,10 +236,18 @@ def invitation_start(
         ctx.throttle.record_failure(db, keys)
         db.commit()
         raise http_error(400, "INVALID_TOKEN")
-    try:
-        check_password_policy(body.password, user.email)
-    except PasswordPolicyError as exc:
-        raise http_error(422, exc.code) from exc
+    password_hash: str | None = None
+    if oidc_only.effective(db, ctx.settings):
+        if body.password is not None:
+            raise http_error(422, "PASSWORD_NOT_ACCEPTED")  # no password exists in this mode
+    else:
+        if body.password is None:
+            raise http_error(422, "PASSWORD_REQUIRED")
+        try:
+            check_password_policy(body.password, user.email)
+        except PasswordPolicyError as exc:
+            raise http_error(422, exc.code) from exc
+        password_hash = ctx.passwords.hash(body.password)
     name = None
     if body.name is not None:
         name = body.name.strip()
@@ -217,7 +260,7 @@ def invitation_start(
         response,
         db,
         digest(body.token),
-        ctx.passwords.hash(body.password),
+        password_hash,
         name,
     )
 
@@ -227,7 +270,7 @@ def _start_invite(
     response: Response,
     db: Session,
     token_hash: str,
-    password_hash: str,
+    password_hash: str | None,
     name: str | None,
 ) -> AuthorizationUrl:
     return _start(
@@ -339,6 +382,8 @@ def callback(
             outcome, token = _finish_login(request, db, issuer, sub)
         elif row.purpose == "link":
             outcome, token = _finish_link(request, db, row, issuer, sub, claims)
+        elif row.purpose == "reauth":
+            outcome, token = _finish_reauth(request, db, row, issuer, sub, claims)
         elif row.purpose == "invite":
             email = ctx.oidc.verified_email(claims, tokens.access_token)
             outcome, token = _finish_invite(request, db, row, issuer, sub, email)
@@ -395,6 +440,41 @@ def _finish_link(
     return "linked", None
 
 
+def _finish_reauth(
+    request: Request,
+    db: Session,
+    row: OidcLogin,
+    issuer: str,
+    sub: str,
+    claims: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Marks the starting session as freshly re-authenticated, only if the provider identity is
+    the one linked to the account that started it (never anyone else's)."""
+    sess = db.get(AuthSession, row.session_id) if row.session_id else None
+    user = db.get(User, row.user_id) if row.user_id else None
+    now = clock.utcnow()
+    if (
+        sess is None
+        or user is None
+        or sess.user_id != user.id
+        or sess.revoked_at is not None
+        or sess.locked_at is not None
+        or sess.expires_at <= now
+        or user.status != "active"
+    ):
+        raise OidcError("OIDC_STATE_INVALID")
+    ident = db.scalar(
+        select(UserIdentity).where(UserIdentity.issuer == issuer, UserIdentity.subject == sub)
+    )
+    if ident is None or ident.user_id != user.id:
+        raise OidcError("OIDC_REAUTH_MISMATCH")
+    if not ctx_of(request).oidc.auth_age_ok(claims):
+        raise OidcError("OIDC_REAUTH_STALE")
+    sess.reauth_at = now
+    audit(db, "oidc.reauth", actor=user.id, target=user.id, ip=client_ip(request))
+    return "reauthed", None
+
+
 def _finish_invite(
     request: Request,
     db: Session,
@@ -404,7 +484,10 @@ def _finish_invite(
     email: str | None,
 ) -> tuple[str, str]:
     ctx = ctx_of(request)
-    if row.token_hash is None or row.password_hash is None:
+    if row.token_hash is None:
+        raise OidcError("OIDC_STATE_INVALID")
+    # A password is chosen unless the mode that has none was in force when the invitation began.
+    if row.password_hash is None and not oidc_only.effective(db, ctx.settings):
         raise OidcError("OIDC_STATE_INVALID")
     user = consume_token_hash(db, row.token_hash, "invitation")
     if user is None or user.status != "invited":
@@ -413,7 +496,7 @@ def _finish_invite(
         raise OidcError("OIDC_EMAIL_MISMATCH")  # unverified, missing or a different address
     _link_identity(db, user, issuer, sub, email)
     user.password_hash = row.password_hash
-    user.password_changed_at = clock.utcnow()
+    user.password_changed_at = clock.utcnow() if row.password_hash else None
     user.status = "active"
     if row.new_name:
         user.name = row.new_name
@@ -455,6 +538,8 @@ def unlink(
     db: Session = Depends(get_db),
 ) -> Ok:
     ctx, ip, user = ctx_of(request), client_ip(request), principal.user
+    if oidc_only.effective(db, ctx.settings):
+        raise http_error(409, "OIDC_ONLY_ACTIVE")  # it would be the end of this person's access
     keys = ctx.throttle.login_keys(user.email, ip)
     if (retry := ctx.throttle.retry_after(db, keys)) is not None:
         raise _blocked(retry)

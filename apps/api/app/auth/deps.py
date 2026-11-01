@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
 from app.auth.oidc import OidcProvider
+from app.auth.pin import PinService
 from app.auth.security import Passwords, csrf_token_for, digest, digest_equal, origin_allowed
 from app.auth.throttle import Throttle
 from app.config import Settings
@@ -29,6 +30,7 @@ class AuthContext:
     throttle: Throttle
     mailer: Mailer
     oidc: OidcProvider
+    pins: PinService
 
     @property
     def cookie_name(self) -> str:
@@ -133,7 +135,9 @@ def _lookup_session(request: Request, db: Session) -> Principal | None:
     return Principal(user, sess)
 
 
-def current_principal(request: Request, db: Session = Depends(get_db)) -> Principal:
+def principal_even_if_locked(request: Request, db: Session = Depends(get_db)) -> Principal:
+    """The session behind the request, including a session on the lock screen. Only the routes
+    that must work there (session info, screen unlock, sign-out) use this one."""
     principal = _lookup_session(request, db)
     if principal is None:
         raise http_error(401, "UNAUTHENTICATED")
@@ -142,6 +146,13 @@ def current_principal(request: Request, db: Session = Depends(get_db)) -> Princi
         presented = request.headers.get("x-csrf-token", "")
         if not digest_equal(presented, principal.csrf_token):
             raise http_error(403, "CSRF_TOKEN_INVALID")
+    return principal
+
+
+def current_principal(principal: Principal = Depends(principal_even_if_locked)) -> Principal:
+    """Every other route: a session on the lock screen is refused (M12b)."""
+    if principal.session.locked_at is not None:
+        raise http_error(423, "SESSION_LOCKED")
     return principal
 
 

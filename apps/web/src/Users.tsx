@@ -10,6 +10,7 @@ import {
   api,
   type Account,
   type AdminAuthConfig,
+  type OidcOnly,
   type OneTimeToken,
 } from "./api";
 import { describeError, formatDate } from "./format";
@@ -452,6 +453,109 @@ function SignInPanel({
           <span role="status">{tested}</span>
         </div>
       )}
+      {oidc.enabled && <OidcOnlyPanel onError={onError} />}
     </section>
+  );
+}
+
+/** Turn password sign-in off for everyone. It needs your own provider link and a fresh check with
+ * the provider (so a broken provider setup cannot be switched on by mistake). If the provider
+ * ever fails, the operator brings passwords back with
+ * `docker compose exec api python -m app.auth.cli oidc-only off`, or by starting the server with
+ * FILECANOPY_FORCE_LOCAL_LOGIN=true. */
+function OidcOnlyPanel({ onError }: { onError: (err: unknown) => void }) {
+  const [st, setSt] = useState<OidcOnly | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [needCount, setNeedCount] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    api.oidcOnly().then(setSt, onError);
+  }, [onError]);
+  useEffect(load, [load]);
+
+  async function change(enabled: boolean, confirm?: number): Promise<void> {
+    setBusy(true);
+    setNote("");
+    try {
+      setSt(await api.setOidcOnly(enabled, confirm));
+      setNeedCount(null);
+      setNote(
+        enabled ? "Password sign-in is off." : "Password sign-in is back on.",
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "UNLINKED_USERS") {
+        setNeedCount(Number(err.reason ?? "0"));
+      } else if (err instanceof ApiError && err.code === "REAUTH_REQUIRED") {
+        setNote("");
+        try {
+          sessionStorage.setItem("fc.pending", "oidc-only");
+          const { authorization_url } = await api.oidcReauthStart();
+          window.location.assign(authorization_url);
+        } catch (e2) {
+          onError(e2);
+        }
+      } else {
+        onError(err);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!st) return null;
+  return (
+    <div className="oidc-only">
+      <h3>Provider-only sign-in</h3>
+      <p>
+        {st.effective
+          ? "Password sign-in is off for everyone."
+          : st.enabled
+            ? "The switch is on but not in force right now (the provider is not configured, or the server forces local sign-in)."
+            : "Password sign-in is on."}{" "}
+        {st.unlinked_users > 0 &&
+          `${st.unlinked_users} active ${st.unlinked_users === 1 ? "person has" : "people have"} no provider link yet.`}
+      </p>
+      {needCount !== null && (
+        <p role="alert" className="error">
+          {needCount} {needCount === 1 ? "person" : "people"} cannot sign in
+          once passwords are off, until you send them a new invitation. Turn it
+          on anyway?
+        </p>
+      )}
+      <div className="row">
+        {!st.enabled && (
+          <button
+            disabled={busy || !st.admin_linked}
+            onClick={() =>
+              void change(true, needCount !== null ? needCount : undefined)
+            }
+          >
+            {needCount !== null
+              ? "Turn off passwords anyway"
+              : "Turn off passwords"}
+          </button>
+        )}
+        {st.enabled && (
+          <button disabled={busy} onClick={() => void change(false)}>
+            Turn passwords back on
+          </button>
+        )}
+        <span role="status">{note}</span>
+      </div>
+      {!st.admin_linked && !st.enabled && (
+        <p className="hint">
+          Link your own account to the provider first (Account), so you cannot
+          lock yourself out.
+        </p>
+      )}
+      <p className="hint">
+        Locked out by a provider problem? Run{" "}
+        <code>
+          docker compose exec api python -m app.auth.cli oidc-only off
+        </code>{" "}
+        or start the server with <code>FILECANOPY_FORCE_LOCAL_LOGIN=true</code>.
+      </p>
+    </div>
   );
 }

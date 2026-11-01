@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
+import {
+  ApiError,
+  api,
+  setCsrf,
+  setLockedHandler,
+  type EntryPoint,
+  type Session,
+} from "./api";
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
+import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
@@ -16,6 +24,7 @@ import {
   TRASH_PATH,
   USERS_PATH,
   folderPath,
+  tokenFromHash,
   tokenPageOf,
   useRoute,
 } from "./route";
@@ -54,6 +63,13 @@ function writeDeferred(userId: string, ids: Set<string>): void {
   }
 }
 
+function takePinToken(): string | null {
+  if (!/^\/pin-reset\/?$/.test(window.location.pathname)) return null;
+  const token = tokenFromHash(window.location.hash);
+  window.history.replaceState(null, "", "/");
+  return token;
+}
+
 type Boot =
   | { state: "loading" }
   | { state: "setup" }
@@ -72,6 +88,8 @@ function SignedInApp() {
   const [failed, setFailed] = useState(false);
   // The outcome of a single sign-on round trip, if this page load is its return.
   const [sso] = useState(takeSsoResult);
+  // A one-time token from an emailed PIN reset link, taken out of the address bar at once.
+  const [pinToken] = useState(takePinToken);
 
   const start = useCallback(async () => {
     setFailed(false);
@@ -113,7 +131,14 @@ function SignedInApp() {
   }
   if (boot.state === "loading") return <p className="loading">Loading…</p>;
   if (boot.state === "ready") {
-    return <Shell session={boot.session} onEnded={ended} sso={sso} />;
+    return (
+      <Shell
+        session={boot.session}
+        onEnded={ended}
+        sso={sso}
+        pinToken={pinToken}
+      />
+    );
   }
   return (
     <Auth
@@ -135,10 +160,12 @@ function Shell({
   session,
   onEnded,
   sso,
+  pinToken,
 }: {
   session: Session;
   onEnded: () => void;
   sso: string | null;
+  pinToken: string | null;
 }) {
   const {
     folderId,
@@ -167,7 +194,26 @@ function Shell({
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [previewSettings, setPreviewSettings] = useState(false);
   // Returning from the provider after linking opens Account with the result.
-  const [account, setAccount] = useState(sso === "linked" || ssoIsError(sso));
+  // What a provider re-check was for (set in sessionStorage before leaving; never a secret).
+  const [pending] = useState(() =>
+    sso === "reauthed" ? sessionStorage.getItem("fc.pending") : null,
+  );
+  const [account, setAccount] = useState(
+    sso === "linked" ||
+      ssoIsError(sso) ||
+      pending === "pin" ||
+      pinToken !== null,
+  );
+  const [locked, setLocked] = useState(session.locked === true);
+  const [pinSet, setPinSet] = useState(session.pin_set === true);
+  useEffect(() => {
+    setLockedHandler(() => setLocked(true));
+    return () => setLockedHandler(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (sso === "reauthed") sessionStorage.removeItem("fc.pending");
+    if (pending === "oidc-only") go(USERS_PATH, true);
+  }, [sso, pending, go]);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
@@ -212,6 +258,15 @@ function Shell({
     go,
   ]);
 
+  async function lockNow(): Promise<void> {
+    try {
+      await api.lockScreen();
+      setLocked(true);
+    } catch {
+      /* not locked: the PIN may have been removed in another tab */
+    }
+  }
+
   async function logout(): Promise<void> {
     try {
       await api.logout();
@@ -229,6 +284,19 @@ function Shell({
     setSetupFor(null);
   }
 
+  if (locked) {
+    return (
+      <LockScreen
+        name={session.user.name}
+        onUnlocked={() => {
+          setLocked(false);
+          loadRoots();
+        }}
+        onEnded={onEnded}
+        onSignOut={() => void logout()}
+      />
+    );
+  }
   if (roots === null) return <p className="loading">Loading…</p>;
 
   const header = (withBackups: boolean) => (
@@ -285,6 +353,11 @@ function Shell({
       <button type="button" onClick={() => setPreviewSettings(true)}>
         Preview settings
       </button>
+      {pinSet && (
+        <button type="button" onClick={() => void lockNow()}>
+          Lock
+        </button>
+      )}
       <button type="button" onClick={() => setAccount(true)}>
         Account
       </button>
@@ -456,6 +529,9 @@ function Shell({
       {account && (
         <AccountDialog
           onClose={() => setAccount(false)}
+          reauthed={pending === "pin"}
+          pinToken={pinToken}
+          onPinChanged={setPinSet}
           notice={
             sso === "linked"
               ? "Your account is linked."

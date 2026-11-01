@@ -28,10 +28,42 @@ export function formatDate(iso: string): string {
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {
   FORBIDDEN: "You do not have access to that.",
-  LOCKED: "This folder is locked. Unlock it with your password to continue.",
+  LOCKED: "This folder is locked. Unlock it with your PIN to continue.",
   SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES:
-    "Too many wrong passwords in a row, so this session was ended to protect your Confidential folders. Sign in again.",
+    "Too many wrong PINs or passwords in a row, so this session was ended to protect your Confidential folders. Sign in again.",
   PASSWORD_REQUIRED: "Enter your password to lower a Confidential folder.",
+  PIN_REQUIRED: "Enter your 6-digit PIN. Set one in Account if you have none.",
+  PIN_NOT_SET: "You have no PIN yet. Set one in Account.",
+  INVALID_PIN: "That PIN is not right.",
+  PIN_BLOCKED: "Too many wrong tries. Wait a little before trying again.",
+  PIN_DISABLED:
+    "Your PIN was turned off after too many wrong tries. Set a new one in Account, using your password or your sign-in provider.",
+  PIN_TOO_EASY: "Choose a PIN that is harder to guess (not 123456 or 111111).",
+  PIN_FORMAT: "A PIN is exactly 6 digits.",
+  PIN_UNAVAILABLE: "PINs are not available right now. Ask your administrator.",
+  PROOF_REQUIRED: "Confirm it is you first.",
+  REAUTH_REQUIRED:
+    "Confirm with your sign-in provider first, then try again within a few minutes.",
+  SESSION_LOCKED: "The screen is locked. Enter your PIN.",
+  OIDC_REAUTH_MISMATCH:
+    "That provider account is not the one linked to this account.",
+  OIDC_REAUTH_STALE:
+    "The provider did not ask you to sign in again. Try once more.",
+  OIDC_DOMAIN_NOT_ALLOWED:
+    "That Google account is not in the organization allowed here.",
+  PASSWORD_LOGIN_DISABLED:
+    "Password sign-in is turned off. Use the single sign-on button.",
+  PASSWORD_NOT_ACCEPTED:
+    "No password is needed while sign-in is by provider only.",
+  OIDC_ONLY_ACTIVE:
+    "Unlinking would lock you out while password sign-in is off.",
+  LAST_LINKED_ADMIN:
+    "That would leave no administrator who can sign in with the provider.",
+  OIDC_NOT_CONFIGURED: "Single sign-on is not set up on this server.",
+  ADMIN_NOT_LINKED: "Link your own account to the provider first (Account).",
+  FORCE_LOCAL_LOGIN_SET:
+    "The server is started with local sign-in forced on, so this cannot be turned on.",
+  UNLINKED_USERS: "Some people have no provider link yet.",
   PRIVACY_DOWNGRADE:
     "This file would end up less protected than where it is now. Move the folder instead, or lower its label first.",
   PRIVACY_LABELS_DISABLED:

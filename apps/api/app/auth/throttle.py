@@ -46,6 +46,13 @@ class Throttle:
             (_h("reset-ip", ip), self._s.throttle_max_per_ip),
         ]
 
+    def pin_reset_keys(self, user_id: str, ip: str) -> list[Key]:
+        """Emailed PIN reset links: a few per account per window, plus the per-IP ceiling."""
+        return [
+            (_h("pinreset-acct", user_id), 3),
+            (_h("pinreset-ip", ip), self._s.throttle_max_per_ip),
+        ]
+
     def ip_keys(self, kind: str, ip: str) -> list[Key]:
         return [(_h(kind, ip), self._s.throttle_max_per_ip)]
 

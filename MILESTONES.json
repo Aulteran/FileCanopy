@@ -452,6 +452,36 @@
       "status": "done"
     },
     {
+      "id": "M12b",
+      "phase": "documents",
+      "title": "Provider-only sign-in, Google, and the Confidential PIN lock",
+      "depends_on": [
+        "M12",
+        "M09"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 security review",
+      "objective": "Admin switch for OIDC-only sign-in with break-glass recovery, Google sign-in specifics and guide, and a per-user 6-digit PIN that replaces the password for Confidential unlock and works as a lock screen.",
+      "acceptance_criteria": [
+        "OIDC-only cannot be turned on without OIDC configured, a linked admin and a fresh provider check, and is recoverable by env var or CLI",
+        "Password routes refuse with PASSWORD_LOGIN_DISABLED while it is in force",
+        "Google issuer spellings, verified email, hosted domain and sub-only linking are tested",
+        "PIN is Argon2id over a peppered HMAC, with account-wide attempt limits (wait from the 3rd failure, session ends at 5, disabled at 10)",
+        "Lock screen keeps the session signed in and refuses every route except unlock and sign-out",
+        "PIN can be set or reset only with a proof: current PIN, password, provider re-authentication or emailed link; OIDC-only people can set one",
+        "All M09 Confidential guarantees unchanged"
+      ],
+      "required_tests": [
+        "PIN brute force, backoff, session end, disable",
+        "lock screen route inventory",
+        "proof requirements",
+        "OIDC-only guards and recovery",
+        "Google token handling",
+        "reauth single use and subject match"
+      ],
+      "notes": "Implemented 2026-11-01 on branch m12b-oidc-only-pin (migration 0015). Design and threat model: docs/milestones/M12b-design-and-plan.md. Opus security review pending.",
+      "status": "in_review"
+    },
+    {
       "id": "M13",
       "phase": "documents",
       "title": "Verified sender aliases and inbound mailbox foundations",

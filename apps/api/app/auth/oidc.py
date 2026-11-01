@@ -206,7 +206,9 @@ class OidcProvider:
 
     # ------------------------------------------------------------- flow
 
-    def authorization_url(self, state: str, nonce: str, challenge: str) -> str:
+    def authorization_url(
+        self, state: str, nonce: str, challenge: str, *, reauth: bool = False
+    ) -> str:
         params = {
             "response_type": "code",
             "client_id": self._s.oidc_client_id,
@@ -217,6 +219,13 @@ class OidcProvider:
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
+        if self._s.oidc_hosted_domain:
+            params["hd"] = self._s.oidc_hosted_domain  # a hint only; the token is checked too
+        if reauth:
+            # Ask the provider to authenticate the person again. Google has no "login" prompt and
+            # shows its account chooser instead; the callback checks `auth_time` when present.
+            params["max_age"] = "0"
+            params["prompt"] = "select_account" if self._s.oidc_is_google else "login"
         base = self._discover().authorization_endpoint
         return f"{base}{'&' if '?' in base else '?'}{urlencode(params)}"
 
@@ -266,7 +275,7 @@ class OidcProvider:
                 key,
                 algorithms=[alg],
                 audience=self._s.oidc_client_id,
-                issuer=self._s.oidc_issuer,
+                issuer=self._accepted_issuers(),
                 leeway=LEEWAY_SECONDS,
                 options={"require": ["exp", "iat", "sub", "iss", "aud"]},
             )
@@ -277,6 +286,10 @@ class OidcProvider:
             raise OidcError("ID_TOKEN_INVALID")
         if claims.get("azp") not in (None, self._s.oidc_client_id):
             raise OidcError("ID_TOKEN_INVALID")
+        if self._s.oidc_hosted_domain:
+            hd = claims.get("hd")
+            if not isinstance(hd, str) or hd.lower() != self._s.oidc_hosted_domain.lower():
+                raise OidcError("OIDC_DOMAIN_NOT_ALLOWED")
         got = claims.get("nonce")
         if not isinstance(got, str) or not secrets.compare_digest(got, nonce):
             raise OidcError("ID_TOKEN_INVALID")
@@ -284,6 +297,23 @@ class OidcProvider:
         if not isinstance(sub, str) or not sub or len(sub) > 255:
             raise OidcError("ID_TOKEN_INVALID")
         return dict(claims)
+
+    def _accepted_issuers(self) -> list[str]:
+        """The configured issuer; Google also signs tokens with the bare host name."""
+        issuer = self._s.oidc_issuer
+        if self._s.oidc_is_google:
+            return ["https://accounts.google.com", "accounts.google.com"]
+        return [issuer]
+
+    def auth_age_ok(self, claims: dict[str, Any], max_age_seconds: int = 300) -> bool:
+        """For a re-authentication: when the provider says when the person last signed in
+        (`auth_time`), it must be recent. Providers that omit it are accepted."""
+        at = claims.get("auth_time")
+        if at is None:
+            return True
+        if isinstance(at, bool) or not isinstance(at, int | float):
+            return False
+        return time.time() - float(at) <= max_age_seconds + LEEWAY_SECONDS
 
     def verified_email(self, claims: dict[str, Any], access_token: str | None) -> str | None:
         """The email the provider vouches for, or None. Falls back to the userinfo endpoint (some
