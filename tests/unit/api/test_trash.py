@@ -626,3 +626,24 @@ def test_scans_and_backups_ignore_the_trash(fx: Fx, me: P) -> None:
     item = me.items()[0]["id"]
     r = me.restore(item, on_conflict="keep_both")
     assert r.status_code == 200 and r.json()["node"]["name"] == "D (2)"
+
+
+def test_a_download_whose_first_read_fails_is_not_logged(
+    fx: Fx, me: P, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.storage import files as storage_files
+
+    f = nid(me.upload(fx.alice_root, "a.txt", b"hello"))
+
+    def broken(fileobj: Any, limit: int) -> Any:
+        fileobj.close()
+        raise OSError(5, "read error")
+        yield b""  # pragma: no cover
+
+    monkeypatch.setattr(storage_files, "read_chunks", broken)
+    with pytest.raises(OSError):
+        me.download(f)
+    monkeypatch.undo()
+    assert [e.action for e in events_of(fx, f)] == ["uploaded"]
+    assert me.download(f).content == b"hello"
+    assert [e.action for e in events_of(fx, f)] == ["uploaded", "downloaded"]

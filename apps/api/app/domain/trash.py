@@ -922,7 +922,7 @@ def purge_item(
         ctx.db.rollback()
         current = ctx.db.get(FileOperation, op.id)
         if current is not None and current.status == "planned":
-            if started and isinstance(exc, OSError):
+            if started:  # bytes may be gone (a disk error, or the database step after it)
                 _set(current, "reconcile_needed", step="delete_failed")
                 ctx.db.execute(
                     update(TrashItem)
@@ -1115,7 +1115,15 @@ def _trash_matches_plan(
     trash_fd: int, name: str, plan: list[tuple[tuple[str, ...], str, os.stat_result]]
 ) -> bool:
     """After the source went to the trash, confirm nothing changed since it was copied: same
-    inode, size and mtime for every entry (the top entry's ctime moved with the rename)."""
+    inode, size and mtime for every entry (the top entry's ctime moved with the rename), and no
+    entry added to a folder since (it would not be in the copy and would silently end up in the
+    trash)."""
+    expected: dict[tuple[str, ...], set[str]] = {}
+    for rel, kind, _ in plan:
+        if len(rel) > 1:
+            expected.setdefault(rel[:-1], set()).add(rel[-1])
+        if kind == "dir":
+            expected.setdefault(rel, set())
     for rel, kind, info in plan:
         parts = (name, *rel[1:])
         try:
@@ -1126,6 +1134,13 @@ def _trash_matches_plan(
                     os.close(parent_fd)
                     parent_fd = nxt
                 now = os.lstat(parts[-1], dir_fd=parent_fd)
+                listed: set[str] | None = None
+                if kind == "dir":
+                    child_fd = files.open_dir_child(parent_fd, parts[-1])
+                    try:
+                        listed = {n for n in os.listdir(child_fd) if not files.reserved_name(n)}
+                    finally:
+                        os.close(child_fd)
             finally:
                 os.close(parent_fd)
         except (OSError, StorageError):
@@ -1133,6 +1148,8 @@ def _trash_matches_plan(
         if now.st_ino != info.st_ino:
             return False
         if kind == "file" and (now.st_size != info.st_size or now.st_mtime_ns != info.st_mtime_ns):
+            return False
+        if listed is not None and listed != expected.get(rel, set()):
             return False
     return True
 
@@ -1247,16 +1264,31 @@ def cross_root_move(
                 raise OpError(409, "NAME_CONFLICT")
             _note(ctx, op, dst_name=chosen, step="copied")
             trash_fd = stack.enter_context(_trash_open(ctx, src_root.id, trash_id, create=True))
+            source_in_trash = False
             try:
                 _note(ctx, op, step="trashing")
                 try:
                     files.rename_noreplace(src_fd, old_name, trash_fd, old_name)
                 except files.CrossDevice as exc:
                     raise _unavailable() from exc
+                source_in_trash = True
                 if not _trash_matches_plan(trash_fd, old_name, plan):
                     files.rename_noreplace(trash_fd, old_name, src_fd, old_name)
+                    source_in_trash = False
                     raise OpError(409, "SOURCE_CHANGED")
             except BaseException:
+                if source_in_trash:
+                    # The source could not be put back (a host process took its name, say): keep
+                    # the copy too, so neither is lost, and leave it to a person.
+                    ctx.db.rollback()
+                    current = ctx.db.get(FileOperation, op.id)
+                    if current is not None:
+                        _set(current, "reconcile_needed", step="source_left_in_trash")
+                    ctx.db.execute(
+                        update(Node).where(Node.id == node.id).values(status="reconcile_needed")
+                    )
+                    ctx.db.commit()
+                    raise
                 if files.remove_created(dst_fd, copied):
                     ctx.db.rollback()
                     current = ctx.db.get(FileOperation, op.id)
@@ -1430,6 +1462,31 @@ def recover_one(ctx: OpCtx, op: FileOperation) -> str:
         _set(op, "committed", step="recovered_forward")
         return "committed"
     return _flag_node(db, op, node)
+
+
+def release_orphan_items(db: Session) -> int:
+    """A restore or purge claims its item (`busy`) before it journals the operation; a crash in
+    between leaves an item that nothing would ever release. With no operation in flight for it,
+    nothing touched its bytes: it goes back to the trash, or to `reconcile_needed` when its nodes
+    no longer say they are held by it. Called at the end of startup recovery."""
+    in_flight = {
+        str((op.detail or {}).get("trash_id"))
+        for op in db.scalars(
+            select(FileOperation).where(
+                FileOperation.status == "planned",
+                FileOperation.action.in_(("restore", "purge")),
+            )
+        )
+    }
+    released = 0
+    for item in db.scalars(select(TrashItem).where(TrashItem.status == "busy")):
+        if str(item.id) in in_flight:
+            continue
+        node = db.get(Node, item.node_id)
+        held = node is not None and node.trash_item_id == item.id and node.status == "trashed"
+        item.status = "in_trash" if held else "reconcile_needed"
+        released += 1
+    return released
 
 
 def _flag_node(db: Session, op: FileOperation, node: Node) -> str:

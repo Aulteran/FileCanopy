@@ -1188,6 +1188,9 @@ def recover_operations(sessions: "sessionmaker[Session]", settings: Settings) ->
                 _set(op, "reconcile_needed", step="recovery_error")
             counts[outcome] += 1
             db.commit()
+        from app.domain import trash  # deferred: trash builds on this module
+
+        trash.release_orphan_items(db)
         # A claim whose journal row is gone or finished (for example the release itself failed)
         # would block the node forever.
         in_flight = select(FileOperation.node_id).where(

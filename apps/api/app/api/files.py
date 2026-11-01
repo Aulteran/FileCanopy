@@ -235,9 +235,10 @@ def _logged_download(
     size: int,
     chunks: Iterator[bytes],
 ) -> Iterator[bytes]:
-    """Records the download in the file's history once the response body starts, so a refused or
-    failed request is never logged as a download (M07 plan, owner decision 2026-11-01). The
-    history write never blocks the download itself."""
+    """Records the download in the file's history once the first chunk was read, so a refused
+    request or one whose read fails at once is never logged as a download (M07 plan, owner
+    decision 2026-11-01). The history write never blocks the download itself."""
+    first = next(chunks, None)  # an error here propagates: nothing was sent, nothing is logged
     try:
         with request.app.state.auth.sessions() as session:
             events.record(
@@ -252,6 +253,8 @@ def _logged_download(
             session.commit()
     except Exception as exc:
         log.warning("download not recorded: %s", type(exc).__name__)
+    if first is not None:
+        yield first
     yield from chunks
 
 

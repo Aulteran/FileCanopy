@@ -400,3 +400,92 @@ def test_a_database_failure_in_a_cross_root_move_leaves_the_source_in_place(
     assert [o.status for o in ops] == ["rolled_back"]
     with fx.w.ctx.sessions() as db:
         assert db.scalars(select(Node).where(Node.name == "m.txt", Node.status == "active")).all()
+
+
+# ------------------------------------------------------------------ review fixes (Opus, M07a)
+
+
+def test_a_file_added_to_the_source_during_a_cross_root_move_stops_it(
+    fx: Fx, monkeypatch: Any
+) -> None:
+    """The copy cannot contain an entry made after it was taken; it must not go silently to the
+    trash with the source."""
+    me = P(fx, "alice")
+    sub = nid(me.mkdir(fx.alice_root, "Box"))
+    me.upload(sub, "a.txt", b"a")
+    real = trash._copy_for_move
+
+    def late_write(*a: Any, **k: Any) -> Any:
+        out = real(*a, **k)
+        (disk(fx, sub) / "late.txt").write_bytes(b"late")
+        return out
+
+    monkeypatch.setattr(trash, "_copy_for_move", late_write)
+    r = me.move(sub, fx.shared_sub, 1)
+    assert r.status_code == 409, r.text
+    monkeypatch.undo()
+    assert (disk(fx, sub) / "late.txt").read_bytes() == b"late"
+    assert (disk(fx, sub) / "a.txt").read_bytes() == b"a"
+    assert node_row(fx, sub).status == "active"
+    assert not (disk(fx, fx.shared_sub) / "Box").exists()  # the partial copy was removed
+    assert me.items() == []
+
+
+def test_a_source_that_cannot_be_put_back_keeps_the_copy(fx: Fx, monkeypatch: Any) -> None:
+    """The source changed after it reached the trash and its name was taken before it could go
+    back: both copies stay and the move says reconcile_needed, never a lost file."""
+    me = P(fx, "alice")
+    f = nid(me.upload(fx.alice_root, "m.txt", b"payload"))
+    real_rename = files.rename_noreplace
+    calls = {"n": 0}
+
+    def rename(*a: Any, **k: Any) -> None:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            real_rename(*a, **k)  # source into the trash
+            return
+        raise files.NameExists("taken")  # putting it back fails
+
+    monkeypatch.setattr(trash, "_trash_matches_plan", lambda *a, **k: False)
+    monkeypatch.setattr(files, "rename_noreplace", rename)
+    r = me.move(f, fx.shared_sub, 1)
+    assert r.status_code == 409, r.text
+    monkeypatch.undo()
+    assert (disk(fx, fx.shared_sub) / "m.txt").read_bytes() == b"payload"  # the copy stays
+    in_trash = list(trash_dir(fx).rglob("m.txt"))
+    assert len(in_trash) == 1 and in_trash[0].read_bytes() == b"payload"
+    assert node_row(fx, f).status == "reconcile_needed"
+    ops = [o for o in fx.w.db_rows(FileOperation) if o.action == "xmove"]
+    assert [o.status for o in ops] == ["reconcile_needed"]
+
+
+def test_a_database_failure_after_the_bytes_were_deleted_is_not_shown_as_in_trash(
+    fx: Fx, monkeypatch: Any
+) -> None:
+    me = P(fx, "alice")
+    _, item = trashed(fx)
+
+    def boom(*a: Any, **k: Any) -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(trash, "_finish_purge", boom)
+    token = me.items()[0]["confirm_token"]
+    assert me.purge(item, token).status_code == 500
+    monkeypatch.undo()
+    with fx.w.ctx.sessions() as db:
+        row = db.get(TrashItem, uuid.UUID(item))
+        assert row is not None and row.status == "reconcile_needed"
+    ops = [o for o in fx.w.db_rows(FileOperation) if o.action == "purge"]
+    assert [o.status for o in ops] == ["reconcile_needed"]
+    # a person can still finish the deletion
+    token = me.items()[0]["confirm_token"]
+    assert me.purge(item, token).status_code == 200
+
+
+def test_an_item_claimed_without_a_journal_row_is_released_at_startup(fx: Fx) -> None:
+    me = P(fx, "alice")
+    _, item = trashed(fx)
+    mark_item_busy(fx, item)  # crash between the claim and the journal row
+    recover(fx)
+    assert [i["status"] for i in me.items()] == ["in_trash"]
+    assert me.restore(item).status_code == 200
