@@ -319,8 +319,8 @@
         "e2e open/scroll/zoom",
         "CSP header test"
       ],
-      "notes": "Added 2026-11-01 at owner request. ADR-019 accepted by the owner 2026-11-01; viewer mockup shared. Runs before M08 (owner decision). Office documents follow in M10. Implemented 2026-11-01 on branch m07d-viewer (see PROJECT_STATUS.md); awaiting Opus security review and owner sign-off.",
-      "status": "in_progress"
+      "notes": "Added 2026-11-01 at owner request. ADR-019 accepted by the owner 2026-11-01; viewer mockup shared. Runs before M08 (owner decision). Office documents follow in M10. merged via PR #12 (1700762) after Opus sign-off; named follow-ups (page navigation, text selection, mockup gaps) listed in PROJECT_STATUS.md.",
+      "status": "done"
     },
     {
       "id": "M08",
