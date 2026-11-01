@@ -20,6 +20,11 @@ describe("noticeText", () => {
     const gone = noticeText({ ...base, node_id: null, node_name: null });
     expect(gone).not.toContain("Taxes");
   });
+  it("words a level change as a change, not as a new share", () => {
+    const t = noticeText({ ...base, kind: "share_changed", level: "editor" });
+    expect(t).toContain("changed");
+    expect(t).toContain("edit");
+  });
   it("says nothing about a folder after access was removed", () => {
     const t = noticeText({ ...base, kind: "unshared", node_name: null });
     expect(t).toBe("Alice stopped sharing a folder with you.");

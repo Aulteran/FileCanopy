@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
@@ -52,6 +52,9 @@ class NodeOut(BaseModel):
 
 
 class GrantOut(BaseModel):
+    # For an inherited grant: the node it is set on (above this folder) and that folder's name.
+    inherited_from_id: uuid.UUID | None = None
+    inherited_from_name: str | None = None
     node_id: uuid.UUID
     grantee_user_id: uuid.UUID
     grantee_name: str
@@ -115,9 +118,7 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
     )
     shared_with: int | None = None
     if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node):
-        shared_with = db.scalar(
-            select(func.count()).select_from(NodeGrant).where(NodeGrant.node_id == node.id)
-        )
+        shared_with = len(grants.users_with_access(db, grants.chain_ids(node)))
     return NodeOut(
         id=node.id,
         name=node.name,
@@ -143,7 +144,7 @@ def list_grants(
         .where(NodeGrant.node_id == ctx.node.id)
         .order_by(NodeGrant.created_at, User.name)
     ).all()
-    return [
+    out = [
         GrantOut(
             node_id=g.node_id,
             grantee_user_id=g.grantee_user_id,
@@ -153,6 +154,27 @@ def list_grants(
         )
         for g, name in rows
     ]
+    # Access that comes from a bigger share above this folder, read-only here.
+    inherited = grants.inherited_grants(db, ctx.node)
+    names = {
+        r.id: r.name
+        for r in db.execute(
+            select(User.id, User.name).where(User.id.in_({g.grantee_user_id for g, _ in inherited}))
+        )
+    }
+    for g, above in inherited:
+        out.append(
+            GrantOut(
+                inherited_from_id=above.id,
+                inherited_from_name=above.name,
+                node_id=g.node_id,
+                grantee_user_id=g.grantee_user_id,
+                grantee_name=names.get(g.grantee_user_id, "Someone"),
+                level=g.level,
+                created_at=g.created_at,
+            )
+        )
+    return out
 
 
 @router.put("/nodes/{node_id}/grants/{user_id}", response_model=GrantOut)

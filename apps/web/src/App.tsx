@@ -134,7 +134,7 @@ function Shell({
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(() => {
     api
-      .notifications()
+      .unreadCount()
       .then((n) => setUnread(n.unread))
       .catch(() => undefined);
   }, []);

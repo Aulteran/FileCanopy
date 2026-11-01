@@ -941,10 +941,13 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         <ShareDialog
           folderId={info.id}
           folderName={info.name}
-          subfolders={items.filter((c) => c.kind === "dir").length}
           onClose={() => setDialog(null)}
           onChanged={() => void api.node(info.id).then(setInfo)}
           onEnded={onEnded}
+          onOpenFolder={(id) => {
+            setDialog(null);
+            go(folderPath(id));
+          }}
         />
       )}
       {dialog === "folder" && (

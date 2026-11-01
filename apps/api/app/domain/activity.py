@@ -33,7 +33,6 @@ PLAIN_KEYS = (
     "recovered",
     "proposal_id",
     "purge_after",
-    "grantee_name",
     "level",
 )
 NODE_KEYS = ("copied_from", "from_node_id", "to_node_id", "from_parent_id", "to_parent_id")
@@ -98,9 +97,15 @@ def node_activity(
     rows = list(db.scalars(query.order_by(FileEvent.id.desc()).limit(limit + 1)))
     next_before = rows[limit - 1].id if len(rows) > limit else None
     rows = rows[:limit]
+    grantee_ids = {
+        uuid.UUID(r.details["grantee_id"])
+        for r in rows
+        if r.action in SHARE_ACTIONS and isinstance(r.details, dict) and "grantee_id" in r.details
+    }
     people = _names(
         db,
-        {uid for r in rows for uid in (r.actor_user_id, r.on_behalf_of_user_id) if uid is not None},
+        {uid for r in rows for uid in (r.actor_user_id, r.on_behalf_of_user_id) if uid is not None}
+        | grantee_ids,
     )
     actor = Actor(actor_id)
     seen: dict[str, bool] = {}
@@ -110,6 +115,8 @@ def node_activity(
             continue  # who else has access is for whoever manages the sharing, not for readers
         raw: dict[str, Any] = r.details if isinstance(r.details, dict) else {}
         details = {k: raw[k] for k in PLAIN_KEYS if k in raw}
+        if r.action in SHARE_ACTIONS and "grantee_id" in raw:  # names are read, never stored
+            details["grantee_name"] = people.get(uuid.UUID(raw["grantee_id"]), "Someone")
         for k in NODE_KEYS:
             if k in raw and _can_see_node(db, actor, raw[k], seen):
                 details[k] = raw[k]

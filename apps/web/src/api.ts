@@ -51,6 +51,9 @@ export type NodeInfo = {
   shared_with: number | null;
 };
 export type Grant = {
+  // Set when the access comes from a bigger share above this folder.
+  inherited_from_id: string | null;
+  inherited_from_name: string | null;
   node_id: string;
   grantee_user_id: string;
   grantee_name: string;
@@ -60,7 +63,7 @@ export type Grant = {
 export type Person = { id: string; name: string; hint: string | null };
 export type Notice = {
   id: string;
-  kind: "shared" | "unshared" | "share_left";
+  kind: "shared" | "share_changed" | "unshared" | "share_left";
   at: string;
   read: boolean;
   actor_name: string | null;
@@ -68,6 +71,8 @@ export type Notice = {
   node_name: string | null;
   level: "viewer" | "editor" | null;
 };
+export type ImpactSide = { count: number; names: string[]; hidden: boolean };
+export type Impact = { gain: ImpactSide; lose: ImpactSide };
 export type Notices = { unread: number; items: Notice[] };
 export type Child = {
   id: string;
@@ -465,6 +470,13 @@ export const api = {
   leaveShare: (id: string) =>
     call<{ status: string }>("DELETE", `/api/v1/nodes/${enc(id)}/grants-mine`),
   people: (q: string) => call<Person[]>("GET", `/api/v1/people?q=${enc(q)}`),
+  moveImpact: (id: string, target: string, copy: boolean) =>
+    call<Impact>(
+      "GET",
+      `/api/v1/nodes/${enc(id)}/move-impact?target=${enc(target)}${copy ? "&copy=true" : ""}`,
+    ),
+  unreadCount: () =>
+    call<{ unread: number }>("GET", "/api/v1/notifications/unread"),
   notifications: () => call<Notices>("GET", "/api/v1/notifications"),
   markNoticesRead: () =>
     call<{ status: string }>("POST", "/api/v1/notifications/read"),

@@ -13,8 +13,9 @@ from app.auth import clock
 from app.auth.deps import Principal, get_db, http_error
 from app.auth.schemas import Ok
 from app.db.models import HIDDEN_NODE_STATUSES, Node, Notification, User
+from app.domain import grants
 from app.policy import engine
-from app.policy.deps import actor_access
+from app.policy.deps import NodeContext, actor_access, write_access
 from app.policy.model import Actor, Privilege
 
 router = APIRouter(prefix="/api/v1", tags=["sharing"])
@@ -45,6 +46,10 @@ class NotificationOut(BaseModel):
     level: str | None
 
 
+class UnreadOut(BaseModel):
+    unread: int
+
+
 class NotificationsOut(BaseModel):
     unread: int
     items: list[NotificationOut]
@@ -57,7 +62,7 @@ def find_people(
     q: str = Query(default="", max_length=100),
 ) -> list[PersonOut]:
     """Active accounts other than the caller, by display name: id and name only."""
-    query = select(User.id, User.name, User.email).where(
+    query = select(User.id, User.name, User.email, func.lower(User.name).label("key")).where(
         User.status == "active", User.id != principal.user.id
     )
     term = q.strip()
@@ -68,7 +73,7 @@ def find_people(
         str(name): int(n)
         for name, n in db.execute(
             select(func.lower(User.name), func.count())
-            .where(User.status == "active")
+            .where(User.status == "active", User.id != principal.user.id)
             .group_by(func.lower(User.name))
         ).all()
     }
@@ -76,7 +81,7 @@ def find_people(
         PersonOut(
             id=r.id,
             name=r.name,
-            hint=_mask(r.email) if counts.get(r.name.lower(), 0) > 1 else None,
+            hint=_mask(r.email) if counts.get(str(r.key), 0) > 1 else None,
         )
         for r in rows
     ]
@@ -160,3 +165,59 @@ def mark_read(
         row.read_at = clock.utcnow()
         db.commit()
     return Ok()
+
+
+@router.get("/notifications/unread", response_model=UnreadOut)
+def unread_count(
+    principal: Principal = Depends(actor_access), db: Session = Depends(get_db)
+) -> UnreadOut:
+    n = db.scalar(
+        select(func.count())
+        .select_from(Notification)
+        .where(Notification.recipient_user_id == principal.user.id, Notification.read_at.is_(None))
+    )
+    return UnreadOut(unread=n or 0)
+
+
+class ImpactSide(BaseModel):
+    # Names only for whoever manages the sharing of that folder; otherwise just whether anyone is
+    # affected (`hidden`), so the warning is shown without revealing who has access.
+    count: int
+    names: list[str]
+    hidden: bool
+
+
+class ImpactOut(BaseModel):
+    gain: ImpactSide
+    lose: ImpactSide
+
+
+def _side(db: Session, ids: set[uuid.UUID], *, may_name: bool) -> ImpactSide:
+    if not ids:
+        return ImpactSide(count=0, names=[], hidden=False)
+    if not may_name:
+        return ImpactSide(count=len(ids), names=[], hidden=True)
+    names = sorted(db.scalars(select(User.name).where(User.id.in_(ids), User.status == "active")))
+    return ImpactSide(count=len(ids), names=names[:10], hidden=False)
+
+
+@router.get("/nodes/{node_id}/move-impact", response_model=ImpactOut)
+def move_impact(
+    target: uuid.UUID,
+    copy: bool = False,
+    ctx: NodeContext = Depends(write_access),
+    db: Session = Depends(get_db),
+) -> ImpactOut:
+    """Who would gain or lose access if this item were moved (or copied) into `target`. Needs write
+    on the item and on the destination, like the move itself."""
+    actor = Actor(ctx.principal.user.id)
+    dest = db.get(Node, target)
+    if dest is None or Privilege.WRITE not in engine.effective(db, actor, dest):
+        raise http_error(403, "FORBIDDEN")
+    gain, lose = grants.move_impact(db, ctx.node, dest, copy=copy)
+    gain.discard(actor.user_id)
+    lose.discard(actor.user_id)
+    return ImpactOut(
+        gain=_side(db, gain, may_name=engine.can_administer_grants(db, actor, dest)),
+        lose=_side(db, lose, may_name=engine.can_administer_grants(db, actor, ctx.node)),
+    )

@@ -15,17 +15,17 @@ function errorOf(err: unknown, onEnded: () => void): string {
 export function ShareDialog({
   folderId,
   folderName,
-  subfolders,
   onClose,
   onChanged,
   onEnded,
+  onOpenFolder,
 }: {
   folderId: string;
   folderName: string;
-  subfolders: number;
   onClose: () => void;
   onChanged: () => void;
   onEnded: () => void;
+  onOpenFolder: (id: string) => void;
 }) {
   const [grants, setGrants] = useState<Grant[] | null>(null);
   const [error, setError] = useState("");
@@ -150,48 +150,68 @@ export function ShareDialog({
         <p className="hint">Not shared with anyone yet.</p>
       ) : (
         <ul aria-label="People with access" className="people">
-          {grants.map((g) => (
-            <li key={g.grantee_user_id}>
-              <span>{g.grantee_name}</span>
-              <select
-                aria-label={`${g.grantee_name} can`}
-                value={g.level}
-                disabled={busy}
-                onChange={(e) =>
-                  void run(() =>
-                    api.putGrant(
-                      folderId,
-                      g.grantee_user_id,
-                      e.target.value as Level,
-                    ),
-                  )
-                }
-              >
-                <option value="viewer">View</option>
-                <option value="editor">Edit</option>
-              </select>
-              <button
-                type="button"
-                disabled={busy}
-                aria-label={`Remove ${g.grantee_name}`}
-                onClick={() =>
-                  void run(() => api.deleteGrant(folderId, g.grantee_user_id))
-                }
-              >
-                Remove
-              </button>
-            </li>
-          ))}
+          {grants
+            .filter((g) => g.inherited_from_id)
+            .map((g) => (
+              <li key={`in-${g.grantee_user_id}-${g.inherited_from_id}`}>
+                <span>
+                  {g.grantee_name}{" "}
+                  <span className="hint">
+                    can {g.level === "editor" ? "edit" : "view"}, through{" "}
+                    <a
+                      href={`/f/${g.inherited_from_id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onOpenFolder(g.inherited_from_id!);
+                      }}
+                    >
+                      {g.inherited_from_name}
+                    </a>
+                  </span>
+                </span>
+              </li>
+            ))}
+          {grants
+            .filter((g) => !g.inherited_from_id)
+            .map((g) => (
+              <li key={g.grantee_user_id}>
+                <span>{g.grantee_name}</span>
+                <select
+                  aria-label={`${g.grantee_name} can`}
+                  value={g.level}
+                  disabled={busy}
+                  onChange={(e) =>
+                    void run(() =>
+                      api.putGrant(
+                        folderId,
+                        g.grantee_user_id,
+                        e.target.value as Level,
+                      ),
+                    )
+                  }
+                >
+                  <option value="viewer">View</option>
+                  <option value="editor">Edit</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Remove ${g.grantee_name}`}
+                  onClick={() =>
+                    void run(() => api.deleteGrant(folderId, g.grantee_user_id))
+                  }
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
         </ul>
       )}
       <div className="banner">
         <strong>Everything inside is shared too</strong>
         <p>
-          Sharing {folderName}
-          {subfolders > 0
-            ? ` also shares its ${subfolders} subfolder${subfolders === 1 ? "" : "s"}`
-            : " also shares what is inside it"}
-          . People only see what you share, not the folders around it.
+          Sharing {folderName} also shares its subfolders and everything in
+          them. People only see what you share, not the folders around it.
         </p>
       </div>
       <p role="alert" className="error">
@@ -213,6 +233,10 @@ export function noticeText(n: Notice): string {
     return n.node_name
       ? `${who} shared the folder ${n.node_name} with you. You can ${can} it.`
       : `${who} shared a folder with you. You can no longer open it.`;
+  if (n.kind === "share_changed")
+    return n.node_name
+      ? `${who} changed what you can do in ${n.node_name}: you can now ${can} it.`
+      : `${who} changed your access to a folder.`;
   if (n.kind === "unshared") return `${who} stopped sharing a folder with you.`;
   return n.node_name
     ? `${who} stopped using your shared folder ${n.node_name}.`

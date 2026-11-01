@@ -1,13 +1,13 @@
 # M08 — Sharing and personal-folder isolation: design and acceptance plan
 
-- **Status:** implemented 2026-11-01 on `m08-sharing`; awaiting Opus review and merge.
+- **Status:** implemented 2026-11-01 on `m08-sharing`; Opus review fixes applied; awaiting Opus re-check and merge.
 - **Depends on:** M07, M07c, M07d (done). **Decision record:** ADR-004 (grants, admin separation) is unchanged; this milestone adds the owner-facing parts on top of it.
 
 ## What already existed (M03)
 
 Grants on folders (viewer, editor), the central policy, `Shared with me` entry points, admin separation and the grant API. What was missing: any screen, any record of sharing in the folder history, any notice to the person concerned.
 
-## Decisions (taken as recommended; the owner can overrule)
+## Decisions (accepted by the owner 2026-11-01)
 
 - No expiry on shares; revoke by hand.
 - No passwords and no public links (the spec rules out anonymous links).
@@ -23,6 +23,9 @@ Grants on folders (viewer, editor), the central policy, `Shared with me` entry p
 - **Leave a share** `DELETE /nodes/{id}/grants-mine`: for a direct grant in someone else's personal area; refused for one's own folders and the shared tree.
 - `NodeOut.shared_with`: the number of people a folder is shared with, only for those who may manage its sharing.
 - `policy.engine.filter_visible`: any list of node references (collections, search hits, saved links) is cut to what the reader may already see.
+- **Inherited access**: for the person who manages a folder's sharing, `GET /nodes/{id}/grants` also lists grants on folders above it, marked with the folder they come from; the dialog shows them read-only ("can view, through Taxes") and `Share (n)` counts them.
+- **Move and copy impact** `GET /nodes/{id}/move-impact?target=&copy=`: who would start or stop being able to open the item. Names only for whoever manages the sharing of that folder; others only learn that people are affected. The move/copy dialog shows it and asks for a tick before going on.
+- Share history resolves the person's name when read (only the id is stored); notices are capped at 200 per person; a level change has its own notice wording; unread count has a light endpoint.
 - **Web**: Share dialog (add people, View or Edit, change, remove, inheritance note), `Share (n)` button, `Stop using this share`, Notifications page with an unread count, share events in the activity timeline.
 
 ## Tests
@@ -31,6 +34,8 @@ Grants on folders (viewer, editor), the central policy, `Shared with me` entry p
 
 ## Not built (follow-ups)
 
-- A confirmation naming who gains access when a folder is moved into a shared folder inside the same personal area (cross-area moves already disclose).
+- Notice to grantees when a shared folder is trashed, moved to another area or dismissed as missing (their access ends silently today; a restore from the Trash gives it back).
+- Share dialog differences from the mockup: no owner row, changes save at once with a single Done (no Cancel / Save sharing), a `Share (n)` button instead of the "Shared with n" badge.
+- Names in the people picker are not unique: a masked email hint appears only for duplicates.
 - Email notifications (SMTP is M12).
 - The approved visual design of the Share dialog (a later design milestone); the current screens use the existing plain styling.
