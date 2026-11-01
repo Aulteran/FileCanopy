@@ -70,3 +70,9 @@ Not in scope: automatic account creation at first OIDC login, group/role mapping
 | Dependencies and config | unit: invalid SMTP/OIDC settings refuse to start (missing public URL, plain `none` to a remote host, `http` issuer) |
 
 Browser end-to-end of the provider round trip needs a real provider container and is a follow-up; the UI parts that do not need one are covered by the existing e2e suite and unit tests.
+
+## Review round 1 (Opus) and what changed
+
+- **B1 (fixed):** starts are now counted and committed before the provider is contacted, so a dead provider can no longer be used for unlimited starts; a failed discovery or key fetch is remembered for 30 s so a blackholed provider does not hold a worker per request. Tests: the 41st start gets 429 with the provider down; five starts cost one provider call.
+- **O1, O3 (fixed):** a successful sign-in clears the start count; accepting an invitation through the provider revokes a session the browser already presents.
+- **Follow-ups (not done):** O2 null the secrets on consumed `oidc_login` rows; O4 a forgot-password request replaces an unused administrator-issued manual reset link; O5 forgot-password timing is not fully uniform; O6 accept an ID token without `kid` when the key set has one key, and fall back to userinfo when `email_verified` is missing; O7 test that STARTTLS is negotiated; O8 `code`/`state` in access logs (short-lived, single use); O9 two sign-in tabs overwrite the binding cookie.

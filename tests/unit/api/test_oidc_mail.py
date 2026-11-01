@@ -971,3 +971,34 @@ def test_oidc_failures_are_audited_without_secrets(
     assert "oidc.failed" in text
     for secret in ("sub-secret-subject", "admin@example.com", SECRET, idp.last_state):
         assert secret not in text
+
+
+def test_starts_are_throttled_even_when_the_provider_is_down(
+    make_world: Callable[..., World], idp: Idp
+) -> None:
+    w = oidc_world(make_world, idp)
+    idp.down = True
+    c = w.browser()
+    codes = [c.post("/api/v1/auth/oidc/login/start", json={}).status_code for _ in range(42)]
+    assert codes[:40] == [503] * 40
+    assert codes[40] == 429 and codes[41] == 429
+
+
+def test_a_dead_provider_is_not_contacted_on_every_request(
+    make_world: Callable[..., World], idp: Idp
+) -> None:
+    w = oidc_world(make_world, idp)
+    calls = {"n": 0}
+    real = idp.handler
+
+    def counting(req: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return real(req)
+
+    w.ctx.oidc = OidcProvider(
+        w.settings, lambda: httpx.Client(transport=httpx.MockTransport(counting))
+    )
+    idp.down = True
+    for _ in range(5):
+        assert w.browser().post("/api/v1/auth/oidc/login/start", json={}).status_code == 503
+    assert calls["n"] == 1  # the failure is remembered for a short while

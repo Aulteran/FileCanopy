@@ -24,6 +24,7 @@ from app.config import Settings
 ALLOWED_ALGS = ("RS256", "PS256", "ES256")  # asymmetric only: never "none", never HS*
 MAX_BODY = 1024 * 1024
 DISCOVERY_TTL = 3600.0
+FAILURE_BACKOFF = 30.0  # after a failed discovery or key fetch, fail fast for this long
 JWKS_TTL = 3600.0
 JWKS_MIN_REFRESH = 60.0
 LEEWAY_SECONDS = 60
@@ -75,6 +76,7 @@ class OidcProvider:
         self._discovery: _Discovery | None = None
         self._jwks: tuple[float, dict[str, Any]] | None = None
         self._jwks_last_try = 0.0
+        self._down_until = 0.0
 
     # --------------------------------------------------------------- http
 
@@ -129,6 +131,16 @@ class OidcProvider:
             d = self._discovery
             if d is not None and time.monotonic() - d.fetched < DISCOVERY_TTL:
                 return d
+            if time.monotonic() < self._down_until:
+                raise OidcError("OIDC_UNAVAILABLE")  # a dead provider must not tie up workers
+        try:
+            return self._fetch_discovery()
+        except OidcError:
+            with self._lock:
+                self._down_until = time.monotonic() + FAILURE_BACKOFF
+            raise
+
+    def _fetch_discovery(self) -> _Discovery:
         issuer = self._s.oidc_issuer
         doc = self._request("GET", issuer.rstrip("/") + "/.well-known/openid-configuration")
         if doc.get("issuer") != issuer:
@@ -173,7 +185,12 @@ class OidcProvider:
             if force and time.monotonic() - self._jwks_last_try < JWKS_MIN_REFRESH:
                 return cached[1] if cached else {}
             self._jwks_last_try = time.monotonic()
-        doc = self._request("GET", self._discover().jwks_uri)
+        try:
+            doc = self._request("GET", self._discover().jwks_uri)
+        except OidcError:
+            with self._lock:
+                self._down_until = time.monotonic() + FAILURE_BACKOFF
+            raise
         keys = doc.get("keys")
         if not isinstance(keys, list):
             raise OidcError("OIDC_UNAVAILABLE")

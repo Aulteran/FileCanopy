@@ -138,6 +138,7 @@ def _throttled_start(request: Request, db: Session) -> None:
         db.commit()
         raise _blocked(retry)
     ctx.throttle.record_failure(db, keys)  # every start counts: starting is not free for us
+    db.commit()  # kept even if the provider is down and the start is rolled back
 
 
 def _provider_call(db: Session, fn: Any, *args: Any) -> Any:
@@ -345,7 +346,7 @@ def callback(
             raise OidcError("OIDC_STATE_INVALID")
     except OidcError as exc:
         return _fail(request, db, exc.code, row)
-    ctx.throttle.clear(db, keys)
+    ctx.throttle.clear(db, keys + ctx.throttle.ip_keys("oidc-start", client_ip(request)))
     db.commit()
     return _redirect(request, outcome, token)
 
@@ -417,6 +418,8 @@ def _finish_invite(
     if row.new_name:
         user.name = row.new_name
     drop_unused_tokens(db, user.id)
+    if old := presented_session_hash(request):
+        revoke_session_by_hash(db, old)
     token, _ = create_session(
         db, user, ctx.settings.session_absolute_seconds, request.headers.get("user-agent")
     )
