@@ -69,7 +69,7 @@ class Member:
 
 
 def test_trash_restore_and_delete_forever_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0010"
+    assert stack.sql("select version_num from alembic_version") == "0011"
     m = Member(stack, "tina")
     docs = m.folder("Docs")
     data = os.urandom(300_000)
