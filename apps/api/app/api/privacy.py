@@ -4,8 +4,7 @@ The unlock verifies the account password on the server with the same throttle as
 here trusts a value from the browser about whether a folder is unlocked.
 """
 
-import uuid
-from datetime import datetime
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
@@ -24,20 +23,22 @@ from app.auth.deps import (
 )
 from app.auth.schemas import Ok
 from app.auth.service import audit
-from app.db.models import AppSetting, ConfidentialUnlock, Node, StorageRoot
+from app.db.models import AppSetting, AuthAudit, ConfidentialUnlock, Node
 from app.domain import events
-from app.policy import engine, privacy
+from app.policy import privacy
 from app.policy.deps import (
     NodeContext,
     admin_access,
     grant_admin_access,
-    traverse_access,
+    unlock_access,
 )
 from app.policy.model import Actor
 
 router = APIRouter(prefix="/api/v1", tags=["privacy"])
 
 SETTING_KEY = "privacy.labels_enabled"
+MAX_UNLOCK_FAILURES = 5
+FAILURE_WINDOW = timedelta(minutes=10)
 
 
 def labels_enabled(db: Session) -> bool:
@@ -113,6 +114,28 @@ def _verify_password(request: Request, db: Session, principal: Principal, passwo
     if not ctx.passwords.verify(user.password_hash, password):
         ctx.throttle.record_failure(db, keys)
         audit(db, "privacy.unlock_failed", actor=user.id, target=user.id, ip=ip)
+        db.flush()
+        recent = db.scalar(
+            select(func.count())
+            .select_from(AuthAudit)
+            .where(
+                AuthAudit.action == "privacy.unlock_failed",
+                AuthAudit.actor_user_id == user.id,
+                AuthAudit.at >= clock.utcnow() - FAILURE_WINDOW,
+            )
+        )
+        if (recent or 0) >= MAX_UNLOCK_FAILURES:
+            # Someone is guessing the password from a logged-in session: end it. The message
+            # says so, so the owner does not mistake it for a bug.
+            principal.session.revoked_at = clock.utcnow()
+            db.execute(
+                delete(ConfidentialUnlock).where(
+                    ConfidentialUnlock.session_id == principal.session.id
+                )
+            )
+            audit(db, "privacy.session_ended", actor=user.id, target=user.id, ip=ip)
+            db.commit()
+            raise http_error(401, "SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES")
         db.commit()
         raise http_error(403, "INVALID_CREDENTIALS")
     ctx.throttle.clear(db, keys[:1])
@@ -120,7 +143,7 @@ def _verify_password(request: Request, db: Session, principal: Principal, passwo
 
 @router.get("/nodes/{node_id}/privacy", response_model=PrivacyOut)
 def get_privacy(
-    ctx: NodeContext = Depends(traverse_access), db: Session = Depends(get_db)
+    ctx: NodeContext = Depends(unlock_access), db: Session = Depends(get_db)
 ) -> PrivacyOut:
     return describe(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), ctx.node)
 
@@ -129,7 +152,7 @@ def get_privacy(
 def unlock(
     body: UnlockBody,
     request: Request,
-    ctx: NodeContext = Depends(traverse_access),
+    ctx: NodeContext = Depends(unlock_access),
     db: Session = Depends(get_db),
 ) -> PrivacyOut:
     """Unlocks the outermost Confidential folder at or above this node for this login session."""
@@ -166,7 +189,7 @@ def unlock(
 @router.post("/nodes/{node_id}/lock", response_model=PrivacyOut)
 def lock(
     request: Request,
-    ctx: NodeContext = Depends(traverse_access),
+    ctx: NodeContext = Depends(unlock_access),
     db: Session = Depends(get_db),
 ) -> PrivacyOut:
     principal, node = ctx.principal, ctx.node
@@ -178,7 +201,9 @@ def lock(
                 ConfidentialUnlock.scope_node_id == scope,
             )
         )
-        audit(db, "privacy.lock", actor=principal.user.id, ip=client_ip(request), node_id=str(scope))
+        audit(
+            db, "privacy.lock", actor=principal.user.id, ip=client_ip(request), node_id=str(scope)
+        )
         db.commit()
     return describe(db, Actor(principal.user.id, session_id=principal.session.id), node)
 

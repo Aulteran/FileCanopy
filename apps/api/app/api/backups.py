@@ -39,6 +39,7 @@ from app.backup.volume import backups_root, folder_usage, inspect_volume
 from app.config import Settings
 from app.db.models import AuthAudit, BackupRun, Node, StorageRoot
 from app.domain.nodes import root_node
+from app.policy import privacy
 from app.policy.deps import NodeContext, grant_admin_access
 from app.storage.service import ReconcilerService
 
@@ -51,6 +52,7 @@ RESTORE_STATUS = {
     "BACKUP_ARCHIVE_DAMAGED": 409,
     "BACKUP_CHAIN_INCOMPLETE": 409,
     "ROOT_NOT_ACTIVE": 409,
+    "LOCKED": 403,
     "RESTORE_NO_SPACE": 409,
     "RESTORE_FAILED": 500,
 }
@@ -493,7 +495,14 @@ def restore_backup(
     try:
         try:
             result = restore_mod.restore(
-                db, settings, root=root, run_id=body.run_id, recovery_key=body.recovery_key
+                db,
+                settings,
+                root=root,
+                run_id=body.run_id,
+                recovery_key=body.recovery_key,
+                unlocked=not privacy.locked_scopes_in(
+                    db, actor, ctx.principal.session.id, root_node(db, root.id)
+                ),
             )
         except restore_mod.RestoreError as exc:
             audit(

@@ -83,7 +83,9 @@ def list_roots(
         setup_open = (
             node.parent_id is None
             and root.setup_state == "open"
-            and engine.can_administer_grants(db, Actor(principal.user.id, session_id=principal.session.id), node)
+            and engine.can_administer_grants(
+                db, Actor(principal.user.id, session_id=principal.session.id), node
+            )
         )
         if root.kind == "personal" and root.owner_user_id == principal.user.id:
             out.append(
@@ -113,15 +115,21 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
     parent_id: uuid.UUID | None = None
     if node.parent_id is not None:  # a parent the actor cannot see is never revealed
         parent = db.get(Node, node.parent_id)
-        if Privilege.TRAVERSE in engine.effective(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), parent):
+        if Privilege.TRAVERSE in engine.effective(
+            db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), parent
+        ):
             parent_id = node.parent_id
     manage = (
         node.parent_id is None
         and root is not None
-        and engine.can_administer_grants(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node)
+        and engine.can_administer_grants(
+            db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node
+        )
     )
     shared_with: int | None = None
-    if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node):
+    if node.kind == "dir" and engine.can_administer_grants(
+        db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node
+    ):
         shared_with = len(grants.users_with_access(db, grants.chain_ids(node)))
     scope = privacy.confidential_scope(db, node)
     locked = scope is not None and (
@@ -209,6 +217,8 @@ def put_grant(
         raise http_error(422, "NOT_A_DIRECTORY")
     if root is not None and root.kind == "personal" and grantee.id == me.id:
         raise http_error(422, "CANNOT_GRANT_SELF")
+    if privacy.locked_scopes_in(db, me.id, ctx.principal.session.id, node):
+        raise http_error(403, "LOCKED")  # sharing would let another account unlock it (M09)
     grant = grants.set_grant(db, node, grantee.id, body.level, me.id, client_ip(request))
     db.commit()
     return GrantOut(

@@ -491,7 +491,13 @@ def undo_import(
     from app.api.trash import undo_out
     from app.domain import undo as undo_domain
 
-    ctx = OpCtx(db, request.app.state.auth.settings, principal.user.id, client_ip(request), session_id=principal.session.id)
+    ctx = OpCtx(
+        db,
+        request.app.state.auth.settings,
+        principal.user.id,
+        client_ip(request),
+        session_id=principal.session.id,
+    )
     try:
         result = undo_domain.undo_import(ctx, batch, idempotency_key)
     except undo_domain.UndoConflict as conflict:

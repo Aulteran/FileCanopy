@@ -104,3 +104,67 @@ def ai_route_allowed(
     if label == "confidential" and not unlocked_by_person:
         return AiRoute(False, "unlock_required")
     return AiRoute(True, "local_opt_in")
+
+
+def locked_scopes_in(
+    db: Session,
+    user_id: uuid.UUID,
+    session_id: uuid.UUID | None,
+    node: Node,
+    *,
+    kind: str = "user",
+) -> list[uuid.UUID]:
+    """Confidential scopes at or below `node` (and the one around it) that this session has not
+    unlocked. Subtree-wide actions (share, move, copy, purge, restore) must find this empty:
+    reading or changing a folder must never expose a locked folder inside it (M09, B1/B2).
+    Trashed and purged descendants count, so a trashed folder keeps its protection."""
+    scopes: set[uuid.UUID] = set()
+    if (outer := confidential_scope(db, node)) is not None:
+        scopes.add(outer)
+    inner = db.scalars(
+        select(Node).where(
+            Node.lineage.startswith(node.lineage, autoescape=True),
+            Node.id != node.id,
+            Node.privacy_label == "confidential",
+        )
+    )
+    for d in inner:
+        if (s := confidential_scope(db, d)) is not None:
+            scopes.add(s)
+    if kind != "user":
+        return sorted(scopes)
+    return sorted(s for s in scopes if live_unlock(db, user_id, session_id, s) is None)
+
+
+def carried_label(db: Session, src: Node, new_parent: Node) -> str | None:
+    """The own label a folder must take along when it moves or is copied from a more protected
+    place to a weaker one, so that moving never downgrades. None when nothing needs carrying.
+    A file cannot carry a label: it is refused (PRIVACY_DOWNGRADE) and the person lowers the
+    label or moves the folder instead."""
+    src_eff, dst_eff = effective_label(db, src), effective_label(db, new_parent)
+    if RANK[src_eff] <= RANK[dst_eff]:
+        return None
+    if src.kind != "dir":
+        raise ValueError("PRIVACY_DOWNGRADE")
+    return src_eff if RANK[src_eff] > RANK[src.privacy_label] else None
+
+
+def labels_below(db: Session, src: Node) -> dict[tuple[str, ...], str]:
+    """Own labels of labeled folders under `src`, keyed by their path relative to `src`."""
+    rows = db.execute(
+        select(Node.id, Node.parent_id, Node.name, Node.privacy_label).where(
+            Node.lineage.startswith(src.lineage, autoescape=True), Node.status == "active"
+        )
+    ).all()
+    by_id = {r.id: r for r in rows}
+    out: dict[tuple[str, ...], str] = {}
+    for r in rows:
+        if r.privacy_label == "normal" or r.id == src.id:
+            continue
+        parts: list[str] = []
+        cur = r
+        while cur.id != src.id:
+            parts.append(cur.name)
+            cur = by_id[cur.parent_id]
+        out[tuple(reversed(parts))] = r.privacy_label
+    return out

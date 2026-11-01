@@ -66,8 +66,11 @@ from app.domain.fileops import (
     _usable,
     serialize_tree_changes,
 )
+from app.domain.fileops import (
+    _unlocked_subtree as fileops_unlocked,
+)
 from app.domain.nodes import path_components
-from app.policy import engine
+from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
 from app.storage import files
 from app.storage.names import name_key
@@ -227,7 +230,9 @@ def item_visible(
     if root is None:
         return False
     parent = db.get(Node, item.original_parent_id)
-    privileges = engine.effective(db, Actor(actor_id, session_id=session_id), parent, include_hidden=True)
+    privileges = engine.effective(
+        db, Actor(actor_id, session_id=session_id), parent, include_hidden=True
+    )
     if not privileges:
         return False
     if root.kind == "personal" and root.owner_user_id == actor_id:
@@ -436,7 +441,9 @@ def trash(
         existing is not None
         and existing.status in HIDDEN_NODE_STATUSES
         and Privilege.WRITE
-        in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), existing, include_hidden=True)
+        in engine.effective(
+            ctx.db, Actor(ctx.actor, session_id=ctx.session_id), existing, include_hidden=True
+        )
     ):
         raise OpError(409, "ALREADY_TRASHED")
     node = _need(ctx, node_id, Privilege.WRITE)
@@ -660,6 +667,7 @@ def restore(
     node = ctx.db.get(Node, item.node_id)
     if node is None or node.status != "trashed" or node.trash_item_id != item.id:
         raise OpError(409, "TRASH_ITEM_UNAVAILABLE")
+    fileops_unlocked(ctx, node)
     dest_id = target_parent_id or item.original_parent_id
     dest = ctx.db.get(Node, dest_id)
     if dest is None or dest.status in HIDDEN_NODE_STATUSES:
@@ -796,6 +804,10 @@ def _apply_restore(ctx: OpCtx, node: Node, target: Node, new_name: str, item_id:
     below it are rewritten (an earlier-trashed nested item stays trashed but keeps a valid
     lineage), and the nodes this item held become active again."""
     db = ctx.db
+    try:  # restoring somewhere weaker must not drop the protection the item had
+        carry = privacy.carried_label(db, node, target)
+    except ValueError as exc:
+        raise OpError(409, "PRIVACY_DOWNGRADE") from exc
     old_lineage = node.lineage
     new_lineage = f"{target.lineage}{node.id}/"
     db.execute(
@@ -822,6 +834,7 @@ def _apply_restore(ctx: OpCtx, node: Node, target: Node, new_name: str, item_id:
             trash_item_id=None,
             revision=Node.revision + 1,
             updated_at=clock.utcnow(),
+            **({"privacy_label": carry} if carry else {}),
         )
         .execution_options(synchronize_session=False)
     )
@@ -884,6 +897,12 @@ def purge_item(
     readable). Authorization and confirmation are the caller's job. An item that is not simply
     `in_trash` is purged only by a person (`system=False`)."""
     allowed = ("in_trash",) if system else ("in_trash", "reconcile_needed")
+    if (
+        not system
+    ):  # retention expiry is the system's; a person destroying Confidential data unlocks
+        held = ctx.db.get(Node, item.node_id)
+        if held is not None:
+            fileops_unlocked(ctx, held)
     prior = _claim_item(ctx, item.id, allowed)
     entries, size, root_id, node_id, item_id = (
         item.entry_count,
@@ -1013,6 +1032,10 @@ def empty_root_trash(ctx: OpCtx, root_node: Node, *, confirm: str | None) -> dic
             )
         )
     )
+    for it in items:
+        held = ctx.db.get(Node, it.node_id)
+        if held is not None:
+            fileops_unlocked(ctx, held)
     if confirm != empty_token(root_node.root_id, items):
         raise OpError(409, "CONFIRMATION_REQUIRED")
     purged = failed = 0

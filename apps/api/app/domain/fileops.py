@@ -29,7 +29,7 @@ from app.config import Settings
 from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, Node, StorageRoot
 from app.domain import events, setup
 from app.domain.nodes import path_components
-from app.policy import engine
+from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
 from app.storage import files, viewable
 from app.storage.identity import fingerprint
@@ -97,7 +97,9 @@ class Outcome:
 
 def _need(ctx: OpCtx, target: uuid.UUID | Node, privilege: Privilege) -> Node:
     node = ctx.db.get(Node, target) if isinstance(target, uuid.UUID) else target
-    if node is None or privilege not in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node):
+    if node is None or privilege not in engine.effective(
+        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+    ):
         node_id = target if isinstance(target, uuid.UUID) else target.id
         audit(
             ctx.db,
@@ -110,6 +112,27 @@ def _need(ctx: OpCtx, target: uuid.UUID | Node, privilege: Privilege) -> Node:
         ctx.db.commit()
         raise OpError(403, "FORBIDDEN")
     return node
+
+
+def _unlocked_subtree(ctx: OpCtx, node: Node) -> None:
+    """Refuses an action on a folder that holds a locked Confidential folder (M09)."""
+    if privacy.locked_scopes_in(
+        ctx.db,
+        ctx.actor,
+        ctx.session_id if ctx.actor_kind == "user" else None,
+        node,
+        kind=ctx.actor_kind,
+    ):
+        audit(ctx.db, "privacy.locked_denied", actor=ctx.actor, ip=ctx.ip, node_id=str(node.id))
+        ctx.db.commit()
+        raise OpError(403, "LOCKED")
+
+
+def _carry(ctx: OpCtx, src: Node, new_parent: Node) -> str | None:
+    try:
+        return privacy.carried_label(ctx.db, src, new_parent)
+    except ValueError as exc:
+        raise OpError(409, "PRIVACY_DOWNGRADE") from exc
 
 
 def _usable(node: Node, *, kind: str | None = None) -> None:
@@ -539,7 +562,9 @@ def _replayed(ctx: OpCtx, op: FileOperation) -> Outcome:
     node = ctx.db.get(Node, op.node_id) if op.node_id else None
     if node is None:
         raise OpError(409, "OPERATION_IN_PROGRESS")
-    if Privilege.TRAVERSE not in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node):
+    if Privilege.TRAVERSE not in engine.effective(
+        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+    ):
         raise OpError(403, "FORBIDDEN")  # the result moved somewhere this actor cannot see
     return Outcome(node, op, replay=True)
 
@@ -747,6 +772,8 @@ def relocate(
     )
     if new_parent.kind != "dir":
         raise OpError(422, "NOT_A_DIRECTORY")
+    _unlocked_subtree(ctx, node)  # a Confidential folder inside must be open to be moved along
+    carry = _carry(ctx, node, new_parent) if new_parent.id != old_parent.id else None
     if new_parent.root_id != node.root_id:
         from app.domain import trash  # deferred: trash builds on this module
 
@@ -886,6 +913,11 @@ def relocate(
                 _apply_move(
                     ctx, fresh, target, chosen, old_lineage=old_lineage, old_root=old_root_id
                 )
+                if carry is not None:  # a folder keeps the protection it had where it came from
+                    ctx.db.execute(
+                        update(Node).where(Node.id == node.id).values(privacy_label=carry)
+                    )
+                    ctx.db.expire_all()
                 events.record(
                     ctx.db,
                     node.id,
@@ -1046,6 +1078,8 @@ def copy(
     if src.parent_id is None:
         raise OpError(422, "CANNOT_COPY_ROOT")
     target = _need(ctx, target_parent_id, Privilege.WRITE)
+    _unlocked_subtree(ctx, src)
+    _carry(ctx, src, target)  # a file cannot take its protection along: refused (409)
     _usable(target, kind="dir")
     _usable(src)
     if src.kind == "dir" and target.lineage.startswith(src.lineage):
@@ -1151,6 +1185,7 @@ def _insert_copied(
     source records `moved_out`); the rest are plain `created`."""
     by_rel: dict[tuple[str, ...], Node] = {}
     top: Node | None = None
+    labels = privacy.labels_below(ctx.db, src)  # copies keep the protection of what they copy
     for entry in sorted(created, key=lambda e: (len(e.rel), e.rel)):
         parent = target if len(entry.rel) == 1 else by_rel[entry.rel[:-1]]
         node = _new_node(
@@ -1158,8 +1193,14 @@ def _insert_copied(
         )
         if entry.new_stat is not None:
             _stamp(node, entry.new_stat, entry.sha256)
-        ctx.db.add(node)
         is_top = len(entry.rel) == 1
+        if entry.kind == "dir":
+            own = src.privacy_label if is_top else labels.get(entry.rel[1:], "normal")
+            if is_top:
+                carried = privacy.carried_label(ctx.db, src, target) if src.kind == "dir" else None
+                own = carried or own
+            node.privacy_label = own
+        ctx.db.add(node)
         events.record(
             ctx.db,
             node.id,

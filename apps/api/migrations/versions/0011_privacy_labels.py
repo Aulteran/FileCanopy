@@ -21,9 +21,7 @@ TS = sa.DateTime(timezone=True)
 def upgrade() -> None:
     with op.batch_alter_table("node") as batch:
         batch.add_column(
-            sa.Column(
-                "privacy_label", sa.String(12), nullable=False, server_default="normal"
-            )
+            sa.Column("privacy_label", sa.String(12), nullable=False, server_default="normal")
         )
     op.create_table(
         "confidential_unlock",

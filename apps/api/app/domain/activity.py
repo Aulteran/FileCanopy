@@ -79,9 +79,8 @@ def _row_visible(db: Session, actor: Actor, node_id: uuid.UUID, cache: dict[str,
     key = f"row:{node_id}"
     if key not in cache:
         node = db.get(Node, node_id)
-        cache[key] = (
-            node is not None
-            and Privilege.TRAVERSE in engine.effective(db, actor, node, include_hidden=True)
+        cache[key] = node is not None and Privilege.TRAVERSE in engine.effective(
+            db, actor, node, include_hidden=True
         )
     return cache[key]
 

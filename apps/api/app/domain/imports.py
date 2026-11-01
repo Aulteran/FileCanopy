@@ -317,7 +317,9 @@ def check_destination(ctx: OpCtx, batch: ImportBatch, target: Node, parent: Node
     if parent.status != "active" or target.id not in engine.lineage_ids(parent):
         raise OpError(409, "PARENT_CHANGED")
     if batch.kind not in SETUP_KINDS:
-        if Privilege.WRITE not in engine.effective(db, Actor(ctx.actor, session_id=ctx.session_id), parent):
+        if Privilege.WRITE not in engine.effective(
+            db, Actor(ctx.actor, session_id=ctx.session_id), parent
+        ):
             raise OpError(409, "PARENT_CHANGED")
 
 
@@ -422,7 +424,9 @@ def setup_target(ctx: OpCtx, node_id: uuid.UUID) -> tuple[StorageRoot, Node]:
         or root is None
         or node.parent_id is not None
         or root.status != "active"
-        or not engine.can_administer_grants(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node)
+        or not engine.can_administer_grants(
+            ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+        )
     ):
         raise _deny(ctx, node_id, "setup")
     if root.setup_state != "open":
@@ -593,7 +597,9 @@ def plan_folder_upload(
     ctx: OpCtx, node_id: uuid.UUID, raws: list[RawEntry], include_system: bool
 ) -> ImportBatch:
     node = ctx.db.get(Node, node_id)
-    if node is None or Privilege.WRITE not in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node):
+    if node is None or Privilege.WRITE not in engine.effective(
+        ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node
+    ):
         raise _deny(ctx, node_id, "write")
     _usable(node, kind="dir")
     root = _root(ctx, node)

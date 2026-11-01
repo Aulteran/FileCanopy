@@ -171,7 +171,8 @@ def _item_out(
     parent_visible = (
         parent is not None
         and parent.status == "active"
-        and Privilege.TRAVERSE in engine.effective(db, Actor(actor_id, session_id=session_id), parent)
+        and Privilege.TRAVERSE
+        in engine.effective(db, Actor(actor_id, session_id=session_id), parent)
     )
     who = db.get(User, item.trashed_by)
     root = root_node(db, item.root_id)
