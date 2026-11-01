@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -86,9 +87,14 @@ class Settings(BaseSettings):
     setup_token: SecretStr = SecretStr("")
     # Secure cookies need HTTPS (browsers exempt localhost). False only for plain-HTTP LAN use.
     cookie_secure: bool = True
-    # Number of trusted reverse proxies in front of the API (the bundled nginx is one). 0 means
-    # X-Forwarded-For is ignored. Never raise this unless every hop overwrites the header.
+    # Number of trusted hops between the API and the client. 0 means X-Forwarded-For is ignored.
+    # Compose sets 1: the bundled nginx (the only peer of the API) overwrites the header with the
+    # real client address it worked out from FILECANOPY_TRUSTED_PROXIES (ADR-018). Do not raise it.
     trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
+    # The address people type in the browser, e.g. https://files.example.org (scheme and host, no
+    # path). Recommended behind a reverse proxy: sign-in works even if the proxy does not forward
+    # the original Host header. Added to the allowed origins.
+    public_url: str = ""
     # Extra allowed browser origins (comma-separated) besides the request's own Host.
     allowed_origins: str = ""
     session_idle_seconds: int = 7 * 24 * 3600
@@ -104,6 +110,23 @@ class Settings(BaseSettings):
     throttle_max_per_account_ip: int = 5
     throttle_max_per_account: int = 20
     throttle_max_per_ip: int = 40
+
+    @property
+    def extra_origins(self) -> str:
+        """Comma-separated origins accepted besides the request's Host (public URL included)."""
+        return ",".join(o for o in (self._public_origin(), self.allowed_origins) if o)
+
+    def _public_origin(self) -> str:
+        """The public URL as a browser sends it in Origin: lower case, no default port."""
+        if not self.public_url:
+            return ""
+        parsed = urlparse(self.public_url)
+        host = (parsed.hostname or "").lower()
+        if ":" in host:
+            host = f"[{host}]"
+        default = {"http": 80, "https": 443}[parsed.scheme]
+        port = "" if parsed.port in (None, default) else f":{parsed.port}"
+        return f"{parsed.scheme}://{host}{port}"
 
     @model_validator(mode="after")
     def _paths_must_be_separate(self) -> "Settings":
@@ -129,6 +152,19 @@ class Settings(BaseSettings):
             ):
                 raise ConfigError(
                     "backup_path is the same directory as the library or the app-data path"
+                )
+        if self.public_url:
+            parsed = urlparse(self.public_url)
+            if (
+                parsed.scheme not in ("http", "https")
+                or not parsed.netloc
+                or parsed.path not in ("", "/")
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ConfigError(
+                    "FILECANOPY_PUBLIC_URL must look like https://files.example.org "
+                    "(scheme and host, no path)"
                 )
         configured = self.setup_token.get_secret_value()
         if configured and len(configured) < 32:

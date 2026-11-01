@@ -1,0 +1,10 @@
+# Cloudflare Tunnel (cloudflared) in front of FileCanopy. Not run in this project's tests (it
+# needs a Cloudflare account). Cloudflare limits request bodies to 100 MB on Free and Pro plans,
+# so a single upload above that fails; see README.md. cloudflared must share a Docker network
+# with the web container (docker-compose.proxy.yml) or use http://127.0.0.1:8080 on the host.
+tunnel: <your-tunnel-id>
+credentials-file: /etc/cloudflared/<your-tunnel-id>.json
+ingress:
+  - hostname: files.example.org
+    service: http://web:8080
+  - service: http_status:404

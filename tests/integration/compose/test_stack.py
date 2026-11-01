@@ -41,6 +41,7 @@ class Stack:
         self.password = secrets.token_urlsafe(24)
         self.port = free_port()
         self.name = name
+        self.files = [COMPOSE_FILE]  # a suite may add override files (e.g. an outer proxy)
         self.env = {
             **os.environ,
             "POSTGRES_PASSWORD": self.password,
@@ -57,7 +58,8 @@ class Stack:
     def compose(
         self, *args: str, check: bool = True, env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
-        cmd = ["docker", "compose", "-p", self.name, "-f", str(COMPOSE_FILE), *args]
+        files = [arg for f in self.files for arg in ("-f", str(f))]
+        cmd = ["docker", "compose", "-p", self.name, *files, *args]
         r = subprocess.run(  # noqa: S603
             cmd, env=env or self.env, capture_output=True, text=True, timeout=600, check=False
         )

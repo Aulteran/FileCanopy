@@ -50,8 +50,14 @@ services:
       # Optional tier. Empty = not configured. Set to redis://redis:6379/0 when using the
       # `workers` profile so health can report worker status.
       FILECANOPY_REDIS_URL: ${FILECANOPY_REDIS_URL:-}
-      # Authentication. The bundled nginx overwrites X-Forwarded-For, so exactly one hop is trusted.
+      # Authentication. The bundled nginx replaces X-Forwarded-For with the real client address
+      # (it believes the header only from FILECANOPY_TRUSTED_PROXIES, see the web service), so
+      # exactly one hop is trusted here. Do not change this; configure trusted proxies instead.
       FILECANOPY_TRUSTED_PROXY_HOPS: "1"
+      # Behind a reverse proxy: the address people type in the browser (https://files.example.org).
+      # ALLOWED_ORIGINS adds more, comma-separated. See deploy/proxy/README.md.
+      FILECANOPY_PUBLIC_URL: ${FILECANOPY_PUBLIC_URL:-}
+      FILECANOPY_ALLOWED_ORIGINS: ${FILECANOPY_ALLOWED_ORIGINS:-}
       FILECANOPY_COOKIE_SECURE: ${FILECANOPY_COOKIE_SECURE:-true}
       FILECANOPY_SETUP_TOKEN: ${FILECANOPY_SETUP_TOKEN:-}
       # File operations (M04): upload size cap in bytes (default 10 GiB).
@@ -86,6 +92,12 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${FILECANOPY_HTTP_PORT:-8080}:8080"
+    environment:
+      # Reverse proxies in front of this container whose X-Forwarded-For / -Proto are believed
+      # (IPs or CIDRs, comma-separated). Empty = trust nobody. See deploy/proxy/README.md.
+      FILECANOPY_TRUSTED_PROXIES: ${FILECANOPY_TRUSTED_PROXIES:-}
+      # true = send Strict-Transport-Security on requests a trusted proxy says were https.
+      FILECANOPY_HSTS: ${FILECANOPY_HSTS:-false}
     depends_on:
       api: { condition: service_healthy }
     healthcheck:

@@ -1,0 +1,10 @@
+# Caddy in front of FileCanopy. Caddy gets the certificate by itself (ports 80 and 443 must be
+# reachable from the internet), keeps the Host header, and has no request size limit.
+# "web" is the FileCanopy web container: Caddy must share a Docker network with it
+# (docker-compose.proxy.yml). If Caddy runs on the host instead, use 127.0.0.1:8080.
+files.example.org {
+	reverse_proxy web:8080 {
+		# Stream bodies instead of buffering them.
+		flush_interval -1
+	}
+}

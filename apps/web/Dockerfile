@@ -9,5 +9,6 @@ RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.28-alpine
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 apps/web/proxy-entrypoint.sh /docker-entrypoint.d/15-filecanopy-proxy.sh
 COPY --from=build /web/dist /usr/share/nginx/html
 EXPOSE 8080
