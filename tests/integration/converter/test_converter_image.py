@@ -17,9 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 IMAGE = "filecanopy-converter:test"
 
 
-def docker(
-    *args: str, check: bool = True, timeout: int = 900
-) -> subprocess.CompletedProcess[str]:
+def docker(*args: str, check: bool = True, timeout: int = 900) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         ["docker", *args],  # noqa: S607
         capture_output=True,
@@ -120,9 +118,7 @@ def test_container_is_actually_sealed(sealed: str) -> None:
     assert health.returncode == 0
 
 
-def test_autorun_macro_does_not_run_in_the_container(
-    sealed: str, tmp_path: Path
-) -> None:
+def test_autorun_macro_does_not_run_in_the_container(sealed: str, tmp_path: Path) -> None:
     from macrofixture import make_macro_odt
 
     docker("exec", sealed, "sh", "-c", "printf 'macro doc\\n' > /tmp/m.txt && cd /tmp && "
