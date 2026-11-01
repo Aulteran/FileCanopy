@@ -58,6 +58,7 @@ from app.db.models import (
     User,
 )
 from app.domain import nodes as domain_nodes
+from app.policy import privacy
 from app.storage.files import TMP_PREFIX, UnsafeEntry, open_regular
 from app.storage.identity import s64
 from app.storage.names import InvalidName, existing_name
@@ -802,7 +803,15 @@ class BackupEngine:
             tar = tarfile.open(
                 fileobj=target, mode="w:gz", compresslevel=6, format=tarfile.PAX_FORMAT
             )
+            with self.sessions() as pdb:  # restore must never come back weaker than this (M09)
+                labels_now = pdb.scalars(
+                    select(Node.privacy_label).where(Node.root_id == root_id).distinct()
+                ).all()
+            strictest = "normal"
+            for lab in labels_now:
+                strictest = privacy.stricter(strictest, lab)
             run_meta = {
+                "privacy_label": strictest,
                 "format": 1,
                 "root_id": str(root_id),
                 "chain_id": chain_id,

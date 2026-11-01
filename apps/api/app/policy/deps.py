@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
 from app.db.models import FileOperation, ImportBatch, Node, TrashItem
-from app.policy import engine
+from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
 
 
@@ -41,8 +41,13 @@ class NodeAccess:
 
     policy_guard = True
 
-    def __init__(self, privilege: Privilege, *, include_hidden: bool = False) -> None:
+    def __init__(
+        self, privilege: Privilege, *, include_hidden: bool = False, ignore_lock: bool = False
+    ) -> None:
         self.privilege = privilege
+        # Only the unlock/lock/privacy-state routes: they must work on a locked node, because
+        # that is what they are for. They reveal nothing but the lock state itself.
+        self.ignore_lock = ignore_lock
         # Only DELETE uses this: a retry of a delete that already succeeded must reach the
         # service, which answers it from the journal. The privileges themselves are unchanged.
         self.include_hidden = include_hidden
@@ -54,11 +59,35 @@ class NodeAccess:
         principal: Principal = Depends(current_principal),
         db: Session = Depends(get_db),
     ) -> NodeContext:
-        actor = Actor(principal.user.id)
+        actor = Actor(principal.user.id, session_id=principal.session.id)
         node = db.get(Node, node_id)
-        privileges = engine.effective(db, actor, node, include_hidden=self.include_hidden)
+        if self.ignore_lock:
+            privileges = engine.decide_ignoring_lock(
+                db, actor, node, include_hidden=self.include_hidden
+            ).privileges
+        else:
+            privileges = engine.effective(db, actor, node, include_hidden=self.include_hidden)
         if node is None or self.privilege not in privileges:
+            scope = engine.lock_scope(db, actor, node)
+            if scope is not None:  # the actor may open it, but the Confidential lock is shut
+                audit(
+                    db,
+                    "privacy.locked_denied",
+                    actor=principal.user.id,
+                    ip=client_ip(request),
+                    node_id=str(node_id),
+                )
+                db.commit()
+                # Never says which folder holds the lock: the person unlocks through the node
+                # they asked for, and the server finds the scope.
+                raise HTTPException(status_code=403, detail={"code": "LOCKED"})
             raise _deny(db, request, principal, node_id, self.privilege.value)
+        if request.headers.get(privacy.INTERACTIVE_HEADER) == "1" and node is not None:
+            scope = privacy.confidential_scope(db, node)
+            if scope is not None:  # only a person's own request keeps the unlock alive
+                row = privacy.live_unlock(db, actor.user_id, actor.session_id, scope)
+                if row is not None:
+                    privacy.renew(db, row)
         return NodeContext(principal, node, privileges)
 
 
@@ -75,7 +104,7 @@ class GrantAdminAccess:
         principal: Principal = Depends(current_principal),
         db: Session = Depends(get_db),
     ) -> NodeContext:
-        actor = Actor(principal.user.id)
+        actor = Actor(principal.user.id, session_id=principal.session.id)
         node = db.get(Node, node_id)
         if node is None or not engine.can_administer_grants(db, actor, node):
             raise _deny(db, request, principal, node_id, "grants")
@@ -118,6 +147,14 @@ class ImportAccess:
         batch = db.get(ImportBatch, import_id)
         if batch is None or batch.actor_user_id != principal.user.id:
             raise _deny(db, request, principal, import_id, "import")
+        target = db.get(Node, batch.target_node_id)
+        scope = privacy.confidential_scope(db, target) if target is not None else None
+        if scope is not None and (
+            privacy.live_unlock(db, principal.user.id, principal.session.id, scope) is None
+        ):
+            raise HTTPException(
+                status_code=403, detail={"code": "LOCKED"}
+            )  # the report names files
         return batch
 
 
@@ -178,6 +215,8 @@ class AdminAccess:
 # Module-level singletons: FastAPI dependencies are cached by identity, and route signatures stay
 # free of calls in argument defaults.
 traverse_access = NodeAccess(Privilege.TRAVERSE)
+# include_hidden: a trashed Confidential folder must be unlockable to be restored or purged.
+unlock_access = NodeAccess(Privilege.TRAVERSE, include_hidden=True, ignore_lock=True)
 list_access = NodeAccess(Privilege.LIST)
 read_access = NodeAccess(Privilege.READ)
 write_access = NodeAccess(Privilege.WRITE)

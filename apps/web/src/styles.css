@@ -805,3 +805,48 @@ button.danger.primary {
 .notices li.unread {
   font-weight: 600;
 }
+
+/* Privacy (M09): Private violet, Confidential rose, as in the brand system. */
+:root {
+  --private: #6a4c9c;
+  --confidential: #9b2c4a;
+}
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.8rem;
+}
+.b-private {
+  color: var(--private);
+}
+.b-conf {
+  color: var(--confidential);
+}
+.banner.conf {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid var(--confidential);
+  background: color-mix(in srgb, var(--confidential) 10%, transparent);
+}
+.lockcard {
+  max-width: 28rem;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+  border-top: 4px solid var(--confidential);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

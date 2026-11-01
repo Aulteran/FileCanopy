@@ -160,7 +160,9 @@ class RecentOut(BaseModel):
 # ------------------------------------------------------------------ helpers
 
 
-def _item_out(db: Session, actor_id: uuid.UUID, item: TrashItem) -> TrashItemOut:
+def _item_out(
+    db: Session, actor_id: uuid.UUID, item: TrashItem, session_id: uuid.UUID | None = None
+) -> TrashItemOut:
     now = clock.utcnow()
     days_left: int | None = None
     if item.purge_after is not None:
@@ -169,7 +171,8 @@ def _item_out(db: Session, actor_id: uuid.UUID, item: TrashItem) -> TrashItemOut
     parent_visible = (
         parent is not None
         and parent.status == "active"
-        and Privilege.TRAVERSE in engine.effective(db, Actor(actor_id), parent)
+        and Privilege.TRAVERSE
+        in engine.effective(db, Actor(actor_id, session_id=session_id), parent)
     )
     who = db.get(User, item.trashed_by)
     root = root_node(db, item.root_id)
@@ -219,7 +222,7 @@ def delete_node(
     except OpError as err:
         raise _http(err) from err
     return TrashedOut(
-        item=_item_out(db, ctx.principal.user.id, out.item),
+        item=_item_out(db, ctx.principal.user.id, out.item, ctx.principal.session.id),
         operation=_operation(out.op),
         replayed=out.replay,
     )
@@ -236,6 +239,7 @@ def list_trash(
     """The caller's visible trash, newest first. `root_id` is the id of a root node as listed by
     `/roots`. `after` is the `next_after` of the previous page."""
     actor_id = principal.user.id
+    sid = principal.session.id
     storage_root: uuid.UUID | None = None
     if root_id is not None:
         node = db.get(Node, root_id)
@@ -249,19 +253,21 @@ def list_trash(
             cursor = (datetime.fromisoformat(stamp), uuid.UUID(raw))
         except ValueError as exc:
             raise http_error(422, "INVALID_CURSOR") from exc
-    items, more = trash.visible_items(db, actor_id, root_id=storage_root, limit=limit, after=cursor)
-    out = [_item_out(db, actor_id, i) for i in items]
+    items, more = trash.visible_items(
+        db, actor_id, root_id=storage_root, limit=limit, after=cursor, session_id=sid
+    )
+    out = [_item_out(db, actor_id, i, sid) for i in items]
     next_after = f"{items[-1].trashed_at.isoformat()}|{items[-1].id}" if more and items else None
     return TrashListOut(
         items=out,
         next_after=next_after,
-        roots=_manageable_roots(db, actor_id, storage_root),
+        roots=_manageable_roots(db, actor_id, storage_root, sid),
         retention_days=trash.get_retention(db),
     )
 
 
 def _manageable_roots(
-    db: Session, actor_id: uuid.UUID, only: uuid.UUID | None
+    db: Session, actor_id: uuid.UUID, only: uuid.UUID | None, sid: uuid.UUID | None = None
 ) -> list[TrashRootOut]:
     roots: list[TrashRootOut] = []
     query = select(StorageRoot)
@@ -269,7 +275,7 @@ def _manageable_roots(
         query = query.where(StorageRoot.id == only)
     for root in db.scalars(query):
         node = root_node(db, root.id)
-        if not trash.can_manage_root(db, actor_id, node):
+        if not trash.can_manage_root(db, actor_id, node, sid):
             continue
         items = list(
             db.scalars(
@@ -339,7 +345,7 @@ def check_item(
     return CheckOut(
         released=result.released,
         reason=result.reason,  # type: ignore[arg-type]
-        item=_item_out(db, principal.user.id, result.item),
+        item=_item_out(db, principal.user.id, result.item, principal.session.id),
     )
 
 
@@ -357,7 +363,7 @@ def delete_forever(
         done = trash.purge(_ctx(request, principal, db), item.id, confirm=confirm)
     except OpError as err:
         raise _http(err) from err
-    return _item_out(db, principal.user.id, done)
+    return _item_out(db, principal.user.id, done, principal.session.id)
 
 
 @router.post("/roots/{node_id}/trash/check", response_model=CheckRootOut)
@@ -408,7 +414,12 @@ def node_activity(
 ) -> ActivityOut:
     """History of a file, or of a folder and everything in it, newest first."""
     rows, next_before = activity.node_activity(
-        db, ctx.principal.user.id, ctx.node, limit=limit, before=before
+        db,
+        ctx.principal.user.id,
+        ctx.node,
+        limit=limit,
+        before=before,
+        session_id=ctx.principal.session.id,
     )
     return ActivityOut(
         items=[EventModel(**vars(r)) for r in rows],
@@ -423,7 +434,7 @@ def my_recent_actions(
     limit: int = Query(default=30, ge=1, le=100),
 ) -> list[RecentOut]:
     """The caller's own recent actions, newest first, with whether each can still be undone."""
-    actor = Actor(principal.user.id)
+    actor = Actor(principal.user.id, session_id=principal.session.id)
     out: list[RecentOut] = []
     ops = db.scalars(
         select(FileOperation)
@@ -446,7 +457,9 @@ def my_recent_actions(
                 id=op.id,
                 kind="operation",
                 action=op.action,
-                name=detail.get("dst_name") or detail.get("name") or detail.get("src_name"),
+                name=None
+                if node is not None and engine.lock_scope(db, actor, node) is not None
+                else detail.get("dst_name") or detail.get("name") or detail.get("src_name"),
                 at=op.updated_at,
                 node_id=op.node_id if seen else None,
                 reversible=undo.reversible(op),

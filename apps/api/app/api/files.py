@@ -142,7 +142,13 @@ def _result(outcome: Outcome) -> ResultOut:
 
 
 def _ctx(request: Request, principal: Principal, db: Session) -> OpCtx:
-    return OpCtx(db, request.app.state.auth.settings, principal.user.id, client_ip(request))
+    return OpCtx(
+        db,
+        request.app.state.auth.settings,
+        principal.user.id,
+        client_ip(request),
+        session_id=principal.session.id,
+    )
 
 
 def _http(err: OpError) -> HTTPException:

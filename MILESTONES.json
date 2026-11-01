@@ -371,7 +371,7 @@
         "policy-disable migration"
       ],
       "notes": "Constraint carried from M06c (backups): a restore from a backup must re-apply the most restrictive privacy label (the label recorded with the backed-up content or the label now on its original location, whichever is stricter) and never turn Private or Confidential content into Normal content; restoring Confidential content needs the same fresh reauthentication as reading it, and background backup or restore jobs never refresh an unlock. See ADR-016 (Accepted 2026-10-31, not yet built).",
-      "status": "not_started"
+      "status": "in_review"
     },
     {
       "id": "M10",

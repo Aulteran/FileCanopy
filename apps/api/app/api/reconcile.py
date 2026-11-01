@@ -68,7 +68,9 @@ def dismiss_missing(
             NodeGrant.node_id.in_(ids)
         )
     ).all()
-    if held and not engine.can_administer_grants(db, Actor(ctx.principal.user.id), node):
+    if held and not engine.can_administer_grants(
+        db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node
+    ):
         # Dismissing removes grants: only whoever may manage them (the owner, or an administrator
         # in the shared tree) can do that. Editors can dismiss nodes that carry no grants.
         raise http_error(403, "FORBIDDEN")

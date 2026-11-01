@@ -49,6 +49,19 @@ export type NodeInfo = {
   scan_delayed: boolean;
   // How many people a folder is shared with; null unless the caller manages its sharing.
   shared_with: number | null;
+  // Privacy (M09): this folder's own label, the strictest one on it or above, and the lock.
+  privacy_own: Label;
+  privacy_effective: Label;
+  locked: boolean;
+  locks_in: number | null;
+};
+export type Label = "normal" | "private" | "confidential";
+export type PrivacyState = {
+  own: Label;
+  effective: Label;
+  locked: boolean;
+  locks_in: number | null;
+  labels_enabled: boolean;
 };
 export type Grant = {
   // Set when the access comes from a bigger share above this folder.
@@ -305,7 +318,19 @@ export function setCsrf(token: string): void {
   csrf = token;
 }
 
-type Extra = { body?: BodyInit; headers?: Record<string, string> };
+type Extra = {
+  body?: BodyInit;
+  headers?: Record<string, string>;
+  // Opt-in: only a request the person just made says so. Timers and pollers never do, so they
+  // cannot keep a Confidential unlock alive (M09). The server renews only when it is set.
+  interactive?: boolean;
+};
+
+export function interactiveHeaders(
+  interactive: boolean,
+): Record<string, string> {
+  return interactive ? { "X-FC-Interactive": "1" } : {};
+}
 
 async function call<T>(
   method: string,
@@ -315,6 +340,7 @@ async function call<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { ...extra.headers };
   if (method !== "GET") headers["X-CSRF-Token"] = csrf;
+  Object.assign(headers, interactiveHeaders(extra.interactive === true));
   let body: BodyInit | undefined = extra.body;
   if (json !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -484,12 +510,32 @@ export const api = {
   notifications: () => call<Notices>("GET", "/api/v1/notifications"),
   markNoticesRead: () =>
     call<{ status: string }>("POST", "/api/v1/notifications/read"),
-  node: (id: string) => call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`),
-  children: (id: string, after?: string | null) =>
+  node: (id: string, interactive = false) =>
+    call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`, undefined, {
+      interactive,
+    }),
+  children: (id: string, after?: string | null, interactive = false) =>
     call<Children>(
       "GET",
       `/api/v1/nodes/${enc(id)}/children?limit=200${after ? `&after=${enc(after)}` : ""}`,
+      undefined,
+      { interactive },
     ),
+  unlock: (id: string, password: string) =>
+    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, {
+      password,
+    }),
+  lock: (id: string) =>
+    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/lock`, {}),
+  setLabel: (
+    id: string,
+    label: Label,
+    extra: { confirm_lowering?: boolean; password?: string } = {},
+  ) =>
+    call<PrivacyState>("PUT", `/api/v1/nodes/${enc(id)}/privacy`, {
+      label,
+      ...extra,
+    }),
   createFolder: (parent: string, name: string) =>
     call<OpResult>(
       "POST",

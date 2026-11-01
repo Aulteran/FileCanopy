@@ -28,6 +28,15 @@ export function formatDate(iso: string): string {
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {
   FORBIDDEN: "You do not have access to that.",
+  LOCKED: "This folder is locked. Unlock it with your password to continue.",
+  SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES:
+    "Too many wrong passwords in a row, so this session was ended to protect your Confidential folders. Sign in again.",
+  PASSWORD_REQUIRED: "Enter your password to lower a Confidential folder.",
+  PRIVACY_DOWNGRADE:
+    "This file would end up less protected than where it is now. Move the folder instead, or lower its label first.",
+  PRIVACY_LABELS_DISABLED:
+    "Private and Confidential labels are switched off by the administrator. Existing labels still protect their folders.",
+  NOT_CONFIDENTIAL: "This folder is not Confidential.",
   NOT_VIEWABLE: "This kind of file cannot be shown here.",
   TYPE_MISMATCH:
     "This file does not look like what its name says, so it is not shown here.",

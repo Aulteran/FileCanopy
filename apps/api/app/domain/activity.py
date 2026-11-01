@@ -73,6 +73,18 @@ def _can_see_node(db: Session, actor: Actor, raw: object, cache: dict[str, bool]
     return cache[key]
 
 
+def _row_visible(db: Session, actor: Actor, node_id: uuid.UUID, cache: dict[str, bool]) -> bool:
+    """An event is shown only while its own node is visible to the actor, trashed or not, so a
+    folder's history never reveals what happened inside a locked Confidential folder."""
+    key = f"row:{node_id}"
+    if key not in cache:
+        node = db.get(Node, node_id)
+        cache[key] = node is not None and Privilege.TRAVERSE in engine.effective(
+            db, actor, node, include_hidden=True
+        )
+    return cache[key]
+
+
 def _may_see_sharing(db: Session, actor: Actor, node_id: uuid.UUID, cache: dict[str, bool]) -> bool:
     key = f"share:{node_id}"
     if key not in cache:
@@ -82,7 +94,13 @@ def _may_see_sharing(db: Session, actor: Actor, node_id: uuid.UUID, cache: dict[
 
 
 def node_activity(
-    db: Session, actor_id: uuid.UUID, node: Node, *, limit: int, before: int | None
+    db: Session,
+    actor_id: uuid.UUID,
+    node: Node,
+    *,
+    limit: int,
+    before: int | None,
+    session_id: uuid.UUID | None = None,
 ) -> tuple[list[EventOut], int | None]:
     """Newest first. `before` is the id of the last event of the previous page."""
     query = select(FileEvent)
@@ -107,10 +125,12 @@ def node_activity(
         {uid for r in rows for uid in (r.actor_user_id, r.on_behalf_of_user_id) if uid is not None}
         | grantee_ids,
     )
-    actor = Actor(actor_id)
+    actor = Actor(actor_id, session_id=session_id)
     seen: dict[str, bool] = {}
     out: list[EventOut] = []
     for r in rows:
+        if not _row_visible(db, actor, r.node_id, seen):
+            continue  # e.g. inside a locked Confidential folder: its history is not shown either
         if r.action in SHARE_ACTIONS and not _may_see_sharing(db, actor, r.node_id, seen):
             continue  # who else has access is for whoever manages the sharing, not for readers
         raw: dict[str, Any] = r.details if isinstance(r.details, dict) else {}
