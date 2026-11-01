@@ -14,7 +14,7 @@ export function takeSsoResult(): string | null {
   return taken;
 }
 
-const OK = new Set(["signed_in", "welcome", "linked"]);
+const OK = new Set(["signed_in", "welcome", "linked", "reauthed"]);
 
 export function ssoIsError(code: string | null): code is string {
   return code !== null && !OK.has(code);

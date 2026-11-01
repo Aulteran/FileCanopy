@@ -31,6 +31,26 @@ export function TokenPage({ kind }: { kind: Kind }) {
     if (invite) api.authConfig().then(setConfig, () => setConfig(null));
   }, [invite]);
   const title = invite ? "Accept your invitation" : "Choose a new password";
+  // Provider-only mode: the invitation is accepted at the provider; no password exists.
+  const providerOnly = invite && config?.password_login === false;
+
+  async function onlyProvider(form: HTMLFormElement): Promise<void> {
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    try {
+      const name = String(new FormData(form).get("name") ?? "").trim();
+      const { authorization_url } = await api.oidcInvitationStart(
+        token,
+        null,
+        name || null,
+      );
+      window.location.assign(authorization_url);
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+      setBusy(false);
+    }
+  }
 
   // "Accept with <provider>": the same password and name, then the provider proves who you are.
   // Nothing is consumed until the provider answers, so a failure leaves the link usable.
@@ -110,6 +130,31 @@ export function TokenPage({ kind }: { kind: Kind }) {
           </p>
           <a href="/">Go to sign in</a>
         </section>
+      ) : providerOnly && config ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void onlyProvider(e.currentTarget);
+          }}
+          aria-labelledby="token-title"
+        >
+          <h2 id="token-title">{title}</h2>
+          <p className="hint">
+            Passwords are turned off on this server. You will sign in with{" "}
+            {config.oidc.label}; its email must match the address this
+            invitation was sent to. This link works once.
+          </p>
+          <label>
+            Your name (optional)
+            <input name="name" maxLength={200} autoComplete="name" />
+          </label>
+          <p role="alert" className="error">
+            {error}
+          </p>
+          <button type="submit" className="primary" disabled={busy}>
+            Continue with {config.oidc.label}
+          </button>
+        </form>
       ) : (
         <form onSubmit={(e) => void submit(e)} aria-labelledby="token-title">
           <h2 id="token-title">{title}</h2>

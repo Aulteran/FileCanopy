@@ -297,6 +297,7 @@ def test_public_config_is_off_by_default(make_world: Callable[..., World]) -> No
     assert make_world().browser().get("/api/v1/auth/config").json() == {
         "oidc": {"enabled": False, "label": "Single sign-on"},
         "password_reset_by_email": False,
+        "password_login": True,
     }
 
 
@@ -308,6 +309,7 @@ def test_public_config_shows_only_what_the_sign_in_page_needs(
     assert body == {
         "oidc": {"enabled": True, "label": "Authentik"},
         "password_reset_by_email": True,
+        "password_login": True,
     }
     assert SECRET not in json.dumps(body)
 

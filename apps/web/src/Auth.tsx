@@ -125,6 +125,32 @@ export function Auth({
     );
   }
 
+  // The administrator switched password sign-in off: only the provider button is offered.
+  if (!setupRequired && config?.password_login === false) {
+    return (
+      <main className="auth">
+        <h1>FileCanopy</h1>
+        <section aria-labelledby="auth-title">
+          <h2 id="auth-title">Sign in</h2>
+          <p className="hint">
+            Passwords are turned off on this server. Sign in with your provider.
+          </p>
+          <p role="alert" className="error">
+            {error}
+          </p>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() => void provider()}
+          >
+            Sign in with {config.oidc.label}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="auth">
       <h1>FileCanopy</h1>

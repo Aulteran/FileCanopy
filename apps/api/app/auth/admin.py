@@ -9,6 +9,7 @@ from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import oidc_only
 from app.auth.deps import Principal, client_ip, ctx_of, get_db, http_error, require_admin
 from app.auth.schemas import (
     AdminUserOut,
@@ -149,6 +150,7 @@ def update_user(
     disabling = body.status == "disabled" and user.status != "disabled"
     if user.status == "active" and user.role == "admin" and (demoting or disabling):
         _guard_last_admin(db, user)
+        oidc_only.guard_linked_admin(db, ctx_of(request).settings, user)
     if body.name is not None and body.name.strip() != user.name:
         name = body.name.strip()
         if not name or any(ord(c) < 32 for c in name):
@@ -162,8 +164,11 @@ def update_user(
         if body.status == "active" and user.status == "invited":
             raise http_error(409, "INVITATION_PENDING")
         # Re-enabling an account that never set a password returns it to the invited state.
+        has_identity = db.scalar(select(UserIdentity.id).where(UserIdentity.user_id == user.id))
         user.status = (
-            "invited" if body.status == "active" and not user.password_hash else body.status
+            "invited"
+            if body.status == "active" and not user.password_hash and has_identity is None
+            else body.status
         )
         changes["status"] = user.status
         if user.status == "disabled":
@@ -193,7 +198,15 @@ def reissue_invitation(
     send = options.send_email if options else False
     _require_mail(request, send)
     user = _get_user(db, user_id)
-    if user.status != "invited":
+    settings = ctx_of(request).settings
+    # In provider-only mode an active person without a link gets a link invitation: it can only
+    # be accepted through the provider (no password involved) and links that provider account.
+    link_only = (
+        user.status == "active"
+        and oidc_only.effective(db, settings)
+        and oidc_only.is_unlinked(db, settings, user)
+    )
+    if user.status != "invited" and not link_only:
         raise http_error(409, "NOT_INVITED")
     token, row = issue_token(
         db, user, "invitation", ctx_of(request).settings.invitation_ttl_seconds, admin.user.id
@@ -224,6 +237,7 @@ def issue_password_reset(
     send = options.send_email if options else False
     _require_mail(request, send)
     user = _get_user(db, user_id)
+    oidc_only.require_password_login(db, ctx_of(request).settings)  # a reset would be unusable
     if user.status != "active":
         raise http_error(409, "NOT_ACTIVE")
     token, row = issue_token(
@@ -279,6 +293,8 @@ def auth_config(request: Request, _: Principal = Depends(require_admin)) -> dict
             "issuer": s.oidc_issuer if s.oidc_enabled else None,
             "label": s.oidc_label,
             "redirect_uri": s.oidc_redirect_uri if s.oidc_enabled else None,
+            "google": s.oidc_enabled and s.oidc_is_google,
+            "hosted_domain": s.oidc_hosted_domain or None,
         },
     }
 
@@ -311,6 +327,7 @@ def unlink_identity(
     """Removes the person's single sign-on link and ends their sessions. Their local password
     still works; they can be re-linked from their own account."""
     user = _get_user(db, user_id)
+    oidc_only.guard_linked_admin(db, ctx_of(request).settings, user)
     removed: CursorResult[Any] = db.execute(  # type: ignore[assignment]
         delete(UserIdentity).where(UserIdentity.user_id == user.id)
     )

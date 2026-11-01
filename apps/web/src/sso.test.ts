@@ -3,7 +3,7 @@ import { ssoIsError } from "./sso";
 
 describe("ssoIsError", () => {
   it("treats session and link outcomes as success", () => {
-    for (const ok of ["signed_in", "welcome", "linked", null])
+    for (const ok of ["signed_in", "welcome", "linked", "reauthed", null])
       expect(ssoIsError(ok)).toBe(false);
   });
   it("treats every other code as an error to show", () => {

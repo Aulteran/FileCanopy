@@ -154,7 +154,8 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 | Sharing between people and personal-folder isolation | Planned (M08) |
 | Privacy levels and Confidential unlock | Planned (M09) |
 | Previews, OCR and full-text search | Planned (M10–M11) |
-| Email invitations, SMTP, OpenID Connect sign-in | Planned (M12) |
+| Email invitations, SMTP, OpenID Connect sign-in | Done (M12) |
+| Provider-only sign-in, Google, Confidential PIN lock | Built (M12b, in review) |
 | Email intake for personal and shared folders | Planned (M13–M14) |
 | PDF splitting, duplicate detection, collections | Planned (M17–M18) |
 | Optional AI (providers, organization proposals, local semantic search, chat) | Planned (M15–M16, M18–M20) |

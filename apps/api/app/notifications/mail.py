@@ -20,7 +20,7 @@ log = logging.getLogger("filecanopy.mail")
 
 
 def one_time_link(public_url: str, purpose: str, token: str) -> str:
-    page = "invite" if purpose == "invitation" else "reset"
+    page = {"invitation": "invite", "pin_reset": "pin-reset"}.get(purpose, "reset")
     return f"{public_url.rstrip('/')}/{page}#token={quote(token, safe='')}"
 
 
@@ -94,8 +94,8 @@ class Mailer:
         return (
             to,
             "Your FileCanopy invitation",
-            f"Hello {name},\n\nYou have been invited to FileCanopy. Open this link to choose "
-            f"your password:\n\n{link}\n\nThe link works once and expires in {hours} hours. "
+            f"Hello {name},\n\nYou have been invited to FileCanopy. Open this link to "
+            f"get started:\n\n{link}\n\nThe link works once and expires in {hours} hours. "
             "If you did not expect this message, ignore it.\n",
         )
 
@@ -108,6 +108,17 @@ class Mailer:
             f"Open this link to choose a new password:\n\n{link}\n\nThe link works once and "
             f"expires in {minutes} minutes. If you did not ask for this, ignore this message; "
             "your password has not changed.\n",
+        )
+
+    def pin_reset(self, to: str, token: str) -> tuple[str, str, str]:
+        link = one_time_link(self._s.public_url, "pin_reset", token)
+        minutes = self._s.reset_ttl_seconds // 60
+        return (
+            to,
+            "Choose a new FileCanopy PIN",
+            f"Open this link while you are signed in to choose a new PIN:\n\n{link}\n\nThe "
+            f"link works once and expires in {minutes} minutes. If you did not ask for this, "
+            "ignore this message; your PIN has not changed.\n",
         )
 
     def test_message(self, to: str) -> tuple[str, str, str]:

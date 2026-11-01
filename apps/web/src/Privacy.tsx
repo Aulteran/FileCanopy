@@ -1,5 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ApiError, api, type Label, type NodeInfo } from "./api";
+import {
+  ApiError,
+  api,
+  type Label,
+  type NodeInfo,
+  type PinStatus,
+} from "./api";
 import { Modal } from "./Dialogs";
 import { describeError } from "./format";
 
@@ -30,22 +36,35 @@ export function LockCard({
   onUnlocked: () => void;
   onEnded: () => void;
 }) {
-  const [password, setPassword] = useState("");
+  const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // null while loading. A person with a PIN enters it; without one the password still works
+  // until they set a PIN in Account.
+  const [pin, setPin] = useState<PinStatus | null>(null);
+  useEffect(() => {
+    api.pinStatus().then(setPin, () => setPin(null));
+  }, []);
+  const usePin = pin?.set === true;
 
   async function submit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await api.unlock(folderId, password);
-      setPassword("");
+      await api.unlock(
+        folderId,
+        usePin ? { pin: secret } : { password: secret },
+      );
+      setSecret("");
       onUnlocked();
     } catch (err) {
       const code = err instanceof ApiError ? err.code : "UNKNOWN";
       setError(describeError(code));
+      setSecret("");
       if (err instanceof ApiError && err.status === 401) onEnded();
+      else if (err instanceof ApiError && err.status === 429)
+        void api.pinStatus().then(setPin, () => undefined);
     } finally {
       setBusy(false);
     }
@@ -55,22 +74,47 @@ export function LockCard({
     <form className="card lockcard" onSubmit={(e) => void submit(e)}>
       <h2>{name ? `${name} is locked` : "This folder is locked"}</h2>
       <p className="muted">
-        Enter your password again to open it. It locks again after 5 minutes
-        without use. This protects access inside the app; it does not encrypt
-        the files on disk.
+        {usePin
+          ? "Enter your 6-digit PIN to open it."
+          : "Enter your password to open it. You can set a 6-digit PIN in Account to use instead."}{" "}
+        It locks again after 5 minutes without use. This protects access inside
+        the app; it does not encrypt the files on disk.
       </p>
       <label>
-        Password
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {usePin ? "PIN" : "Password"}
+        {usePin ? (
+          <input
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            autoComplete="off"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value.replace(/\D/g, ""))}
+            required
+          />
+        ) : (
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            required
+          />
+        )}
       </label>
+      {pin?.disabled && (
+        <p role="alert">
+          Your PIN was turned off after too many wrong tries. Set a new one in
+          Account.
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
-      <button type="submit" className="primary" disabled={busy}>
+      <button
+        type="submit"
+        className="primary"
+        disabled={busy || pin?.disabled === true}
+      >
         Unlock
       </button>
     </form>
@@ -138,6 +182,13 @@ export function PrivacyDialog({
 }) {
   const [label, setLabel] = useState<Label>(info.privacy_own);
   const [password, setPassword] = useState("");
+  const [hasPin, setHasPin] = useState(false);
+  useEffect(() => {
+    api.pinStatus().then(
+      (p) => setHasPin(p.set),
+      () => undefined,
+    );
+  }, []);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
   const lowering =
@@ -149,7 +200,9 @@ export function PrivacyDialog({
     try {
       await api.setLabel(info.id, label, {
         confirm_lowering: confirmed,
-        password: password || undefined,
+        ...(hasPin
+          ? { pin: password || undefined }
+          : { password: password || undefined }),
       });
       onChanged();
       onClose();
@@ -177,7 +230,8 @@ export function PrivacyDialog({
         </fieldset>
         <p className="muted">
           Private content is never sent to cloud AI. Confidential also needs
-          your password to open and locks after 5 minutes without use.
+          your PIN (or your password until you set one) to open and locks after
+          5 minutes without use.
         </p>
         {lowering && info.privacy_own === "private" && (
           <label>
@@ -191,10 +245,11 @@ export function PrivacyDialog({
         )}
         {lowering && info.privacy_own === "confidential" && (
           <label>
-            Your password
+            {hasPin ? "Your PIN" : "Your password"}
             <input
               type="password"
-              autoComplete="current-password"
+              inputMode={hasPin ? "numeric" : undefined}
+              autoComplete={hasPin ? "off" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

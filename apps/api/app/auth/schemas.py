@@ -53,6 +53,8 @@ class Login(Strict):
 class SessionOut(BaseModel):
     user: UserOut
     csrf_token: str
+    locked: bool = False  # the lock screen is up (M12b)
+    pin_set: bool = False
 
 
 class ChangePassword(Strict):
@@ -125,7 +127,8 @@ class OidcStartLink(Strict):
 
 class OidcStartInvite(Strict):
     token: str = Field(max_length=256)
-    password: str = Field(max_length=1024)
+    # Omitted only in OIDC-only mode: the account then has no password at all.
+    password: str | None = Field(default=None, max_length=1024)
     name: str | None = Field(default=None, min_length=1, max_length=200)
 
 
@@ -141,6 +144,8 @@ class OidcPublic(BaseModel):
 class AuthConfig(BaseModel):
     oidc: OidcPublic
     password_reset_by_email: bool
+    # False while the OIDC-only mode is in force: the sign-in page then offers the provider only.
+    password_login: bool = True
 
 
 class IdentityOut(BaseModel):

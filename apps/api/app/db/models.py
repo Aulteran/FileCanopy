@@ -273,6 +273,35 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # M12b: the lock screen. While set, every request but unlock and sign-out is refused.
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # M12b: this session just re-authenticated through the OIDC provider (single use proof).
+    reauth_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # True only when the provider vouched (`auth_time`) that the person signed in just now. A PIN
+    # change needs this; turning on provider-only sign-in does not.
+    reauth_strong: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+
+
+class UserPin(Base):
+    """Six-digit Confidential PIN (M12b). `pin_hash` is Argon2id over an HMAC of the PIN with a
+    server-side pepper. The attempt counter belongs to the account, not to a session or address."""
+
+    __tablename__ = "user_pin"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), primary_key=True
+    )
+    pin_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    set_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_failure_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    blocked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Too many wrong guesses: unusable until reset with the password, the provider or a mail link.
+    disabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class ConfidentialUnlock(Base):
@@ -344,7 +373,7 @@ class OidcLogin(Base):
     binding_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     nonce: Mapped[str] = mapped_column(String(64), nullable=False)
     code_verifier: Mapped[str] = mapped_column(String(128), nullable=False)
-    purpose: Mapped[str] = mapped_column(String(8), nullable=False)  # login | link | invite
+    purpose: Mapped[str] = mapped_column(String(8), nullable=False)  # login|link|invite|reauth
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     session_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)

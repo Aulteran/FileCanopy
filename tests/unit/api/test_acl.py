@@ -648,6 +648,13 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/backups/run",
     "/api/v1/admin/backups/key/rotate",
     "/api/v1/auth/lock",  # own session only; no node addressed
+    "/api/v1/auth/oidc/reauth/start",  # M12b: own session only
+    "/api/v1/auth/pin",  # M12b: own account only
+    "/api/v1/auth/pin/remove",
+    "/api/v1/auth/pin/reset-email",
+    "/api/v1/auth/lock-screen",
+    "/api/v1/auth/lock-screen/unlock",
+    "/api/v1/admin/oidc-only",
     "/api/v1/preferences/local-processing",  # own account only; no node addressed
     "/api/v1/search",  # filtered by the policy engine per result (app.search.query)
     "/api/v1/search/status",  # counts for the caller's own folder only

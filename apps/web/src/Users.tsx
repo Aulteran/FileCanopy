@@ -10,6 +10,7 @@ import {
   api,
   type Account,
   type AdminAuthConfig,
+  type OidcOnly,
   type OneTimeToken,
 } from "./api";
 import { describeError, formatDate } from "./format";
@@ -50,6 +51,14 @@ export function UsersPage({ me, onEnded }: Props) {
     api.adminAuthConfig().then(setConfig, () => setConfig(null));
   }, []);
   const mail = config?.smtp.configured === true;
+  // Provider-only mode in force: unlinked people need a link invitation to get back in.
+  const [onlyActive, setOnlyActive] = useState(false);
+  useEffect(() => {
+    api.oidcOnly().then(
+      (o) => setOnlyActive(o.effective),
+      () => undefined,
+    );
+  }, []);
 
   async function act(
     what: () => Promise<OneTimeToken | unknown>,
@@ -120,7 +129,13 @@ export function UsersPage({ me, onEnded }: Props) {
           : "This server does not send email, so copy each invitation or reset link and give it to the person yourself."}
       </p>
 
-      {config && <SignInPanel config={config} onError={fail} />}
+      {config && (
+        <SignInPanel
+          onEffective={setOnlyActive}
+          config={config}
+          onError={fail}
+        />
+      )}
 
       {issued && <LinkPanel issued={issued} onClose={() => setIssued(null)} />}
 
@@ -188,7 +203,10 @@ export function UsersPage({ me, onEnded }: Props) {
                   <td>{STATUS[u.status] ?? u.status}</td>
                   <td>
                     <div className="row-actions">
-                      {u.status === "invited" && (
+                      {(u.status === "invited" ||
+                        (onlyActive &&
+                          u.status === "active" &&
+                          !u.sso_linked)) && (
                         <button
                           disabled={busy}
                           aria-label={`New invitation link for ${u.email}`}
@@ -203,22 +221,26 @@ export function UsersPage({ me, onEnded }: Props) {
                           New invitation link
                         </button>
                       )}
-                      {u.status === "invited" && mail && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Email a new invitation to ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.reissueInvitation(u.id, true),
-                              `New invitation for ${u.email}`,
-                              u.email,
-                            )
-                          }
-                        >
-                          Email invitation
-                        </button>
-                      )}
-                      {u.status === "active" && (
+                      {(u.status === "invited" ||
+                        (onlyActive &&
+                          u.status === "active" &&
+                          !u.sso_linked)) &&
+                        mail && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Email a new invitation to ${u.email}`}
+                            onClick={() =>
+                              void act(
+                                () => api.reissueInvitation(u.id, true),
+                                `New invitation for ${u.email}`,
+                                u.email,
+                              )
+                            }
+                          >
+                            Email invitation
+                          </button>
+                        )}
+                      {u.status === "active" && !onlyActive && (
                         <button
                           disabled={busy}
                           aria-label={`Password reset link for ${u.email}`}
@@ -414,9 +436,11 @@ function LinkPanel({
 function SignInPanel({
   config,
   onError,
+  onEffective,
 }: {
   config: AdminAuthConfig;
   onError: (err: unknown) => void;
+  onEffective: (on: boolean) => void;
 }) {
   const [tested, setTested] = useState("");
   const { smtp, oidc } = config;
@@ -452,6 +476,119 @@ function SignInPanel({
           <span role="status">{tested}</span>
         </div>
       )}
+      {oidc.enabled && (
+        <OidcOnlyPanel onError={onError} onEffective={onEffective} />
+      )}
     </section>
+  );
+}
+
+/** Turn password sign-in off for everyone. It needs your own provider link and a fresh check with
+ * the provider (so a broken provider setup cannot be switched on by mistake). If the provider
+ * ever fails, the operator brings passwords back with
+ * `docker compose exec api python -m app.auth.cli oidc-only off`, or by starting the server with
+ * FILECANOPY_FORCE_LOCAL_LOGIN=true. */
+function OidcOnlyPanel({
+  onError,
+  onEffective,
+}: {
+  onError: (err: unknown) => void;
+  onEffective: (on: boolean) => void;
+}) {
+  const [st, setSt] = useState<OidcOnly | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [needCount, setNeedCount] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    api.oidcOnly().then(setSt, onError);
+  }, [onError]);
+  useEffect(load, [load]);
+
+  async function change(enabled: boolean, confirm?: number): Promise<void> {
+    setBusy(true);
+    setNote("");
+    try {
+      const next = await api.setOidcOnly(enabled, confirm);
+      setSt(next);
+      onEffective(next.effective);
+      setNeedCount(null);
+      setNote(
+        enabled ? "Password sign-in is off." : "Password sign-in is back on.",
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "UNLINKED_USERS") {
+        setNeedCount(Number(err.reason ?? "0"));
+      } else if (err instanceof ApiError && err.code === "REAUTH_REQUIRED") {
+        setNote("");
+        try {
+          sessionStorage.setItem("fc.pending", "oidc-only");
+          const { authorization_url } = await api.oidcReauthStart();
+          window.location.assign(authorization_url);
+        } catch (e2) {
+          onError(e2);
+        }
+      } else {
+        onError(err);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!st) return null;
+  return (
+    <div className="oidc-only">
+      <h3>Provider-only sign-in</h3>
+      <p>
+        {st.effective
+          ? "Password sign-in is off for everyone."
+          : st.enabled
+            ? "The switch is on but not in force right now (the provider is not configured, or the server forces local sign-in)."
+            : "Password sign-in is on."}{" "}
+        {st.unlinked_users > 0 &&
+          `${st.unlinked_users} active ${st.unlinked_users === 1 ? "person has" : "people have"} no provider link yet.`}
+      </p>
+      {needCount !== null && (
+        <p role="alert" className="error">
+          {needCount} {needCount === 1 ? "person" : "people"} cannot sign in
+          once passwords are off, until you send them a link invitation from
+          this page. Turn it on anyway?
+        </p>
+      )}
+      <div className="row">
+        {!st.enabled && (
+          <button
+            disabled={busy || !st.admin_linked}
+            onClick={() =>
+              void change(true, needCount !== null ? needCount : undefined)
+            }
+          >
+            {needCount !== null
+              ? "Turn off passwords anyway"
+              : "Turn off passwords"}
+          </button>
+        )}
+        {st.enabled && (
+          <button disabled={busy} onClick={() => void change(false)}>
+            Turn passwords back on
+          </button>
+        )}
+        <span role="status">{note}</span>
+      </div>
+      {!st.admin_linked && !st.enabled && (
+        <p className="hint">
+          Link your own account to the provider first (Account), so you cannot
+          lock yourself out.
+        </p>
+      )}
+      <p className="hint">
+        Locked out by a provider problem? Run{" "}
+        <code>
+          docker compose exec api python -m app.auth.cli oidc-only off
+        </code>{" "}
+        or start the server with <code>FILECANOPY_FORCE_LOCAL_LOGIN=true</code>.
+      </p>
+    </div>
   );
 }

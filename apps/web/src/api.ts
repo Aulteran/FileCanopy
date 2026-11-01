@@ -32,6 +32,32 @@ export type OneTimeToken = {
 export type AuthConfig = {
   oidc: { enabled: boolean; label: string };
   password_reset_by_email: boolean;
+  // False while the administrator has switched password sign-in off (OIDC-only mode).
+  password_login: boolean;
+};
+export type PinStatus = {
+  set: boolean;
+  disabled: boolean;
+  blocked_for: number | null;
+  has_password: boolean;
+  reauth_available: boolean;
+  email_reset_available: boolean;
+  locked: boolean;
+};
+// Exactly one of these proves it is really the person (never just the session cookie).
+export type PinProof =
+  | { current_pin: string }
+  | { password: string }
+  | { reauth: true }
+  | { email_token: string };
+export type OidcOnly = {
+  enabled: boolean;
+  effective: boolean;
+  oidc_configured: boolean;
+  force_local_login: boolean;
+  linked_admins: number;
+  unlinked_users: number;
+  admin_linked: boolean;
 };
 export type AdminAuthConfig = {
   smtp: {
@@ -45,9 +71,16 @@ export type AdminAuthConfig = {
     issuer: string | null;
     label: string;
     redirect_uri: string | null;
+    google?: boolean;
+    hosted_domain?: string | null;
   };
 };
-export type Session = { user: User; csrf_token: string };
+export type Session = {
+  user: User;
+  csrf_token: string;
+  locked?: boolean;
+  pin_set?: boolean;
+};
 
 export type EntryPoint = {
   node_id: string;
@@ -356,6 +389,12 @@ export function setCsrf(token: string): void {
   csrf = token;
 }
 
+// Called when the server says this session is on the lock screen (423), so the app can show it.
+let onLocked: () => void = () => undefined;
+export function setLockedHandler(fn: () => void): void {
+  onLocked = fn;
+}
+
 type Extra = {
   body?: BodyInit;
   headers?: Record<string, string>;
@@ -400,13 +439,17 @@ async function call<T>(
     let reason: string | null = null;
     try {
       const data = (await res.json()) as {
-        detail?: { code?: string; reason?: string };
+        detail?: { code?: string; reason?: string; count?: number };
       };
       code = data.detail?.code ?? code;
-      reason = data.detail?.reason ?? null;
+      // UNLINKED_USERS says how many people would be left without a provider link.
+      reason =
+        data.detail?.reason ??
+        (data.detail?.count !== undefined ? String(data.detail.count) : null);
     } catch {
       /* non-JSON error page from a proxy */
     }
+    if (res.status === 423 && code === "SESSION_LOCKED") onLocked();
     throw new ApiError(res.status, code, reason);
   }
   return (await res.json()) as T;
@@ -506,11 +549,15 @@ export const api = {
       "/api/v1/auth/oidc/login/start",
       {},
     ),
-  oidcInvitationStart: (token: string, password: string, name: string | null) =>
+  oidcInvitationStart: (
+    token: string,
+    password: string | null,
+    name: string | null,
+  ) =>
     call<{ authorization_url: string }>(
       "POST",
       "/api/v1/auth/oidc/invitation/start",
-      { token, password, name },
+      password === null ? { token, name } : { token, password, name },
     ),
   oidcLinkStart: (password: string) =>
     call<{ authorization_url: string }>(
@@ -610,16 +657,39 @@ export const api = {
       undefined,
       { interactive },
     ),
-  unlock: (id: string, password: string) =>
-    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, {
-      password,
+  unlock: (id: string, secret: { pin: string } | { password: string }) =>
+    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, secret),
+  pinStatus: () => call<PinStatus>("GET", "/api/v1/auth/pin"),
+  setPin: (pin: string, proof: PinProof) =>
+    call<{ status: string }>("PUT", "/api/v1/auth/pin", { pin, ...proof }),
+  removePin: (proof: PinProof) =>
+    call<{ status: string }>("POST", "/api/v1/auth/pin/remove", proof),
+  pinResetEmail: () =>
+    call<{ status: string }>("POST", "/api/v1/auth/pin/reset-email", {}),
+  lockScreen: () =>
+    call<{ status: string }>("POST", "/api/v1/auth/lock-screen", {}),
+  unlockScreen: (pin: string) =>
+    call<{ status: string }>("POST", "/api/v1/auth/lock-screen/unlock", {
+      pin,
+    }),
+  oidcReauthStart: () =>
+    call<{ authorization_url: string }>(
+      "POST",
+      "/api/v1/auth/oidc/reauth/start",
+      {},
+    ),
+  oidcOnly: () => call<OidcOnly>("GET", "/api/v1/admin/oidc-only"),
+  setOidcOnly: (enabled: boolean, confirmUnlinked?: number) =>
+    call<OidcOnly>("PUT", "/api/v1/admin/oidc-only", {
+      enabled,
+      confirm_unlinked_users: confirmUnlinked ?? null,
     }),
   lock: (id: string) =>
     call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/lock`, {}),
   setLabel: (
     id: string,
     label: Label,
-    extra: { confirm_lowering?: boolean; password?: string } = {},
+    extra: { confirm_lowering?: boolean; password?: string; pin?: string } = {},
   ) =>
     call<PrivacyState>("PUT", `/api/v1/nodes/${enc(id)}/privacy`, {
       label,

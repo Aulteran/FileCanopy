@@ -21,6 +21,7 @@ from app.auth.deps import (
     get_db,
     http_error,
 )
+from app.auth.pin_router import check_pin_for_session
 from app.auth.schemas import Ok
 from app.auth.service import audit
 from app.db.models import AppSetting, AuthAudit, ConfidentialUnlock, Node
@@ -56,8 +57,11 @@ class PrivacyOut(BaseModel):
 
 
 class UnlockBody(BaseModel):
+    """The six-digit PIN once the person has one; the account password only until then (M12b)."""
+
     model_config = ConfigDict(extra="forbid")
-    password: str = Field(min_length=1, max_length=1024)
+    pin: str | None = Field(default=None, max_length=32)
+    password: str | None = Field(default=None, min_length=1, max_length=1024)
 
 
 class LabelBody(BaseModel):
@@ -65,7 +69,8 @@ class LabelBody(BaseModel):
     label: Literal["normal", "private", "confidential"]
     # Required to lower Private (a tick) ...
     confirm_lowering: bool = False
-    # ... and to lower Confidential (the account password, checked here).
+    # ... and to lower Confidential (the PIN, or the password until a PIN is set; checked here).
+    pin: str | None = Field(default=None, max_length=32)
     password: str | None = Field(default=None, max_length=1024)
 
 
@@ -141,6 +146,27 @@ def _verify_password(request: Request, db: Session, principal: Principal, passwo
     ctx.throttle.clear(db, keys[:1])
 
 
+def _verify_secret(
+    request: Request, db: Session, principal: Principal, pin: str | None, password: str | None
+) -> None:
+    """The Confidential secret. A person with a PIN must use it (the password is refused, so a
+    stolen password does not open Confidential from a stolen session); a person without one may
+    use the password until they set a PIN. An account with no password needs a PIN first."""
+    user = principal.user
+    if ctx_of(request).pins.is_set(db, user.id):
+        if pin is None:
+            raise http_error(403, "PIN_REQUIRED")
+        check_pin_for_session(request, db, principal, pin)
+        return
+    if pin is not None:
+        raise http_error(409, "PIN_NOT_SET")
+    if user.password_hash is None:
+        raise http_error(403, "PIN_REQUIRED")
+    if not password:
+        raise http_error(403, "PASSWORD_REQUIRED")
+    _verify_password(request, db, principal, password)
+
+
 @router.get("/nodes/{node_id}/privacy", response_model=PrivacyOut)
 def get_privacy(
     ctx: NodeContext = Depends(unlock_access), db: Session = Depends(get_db)
@@ -161,7 +187,7 @@ def unlock(
     scope = privacy.confidential_scope(db, node)
     if scope is None:
         raise http_error(409, "NOT_CONFIDENTIAL")
-    _verify_password(request, db, principal, body.password)
+    _verify_secret(request, db, principal, body.pin, body.password)
     now = clock.utcnow()
     row = db.scalar(
         select(ConfidentialUnlock).where(
@@ -247,9 +273,7 @@ def set_label(
         raise http_error(409, "PRIVACY_LABELS_DISABLED")
     if privacy.RANK[wanted] < privacy.RANK[current]:
         if current == "confidential":
-            if not body.password:
-                raise http_error(403, "PASSWORD_REQUIRED")
-            _verify_password(request, db, principal, body.password)
+            _verify_secret(request, db, principal, body.pin, body.password)
         elif not body.confirm_lowering:
             raise http_error(409, "CONFIRMATION_REQUIRED")
     if wanted != current:

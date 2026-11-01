@@ -78,6 +78,12 @@ services:
       FILECANOPY_OIDC_SCOPES: ${FILECANOPY_OIDC_SCOPES:-openid email profile}
       FILECANOPY_OIDC_REQUIRE_EMAIL_VERIFIED: ${FILECANOPY_OIDC_REQUIRE_EMAIL_VERIFIED:-true}
       FILECANOPY_OIDC_ALLOW_HTTP: ${FILECANOPY_OIDC_ALLOW_HTTP:-false}
+      # Google Workspace only: require this hosted domain (hd) in the ID token (M12b).
+      FILECANOPY_OIDC_HOSTED_DOMAIN: ${FILECANOPY_OIDC_HOSTED_DOMAIN:-}
+      # Break-glass (M12b): true ignores the "provider-only sign-in" switch at startup.
+      FILECANOPY_FORCE_LOCAL_LOGIN: ${FILECANOPY_FORCE_LOCAL_LOGIN:-false}
+      # Optional 32+ character secret for Confidential PINs. Empty = a generated one in app-data.
+      FILECANOPY_PIN_PEPPER: ${FILECANOPY_PIN_PEPPER:-}
       # File operations (M04): upload size cap in bytes (default 10 GiB).
       FILECANOPY_MAX_UPLOAD_BYTES: ${FILECANOPY_MAX_UPLOAD_BYTES:-10737418240}
       # Setup import and folder upload (M06b): per-batch limits, ADR-011 section 5.
