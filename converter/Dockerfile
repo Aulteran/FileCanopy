@@ -1,5 +1,6 @@
 # Sealed Office-to-PDF converter (M10, ADR-019 section 5). Build: docker build -f converter/Dockerfile converter
-# No network, no volumes, read-only root: see the `converter` service in deploy/docker-compose.yml.
+# No network (a Unix socket in a volume shared with the API), read-only root: see the
+# `converter` service in deploy/docker-compose.yml.
 FROM debian:13-slim
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update \
@@ -9,11 +10,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10002 converter \
     && useradd --system --uid 10002 --gid 10002 --no-create-home --shell /usr/sbin/nologin converter
+# The socket directory; a named volume mounted here starts with this owner.
+RUN mkdir -p /run/converter && chown 10002:10002 /run/converter && chmod 0755 /run/converter
 WORKDIR /srv/converter
-COPY convert.py server.py ./
+COPY convert.py server.py healthcheck.py ./
 USER 10002:10002
-ENV CONVERTER_SCRATCH=/tmp
-EXPOSE 8090
+ENV CONVERTER_SCRATCH=/tmp CONVERTER_SOCKET=/run/converter/converter.sock
 HEALTHCHECK --interval=10s --timeout=3s --retries=6 \
-    CMD ["python3", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8090/healthz', timeout=2)"]
+    CMD ["python3", "healthcheck.py"]
 CMD ["python3", "server.py"]

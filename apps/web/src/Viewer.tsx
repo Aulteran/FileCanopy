@@ -445,7 +445,18 @@ function OfficeView({
           reason="Previews of Word, Excel and PowerPoint files need an optional add-on that is not running here."
         />
       );
-    return <CouldNotShow nodeId={nodeId} text={describeError(probe.code)} />;
+    return (
+      <>
+        <CouldNotShow nodeId={nodeId} text={describeError(probe.code)} />
+        {(probe.code === "PREVIEW_BUSY" || probe.code === "TIMEOUT") && (
+          <p>
+            <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </button>
+          </p>
+        )}
+      </>
+    );
   }
   return (
     <>

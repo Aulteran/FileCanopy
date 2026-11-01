@@ -19,6 +19,9 @@ from app.preview.sandbox import Gate, Limits, PreviewError, run_worker
 
 log = logging.getLogger("filecanopy.preview")
 
+# A request waits this long for the single converter slot, then gets 503 PREVIEW_BUSY, so a queue
+# of Office previews can never hold all the API's worker threads.
+CONVERTER_QUEUE_WAIT = 5.0
 MAX_DOCX_BYTES = 50 * 1024 * 1024
 THUMB_EDGE = 320
 ZIP_FOR_OFFICE_MAX_ENTRIES = 20_000
@@ -57,7 +60,7 @@ class PreviewService:
         self.sessions = sessions
         self.cache = PreviewCache(settings.app_data_path, settings.preview_cache_max_bytes)
         self.gate = Gate(settings.preview_max_workers)
-        self.converter_gate = Gate(1, wait_seconds=settings.converter_timeout_seconds + 15)
+        self.converter_gate = Gate(1, wait_seconds=CONVERTER_QUEUE_WAIT)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -68,6 +71,7 @@ class PreviewService:
             self.settings.preview_worker_timeout_seconds,
             self.settings.preview_worker_memory_bytes,
             max_output,
+            self.settings.preview_require_seccomp,
         )
 
     @property
@@ -182,6 +186,8 @@ class PreviewService:
         info = self.archive_for_office(file)
         if info["encrypted"]:
             raise PreviewError("ENCRYPTED")
+        if info.get("macros"):  # never run either way; not previewing them is defence in depth
+            raise PreviewError("HAS_MACROS")
         if (
             info["count"] > ZIP_FOR_OFFICE_MAX_ENTRIES
             or info["suspicious_ratio"]
@@ -214,7 +220,21 @@ class PreviewService:
         if self._thread is not None:
             self._thread.join(timeout=10)
 
+    def sandbox_status(self) -> dict[str, object]:
+        """What the parser child can enforce on this kernel (logged at startup)."""
+        try:
+            out = run_worker("probe", None, self.limits(4096))
+            return json.loads(out)  # type: ignore[no-any-return]
+        except (PreviewError, ValueError, OSError):
+            return {"seccomp": False, "landlock": "unknown"}
+
     def _loop(self) -> None:
+        status = self.sandbox_status()
+        log.info("preview sandbox: %s", status)
+        if not status.get("seccomp"):
+            log.warning("preview parsers refused: seccomp is not available on this kernel")
+        elif status.get("landlock") != "enforced":
+            log.warning("preview parsers can read all files the API can (no Landlock)")
         while True:
             try:
                 self.sweep()

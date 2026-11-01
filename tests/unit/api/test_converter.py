@@ -17,7 +17,11 @@ from types import ModuleType
 import pytest
 from pypdf import PdfReader
 
-from app.preview import convert as client
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "integration" / "converter"))
+
+from macrofixture import make_macro_odt  # noqa: E402
+
+from app.preview import convert as client  # noqa: E402
 from app.preview.sandbox import PreviewError
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -152,8 +156,44 @@ def test_server_end_to_end_with_the_api_client(server: str, tmp_path: Path) -> N
     with open(src, "rb") as f:
         client.convert_to_pdf(server, f, 104, "docx", dest, timeout=5, max_pages=10)
     assert dest.read_bytes() == PDF
-    # the request leaves nothing behind on the converter's scratch disk
-    assert not [p for p in tmp_path.iterdir() if p.name.startswith(("req-", "conv-"))]
+    # the request leaves nothing behind on the converter's scratch disk (it cleans up just after
+    # sending the answer, so give it a moment)
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        left = [p for p in tmp_path.iterdir() if p.name.startswith(("req-", "conv-"))]
+        if not left:
+            break
+        time.sleep(0.05)
+    assert not left
+
+
+def test_api_client_reaches_the_converter_over_a_unix_socket(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ok = fake_soffice(tmp_path, f"open(outdir + '/input.pdf', 'wb').write({PDF!r})")
+    monkeypatch.setattr(srv, "SOFFICE", ok)
+    monkeypatch.setattr(srv, "SCRATCH", str(tmp_path))
+    sock = tmp_path / "c.sock"
+    httpd = srv.make_unix_server(str(sock))
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    try:
+        assert oct(sock.stat().st_mode & 0o777) == "0o666"
+        src = tmp_path / "d.docx"
+        src.write_bytes(b"PK\x03\x04" + b"x" * 50)
+        with open(src, "rb") as f:
+            client.convert_to_pdf(
+                f"unix://{sock}", f, 54, "docx", tmp_path / "o.pdf", timeout=5, max_pages=5
+            )
+        assert (tmp_path / "o.pdf").read_bytes() == PDF
+        with open(src, "rb") as f, pytest.raises(PreviewError) as down:
+            client.convert_to_pdf(
+                "unix:///nonexistent/c.sock", f, 54, "docx", tmp_path / "o2", timeout=2, max_pages=5
+            )
+        assert down.value.code == "CONVERTER_UNAVAILABLE"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
 
 
 def test_server_refusals_map_to_api_codes(server: str, tmp_path: Path) -> None:
@@ -262,19 +302,21 @@ def test_compose_converter_service_is_sealed() -> None:
         pytest.skip("docker compose not usable here")
     cfg = json.loads(r.stdout)
     svc = cfg["services"]["converter"]
-    assert list(svc["networks"]) == ["converter-net"]  # no default network: no route anywhere else
-    assert cfg["networks"]["converter-net"]["internal"] is True  # and that one has no way out
-    assert set(cfg["services"]["api"]["networks"]) == {"default", "converter-net"}
+    assert svc["network_mode"] == "none"  # no network at all: not even Docker's DNS
+    assert not svc.get("networks") and not svc.get("ports") and "extra_hosts" not in svc
+    assert "converter-net" not in cfg.get("networks", {})
+    # its only volume holds the socket and nothing else, and the API shares exactly that one
+    assert [v["target"] for v in svc["volumes"]] == ["/run/converter"]
+    assert svc["volumes"][0]["source"] == "converter-socket"
+    api_mounts = {v["target"]: v["source"] for v in cfg["services"]["api"]["volumes"]}
+    assert api_mounts["/run/converter"] == "converter-socket"
     for other in ("web", "postgres", "migrate"):
-        assert "converter-net" not in cfg["services"][other].get("networks", {})
+        assert "converter-socket" not in json.dumps(cfg["services"][other].get("volumes", []))
     assert svc["read_only"] is True and svc["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in svc["security_opt"]
-    assert svc.get("volumes") in (None, []) and not svc.get(
-        "ports"
-    )  # never sees files, no host port
     assert svc["user"] == "10002:10002" and int(svc["mem_limit"]) > 0 and svc["pids_limit"] > 0
-    assert "noexec" in json.dumps(svc["tmpfs"]) or any("noexec" in str(t) for t in svc["tmpfs"])
-    assert not svc.get("privileged") and "network_mode" not in svc and "extra_hosts" not in svc
+    assert any("noexec" in str(t) for t in svc["tmpfs"])
+    assert not svc.get("privileged")
     # off by default: without the profile there is no converter service
     plain = subprocess.run(  # noqa: S603
         [
@@ -292,3 +334,22 @@ def test_compose_converter_service_is_sealed() -> None:
         timeout=60,
     )
     assert "converter" not in json.loads(plain.stdout)["services"]
+
+
+@real
+def test_real_libreoffice_converts_a_document_with_an_autorun_macro_without_running_it(
+    tmp_path: Path,
+) -> None:
+    """The fixture has a Basic macro bound to document load that writes a marker file. With the
+    converter's pinned profile (and with `--convert-to` itself) it must not run. Honest note: a
+    control run with macro security set to "low" did not run it either, so headless conversion
+    appears never to run document macros; the API additionally refuses packages that contain
+    macros (see test_previews)."""
+    plain = make_real(tmp_path, "note.txt", "document with a macro\n", "odt")
+    marker = tmp_path / "MARKER"
+    macro = tmp_path / "macro.odt"
+    macro.write_bytes(make_macro_odt(plain.read_bytes(), str(marker)))
+    out = tmp_path / "macro.pdf"
+    lo.convert(macro, "odt", out, timeout=90, max_pages=5)
+    assert "document with a macro" in (PdfReader(str(out)).pages[0].extract_text() or "")
+    assert not marker.exists()

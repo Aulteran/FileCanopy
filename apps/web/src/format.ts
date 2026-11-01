@@ -131,10 +131,13 @@ const MESSAGES: Record<string, string> = {
   TOO_MANY_PAGES: "This document has too many pages to preview.",
   ENCRYPTED:
     "This file is protected with a password, so it cannot be previewed.",
+  HAS_MACROS:
+    "This document contains macros, so it is not previewed. Download it to open it on your device.",
   UNREADABLE: "This file is damaged or incomplete.",
   CONVERT_FAILED: "The preview could not be made from this file.",
   TIMEOUT: "Making the preview took too long.",
-  PREVIEW_BUSY: "The preview service is busy. Try again in a moment.",
+  PREVIEW_BUSY:
+    "Other previews are being made right now. Try again in a moment.",
   PREVIEW_FAILED: "The preview could not be made.",
   OUTPUT_TOO_LARGE: "The preview would be too large.",
   UNSUPPORTED: "This kind of file cannot be previewed.",

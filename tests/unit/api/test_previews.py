@@ -461,9 +461,25 @@ def test_office_refusals(make_fx: Callable[..., Fx], converter: FakeConverter) -
         )
     )
     forged = nid(alice.upload(fx.alice_root, "forged.docx", b"MZ not an office file"))
+    renamed_docm = nid(
+        alice.upload(
+            fx.alice_root,
+            "renamed.docx",  # really macro-enabled: the extension says nothing
+            make_zip({"[Content_Types].xml": "<T/>", "word/vbaProject.bin": b"\x00" * 64}),
+        )
+    )
+    basic_odt = nid(
+        alice.upload(
+            fx.alice_root,
+            "basic.odt",
+            make_zip({"mimetype": "x", "Basic/Standard/Module1.xml": "Sub Main\nEnd Sub"}),
+        )
+    )
     assert code(get(alice, bigger, "preview")) == "TOO_LARGE"
     assert code(get(alice, bomb, "preview")) == "TOO_LARGE"  # zip bomb: refused before conversion
     assert code(get(alice, forged, "preview")) == "TYPE_MISMATCH"
+    assert code(get(alice, renamed_docm, "preview")) == "HAS_MACROS"
+    assert code(get(alice, basic_odt, "preview")) == "HAS_MACROS"
     assert converter.hits == 0
     converter.pdf = blank_pdf(3)  # more pages than allowed
     assert code(get(alice, small, "preview")) == "TOO_MANY_PAGES"

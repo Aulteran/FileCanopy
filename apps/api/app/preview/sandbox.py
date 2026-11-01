@@ -55,6 +55,7 @@ class Limits:
     timeout: float
     memory_bytes: int
     max_output: int
+    require_seccomp: bool = True
 
 
 def run_child(
@@ -124,7 +125,7 @@ def _kill(proc: "subprocess.Popen[bytes]") -> None:
 
 
 def run_worker(
-    op: str, source: BinaryIO, limits: Limits, args: dict[str, Any] | None = None
+    op: str, source: BinaryIO | None, limits: Limits, args: dict[str, Any] | None = None
 ) -> bytes:
     """One worker operation on an open file. Returns the worker's stdout (JSON, or image bytes
     for `thumb`). Any failure is a PreviewError with a code."""
@@ -133,7 +134,7 @@ def run_worker(
         "-I",
         str(WORKER),
         op,
-        json.dumps(args or {}),
+        json.dumps({**(args or {}), "require_seccomp": limits.require_seccomp}),
         str(limits.memory_bytes),
         str(int(limits.timeout) + 2),
     ]
@@ -146,5 +147,5 @@ def run_worker(
         except ValueError:
             err = None
         if isinstance(err, str) and err.isidentifier() and err.upper() == err:
-            raise PreviewError(err)
+            raise PreviewError(err, 503 if err == "SANDBOX_UNAVAILABLE" else 422)
     raise PreviewError("PREVIEW_FAILED")  # crashed, killed by a limit, or spoke nonsense

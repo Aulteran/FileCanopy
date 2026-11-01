@@ -7,6 +7,7 @@ by a limited worker before it is cached.
 
 import http.client
 import os
+import socket
 from pathlib import Path
 from typing import BinaryIO
 from urllib.parse import urlparse
@@ -20,6 +21,28 @@ KNOWN = {"TOO_LARGE", "ENCRYPTED", "CONVERT_FAILED", "TIMEOUT", "PREVIEW_BUSY", 
 MAX_PDF_BYTES = 256 * 1024 * 1024
 
 
+class UnixConnection(http.client.HTTPConnection):
+    """HTTP over a Unix socket: how the API reaches the network-less converter container."""
+
+    def __init__(self, path: str, timeout: float) -> None:
+        super().__init__("converter", timeout=timeout)
+        self._path = path
+
+    def connect(self) -> None:
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self._path)
+
+
+def _connection(url: str, timeout: float) -> http.client.HTTPConnection:
+    parsed = urlparse(url)
+    if parsed.scheme == "unix" and parsed.path:
+        return UnixConnection(parsed.path, timeout)
+    if parsed.scheme == "http" and parsed.hostname:  # development and tests
+        return http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
+    raise PreviewError("CONVERTER_UNAVAILABLE", 503)
+
+
 def configured(url: str) -> bool:
     return bool(url.strip())
 
@@ -28,10 +51,7 @@ def convert_to_pdf(
     url: str, source: BinaryIO, size: int, ext: str, dest: Path, *, timeout: int, max_pages: int
 ) -> None:
     """Posts the file and writes the returned PDF to `dest` (a new temp path)."""
-    parsed = urlparse(url)
-    if parsed.scheme != "http" or not parsed.hostname:
-        raise PreviewError("CONVERTER_UNAVAILABLE", 503)
-    conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout + 15)
+    conn = _connection(url, timeout + 15)
     try:
         try:
             source.seek(0)

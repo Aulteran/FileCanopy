@@ -11,6 +11,7 @@ the API, no volumes and a read-only root file system. Nothing in a reply names t
 import json
 import os
 import shutil
+import socketserver
 import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -23,6 +24,9 @@ TIMEOUT = int(os.environ.get("CONVERTER_TIMEOUT_SECONDS", "60"))
 SOFFICE = os.environ.get("CONVERTER_SOFFICE", "soffice")
 SCRATCH = os.environ.get("CONVERTER_SCRATCH") or None
 PORT = int(os.environ.get("CONVERTER_PORT", "8090"))
+# In Compose the converter has no network at all and listens on a Unix socket in a volume that only
+# the API shares. CONVERTER_PORT (TCP) exists for local development and tests.
+SOCKET = os.environ.get("CONVERTER_SOCKET", "")
 CHUNK = 1 << 20
 STATUS = {"TOO_LARGE": 413, "TIMEOUT": 504, "UNSUPPORTED": 422, "CONVERT_FAILED": 422}
 
@@ -95,8 +99,25 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 
+class UnixServer(socketserver.UnixStreamServer):
+    """The same single-threaded request loop, over a Unix socket."""
+
+
+def make_unix_server(path: str) -> UnixServer:
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    server = UnixServer(path, Handler)
+    os.chmod(path, 0o666)  # the API runs as another user; the directory is shared with it alone
+    return server
+
+
 def main() -> None:
-    HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()  # noqa: S104 - internal network only
+    if SOCKET:
+        make_unix_server(SOCKET).serve_forever()
+    else:
+        HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ and all capabilities dropped. Runs in CI (job `converter`) and with `npm run tes
 
 import json
 import subprocess
+import sys
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -12,6 +13,7 @@ import pytest
 
 pytestmark = pytest.mark.compose
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).parent))
 IMAGE = "filecanopy-converter:test"
 
 
@@ -31,8 +33,9 @@ def sealed() -> Iterator[str]:
     name = f"fcconv-{uuid.uuid4().hex[:6]}"
     docker(
         "run", "-d", "--name", name,
-        "--network", "none",  # no route anywhere, stricter than the internal Compose network
+        "--network", "none",  # as deployed: no network at all, the API reaches it by Unix socket
         "--read-only", "--tmpfs", "/tmp:size=768m,mode=1777,noexec,nosuid,nodev",
+        "--tmpfs", "/run/converter:mode=0777",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
         "--user", "10002:10002", "--memory", "2g", "--pids-limit", "256",
         IMAGE,
@@ -46,9 +49,14 @@ def sealed() -> Iterator[str]:
 def post(name: str, ext: str, data_path: str, max_pages: int = 50) -> tuple[int, bytes]:
     """POST a file that exists inside the container to its own server (no network needed)."""
     script = (
-        "import sys, http.client\n"
+        "import sys, socket, http.client\n"
         f"body = open({data_path!r}, 'rb').read()\n"
-        "c = http.client.HTTPConnection('127.0.0.1', 8090, timeout=120)\n"
+        "class C(http.client.HTTPConnection):\n"
+        "    def connect(self):\n"
+        "        self.sock = socket.socket(socket.AF_UNIX)\n"
+        "        self.sock.settimeout(120)\n"
+        "        self.sock.connect('/run/converter/converter.sock')\n"
+        "c = C('converter')\n"
         f"c.request('POST', '/convert?ext={ext}&max_pages={max_pages}', body, "
         "{'Content-Length': str(len(body))})\n"
         "r = c.getresponse(); data = r.read()\n"
@@ -103,6 +111,22 @@ def test_container_is_actually_sealed(sealed: str) -> None:
         check=False,
     )  # fmt: skip
     assert net.returncode != 0
-    probe = "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8090/healthz').status)"
-    health = docker("exec", sealed, "python3", "-c", probe)
-    assert health.stdout.strip() == "200"
+    health = docker("exec", sealed, "python3", "healthcheck.py", check=False)
+    assert health.returncode == 0
+
+
+def test_autorun_macro_does_not_run_in_the_container(sealed: str, tmp_path: Path) -> None:
+    from macrofixture import make_macro_odt
+
+    docker("exec", sealed, "sh", "-c", "printf 'macro doc\\n' > /tmp/m.txt && cd /tmp && "
+           "soffice --headless --norestore -env:UserInstallation=file:///tmp/mk "
+           "--convert-to odt m.txt >/dev/null 2>&1")  # fmt: skip
+    plain = tmp_path / "plain.odt"
+    docker("cp", f"{sealed}:/tmp/m.odt", str(plain))
+    macro = tmp_path / "macro.odt"
+    macro.write_bytes(make_macro_odt(plain.read_bytes(), "/tmp/MARKER"))
+    docker("cp", str(macro), f"{sealed}:/tmp/macro.odt")
+    status, body = post(sealed, "odt", "/tmp/macro.odt")
+    assert status == 200 and body.startswith(b"%PDF-")
+    gone = docker("exec", sealed, "test", "-e", "/tmp/MARKER", check=False)
+    assert gone.returncode != 0  # the macro never wrote its marker

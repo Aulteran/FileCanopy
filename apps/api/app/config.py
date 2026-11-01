@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Wall-clock limit and memory cap of the child process that parses PDF, DOCX, images, zips.
     preview_worker_timeout_seconds: int = Field(default=20, ge=1)
     preview_worker_memory_bytes: int = Field(default=1024**3, ge=64 * 1024**2)
+    # Refuse to parse files when the kernel cannot install the seccomp filter (no sockets, no exec
+    # in the parser child). Turn off only on a kernel or container runtime that forbids it.
+    preview_require_seccomp: bool = True
     preview_max_workers: int = Field(default=2, ge=1, le=16)
     preview_thumb_max_bytes: int = Field(default=30 * 1024**2, ge=1)
     preview_thumb_max_pixels: int = Field(default=50_000_000, ge=1)

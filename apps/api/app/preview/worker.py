@@ -29,9 +29,20 @@ def main() -> int:
     op, raw_args, memory, cpu = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
     _limit(memory, cpu)
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    args = json.loads(raw_args)
+    # Kernel limits before any parser code is imported or any byte is read (review B1): no sockets
+    # or exec (seccomp), and no reading of the library or app data (Landlock, where available).
+    from app.preview import hardening
+
+    status = hardening.apply()
+    if op == "probe":
+        sys.stdout.write(json.dumps(status))
+        return 0
+    if args.get("require_seccomp", True) and not status["seccomp"]:
+        sys.stdout.write(json.dumps({"error": "SANDBOX_UNAVAILABLE"}))
+        return 3
     from app.preview import archive, extract, thumb
 
-    args = json.loads(raw_args)
     stdin = open(0, "rb", closefd=False)  # noqa: SIM115 - fd 0 stays open; this is the file
     try:
         if op == "extract":

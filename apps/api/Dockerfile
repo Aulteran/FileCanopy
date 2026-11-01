@@ -19,6 +19,9 @@ COPY . .
 FROM base AS runtime
 RUN groupadd --system --gid 10001 filecanopy \
     && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin filecanopy
+# Mount point of the optional converter's socket volume (M10): owned by the converter's user so a
+# fresh volume is writable by it whichever container starts first. The API only connects to it.
+RUN mkdir -p /run/converter && chown 10002:10002 /run/converter && chmod 0755 /run/converter
 COPY apps/api apps/api
 COPY workers workers
 USER 10001:10001

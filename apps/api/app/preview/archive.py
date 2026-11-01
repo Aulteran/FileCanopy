@@ -29,7 +29,15 @@ def list_zip(f: BinaryIO, max_entries: int) -> dict[str, Any]:
     packed = 0
     encrypted = False
     bomb = False
+    macros = False
     for info in infos:
+        low = info.filename.lower().replace("\\", "/")
+        macros = macros or (
+            low.endswith("vbaproject.bin")
+            or low.startswith(("basic/", "scripts/"))
+            or "/macrosheets/" in low
+            or low.startswith("macrosheets/")
+        )
         total += info.file_size
         packed += info.compress_size
         encrypted = encrypted or bool(info.flag_bits & 0x1)
@@ -60,4 +68,5 @@ def list_zip(f: BinaryIO, max_entries: int) -> dict[str, Any]:
         "total_packed": packed,
         "encrypted": encrypted,
         "suspicious_ratio": bomb,
+        "macros": macros,
     }

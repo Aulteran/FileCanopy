@@ -33,6 +33,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
+from app.preview.hardening import make_undumpable
 from app.preview.service import PreviewService
 from app.storage.roots import ensure_roots
 from app.storage.service import ReconcilerService
@@ -50,6 +51,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("api started")
+        # Same-user child processes (the parser children) must not read this process's
+        # environment (the database URL) or memory through /proc (M10 review B1).
+        if not make_undumpable():
+            log.warning("could not mark the API process non-dumpable")
         try:
             bootstrap.ensure_token(sessions, cfg)
             app.state.setup_token_issued = True

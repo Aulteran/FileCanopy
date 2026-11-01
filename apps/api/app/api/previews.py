@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from app.api.files import _ctx, inline_response
+from app.api.files import _ctx, inline_response, record_once
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
 from app.db.models import User
@@ -127,6 +127,7 @@ def extract_text(
             dl.file.close()
     except PreviewError as err:
         raise _fail(err) from err
+    record_once(request, ctx.principal.user.id, ctx.node.id, ctx.node.name, "text_extracted")
     text = str(result.get("text", ""))
     cut = len(text) > TEXT_RETURN_CHARS
     return ExtractOut(

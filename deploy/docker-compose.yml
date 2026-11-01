@@ -70,12 +70,13 @@ services:
       FILECANOPY_MAX_OPEN_FOLDER_UPLOADS: ${FILECANOPY_MAX_OPEN_FOLDER_UPLOADS:-5}
       FILECANOPY_SCAN_PAUSE_CEILING_SECONDS: ${FILECANOPY_SCAN_PAUSE_CEILING_SECONDS:-1800}
       # Office previews (M10): leave empty to keep them off. To turn them on, start the
-      # `converter` profile (COMPOSE_PROFILES=converter) and set this to http://converter:8090.
+      # `converter` profile (COMPOSE_PROFILES=converter) and set this to
+      # unix:///run/converter/converter.sock (the socket in the volume shared with the converter).
       FILECANOPY_CONVERTER_URL: ${FILECANOPY_CONVERTER_URL:-}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data
-    networks: [default, converter-net]
+      - converter-socket:/run/converter
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
@@ -112,20 +113,23 @@ services:
     <<: *hardening
 
   # Optional sealed Office-to-PDF converter (M10, ADR-019 section 5, converter/README.md).
-  # Off unless the `converter` profile is started. Sealed by: an internal-only network (no route
-  # to the internet or to any service except the API), no volumes (never sees the library, app
-  # data or secrets), read-only root with a small non-executable tmpfs, non-root user, all
-  # capabilities dropped, no privilege escalation, and memory/CPU/process limits.
+  # Off unless the `converter` profile is started. Sealed by: NO network at all (it listens on a
+  # Unix socket in a volume that only the API shares, so it cannot reach the internet, the API's
+  # HTTP port, the database or Docker's DNS), no access to the library, app data or secrets,
+  # read-only root with a small non-executable tmpfs, non-root user, all capabilities dropped, no
+  # privilege escalation, and memory/CPU/process limits.
   converter:
     build: { context: ../converter }
     image: filecanopy-converter:dev
     profiles: [converter]
     restart: unless-stopped
-    networks: [converter-net]
+    network_mode: none
     user: "10002:10002"
     read_only: true
     tmpfs:
       - /tmp:size=768m,mode=1777,noexec,nosuid,nodev
+    volumes:
+      - converter-socket:/run/converter
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 2g
@@ -160,10 +164,7 @@ services:
       redis: { condition: service_healthy }
     <<: *hardening
 
-networks:
-  # Only the API and the converter are on it, and it has no route out.
-  converter-net:
-    internal: true
-
 volumes:
   pgdata:
+  # Holds only the converter's Unix socket; mounted by the API and the converter and nothing else.
+  converter-socket:

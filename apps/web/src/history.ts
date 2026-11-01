@@ -49,6 +49,7 @@ const EVENTS: Record<string, string> = {
   created: "Created",
   uploaded: "Uploaded",
   viewed: "Viewed",
+  text_extracted: "Text read for search and previews",
   renamed: "Renamed",
   moved: "Moved",
   copied: "Copied",

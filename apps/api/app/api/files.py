@@ -299,6 +299,34 @@ def download(
 VIEW_DEDUPE = timedelta(seconds=60)
 
 
+def record_once(
+    request: Request, user_id: uuid.UUID, node_id: uuid.UUID, name: str, action: str
+) -> None:
+    """One history entry per person, file and action within a minute (best effort: a failure to
+    write history never fails the read)."""
+    try:
+        with request.app.state.auth.sessions() as session:
+            # Check-then-insert: two requests at the very same instant could both write an entry.
+            # Accepted: the worst case is one duplicate line of history.
+            recent = session.scalar(
+                select(FileEvent.id)
+                .where(
+                    FileEvent.node_id == node_id,
+                    FileEvent.action == action,
+                    FileEvent.actor_user_id == user_id,
+                    FileEvent.at > clock.utcnow() - VIEW_DEDUPE,
+                )
+                .limit(1)
+            )
+            if recent is None:
+                events.record(
+                    session, node_id, action, source="ui", actor_user_id=user_id, name=name
+                )
+                session.commit()
+    except Exception as exc:
+        log.warning("%s not recorded: %s", action, type(exc).__name__)
+
+
 def _logged_view(
     request: Request,
     user_id: uuid.UUID,
@@ -312,27 +340,7 @@ def _logged_view(
     again for the same person and file within a minute (PDF.js may open the file twice)."""
     first = next(chunks, None)
     if log_view:
-        try:
-            with request.app.state.auth.sessions() as session:
-                # Check-then-insert: two from-the-start requests at the very same instant could
-                # both write an entry. Accepted: the worst case is one duplicate line of history.
-                recent = session.scalar(
-                    select(FileEvent.id)
-                    .where(
-                        FileEvent.node_id == node_id,
-                        FileEvent.action == "viewed",
-                        FileEvent.actor_user_id == user_id,
-                        FileEvent.at > clock.utcnow() - VIEW_DEDUPE,
-                    )
-                    .limit(1)
-                )
-                if recent is None:
-                    events.record(
-                        session, node_id, "viewed", source="ui", actor_user_id=user_id, name=name
-                    )
-                    session.commit()
-        except Exception as exc:
-            log.warning("view not recorded: %s", type(exc).__name__)
+        record_once(request, user_id, node_id, name, "viewed")
     if first is not None:
         yield first
     yield from chunks
