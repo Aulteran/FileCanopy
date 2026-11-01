@@ -1,8 +1,8 @@
 # FileCanopy — Current Project Status
 
 **Last updated:** 2026-11-01  
-**Stage:** M00–M06 and M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. The owner accepted ADR-017 (trash location and retention) and approved the M07 acceptance plan on 2026-11-01, including logging every successful download. **M07a (backend) was Opus-reviewed and signed off; M07b (UI) is implemented** on branch `m07-audit-trash-undo` (no PR yet), awaiting owner sign-off.  
-**Current milestone:** M07 — Audit trail, trash, and undo: M07a signed off; M07b (UI) implemented, awaiting sign-off (`docs/milestones/M07-design-and-plan.md`, ADR-017 Accepted).
+**Stage:** M00–M07 done (M07 merged 2026-11-01), M06c done, merged to `main` (PR #7, CI green) and signed off by the owner 2026-10-31. ADR-016 (per-root backup keys) was accepted 2026-10-31 and is not yet built. The owner accepted ADR-017 (trash location and retention) and approved the M07 acceptance plan on 2026-11-01, including logging every successful download. **M07a (backend) was Opus-reviewed and signed off; M07b (UI) is implemented** on branch `m07-audit-trash-undo` (no PR yet), awaiting owner sign-off.  
+**Current milestone:** none in progress. M07 — Audit trail, trash, and undo — is done and merged to `main` (PR #10, 546e09b, CI green, 2026-11-01); next is M08 on request (`docs/milestones/M07-design-and-plan.md`, ADR-017 Accepted).
 **Working name:** FileCanopy (not selected or cleared for publication).
 
 ## Overview
