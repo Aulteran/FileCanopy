@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 IMAGE = "filecanopy-converter:test"
 
 
-def docker(*args: str, check: bool = True, timeout: int = 900) -> subprocess.CompletedProcess[str]:
+def docker(
+    *args: str, check: bool = True, timeout: int = 900
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         ["docker", *args],  # noqa: S607
         capture_output=True,
@@ -78,7 +80,10 @@ def test_sealed_container_converts_real_documents(sealed: str) -> None:
            "--convert-to docx a.txt >/dev/null 2>&1 && "
            "soffice --headless --norestore -env:UserInstallation=file:///tmp/mk "
            "--convert-to xlsx b.csv >/dev/null 2>&1")  # fmt: skip
-    for ext, path, needle in (("docx", "/tmp/a.docx", b"%PDF-"), ("xlsx", "/tmp/b.xlsx", b"%PDF-")):
+    for ext, path, needle in (
+        ("docx", "/tmp/a.docx", b"%PDF-"),
+        ("xlsx", "/tmp/b.xlsx", b"%PDF-"),
+    ):
         status, body = post(sealed, ext, path)
         assert status == 200 and body.startswith(needle), (ext, status, body[:200])
     # junk: LibreOffice may import random bytes as plain text (the API refuses such files earlier,
@@ -115,17 +120,30 @@ def test_container_is_actually_sealed(sealed: str) -> None:
     assert health.returncode == 0
 
 
-def test_autorun_macro_does_not_run_in_the_container(sealed: str, tmp_path: Path) -> None:
+def test_autorun_macro_does_not_run_in_the_container(
+    sealed: str, tmp_path: Path
+) -> None:
     from macrofixture import make_macro_odt
 
     docker("exec", sealed, "sh", "-c", "printf 'macro doc\\n' > /tmp/m.txt && cd /tmp && "
            "soffice --headless --norestore -env:UserInstallation=file:///tmp/mk "
            "--convert-to odt m.txt >/dev/null 2>&1")  # fmt: skip
     plain = tmp_path / "plain.odt"
-    docker("cp", f"{sealed}:/tmp/m.odt", str(plain))
+    # `docker cp` cannot see a tmpfs mount, so move the bytes through exec.
+    plain.write_bytes(
+        subprocess.run(
+            ["docker", "exec", sealed, "cat", "/tmp/m.odt"],
+            capture_output=True,
+            check=True,
+        ).stdout  # noqa: S603, S607
+    )
     macro = tmp_path / "macro.odt"
     macro.write_bytes(make_macro_odt(plain.read_bytes(), "/tmp/MARKER"))
-    docker("cp", str(macro), f"{sealed}:/tmp/macro.odt")
+    subprocess.run(  # noqa: S603
+        ["docker", "exec", "-i", sealed, "sh", "-c", "cat > /tmp/macro.odt"],  # noqa: S607
+        input=macro.read_bytes(),
+        check=True,
+    )
     status, body = post(sealed, "odt", "/tmp/macro.odt")
     assert status == 200 and body.startswith(b"%PDF-")
     gone = docker("exec", sealed, "test", "-e", "/tmp/MARKER", check=False)
