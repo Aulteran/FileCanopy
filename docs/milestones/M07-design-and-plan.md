@@ -91,4 +91,5 @@ What was built, and where it differs from the plan above in detail (none of it c
 - **Copy and import undo** trash the largest subtrees made only of untouched entries (revision unchanged, same file on disk) as one item; everything else, including entries added later, is reported in `left_in_place` and left alone.
 - **Downloads** are written after the response body starts; a failure to write the event never blocks the download.
 - **Recovery** covers trash, restore, purge and cross-root move (see `tests/unit/api/test_trash_recovery.py`). A cross-root crash always leaves the source usable and reports `reconcile_needed` when a copy exists at the destination.
+- **Review follow-up (2026-11-01):** an item in `reconcile_needed` gets a check-and-release action in M07b (ADR-017, decision addendum). Until it exists, only permanent deletion is offered for such items.
 - **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).

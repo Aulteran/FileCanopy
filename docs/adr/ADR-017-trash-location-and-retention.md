@@ -94,3 +94,14 @@ Small choices made while implementing; none changes a decision above.
 - Trash metadata follows the same centralized policy as live nodes; no administrator bypass for personal roots; unauthorized requests get the same `404`/`403` shape as for live nodes so names do not leak.
 - No host paths in API responses, logs or activity details.
 - Private/Confidential labels (M09) must be kept on trash items and re-applied on restore; restore of Confidential content will need the M09 unlock. M07 stores the original parent so M09 can compute the inherited label.
+
+## Decision addendum: recovering a `reconcile_needed` item (M07 review, 2026-11-01)
+
+The Opus review of M07a found that an item flagged `reconcile_needed` could only be deleted forever: restore refuses it, and no route let a person check it. The owner chose a check-and-release action:
+
+- **Who:** the same people who can see the item (ADR-017 §3), and the root's manager for the whole root.
+- **What it does:** re-reads the entry in the item's trash directory and the node row, without changing anything first. If the entry is still in the trash and its node is still `trashed` under this item, the item returns to `in_trash` and the person can restore it or delete it forever as usual. Otherwise the item stays `reconcile_needed` and the response says why (`entry_missing`, `entry_changed`, `node_moved_on`).
+- **What it never does:** it never deletes, never restores on its own, and never guesses. Delete forever keeps its existing confirmation.
+- **Activity:** each check writes one `checked` event on the node and one audit row.
+- **Timing:** M07b, with the Trash page UI. It needs its own unit tests (each reason code) and one compose test before M07 sign-off.
+- **Scope:** the same action covers `trash`, `restore`, `purge` and `xmove` operations left `reconcile_needed`; the copy left at a cross-root destination stays for the scanner to adopt, as today.
