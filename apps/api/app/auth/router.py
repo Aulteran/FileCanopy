@@ -1,7 +1,7 @@
 """Setup, login/logout, password change, and invitation/reset token redemption."""
 
 from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -41,7 +41,7 @@ from app.auth.service import (
     revoke_sessions,
     valid_email,
 )
-from app.db.models import User
+from app.db.models import ConfidentialUnlock, User
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -161,6 +161,9 @@ def logout(
     db: Session = Depends(get_db),
 ) -> Ok:
     principal.session.revoked_at = clock.utcnow()
+    db.execute(
+        delete(ConfidentialUnlock).where(ConfidentialUnlock.session_id == principal.session.id)
+    )
     audit(db, "logout", actor=principal.user.id, ip=client_ip(request))
     db.commit()
     clear_session_cookie(request, response)

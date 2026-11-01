@@ -69,6 +69,9 @@ class OpCtx:
     ip: str | None = None
     actor_kind: str = "user"
     proposal_id: str | None = None
+    # The login session of the person at the browser; None in background work, which therefore
+    # never counts as unlocked for Confidential folders (M09).
+    session_id: uuid.UUID | None = None
 
     def event_actor(self) -> dict[str, Any]:
         """Keyword arguments naming the actor for `events.record`."""
@@ -94,7 +97,7 @@ class Outcome:
 
 def _need(ctx: OpCtx, target: uuid.UUID | Node, privilege: Privilege) -> Node:
     node = ctx.db.get(Node, target) if isinstance(target, uuid.UUID) else target
-    if node is None or privilege not in engine.effective(ctx.db, Actor(ctx.actor), node):
+    if node is None or privilege not in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node):
         node_id = target if isinstance(target, uuid.UUID) else target.id
         audit(
             ctx.db,
@@ -536,7 +539,7 @@ def _replayed(ctx: OpCtx, op: FileOperation) -> Outcome:
     node = ctx.db.get(Node, op.node_id) if op.node_id else None
     if node is None:
         raise OpError(409, "OPERATION_IN_PROGRESS")
-    if Privilege.TRAVERSE not in engine.effective(ctx.db, Actor(ctx.actor), node):
+    if Privilege.TRAVERSE not in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), node):
         raise OpError(403, "FORBIDDEN")  # the result moved somewhere this actor cannot see
     return Outcome(node, op, replay=True)
 

@@ -163,6 +163,11 @@ class Node(Base):
     # The trash item that holds this node (and its subtree) while status is trashed or purged;
     # a nested item trashed earlier keeps its own id, so restoring the outer one cannot revive it.
     trash_item_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True, nullable=True)
+    # Folders only: normal | private | confidential. The effective label is the most restrictive
+    # one on the node or any ancestor (M09); it is never copied down, so a move re-labels by place.
+    privacy_label: Mapped[str] = mapped_column(
+        String(12), nullable=False, default="normal", server_default="normal"
+    )
     # Optimistic-concurrency token: bumped by every rename and move (ADR-013).
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # files only
@@ -263,6 +268,25 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
+class ConfidentialUnlock(Base):
+    """A short-lived unlock of one Confidential subtree, bound to one login session (M09). Created
+    only after the server verified the account password; renewed only by interactive use."""
+
+    __tablename__ = "confidential_unlock"
+    __table_args__ = (UniqueConstraint("session_id", "scope_node_id", name="uq_unlock_scope"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("auth_session.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), nullable=False
+    )
+    scope_node_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    last_activity_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
 class AuthToken(Base):

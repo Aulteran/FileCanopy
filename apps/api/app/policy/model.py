@@ -27,3 +27,6 @@ class Actor:
 
     user_id: uuid.UUID
     kind: str = "user"
+    # The login session the request came from. None for jobs and any caller not tied to a person
+    # at a browser: they are never treated as unlocked (M09, fail closed).
+    session_id: uuid.UUID | None = None

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.auth.security import csrf_token_for, digest, new_token
-from app.db.models import AuthAudit, AuthSession, AuthToken, User
+from app.db.models import AuthAudit, AuthSession, AuthToken, ConfidentialUnlock, User
 from app.domain import nodes
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
@@ -140,6 +140,13 @@ def revoke_sessions(db: Session, user_id: uuid.UUID, except_hash: str | None = N
     )
     if except_hash:
         stmt = stmt.where(AuthSession.token_hash != except_hash)
+    db.execute(
+        delete(ConfidentialUnlock).where(
+            ConfidentialUnlock.session_id.in_(
+                select(AuthSession.id).where(AuthSession.user_id == user_id)
+            )
+        )
+    )
     result: CursorResult[Any] = db.execute(stmt)  # type: ignore[assignment]
     return int(result.rowcount)
 

@@ -16,7 +16,7 @@ from app.auth.deps import Principal, client_ip, current_principal, get_db, http_
 from app.auth.schemas import Ok
 from app.db.models import Node, NodeGrant, StorageRoot, User
 from app.domain import grants
-from app.policy import engine
+from app.policy import engine, privacy
 from app.policy.deps import NodeContext, grant_admin_access, traverse_access
 from app.policy.model import Actor, Privilege
 
@@ -49,6 +49,10 @@ class NodeOut(BaseModel):
     scan_delayed: bool = False
     # Folders the caller may share: how many people they are shared with. Null for everyone else.
     shared_with: int | None = None
+    # Label of this folder and of its place, and whether the Confidential lock is shut (M09).
+    privacy_own: str = "normal"
+    privacy_effective: str = "normal"
+    locked: bool = False
 
 
 class GrantOut(BaseModel):
@@ -72,14 +76,14 @@ def list_roots(
     principal: Principal = Depends(current_principal), db: Session = Depends(get_db)
 ) -> list[EntryPoint]:
     out: list[EntryPoint] = []
-    for node in engine.entry_points(db, Actor(principal.user.id)):
+    for node in engine.entry_points(db, Actor(principal.user.id, session_id=principal.session.id)):
         root = db.get(StorageRoot, node.root_id)
         if root is None:
             continue
         setup_open = (
             node.parent_id is None
             and root.setup_state == "open"
-            and engine.can_administer_grants(db, Actor(principal.user.id), node)
+            and engine.can_administer_grants(db, Actor(principal.user.id, session_id=principal.session.id), node)
         )
         if root.kind == "personal" and root.owner_user_id == principal.user.id:
             out.append(
@@ -109,16 +113,20 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
     parent_id: uuid.UUID | None = None
     if node.parent_id is not None:  # a parent the actor cannot see is never revealed
         parent = db.get(Node, node.parent_id)
-        if Privilege.TRAVERSE in engine.effective(db, Actor(ctx.principal.user.id), parent):
+        if Privilege.TRAVERSE in engine.effective(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), parent):
             parent_id = node.parent_id
     manage = (
         node.parent_id is None
         and root is not None
-        and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node)
+        and engine.can_administer_grants(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node)
     )
     shared_with: int | None = None
-    if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id), node):
+    if node.kind == "dir" and engine.can_administer_grants(db, Actor(ctx.principal.user.id, session_id=ctx.principal.session.id), node):
         shared_with = len(grants.users_with_access(db, grants.chain_ids(node)))
+    scope = privacy.confidential_scope(db, node)
+    locked = scope is not None and (
+        privacy.live_unlock(db, ctx.principal.user.id, ctx.principal.session.id, scope) is None
+    )
     return NodeOut(
         id=node.id,
         name=node.name,
@@ -131,6 +139,9 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         scan_state=root.scan_state if manage and root else None,
         scan_delayed=bool(manage and root and root.scan_paused_since is not None),
         shared_with=shared_with,
+        privacy_own=node.privacy_label,
+        privacy_effective=privacy.effective_label(db, node),
+        locked=locked,
     )
 
 

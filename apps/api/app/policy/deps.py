@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.service import audit
 from app.db.models import FileOperation, ImportBatch, Node, TrashItem
-from app.policy import engine
+from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
 
 
@@ -54,11 +54,30 @@ class NodeAccess:
         principal: Principal = Depends(current_principal),
         db: Session = Depends(get_db),
     ) -> NodeContext:
-        actor = Actor(principal.user.id)
+        actor = Actor(principal.user.id, session_id=principal.session.id)
         node = db.get(Node, node_id)
         privileges = engine.effective(db, actor, node, include_hidden=self.include_hidden)
         if node is None or self.privilege not in privileges:
+            scope = engine.lock_scope(db, actor, node)
+            if scope is not None:  # the actor may open it, but the Confidential lock is shut
+                audit(
+                    db,
+                    "privacy.locked_denied",
+                    actor=principal.user.id,
+                    ip=client_ip(request),
+                    node_id=str(node_id),
+                )
+                db.commit()
+                raise HTTPException(
+                    status_code=403, detail={"code": "LOCKED", "unlock_node_id": str(scope)}
+                )
             raise _deny(db, request, principal, node_id, self.privilege.value)
+        if request.headers.get(privacy.INTERACTIVE_HEADER) == "1" and node is not None:
+            scope = privacy.confidential_scope(db, node)
+            if scope is not None:  # only a person's own request keeps the unlock alive
+                row = privacy.live_unlock(db, actor.user_id, actor.session_id, scope)
+                if row is not None:
+                    privacy.renew(db, row)
         return NodeContext(principal, node, privileges)
 
 
@@ -75,7 +94,7 @@ class GrantAdminAccess:
         principal: Principal = Depends(current_principal),
         db: Session = Depends(get_db),
     ) -> NodeContext:
-        actor = Actor(principal.user.id)
+        actor = Actor(principal.user.id, session_id=principal.session.id)
         node = db.get(Node, node_id)
         if node is None or not engine.can_administer_grants(db, actor, node):
             raise _deny(db, request, principal, node_id, "grants")

@@ -125,6 +125,7 @@ def _lookup_session(request: Request, db: Session) -> Principal | None:
     if now - sess.last_seen_at > SEEN_GRANULARITY:
         sess.last_seen_at = now
         db.commit()
+    request.state.session_id = sess.id
     return Principal(user, sess)
 
 

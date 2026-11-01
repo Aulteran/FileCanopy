@@ -94,7 +94,7 @@ def list_notifications(
     limit: int = Query(default=30, ge=1, le=100),
 ) -> NotificationsOut:
     me = principal.user.id
-    actor = Actor(me)
+    actor = Actor(me, session_id=principal.session.id)
     rows = list(
         db.scalars(
             select(Notification)
@@ -210,7 +210,7 @@ def move_impact(
 ) -> ImpactOut:
     """Who would gain or lose access if this item were moved (or copied) into `target`. Needs write
     on the item (read for a copy) and on the destination, like the operation itself."""
-    actor = Actor(ctx.principal.user.id)
+    actor = Actor(ctx.principal.user.id, session_id=ctx.principal.session.id)
     if not copy and Privilege.WRITE not in ctx.privileges:
         raise http_error(403, "FORBIDDEN")  # a move needs write on the item; a copy only read
     dest = db.get(Node, target)

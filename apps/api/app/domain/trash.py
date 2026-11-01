@@ -217,7 +217,9 @@ def _discard_item_dir(ctx: OpCtx, root_id: uuid.UUID, item_id: uuid.UUID) -> Non
 # ------------------------------------------------------------------ visibility
 
 
-def item_visible(db: Session, actor_id: uuid.UUID, item: TrashItem) -> bool:
+def item_visible(
+    db: Session, actor_id: uuid.UUID, item: TrashItem, session_id: uuid.UUID | None = None
+) -> bool:
     """ADR-017 §3. The owner of a personal root sees all its items. Anyone else sees the items of
     the shared tree whose original parent they can still write, and in a personal root only their
     own, while they still hold `write` there. An administrator is not special."""
@@ -225,7 +227,7 @@ def item_visible(db: Session, actor_id: uuid.UUID, item: TrashItem) -> bool:
     if root is None:
         return False
     parent = db.get(Node, item.original_parent_id)
-    privileges = engine.effective(db, Actor(actor_id), parent, include_hidden=True)
+    privileges = engine.effective(db, Actor(actor_id, session_id=session_id), parent, include_hidden=True)
     if not privileges:
         return False
     if root.kind == "personal" and root.owner_user_id == actor_id:
@@ -235,10 +237,12 @@ def item_visible(db: Session, actor_id: uuid.UUID, item: TrashItem) -> bool:
     return root.kind != "personal" or item.trashed_by == actor_id
 
 
-def can_manage_root(db: Session, actor_id: uuid.UUID, root_node: Node) -> bool:
+def can_manage_root(
+    db: Session, actor_id: uuid.UUID, root_node: Node, session_id: uuid.UUID | None = None
+) -> bool:
     """Whole-root actions: the owner of a personal folder, an administrator for the shared tree."""
     return root_node.parent_id is None and engine.can_administer_grants(
-        db, Actor(actor_id), root_node
+        db, Actor(actor_id, session_id=session_id), root_node
     )
 
 
@@ -260,6 +264,7 @@ def visible_items(
     root_id: uuid.UUID | None = None,
     limit: int = 200,
     after: tuple[datetime, uuid.UUID] | None = None,
+    session_id: uuid.UUID | None = None,
 ) -> tuple[list[TrashItem], bool]:
     """Newest first. Returns up to `limit` visible items and whether more follow."""
     out: list[TrashItem] = []
@@ -277,7 +282,7 @@ def visible_items(
             db.scalars(query.order_by(TrashItem.trashed_at.desc(), TrashItem.id.desc()).limit(500))
         )
         for item in rows:
-            if item_visible(db, actor_id, item):
+            if item_visible(db, actor_id, item, session_id):
                 if len(out) == limit:
                     return out, True
                 out.append(item)
@@ -402,7 +407,7 @@ def _item_of(op: FileOperation, ctx: OpCtx) -> TrashItem | None:
 def _replay_trash(ctx: OpCtx, op: FileOperation) -> TrashOutcome:
     item = _item_of(op, ctx)
     node = ctx.db.get(Node, op.node_id) if op.node_id else None
-    if item is None or node is None or not item_visible(ctx.db, ctx.actor, item):
+    if item is None or node is None or not item_visible(ctx.db, ctx.actor, item, ctx.session_id):
         raise OpError(403, "FORBIDDEN")
     return TrashOutcome(item, node, op, replay=True)
 
@@ -431,7 +436,7 @@ def trash(
         existing is not None
         and existing.status in HIDDEN_NODE_STATUSES
         and Privilege.WRITE
-        in engine.effective(ctx.db, Actor(ctx.actor), existing, include_hidden=True)
+        in engine.effective(ctx.db, Actor(ctx.actor, session_id=ctx.session_id), existing, include_hidden=True)
     ):
         raise OpError(409, "ALREADY_TRASHED")
     node = _need(ctx, node_id, Privilege.WRITE)
@@ -644,7 +649,7 @@ def restore(
     if done_before is not None:
         return _replayed(ctx, done_before)
     item = ctx.db.get(TrashItem, item_id)
-    if item is None or not item_visible(ctx.db, ctx.actor, item):
+    if item is None or not item_visible(ctx.db, ctx.actor, item, ctx.session_id):
         audit(ctx.db, "access.denied", actor=ctx.actor, ip=ctx.ip, item_id=str(item_id))
         ctx.db.commit()
         raise OpError(403, "FORBIDDEN")
@@ -863,7 +868,7 @@ def purge(
     """Delete forever, for one item the caller can see. The confirmation token states what is
     about to go (count and size), so a stale screen cannot delete something that changed."""
     item = ctx.db.get(TrashItem, item_id)
-    if item is None or not item_visible(ctx.db, ctx.actor, item):
+    if item is None or not item_visible(ctx.db, ctx.actor, item, ctx.session_id):
         audit(ctx.db, "access.denied", actor=ctx.actor, ip=ctx.ip, item_id=str(item_id))
         ctx.db.commit()
         raise OpError(403, "FORBIDDEN")
@@ -997,7 +1002,7 @@ def _finish_purge(
 def empty_root_trash(ctx: OpCtx, root_node: Node, *, confirm: str | None) -> dict[str, int]:
     """Deletes forever every item in a root's trash. Needs the root's manager and the token that
     states the count and size. Items that cannot be removed are left (and flagged)."""
-    if not can_manage_root(ctx.db, ctx.actor, root_node):
+    if not can_manage_root(ctx.db, ctx.actor, root_node, ctx.session_id):
         audit(ctx.db, "access.denied", actor=ctx.actor, ip=ctx.ip, node_id=str(root_node.id))
         ctx.db.commit()
         raise OpError(403, "FORBIDDEN")
@@ -1506,7 +1511,7 @@ def check_release(ctx: OpCtx, item_id: uuid.UUID) -> CheckResult:
     deleted, moved or renamed by this action. One event and one audit row either way."""
     db = ctx.db
     item = db.get(TrashItem, item_id)
-    if item is None or not item_visible(db, ctx.actor, item):
+    if item is None or not item_visible(db, ctx.actor, item, ctx.session_id):
         audit(db, "access.denied", actor=ctx.actor, ip=ctx.ip, item_id=str(item_id))
         db.commit()
         raise OpError(403, "FORBIDDEN")
@@ -1516,7 +1521,7 @@ def check_release(ctx: OpCtx, item_id: uuid.UUID) -> CheckResult:
 def check_release_root(ctx: OpCtx, root_node: Node) -> dict[str, int]:
     """The same check for every flagged item of one root, for the root's manager (the owner of a
     personal folder, an administrator for the shared tree), who may not be able to see each item."""
-    if not can_manage_root(ctx.db, ctx.actor, root_node):
+    if not can_manage_root(ctx.db, ctx.actor, root_node, ctx.session_id):
         audit(ctx.db, "access.denied", actor=ctx.actor, ip=ctx.ip, node_id=str(root_node.id))
         ctx.db.commit()
         raise OpError(403, "FORBIDDEN")

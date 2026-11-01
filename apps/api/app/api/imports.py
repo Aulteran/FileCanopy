@@ -150,7 +150,13 @@ def _runner(request: Request) -> ImportRunner:
 
 
 def _ctx(request: Request, actor: uuid.UUID, db: Session) -> OpCtx:
-    return OpCtx(db, request.app.state.auth.settings, actor, client_ip(request))
+    return OpCtx(
+        db,
+        request.app.state.auth.settings,
+        actor,
+        client_ip(request),
+        session_id=getattr(request.state, "session_id", None),
+    )
 
 
 def _raws(body: Any) -> list[RawEntry]:
@@ -485,7 +491,7 @@ def undo_import(
     from app.api.trash import undo_out
     from app.domain import undo as undo_domain
 
-    ctx = OpCtx(db, request.app.state.auth.settings, principal.user.id, client_ip(request))
+    ctx = OpCtx(db, request.app.state.auth.settings, principal.user.id, client_ip(request), session_id=principal.session.id)
     try:
         result = undo_domain.undo_import(ctx, batch, idempotency_key)
     except undo_domain.UndoConflict as conflict:

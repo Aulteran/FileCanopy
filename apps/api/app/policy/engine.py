@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import HIDDEN_NODE_STATUSES, Node, NodeGrant, StorageRoot, User
+from app.policy import privacy
 from app.policy.model import ALL_PRIVILEGES, LEVELS, Actor, Privilege
 
 
@@ -37,6 +38,36 @@ def lineage_ids(node: Node) -> list[uuid.UUID]:
 
 
 def decide(
+    db: Session, actor: Actor, node: Node | None, *, include_hidden: bool = False
+) -> Decision:
+    """Access by ownership and grants, then the Confidential lock on top (M09). A locked
+    Confidential folder keeps `traverse` (so it can be shown and unlocked); everything under it
+    is as good as nonexistent until the session holds a live unlock."""
+    base = decide_ignoring_lock(db, actor, node, include_hidden=include_hidden)
+    if node is None or not base.privileges:
+        return base
+    scope = privacy.confidential_scope(db, node)
+    if scope is None or privacy.live_unlock(db, actor.user_id, actor.session_id, scope):
+        return base
+    if node.id == scope:
+        return Decision(base.privileges & {Privilege.TRAVERSE})
+    return DENY
+
+
+def lock_scope(db: Session, actor: Actor, node: Node | None) -> uuid.UUID | None:
+    """The Confidential folder whose lock is the only thing keeping the actor out of `node`;
+    None when the actor would be refused anyway or the node is not locked."""
+    if node is None:
+        return None
+    if not decide_ignoring_lock(db, actor, node).privileges:
+        return None
+    scope = privacy.confidential_scope(db, node)
+    if scope is None or privacy.live_unlock(db, actor.user_id, actor.session_id, scope):
+        return None
+    return scope
+
+
+def decide_ignoring_lock(
     db: Session, actor: Actor, node: Node | None, *, include_hidden: bool = False
 ) -> Decision:
     """Hidden (dismissed, trashed, purged) nodes behave as nonexistent. Only the trash code asks
