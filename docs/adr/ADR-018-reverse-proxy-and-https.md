@@ -1,6 +1,6 @@
 # ADR-018: Reverse proxy, HTTPS and trusted proxy configuration
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-01)
 - **Date:** 2026-11-01
 - **Milestone:** M07c
 

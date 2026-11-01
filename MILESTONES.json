@@ -288,7 +288,7 @@
         "upload and download through proxy",
         "cookie flags over HTTPS"
       ],
-      "notes": "Added 2026-11-01 after owner asked whether reverse proxy is supported. Review found: nothing tested; README has one sentence and no examples; behind an outer proxy all users share one IP (nginx overwrites X-Forwarded-For with $remote_addr, hops=1), X-Forwarded-Proto always http, ALLOWED_ORIGINS not passed by Compose, 127.0.0.1-only port binding needs a documented proxy network. Not implemented. Decision in ADR-018 (Proposed, needs owner approval). M22 keeps final packaging; proxy work moves here. Owner runs Nginx Proxy Manager (NPM) in a home lab; a proxy host to FileCanopy with the real client IP visible is the primary acceptance case.",
+      "notes": "Added 2026-11-01 after owner asked whether reverse proxy is supported. Review found: nothing tested; README has one sentence and no examples; behind an outer proxy all users share one IP (nginx overwrites X-Forwarded-For with $remote_addr, hops=1), X-Forwarded-Proto always http, ALLOWED_ORIGINS not passed by Compose, 127.0.0.1-only port binding needs a documented proxy network. Not implemented. Decision in ADR-018 (Accepted by owner 2026-11-01). M22 keeps final packaging; proxy work moves here. Owner runs Nginx Proxy Manager (NPM) in a home lab; a proxy host to FileCanopy with the real client IP visible is the primary acceptance case.",
       "status": "not_started"
     },
     {

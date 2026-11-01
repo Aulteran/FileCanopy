@@ -185,7 +185,7 @@
 
 ### M07c — Reverse proxy and HTTPS support
 
-**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of trusted-proxy handling · **ADR:** ADR-018 (Proposed)
+**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of trusted-proxy handling · **ADR:** ADR-018 (Accepted 2026-11-01)
 
 **Goal:** Running behind a TLS reverse proxy (Nginx Proxy Manager first, then Caddy, nginx, Traefik, Cloudflare Tunnel) is correct, documented and tested. Today it is untested: behind an outer proxy all users share one client IP (login throttle and audit), `X-Forwarded-Proto` is always `http`, `FILECANOPY_ALLOWED_ORIGINS` is not passed by Compose, and the README has no examples.
 
