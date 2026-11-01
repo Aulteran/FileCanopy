@@ -424,7 +424,7 @@
         "worker crash/retry"
       ],
       "notes": "Implemented 2026-11-01 on branch m11-search (migration 0013). Design: docs/milestones/M11-design-and-plan.md. Filename search plus full-text search over text, PDF and DOCX; background indexer with leases and retries; sealed optional OCR container in ocr/ (Compose profile ocr) for scanned PDFs and pictures; every result decided by the policy engine at query time. Confidential content is never indexed; Private needs the local-processing opt-in.",
-      "status": "in_review"
+      "status": "done"
     },
     {
       "id": "M12",
