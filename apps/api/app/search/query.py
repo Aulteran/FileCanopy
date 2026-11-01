@@ -6,8 +6,9 @@ Private file also needs the local-processing consent. Snippets are cut after tha
 import re
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import and_, bindparam, func, literal_column, or_, select, text
+from sqlalchemy import ColumnElement, and_, bindparam, func, literal_column, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.db.models import HIDDEN_NODE_STATUSES, Node, SearchDoc
@@ -52,7 +53,7 @@ def snippet_of(body: str, terms: list[str]) -> str:
     )
 
 
-def _scope(db: Session, actor: Actor, folder: Node | None) -> list[object]:
+def _scope(db: Session, actor: Actor, folder: Node | None) -> list[ColumnElement[bool]]:
     """SQL narrowing only (never the decision): the subtrees of the person's entry points."""
     points = engine.entry_points(db, actor)
     prefixes = [n.lineage for n in points]
@@ -111,6 +112,8 @@ def search(
                 if len(hits) >= limit:
                     return _finish(db, actor, list(hits.values()))
     # ---- text
+    match: Any
+    rank: Any
     if db.get_bind().dialect.name == "postgresql":
         match = text("search_doc.tsv @@ websearch_to_tsquery('simple', :qm)").bindparams(
             bindparam("qm", " ".join(terms))
