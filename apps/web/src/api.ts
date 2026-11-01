@@ -49,6 +49,19 @@ export type NodeInfo = {
   scan_delayed: boolean;
   // How many people a folder is shared with; null unless the caller manages its sharing.
   shared_with: number | null;
+  // Privacy (M09): this folder's own label, the strictest one on it or above, and the lock.
+  privacy_own: Label;
+  privacy_effective: Label;
+  locked: boolean;
+  locks_in: number | null;
+};
+export type Label = "normal" | "private" | "confidential";
+export type PrivacyState = {
+  own: Label;
+  effective: Label;
+  locked: boolean;
+  locks_in: number | null;
+  labels_enabled: boolean;
 };
 export type Grant = {
   // Set when the access comes from a bigger share above this folder.
@@ -305,7 +318,28 @@ export function setCsrf(token: string): void {
   csrf = token;
 }
 
-type Extra = { body?: BodyInit; headers?: Record<string, string> };
+type Extra = {
+  body?: BodyInit;
+  headers?: Record<string, string>;
+  // Timers and pollers pass true: they must never keep a Confidential unlock alive.
+  background?: boolean;
+};
+
+// The server renews a Confidential unlock only for a request the person made. A request counts
+// as theirs when they touched the page recently and the caller did not say it is background work.
+const INTERACTIVE_WINDOW_MS = 30_000;
+let lastInput = 0;
+if (typeof window !== "undefined") {
+  for (const ev of ["pointerdown", "keydown", "wheel"])
+    window.addEventListener(ev, () => (lastInput = Date.now()), true);
+}
+export function isInteractive(
+  now: number,
+  lastInputAt: number,
+  background: boolean,
+): boolean {
+  return !background && now - lastInputAt <= INTERACTIVE_WINDOW_MS;
+}
 
 async function call<T>(
   method: string,
@@ -315,6 +349,8 @@ async function call<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { ...extra.headers };
   if (method !== "GET") headers["X-CSRF-Token"] = csrf;
+  if (isInteractive(Date.now(), lastInput, extra.background === true))
+    headers["X-FC-Interactive"] = "1";
   let body: BodyInit | undefined = extra.body;
   if (json !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -484,12 +520,32 @@ export const api = {
   notifications: () => call<Notices>("GET", "/api/v1/notifications"),
   markNoticesRead: () =>
     call<{ status: string }>("POST", "/api/v1/notifications/read"),
-  node: (id: string) => call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`),
-  children: (id: string, after?: string | null) =>
+  node: (id: string, background = false) =>
+    call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`, undefined, {
+      background,
+    }),
+  children: (id: string, after?: string | null, background = false) =>
     call<Children>(
       "GET",
       `/api/v1/nodes/${enc(id)}/children?limit=200${after ? `&after=${enc(after)}` : ""}`,
+      undefined,
+      { background },
     ),
+  unlock: (id: string, password: string) =>
+    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, {
+      password,
+    }),
+  lock: (id: string) =>
+    call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/lock`, {}),
+  setLabel: (
+    id: string,
+    label: Label,
+    extra: { confirm_lowering?: boolean; password?: string } = {},
+  ) =>
+    call<PrivacyState>("PUT", `/api/v1/nodes/${enc(id)}/privacy`, {
+      label,
+      ...extra,
+    }),
   createFolder: (parent: string, name: string) =>
     call<OpResult>(
       "POST",

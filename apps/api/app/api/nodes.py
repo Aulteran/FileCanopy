@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import clock
 from app.auth.deps import Principal, client_ip, current_principal, get_db, http_error
 from app.auth.schemas import Ok
 from app.db.models import Node, NodeGrant, StorageRoot, User
@@ -53,6 +54,8 @@ class NodeOut(BaseModel):
     privacy_own: str = "normal"
     privacy_effective: str = "normal"
     locked: bool = False
+    # Seconds of idle time left on an open Confidential unlock; null otherwise.
+    locks_in: int | None = None
 
 
 class GrantOut(BaseModel):
@@ -132,8 +135,19 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
     ):
         shared_with = len(grants.users_with_access(db, grants.chain_ids(node)))
     scope = privacy.confidential_scope(db, node)
-    locked = scope is not None and (
-        privacy.live_unlock(db, ctx.principal.user.id, ctx.principal.session.id, scope) is None
+    unlock_row = (
+        privacy.live_unlock(db, ctx.principal.user.id, ctx.principal.session.id, scope)
+        if scope is not None
+        else None
+    )
+    locked = scope is not None and unlock_row is None
+    locks_in = (
+        max(
+            0,
+            int((unlock_row.last_activity_at + privacy.IDLE_LOCK - clock.utcnow()).total_seconds()),
+        )
+        if unlock_row is not None
+        else None
     )
     return NodeOut(
         id=node.id,
@@ -150,6 +164,7 @@ def get_node(ctx: NodeContext = Depends(traverse_access), db: Session = Depends(
         privacy_own=node.privacy_label,
         privacy_effective=privacy.effective_label(db, node),
         locked=locked,
+        locks_in=locks_in,
     )
 
 

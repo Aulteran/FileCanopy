@@ -1,3 +1,4 @@
+import { LabelBadge, LockCard, LockStrip, PrivacyDialog } from "./Privacy";
 import {
   useCallback,
   useEffect,
@@ -38,7 +39,14 @@ import { folderPath, viewPath } from "./route";
 import { viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
-type Dialog = null | "folder" | "rename" | "move" | "copy" | "share";
+type Dialog =
+  | null
+  | "folder"
+  | "rename"
+  | "move"
+  | "copy"
+  | "share"
+  | "privacy";
 type Upload = {
   id: number;
   file: File;
@@ -104,9 +112,11 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const [crumbs, setCrumbs] = useState<NodeInfo[]>([]);
   const [items, setItems] = useState<Child[]>([]);
   const [next, setNext] = useState<string | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "denied" | "error">(
-    "loading",
-  );
+  const [state, setState] = useState<
+    "loading" | "ready" | "denied" | "error" | "locked"
+  >("loading");
+  // Set by timers so their reload does not count as the person using the folder (M09).
+  const background = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusIx, setFocusIx] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -136,7 +146,9 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   );
 
   const loadList = useCallback(async (): Promise<void> => {
-    const kids = await api.children(folderId);
+    const bg = background.current;
+    background.current = false;
+    const kids = await api.children(folderId, null, bg);
     setItems(kids.items);
     setNext(kids.next_after);
   }, [folderId]);
@@ -145,9 +157,9 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     let live = true;
     (async () => {
       try {
-        const node = await api.node(folderId);
+        const node = await api.node(folderId, background.current);
         const chain: NodeInfo[] = [node];
-        for (let n = node; n.parent_id && chain.length < 64;) {
+        for (let n = node; n.parent_id && chain.length < 64; ) {
           n = await api.node(n.parent_id);
           chain.unshift(n);
         }
@@ -159,10 +171,18 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         setInfo(node);
         setCrumbs(chain);
         onRoot(chain[0]?.id ?? null);
+        if (node.locked) {
+          setState("locked");
+          return;
+        }
         await loadList();
         if (live) setState("ready");
       } catch (err) {
         if (!live) return;
+        if (err instanceof ApiError && err.code === "LOCKED") {
+          setState("locked");
+          return;
+        }
         const text = fail(err);
         setErrorText(text);
         setState(
@@ -357,7 +377,10 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       setNotice(
         "Rescan requested. Changes made outside the app appear shortly.",
       );
-      setTimeout(() => void refresh(), 3000);
+      setTimeout(() => {
+        background.current = true;
+        void refresh();
+      }, 3000);
     } catch (err) {
       setErrorText(fail(err));
     }
@@ -467,6 +490,19 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   }
 
   if (state === "loading") return <p className="loading">Loading…</p>;
+  if (state === "locked") {
+    return (
+      <LockCard
+        folderId={folderId}
+        name={info?.privacy_own === "confidential" ? info.name : ""}
+        onUnlocked={() => {
+          setState("loading");
+          setTick((t) => t + 1);
+        }}
+        onEnded={onEnded}
+      />
+    );
+  }
   if (state !== "ready" || !info) {
     return (
       <div role="alert" className="empty">
@@ -519,6 +555,15 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         </ol>
       </nav>
 
+      {info.privacy_effective === "confidential" && !info.locked && (
+        <LockStrip
+          info={info}
+          onLocked={() => {
+            setState("loading");
+            setTick((t) => t + 1);
+          }}
+        />
+      )}
       <div className="toolbar" role="toolbar" aria-label="Folder actions">
         <input
           ref={fileInput}
@@ -567,6 +612,10 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         >
           New folder
         </button>
+        <LabelBadge label={info.privacy_effective} />
+        {privileges.includes("manage") && info.kind === "dir" && (
+          <button onClick={() => setDialog("privacy")}>Privacy…</button>
+        )}
         {info.shared_with !== null && info.kind === "dir" && (
           <button onClick={() => setDialog("share")}>
             Share{info.shared_with > 0 ? ` (${info.shared_with})` : ""}
@@ -605,7 +654,10 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             onEnded={onEnded}
             onResolved={() => {
               setNotice("Your choice was saved.");
-              setTimeout(() => setTick((t) => t + 1), 2500);
+              setTimeout(() => {
+                background.current = true;
+                setTick((t) => t + 1);
+              }, 2500);
             }}
           />
         )}
@@ -937,6 +989,16 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         </aside>
       </div>
 
+      {dialog === "privacy" && (
+        <PrivacyDialog
+          info={info}
+          onClose={() => setDialog(null)}
+          onChanged={() => {
+            setState("loading");
+            setTick((t) => t + 1);
+          }}
+        />
+      )}
       {dialog === "share" && (
         <ShareDialog
           folderId={info.id}
