@@ -33,7 +33,10 @@ def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
             found = True
             break
         page.wait_for_timeout(1500)
-    assert found, "the text was never indexed"
+    if not found:  # say what the server knows, so a failure explains itself
+        docs = world.stack.sql("select count(*) from search_doc")
+        jobs = world.stack.sql("select state || ':' || coalesce(error, '-') from search_job")
+        raise AssertionError(f"text never found; search_doc rows={docs}; jobs={jobs!r}")
     expect(page.get_by_text("Text", exact=True).first).to_be_visible()
     page.get_by_role("link", name="Show in folder").first.click()
     expect(page.get_by_role("row").filter(has_text="garden-plan.txt")).to_be_visible()

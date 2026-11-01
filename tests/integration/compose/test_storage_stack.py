@@ -68,7 +68,7 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     assert stack.sql("select count(*) from storage_root where kind = 'personal'") == users
     # Re-create the pre-M03 state (accounts but no storage tables) and migrate for real.
     stack.sql(
-        "drop table confidential_unlock, notification, trash_item, backup_chain_state, backup_run, "
+        "drop table search_doc, search_job, confidential_unlock, notification, trash_item, backup_chain_state, backup_run, "
         "import_entry, import_batch, file_event, scan_run, file_operation, node_grant, node, "
         "storage_root; "
         "delete from app_setting where key = 'shared_tree_default_access'; "
