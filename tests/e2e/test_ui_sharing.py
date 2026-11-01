@@ -17,7 +17,7 @@ def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     alice.get_by_role("button", name=re.compile("^Share")).click()
     dialog = alice.get_by_role("dialog", name=re.compile("Share"))
     dialog.get_by_label("Add people").fill("Alice")
-    dialog.get_by_role("button", name=re.compile("^Alice")).click()  # the other Alice, by hint
+    dialog.get_by_role("button", name=re.compile(r"^Alice \(b\*\*\*@")).click()  # Bob, by his hint
     dialog.get_by_role("button", name="Add").click()
     expect(dialog.get_by_role("list", name="People with access")).to_contain_text("Alice")
     expect(dialog.get_by_text("Everything inside is shared too")).to_be_visible()
