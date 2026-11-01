@@ -1,7 +1,7 @@
 # M07 — Audit trail, trash, and undo: design and acceptance plan
 
-- **Status:** plan for owner approval (2026-10-31). No M07 code is written yet.
-- **Depends on:** M06 (done, signed off 2026-10-31). **Decision record:** ADR-017 (Proposed): trash location, visibility, retention.
+- **Status:** approved by the owner 2026-11-01 (ADR-017 accepted; every successful download is logged). No M07 code is written yet.
+- **Depends on:** M06 (done, signed off 2026-10-31). **Decision record:** ADR-017 (Accepted 2026-11-01): trash location, visibility, retention.
 - **Suggested models:** Sonnet 5.5 for the code; Opus 5.5 for the recovery and authorization review before sign-off.
 
 ## Scope
@@ -77,4 +77,4 @@ Additional checks this plan commits to:
 1. **ADR-017 section 1, trash location:** decided by the owner 2026-10-31: library-level `.filecanopy-trash` outside every root (amends `03_SECURITY_PRIVACY.md` for trash only; the amendment is made when M07a lands).
 2. **ADR-017 section 4, retention defaults:** 30 days, admin-configurable 7 to 3650 or never, no space-pressure purge, deadline fixed at trash time.
 3. **Split and branch:** M07a and M07b on one branch and one PR, as M06 was.
-4. **Download events:** recorded per successful download (not per listing or metadata read). Confirm this is the level of detail wanted; it is visible to anyone with `read` on the file.
+4. **Download events:** decided by the owner 2026-11-01: every successful download is logged (not listings or metadata reads; failed or refused downloads are not logged). Visible to anyone with `read` on the file.

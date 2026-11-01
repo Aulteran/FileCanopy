@@ -263,7 +263,7 @@
         "authorization on audit",
         "reboot after partial operation"
       ],
-      "notes": "Planning 2026-10-31: acceptance plan in docs/milestones/M07-design-and-plan.md and ADR-017 (trash location, visibility, retention; open decision 9) Proposed, waiting for owner approval. No code yet.",
+      "notes": "Planning 2026-10-31; owner approved ADR-017 (trash location, visibility, retention; open decision 9) and the acceptance plan in docs/milestones/M07-design-and-plan.md on 2026-11-01, including logging every successful download. Split into M07a (backend) and M07b (UI) on one branch and one PR. No code yet.",
       "status": "not_started"
     },
     {

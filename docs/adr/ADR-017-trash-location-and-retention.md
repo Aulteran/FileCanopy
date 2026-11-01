@@ -1,6 +1,6 @@
 # ADR-017: Trash location, visibility and retention defaults
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-11-01)
 - **Date:** 2026-10-31
 - **Milestone:** M07 (resolves open decision 9 for trash; email quarantine retention is deferred to ADR-007)
 
@@ -20,7 +20,9 @@ Trashed entries are renamed into `<library>/.filecanopy-trash/<root_id>/<trash_i
 
 This **amends `03_SECURITY_PRIVACY.md` line 65** for trash only (staging, previews, indexes and the database stay in `/app-data`). The trade-off: someone with host access to the library folder sees `.filecanopy-trash` and its contents, but host access is already outside the trust model and the same person can read every root anyway.
 
-**Owner decision (2026-10-31):** the owner chose this library-level location over trash in `/app-data`. The rest of this ADR (retention defaults, visibility) still waits for approval together with the M07 plan.
+**Owner decision (2026-10-31):** the owner chose this library-level location over trash in `/app-data`.
+
+**Owner decision (2026-11-01):** the whole ADR is accepted, including the visibility and retention defaults in sections 3 and 4. Every successful download is logged (see the M07 plan).
 
 ### 2. Model
 
