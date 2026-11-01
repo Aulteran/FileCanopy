@@ -53,6 +53,14 @@ class Throttle:
             (_h("pinreset-ip", ip), self._s.throttle_max_per_ip),
         ]
 
+    def alias_keys(self, user_id: str, email: str, ip: str) -> list[Key]:
+        """Alias verification mails: few per person and per target address, plus the IP ceiling."""
+        return [
+            (_h("alias-acct", user_id), 30),
+            (_h("alias-addr", email), 3),
+            (_h("alias-ip", ip), self._s.throttle_max_per_ip),
+        ]
+
     def ip_keys(self, kind: str, ip: str) -> list[Key]:
         return [(_h(kind, ip), self._s.throttle_max_per_ip)]
 

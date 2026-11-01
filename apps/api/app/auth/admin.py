@@ -30,7 +30,7 @@ from app.auth.service import (
     revoke_sessions,
     valid_email,
 )
-from app.db.models import AuthToken, User, UserIdentity
+from app.db.models import AuthToken, User, UserEmailAlias, UserIdentity
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -112,6 +112,13 @@ def create_invited_user(
     name = body.name.strip()
     if not name or any(ord(c) < 32 for c in name):
         raise http_error(422, "INVALID_NAME")
+    # A verified sender alias is an identity too (M13): one address, one account.
+    if db.scalar(
+        select(UserEmailAlias.id).where(
+            UserEmailAlias.email == email, UserEmailAlias.verified_at.is_not(None)
+        )
+    ):
+        raise http_error(409, "EMAIL_EXISTS")
     try:
         user = create_user(
             db, email=email, name=name, role=body.role, status="invited", password_hash=None

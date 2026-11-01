@@ -504,8 +504,8 @@
         "MIME size/depth",
         "SMTP unset"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-01 on branch m13-sender-aliases-mailbox (migration 0016, ADR-007 Proposed). Design and threat model: docs/milestones/M13-design-and-plan.md; operator guide docs/guides/inbound-mailbox.md. Extra sender addresses (verified by mailed link, need SMTP, password or provider re-authentication to add/remove, unique across accounts); optional read-only IMAP poller (env config); bounded MIME parser; sender trusted only via the provider's topmost Authentication-Results for the configured authserv-id; recipient only from X-Original-To/Delivered-To; everything else quarantined with a reason; dedupe by (mailbox, UIDVALIDITY, UID) and content hash; quarantine bytes under app-data with retention and quota; inbox for the person, mailbox and quarantine pages for administrators. Verified mail keeps metadata only; routing into folders is M14 (revalidate() is the hook). Opus security review pending.",
+      "status": "implemented"
     },
     {
       "id": "M14",

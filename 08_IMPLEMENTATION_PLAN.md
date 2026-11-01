@@ -294,10 +294,10 @@
 **Goal:** Multiple verified emails per user, configurable IMAP, MIME parser, recipient aliases, quarantine store and inbox UI.
 
 **Acceptance criteria:**
-- [ ] User can verify multiple emails and remove alias
-- [ ] Only verified identities with acceptable sender authentication are routed
-- [ ] Unrecognized/ambiguous email always quarantines
-- [ ] Email messages deduplicated across retries
+- [x] User can verify multiple emails and remove alias
+- [x] Only verified identities with acceptable sender authentication are routed
+- [x] Unrecognized/ambiguous email always quarantines
+- [x] Email messages deduplicated across retries
 
 **Tests/evidence:** spoofed From, wrong To, alias collision, duplicate UID, MIME size/depth, SMTP unset.
 

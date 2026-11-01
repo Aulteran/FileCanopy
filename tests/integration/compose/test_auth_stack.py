@@ -58,7 +58,7 @@ def stack(app_stack: Stack) -> Stack:
 
 
 def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0015"
+    assert stack.sql("select version_num from alembic_version") == "0016"
     anon = Client(stack)
     assert anon.call("GET", "/api/v1/setup/status")[1] == {"setup_required": True}
 

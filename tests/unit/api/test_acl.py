@@ -658,6 +658,16 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/preferences/local-processing",  # own account only; no node addressed
     "/api/v1/search",  # filtered by the policy engine per result (app.search.query)
     "/api/v1/search/status",  # counts for the caller's own folder only
+    "/api/v1/me/emails",  # M13: own addresses only; no node addressed
+    "/api/v1/me/emails/verify",
+    "/api/v1/me/emails/{alias_id}/remove",
+    "/api/v1/me/inbox",  # own verified messages only
+    "/api/v1/admin/mailbox",  # M13: administrators; no node addressed
+    "/api/v1/admin/mailbox/poll",
+    "/api/v1/admin/quarantine",
+    "/api/v1/admin/quarantine/{message_id}",
+    "/api/v1/admin/quarantine/{message_id}/attachments/{attachment_id}/content",
+    "/api/v1/admin/quarantine/{message_id}/reject",
 }
 
 
