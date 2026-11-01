@@ -218,6 +218,30 @@
       "status": "done"
     },
     {
+      "id": "M06d",
+      "phase": "foundation",
+      "title": "Account screens, upload progress and picker paging",
+      "depends_on": [
+        "M06"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5",
+      "objective": "UI carry-over from M06: admin Users page with one-time invitation/reset links, invitation-accept and password-reset pages, upload byte progress with cancel, and a move/copy picker that lists every subfolder. No backend change.",
+      "acceptance_criteria": [
+        "An administrator can invite someone and hand over a one-time link shown once; the secret travels in the URL fragment and is removed from the address bar",
+        "The invited person sets a password on /invite and signs in; the link works once; an unknown, used or expired link gives one generic message",
+        "A reset link replaces the password and ends the person's sessions; the old password stops working",
+        "Members cannot use the Users page or the admin API",
+        "File and folder uploads show bytes sent; a file upload can be cancelled and leaves nothing on disk",
+        "The move/copy picker offers every subfolder of a folder with more than one page of entries"
+      ],
+      "required_tests": [
+        "web unit: routes, fragment parsing, ByteMeter, progressText",
+        "e2e: invite, accept, reuse, reset, disable/enable, member refusal, secret absent from logs, upload progress and cancel, picker past 200 folders"
+      ],
+      "status": "done",
+      "notes": "Implemented 2026-10-31 on branch claude/project-thread-mxn2e8; see docs/milestones/M06d-design-and-plan.md. Evidence: npm run check clean; web tsc + 25 vitest tests; test:e2e 24 passed (5 new in tests/e2e/test_ui_accounts.py). check:api and test:compose not re-run (backend unchanged). Single folder/file restore from a backup is deferred to its own milestone (needs ADR-015/016 addendum and Opus review). Awaiting owner sign-off and CI."
+    },
+    {
       "id": "M07",
       "phase": "foundation",
       "title": "Audit trail, trash, and undo",

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { folderIdFrom, folderPath, isBackupsPath } from "./route";
+import {
+  folderIdFrom,
+  folderPath,
+  isBackupsPath,
+  isUsersPath,
+  oneTimeLink,
+  tokenFromHash,
+  tokenPageOf,
+} from "./route";
 
 const ID = "3f2b8c1e-aaaa-4bbb-8ccc-0123456789ab";
 
@@ -17,5 +25,30 @@ describe("routes", () => {
     expect(isBackupsPath("/backups/")).toBe(true);
     expect(isBackupsPath("/backups/x")).toBe(false);
     expect(isBackupsPath("/f/backups")).toBe(false);
+  });
+  it("knows the users page and the one-time link pages", () => {
+    expect(isUsersPath("/admin/users")).toBe(true);
+    expect(isUsersPath("/admin/users/x")).toBe(false);
+    expect(tokenPageOf("/invite")).toBe("invite");
+    expect(tokenPageOf("/reset/")).toBe("reset");
+    expect(tokenPageOf("/invite/x")).toBeNull();
+    expect(tokenPageOf("/f/invite")).toBeNull();
+  });
+  it("puts the secret in the fragment and reads it back", () => {
+    const token = "a-B_c9~+/=";
+    const link = oneTimeLink("https://files.example", "invitation", token);
+    const url = new URL(link);
+    expect(url.pathname).toBe("/invite");
+    expect(url.search).toBe("");
+    expect(tokenFromHash(url.hash)).toBe(token);
+    expect(new URL(oneTimeLink("https://x", "reset", "t")).pathname).toBe(
+      "/reset",
+    );
+  });
+  it("refuses a missing or oversized secret", () => {
+    expect(tokenFromHash("")).toBeNull();
+    expect(tokenFromHash("#token=")).toBeNull();
+    expect(tokenFromHash("#other=1")).toBeNull();
+    expect(tokenFromHash(`#token=${"x".repeat(257)}`)).toBeNull();
   });
 });

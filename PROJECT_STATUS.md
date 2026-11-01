@@ -18,12 +18,15 @@
 - [x] M05 — Browser UI: folders and file operations (ADR-014 accepted).
 - [x] M06 — Initial import and reconciliation: M06a (reconciler), M06b (setup import, folder upload, UI) done; reviewed, findings fixed, CI green, owner signed off 2026-10-31.
 - [x] M06c — Optional backups: done (migration 0008, `app/backup`, Backups page); Opus review findings fixed, CI green, owner signed off 2026-10-31. ADR-016 (per-root keys) accepted by the owner 2026-10-31, not yet built.
+- [x] M06d — Account screens, upload progress and picker paging: implemented on `claude/project-thread-mxn2e8` (admin Users page, `/invite` and `/reset` pages, byte progress with cancel, picker paging); e2e 24 passed; awaiting owner sign-off and CI.
 - [ ] Core alpha gate (M00–M09).
 - [ ] Document beta gate (M10–M18).
 - [ ] Advanced integrations gate (M19–M21).
 - [ ] Public release readiness gate (M22–M24).
 
 ## Recent changes
+
+- 2026-10-31: M06d implemented (UI only, no backend change): admin Users page with one-time links (token in the URL fragment), `/invite` and `/reset` pages, XHR upload byte progress with Cancel, move/copy picker paging. `npm run check` clean; web 25 vitest tests; `test:e2e` 24 passed. See `docs/milestones/M06d-design-and-plan.md`. Not verified in CI yet.
 
 - 2026-10-30: Initial handoff written. No source code or Docker application implemented.
 - 2026-10-30: License set provisionally to AGPL-3.0-only on owner instruction: `LICENSE` added, `package.json` `license` field and README license section added. Dependency license audit deferred to pre-release (see "Reminder before first public release").
@@ -81,7 +84,7 @@
 
 **CI (2026-10-31):** `.github/workflows/ci.yml` passed on GitHub Actions (Linux) for the M02 PR and the merge to `main`, including the full Compose suite. Docker Desktop on Windows and Linux CI are both verified; other platforms and Docker Swarm Stack are not.
 
-**Not implemented:** delete/trash/undo (including undoing a whole import batch), replacing existing files, `Range` downloads, resuming a *finished* import batch (retrying files that failed inside it is done with "Upload folder"), sharing UI, OIDC, email delivery of invitations/resets, invitation-accept/password-reset/admin screens, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
+**Not implemented:** delete/trash/undo (including undoing a whole import batch), replacing existing files, `Range` downloads, resuming a *finished* import batch (retrying files that failed inside it is done with "Upload folder"), sharing UI, OIDC, email delivery of invitations/resets, previews, multi-select, search, activity, job processing (heartbeat worker only), AI. Specs are not implementation evidence.
 
 ## Current blockers
 
@@ -98,7 +101,7 @@
 
 ## Next session instruction
 
-M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and undo**, once the owner approves ADR-017 and the M07 acceptance plan (`docs/milestones/M07-design-and-plan.md`). The plan splits M07 into M07a (backend: activity events, trash, restore, purge, undo, cross-root moves, import-batch undo) and M07b (UI: Trash page, activity panel, undo, end-to-end tests), on one branch and one PR, as M06 was. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + `moved_out` event; ADR-013 section 7), after which the UI drops the "use Copy instead" message. Carry-over for later UI work: invitation-accept and password-reset screens (API exists since M02), uploads without byte progress, picker limited to 200 folders, restore of a single folder or file from a backup.
+M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and undo**, once the owner approves ADR-017 and the M07 acceptance plan (`docs/milestones/M07-design-and-plan.md`). The plan splits M07 into M07a (backend: activity events, trash, restore, purge, undo, cross-root moves, import-batch undo) and M07b (UI: Trash page, activity panel, undo, end-to-end tests), on one branch and one PR, as M06 was. M07 must implement the agreed cross-root move rule (copy + source to the source owner's trash + `moved_out` event; ADR-013 section 7), after which the UI drops the "use Copy instead" message. M06d (2026-10-31, PR #9) did the UI carry-over: invitation-accept and password-reset screens with an admin Users page, upload byte progress, and picker paging. Still open: restore of a single folder or file from a backup (own milestone, needs an ADR-015/016 addendum).
 
 ## Post-M06 to-do
 
@@ -119,5 +122,6 @@ M06 (a, b, c) is merged and signed off. Next: **M07 — Audit trail, trash, and 
 | 2026-10-31 | M06b Setup window, setup import, folder upload, import and state UI | Implemented (uncommitted; not in CI; Opus review pending) | `check` clean; `check:web` 9 tests; `check:api` 297 passed / 1 skipped; `test:compose` 22 passed; `test:e2e` 15 passed | Opus 5.5 security review done and findings fixed (see the follow-up row below); owner to confirm the deviations in the M06b design note; M06c on request |
 | 2026-10-31 | M06b security review fixes and owner decisions | Implemented and committed (5314115; not in CI) | `check` clean; `check:web` 11 vitest tests; `check:api` 328 passed / 1 skipped; `test:compose` 23 passed; `test:e2e` 17 passed | Owner sign-off of M06; bulk-import CLI deferred (post-M06 to-do) |
 | 2026-10-31 | M06 (a, b, c) sign-off | Done and signed off by the owner; PR #7 CI green (check, compose app/core, e2e) | See rows above; 411 passed / 1 skipped (api), 26 compose, 19 e2e | M07 on request; ADR-016 since accepted (2026-10-31), not built |
+| 2026-10-31 | M06d Account screens, upload progress, picker paging | Implemented (UI only; awaiting sign-off and CI) | `check` clean; web 25 vitest tests; `test:e2e` 24 passed (5 new) | Owner sign-off; single-file restore is its own later milestone; M07 on request |
 | 2026-10-31 | M06c Optional backups | Implemented and committed (superseded by the sign-off row above) | `check` clean; `check:web` 17 vitest tests; `check:api` 389 passed / 1 skipped; `test:compose` 26 passed; `test:e2e` 19 passed | Opus 5.5 review (key handling, pruning floor, restore authorization); owner decisions on the design note's open questions; license audit of `cryptography` before release |
 | 2026-10-31 | M07 planning | ADR-017 and acceptance plan drafted, waiting for owner approval | No code; docs only | Owner to decide ADR-017 (trash location, retention defaults) and approve the plan |

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ApiError, api, type Batch, type Child, type NodeInfo } from "./api";
 import { NameDialog, TargetDialog } from "./Dialogs";
-import { describeError, formatDate, formatSize } from "./format";
+import { describeError, formatDate, formatSize, progressText } from "./format";
 import {
   activeUploads,
   droppedEntries,
@@ -31,6 +31,7 @@ type Upload = {
   file: File;
   state: "uploading" | "done" | "error";
   code?: string;
+  loaded: number; // bytes sent so far
 };
 
 type FolderJob = {
@@ -42,6 +43,8 @@ type FolderJob = {
   failed: number;
   kept: number;
   code?: string;
+  bytes: number; // bytes sent so far, of `totalBytes`
+  totalBytes: number;
 };
 
 // Why an entry is greyed out (ADR-011 section 9): shown, never hidden, never opened by the app.
@@ -92,6 +95,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const folderInput = useRef<HTMLInputElement>(null);
   const rows = useRef<(HTMLTableRowElement | null)[]>([]);
   const nextUpload = useRef(0);
+  const aborts = useRef(new Map<number, AbortController>());
 
   const fail = useCallback(
     (err: unknown): string => {
@@ -203,6 +207,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         total: picked.files.length,
         failed: 0,
         kept: 0,
+        bytes: 0,
+        totalBytes: picked.files.reduce((n, f) => n + f.file.size, 0),
       },
     ]);
     try {
@@ -218,6 +224,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           todo,
           fileMap(picked),
           (sent, failed) => patch({ sent, failed }),
+          (bytes, totalBytes) => patch({ bytes, totalBytes }),
         );
         final = await api.importInfo(batch.id);
       } finally {
@@ -277,7 +284,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     if (!canWrite) return;
     for (const file of files) {
       const id = nextUpload.current++;
-      setUploads((u) => [...u, { id, file, state: "uploading" }]);
+      setUploads((u) => [...u, { id, file, state: "uploading", loaded: 0 }]);
       await sendUpload(id, file, "reject");
     }
     await refresh();
@@ -292,14 +299,21 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       setUploads((u) =>
         u.map((x) => (x.id === id ? { ...x, state, code } : x)),
       );
+    const progress = (loaded: number): void =>
+      setUploads((u) => u.map((x) => (x.id === id ? { ...x, loaded } : x)));
+    const abort = new AbortController();
+    aborts.current.set(id, abort);
     patch("uploading");
+    progress(0);
     try {
-      await api.upload(folderId, file, mode);
+      await api.upload(folderId, file, mode, progress, abort.signal);
       patch("done");
       setNotice(`Uploaded ${file.name}`);
     } catch (err) {
       patch("error", err instanceof ApiError ? err.code : "UNKNOWN");
       if (err instanceof ApiError && err.status === 401) onEnded();
+    } finally {
+      aborts.current.delete(id);
     }
   }
 
@@ -501,9 +515,16 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           {jobs.map((j) => (
             <li key={j.id}>
               <span>{j.name}</span>
+              {j.state === "uploading" && (
+                <progress
+                  max={Math.max(j.totalBytes, 1)}
+                  value={j.totalBytes ? j.bytes : 0}
+                  aria-label={`Upload progress of ${j.name}`}
+                />
+              )}
               <span>
                 {j.state === "uploading" &&
-                  `Uploading… ${j.sent} of ${j.total} files`}
+                  `Uploading… ${j.sent} of ${j.total} files, ${progressText(j.bytes, j.totalBytes)}`}
                 {j.state === "done" &&
                   `Done, ${j.total} files${j.kept > 0 ? `, ${j.kept} kept next to a file with the same name` : ""}`}
                 {j.state === "error" &&
@@ -529,8 +550,16 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           {uploads.map((u) => (
             <li key={u.id}>
               <span>{u.file.name}</span>
+              {u.state === "uploading" && (
+                <progress
+                  max={Math.max(u.file.size, 1)}
+                  value={u.file.size ? u.loaded : 0}
+                  aria-label={`Upload progress of ${u.file.name}`}
+                />
+              )}
               <span>
-                {u.state === "uploading" && "Uploading…"}
+                {u.state === "uploading" &&
+                  `Uploading… ${progressText(u.loaded, u.file.size)}`}
                 {u.state === "done" && "Done"}
                 {u.state === "error" && describeError(u.code ?? "UNKNOWN")}
               </span>
@@ -541,6 +570,14 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                   }}
                 >
                   Keep both
+                </button>
+              )}
+              {u.state === "uploading" && (
+                <button
+                  aria-label={`Cancel upload of ${u.file.name}`}
+                  onClick={() => aborts.current.get(u.id)?.abort()}
+                >
+                  Cancel
                 </button>
               )}
               {u.state !== "uploading" && (

@@ -3,9 +3,17 @@ import { ApiError, api, setCsrf, type EntryPoint, type Session } from "./api";
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
-import { BACKUPS_PATH, folderPath, useRoute } from "./route";
+import {
+  BACKUPS_PATH,
+  USERS_PATH,
+  folderPath,
+  tokenPageOf,
+  useRoute,
+} from "./route";
 import { SetupScreen } from "./Setup";
+import { TokenPage } from "./TokenPage";
 import { UnfinishedUploads } from "./UnfinishedUploads";
+import { UsersPage } from "./Users";
 
 // Roots whose setup screen the person postponed ("Decide later") in this browser tab. It survives
 // a reload but not a new tab or a new sign-in, so the screen is offered again after signing in.
@@ -41,6 +49,13 @@ type Boot =
   | { state: "ready"; session: Session };
 
 export function App() {
+  // A one-time invitation or reset link works whoever is (or is not) signed in in this browser.
+  const tokenPage = tokenPageOf(window.location.pathname);
+  if (tokenPage) return <TokenPage kind={tokenPage} />;
+  return <SignedInApp />;
+}
+
+function SignedInApp() {
   const [boot, setBoot] = useState<Boot>({ state: "loading" });
   const [failed, setFailed] = useState(false);
 
@@ -108,7 +123,8 @@ function Shell({
   session: Session;
   onEnded: () => void;
 }) {
-  const { folderId, backups, go } = useRoute();
+  const { folderId, backups, users, go } = useRoute();
+  const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
@@ -128,9 +144,9 @@ function Shell({
   useEffect(loadRoots, [loadRoots]);
 
   useEffect(() => {
-    if (roots && roots.length > 0 && folderId === null && !backups)
+    if (roots && roots.length > 0 && folderId === null && !backups && !users)
       go(folderPath(roots[0]!.node_id), true);
-  }, [roots, folderId, backups, go]);
+  }, [roots, folderId, backups, users, go]);
 
   async function logout(): Promise<void> {
     try {
@@ -165,6 +181,19 @@ function Shell({
           }}
         >
           Backups
+        </a>
+      )}
+      {withBackups && admin && (
+        <a
+          href={USERS_PATH}
+          className="toplink"
+          aria-current={users ? "page" : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            go(USERS_PATH);
+          }}
+        >
+          Users
         </a>
       )}
       <span className="who">{session.user.name}</span>
@@ -245,12 +274,14 @@ function Shell({
           onEnded={onEnded}
           onChanged={() => setReload((n) => n + 1)}
         />
+        {users &&
+          (admin ? (
+            <UsersPage me={session.user.id} onEnded={onEnded} />
+          ) : (
+            <p>Only administrators can manage users.</p>
+          ))}
         {backups && (
-          <BackupsPage
-            admin={session.user.role === "admin"}
-            roots={roots}
-            onEnded={onEnded}
-          />
+          <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
         )}
         {!backups && folderId !== null && (
           <Browser

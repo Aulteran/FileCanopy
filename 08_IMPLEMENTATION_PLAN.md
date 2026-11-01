@@ -152,6 +152,23 @@
 
 **Tests/evidence:** incremental correctness (add, change, rename, delete), manual chain restore with `tar`, pruning and the minimum-chains floor, size estimation and refusal, suspended root skipped, volume validation, interrupted-run cleanup, key loss handling, restore authorization, no content in logs.
 
+### M06d — Account screens, upload progress and picker paging
+
+**Phase:** foundation · **Dependencies:** M06 · **Suggested Claude Code model:** Sonnet 5.5
+
+> Implemented 2026-10-31, see [design and evidence](docs/milestones/M06d-design-and-plan.md). UI only; the M02 API is unchanged.
+
+**Goal:** Close the UI gaps carried over from M06 before M07.
+
+**Acceptance criteria:**
+- [x] Admin Users page issues one-time invitation and reset links, shown once, with the secret in the URL fragment
+- [x] `/invite` and `/reset` pages set a password; links work once; reset ends the person's sessions
+- [x] Members cannot use the Users page or the admin API
+- [x] File and folder uploads show bytes sent; a file upload can be cancelled
+- [x] The move/copy picker lists every subfolder
+
+**Tests/evidence:** web unit tests; Playwright tests in `tests/e2e/test_ui_accounts.py`.
+
 ### M07 — Audit trail, trash, and undo
 
 **Phase:** foundation · **Dependencies:** M06 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 recovery review
@@ -228,7 +245,7 @@
 
 **Phase:** documents · **Dependencies:** M11 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 OIDC audit
 
-**Goal:** Finish admin invite/reset UX, optional SMTP, Authentik/Authelia-compatible OIDC via standards, secure account linking.
+**Goal:** Finish admin invite/reset UX (the manual link flow and its screens were done in M06d; email delivery remains), optional SMTP, Authentik/Authelia-compatible OIDC via standards, secure account linking.
 
 **Acceptance criteria:**
 - [ ] Admin can invite by email or manually share invite token link

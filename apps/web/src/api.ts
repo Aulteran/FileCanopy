@@ -13,6 +13,17 @@ export class ApiError extends Error {
 }
 
 export type User = { id: string; email: string; name: string; role: string };
+// An account as the administrator sees it (ADR-012): never a password hash or a session.
+export type Account = User & {
+  status: "invited" | "active" | "disabled";
+  created_at: string;
+};
+// A one-time invitation or reset secret, returned once at issuance and never again.
+export type OneTimeToken = {
+  token: string;
+  purpose: "invitation" | "reset";
+  expires_at: string;
+};
 export type Session = { user: User; csrf_token: string };
 
 export type EntryPoint = {
@@ -229,6 +240,65 @@ async function call<T>(
   return (await res.json()) as T;
 }
 
+/** Bytes of a request body sent so far, from the browser's upload events. */
+export type OnBytes = (loaded: number) => void;
+
+/** Like `call`, for a request whose body is a file: `fetch` cannot report upload progress, so
+ * this uses XMLHttpRequest. Same headers, same CSRF token, same error mapping; aborting the
+ * signal rejects with code CANCELLED (the server removes the partial temporary file). */
+function send<T>(
+  method: string,
+  path: string,
+  body: Blob,
+  headers: Record<string, string>,
+  onBytes?: OnBytes,
+  signal?: AbortSignal,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError(0, "CANCELLED"));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("X-CSRF-Token", csrf);
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
+    if (onBytes)
+      xhr.upload.onprogress = (e: ProgressEvent) => onBytes(e.loaded);
+    const onAbort = (): void => xhr.abort();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const done = (): void => signal?.removeEventListener("abort", onAbort);
+    xhr.onerror = () => {
+      done();
+      reject(new ApiError(0, "NETWORK"));
+    };
+    xhr.onabort = () => {
+      done();
+      reject(new ApiError(0, "CANCELLED"));
+    };
+    xhr.onload = () => {
+      done();
+      let data: unknown = null;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        /* non-JSON error page from a proxy */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onBytes?.(body.size);
+        resolve(data as T);
+        return;
+      }
+      const code =
+        (data as { detail?: { code?: string } } | null)?.detail?.code ??
+        "UNKNOWN";
+      reject(new ApiError(xhr.status, code));
+    };
+    xhr.send(body);
+  });
+}
+
 const enc = encodeURIComponent;
 const key = (): Record<string, string> => ({
   "Idempotency-Key": crypto.randomUUID(),
@@ -247,6 +317,40 @@ export const api = {
     call<Session>("POST", "/api/v1/auth/login", { email, password }),
   session: () => call<Session>("GET", "/api/v1/auth/session"),
   logout: () => call<{ status: string }>("POST", "/api/v1/auth/logout"),
+  acceptInvitation: (token: string, password: string, name: string | null) =>
+    call<{ status: string }>("POST", "/api/v1/auth/invitations/accept", {
+      token,
+      password,
+      name,
+    }),
+  completeReset: (token: string, password: string) =>
+    call<{ status: string }>("POST", "/api/v1/auth/password-reset/complete", {
+      token,
+      password,
+    }),
+
+  // User administration (administrators only; the server enforces it).
+  users: () => call<Account[]>("GET", "/api/v1/admin/users"),
+  inviteUser: (b: { email: string; name: string; role: "admin" | "member" }) =>
+    call<{ user: Account; token: OneTimeToken }>(
+      "POST",
+      "/api/v1/admin/users",
+      b,
+    ),
+  updateUser: (
+    id: string,
+    b: { role?: "admin" | "member"; status?: "active" | "disabled" },
+  ) => call<Account>("PATCH", `/api/v1/admin/users/${enc(id)}`, b),
+  reissueInvitation: (id: string) =>
+    call<OneTimeToken>("POST", `/api/v1/admin/users/${enc(id)}/invitation`),
+  issueReset: (id: string) =>
+    call<OneTimeToken>("POST", `/api/v1/admin/users/${enc(id)}/password-reset`),
+  revokeSessions: (id: string) =>
+    call<{ status: string }>(
+      "POST",
+      `/api/v1/admin/users/${enc(id)}/revoke-sessions`,
+    ),
+
   roots: () => call<EntryPoint[]>("GET", "/api/v1/roots"),
   node: (id: string) => call<NodeInfo>("GET", `/api/v1/nodes/${enc(id)}`),
   children: (id: string, after?: string | null) =>
@@ -261,15 +365,20 @@ export const api = {
       { name },
       { headers: key() },
     ),
-  upload: (parent: string, file: File, onConflict: "reject" | "keep_both") =>
-    call<OpResult>(
+  upload: (
+    parent: string,
+    file: File,
+    onConflict: "reject" | "keep_both",
+    onBytes?: OnBytes,
+    signal?: AbortSignal,
+  ) =>
+    send<OpResult>(
       "POST",
       `/api/v1/nodes/${enc(parent)}/files?name=${enc(file.name)}&on_conflict=${onConflict}`,
-      undefined,
-      {
-        body: file,
-        headers: { "Content-Type": "application/octet-stream", ...key() },
-      },
+      file,
+      { "Content-Type": "application/octet-stream", ...key() },
+      onBytes,
+      signal,
     ),
   rename: (id: string, name: string, expected_revision: number) =>
     call<OpResult>(
@@ -347,15 +456,13 @@ export const api = {
     call<ResumeResult>("POST", `/api/v1/imports/${enc(id)}/resume`, {
       entries,
     }),
-  putEntry: (id: string, index: number, file: File) =>
-    call<{ index: number; status: string }>(
+  putEntry: (id: string, index: number, file: File, onBytes?: OnBytes) =>
+    send<{ index: number; status: string }>(
       "PUT",
       `/api/v1/imports/${enc(id)}/entries/${index}`,
-      undefined,
-      {
-        body: file,
-        headers: { "Content-Type": "application/octet-stream" },
-      },
+      file,
+      { "Content-Type": "application/octet-stream" },
+      onBytes,
     ),
   cancelImport: (id: string) =>
     call<Batch>("POST", `/api/v1/imports/${enc(id)}/cancel`),

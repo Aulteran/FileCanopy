@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
-// Three routes only: "/" (go to the first root), "/f/<node id>" and "/backups". No router
+// Routes: "/" (go to the first root), "/f/<node id>", "/backups", "/admin/users", and the two
+// one-time link pages "/invite" and "/reset" (the secret is in the URL fragment). No router
 // dependency.
 const FOLDER = /^\/f\/([0-9a-fA-F-]{36})\/?$/;
 const BACKUPS = /^\/backups\/?$/;
+const USERS = /^\/admin\/users\/?$/;
+const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
   return FOLDER.exec(pathname)?.[1] ?? null;
@@ -14,14 +17,44 @@ export function folderPath(id: string): string {
 }
 
 export const BACKUPS_PATH = "/backups";
+export const USERS_PATH = "/admin/users";
 
 export function isBackupsPath(pathname: string): boolean {
   return BACKUPS.test(pathname);
 }
 
+export function isUsersPath(pathname: string): boolean {
+  return USERS.test(pathname);
+}
+
+export type TokenPage = "invite" | "reset";
+
+/** Which one-time link page a path is, if any. */
+export function tokenPageOf(pathname: string): TokenPage | null {
+  return (TOKEN_PAGE.exec(pathname)?.[1] as TokenPage | undefined) ?? null;
+}
+
+/** The one-time secret from a fragment like "#token=…". The fragment is never sent to the
+ * server, so the secret stays out of access logs and Referer headers. */
+export function tokenFromHash(hash: string): string | null {
+  const value = new URLSearchParams(hash.replace(/^#/, "")).get("token");
+  return value && value.length <= 256 ? value : null;
+}
+
+/** The link an administrator hands over for a one-time token. */
+export function oneTimeLink(
+  origin: string,
+  purpose: "invitation" | "reset",
+  token: string,
+): string {
+  const page = purpose === "invitation" ? "invite" : "reset";
+  return `${origin}/${page}#token=${encodeURIComponent(token)}`;
+}
+
 export function useRoute(): {
   folderId: string | null;
   backups: boolean;
+  users: boolean;
   go: (path: string, replace?: boolean) => void;
 } {
   const [path, setPath] = useState(window.location.pathname);
@@ -35,5 +68,10 @@ export function useRoute(): {
     else window.history.pushState(null, "", to);
     setPath(window.location.pathname);
   }, []);
-  return { folderId: folderIdFrom(path), backups: isBackupsPath(path), go };
+  return {
+    folderId: folderIdFrom(path),
+    backups: isBackupsPath(path),
+    users: isUsersPath(path),
+    go,
+  };
 }

@@ -140,6 +140,34 @@ export function fileMap(picked: Picked): Map<string, File> {
   return new Map(picked.files.map((f) => [f.path, f.file]));
 }
 
+/** Upload progress in bytes across several requests in flight: finished files count in full, a
+ * file still being sent counts with what the browser reported so far, a failed one not at all
+ * (so the total steps back when a file fails part-way). */
+export class ByteMeter {
+  private done = 0;
+  private live = new Map<number, number>();
+  constructor(readonly total: number) {}
+
+  progress(key: number, loaded: number): void {
+    this.live.set(key, Math.max(this.live.get(key) ?? 0, loaded));
+  }
+
+  finish(key: number, size: number): void {
+    this.live.delete(key);
+    this.done += size;
+  }
+
+  drop(key: number): void {
+    this.live.delete(key);
+  }
+
+  get sent(): number {
+    let n = this.done;
+    for (const v of this.live.values()) n += v;
+    return Math.min(n, this.total);
+  }
+}
+
 export type SendResult = {
   sent: number;
   failed: number;
@@ -155,8 +183,13 @@ export async function sendEntries(
   todo: { index: number; path: string }[],
   files: Map<string, File>,
   onProgress: (sent: number, failed: number) => void,
+  onBytes?: (sent: number, total: number) => void,
 ): Promise<SendResult> {
   const queue = [...todo];
+  let total = 0;
+  for (const job of todo) total += files.get(job.path)?.size ?? 0;
+  const meter = new ByteMeter(total);
+  const report = (): void => onBytes?.(meter.sent, total);
   const result: SendResult = { sent: 0, failed: 0, stoppedBy: null };
   async function worker(): Promise<void> {
     for (let job = queue.shift(); job; job = queue.shift()) {
@@ -167,10 +200,16 @@ export async function sendEntries(
         onProgress(result.sent, result.failed);
         continue;
       }
+      const key = job.index;
       try {
-        await api.putEntry(batchId, job.index, file);
+        await api.putEntry(batchId, job.index, file, (loaded) => {
+          meter.progress(key, loaded);
+          report();
+        });
+        meter.finish(key, file.size);
         result.sent += 1;
       } catch (err) {
+        meter.drop(key);
         if (err instanceof ApiError && err.status === 401) throw err;
         if (err instanceof ApiError && STOPPING.has(err.code)) {
           result.stoppedBy = err.code;
@@ -178,6 +217,7 @@ export async function sendEntries(
         }
         result.failed += 1;
       }
+      report();
       onProgress(result.sent, result.failed);
     }
   }

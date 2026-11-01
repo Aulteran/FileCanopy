@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ByteMeter,
   forgetUpload,
   fromInput,
   rememberedUploads,
@@ -102,5 +103,22 @@ describe("remembered unfinished uploads", () => {
     });
     expect(rememberedUploads()).toEqual([]);
     expect(() => rememberUpload("x")).not.toThrow();
+  });
+});
+
+describe("ByteMeter", () => {
+  it("adds finished files and the bytes of files still in flight", () => {
+    const m = new ByteMeter(100);
+    m.progress(1, 10);
+    m.progress(2, 5);
+    expect(m.sent).toBe(15);
+    m.progress(1, 4); // a late, smaller event never moves a file backwards
+    expect(m.sent).toBe(15);
+    m.finish(1, 60);
+    expect(m.sent).toBe(65);
+    m.drop(2); // failed: its partial bytes no longer count
+    expect(m.sent).toBe(60);
+    m.finish(3, 80);
+    expect(m.sent).toBe(100); // capped at the total
   });
 });
