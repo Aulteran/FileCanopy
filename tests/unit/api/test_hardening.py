@@ -17,11 +17,17 @@ API_ROOT = Path(__file__).resolve().parents[3] / "apps" / "api"
 LIMITS = Limits(timeout=20.0, memory_bytes=1024**3, max_output=1 << 16)
 
 
-def child(code: str, *argv: str) -> dict[str, object]:
+def child(code: str, *argv: str, seccomp_only: bool = False) -> dict[str, object]:
     """Runs `code` in a fresh isolated interpreter after hardening.apply(); it prints JSON."""
     prelude = (
         f"import sys, json\nsys.path.insert(0, {str(API_ROOT)!r})\n"
-        "from app.preview import hardening\nstatus = hardening.apply()\nout = {'status': status}\n"
+        "from app.preview import hardening\n"
+        + (
+            "status = {'seccomp': hardening.install_seccomp(), 'landlock': 'off'}\n"
+            if seccomp_only
+            else "status = hardening.apply()\n"
+        )
+        + "out = {'status': status}\n"
     )
     program = prelude + textwrap.dedent(code) + "\nprint(json.dumps(out))\n"
     status, out = run_child([sys.executable, "-I", "-c", program, *argv], None, LIMITS)
@@ -90,13 +96,18 @@ def test_a_non_dumpable_api_hides_its_environment_from_children(
             "except PermissionError:\n print('denied')"
         )
         proc = subprocess.run(  # noqa: S603
-            [sys.executable, "-I", "-c", code], capture_output=True, text=True, timeout=20
+            [sys.executable, "-I", "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=20,
         )
         assert proc.stdout.strip() == "denied"
     finally:
         import ctypes
 
-        ctypes.CDLL(None).prctl(4, 1, 0, 0, 0)  # PR_SET_DUMPABLE back on for the test runner
+        ctypes.CDLL(None).prctl(
+            4, 1, 0, 0, 0
+        )  # PR_SET_DUMPABLE back on for the test runner
 
 
 def test_worker_refuses_to_parse_when_seccomp_cannot_be_installed(
@@ -134,9 +145,122 @@ def test_worker_status_probe_and_normal_operation(tmp_path: Path) -> None:
             with zipfile.ZipFile(zip_path, "w") as z:
                 z.writestr("a.txt", "a")
             with open(zip_path, "rb") as f:
-                listing = json.loads(run_worker("zipdir", f, LIMITS, {"max_entries": 10}))
+                listing = json.loads(
+                    run_worker("zipdir", f, LIMITS, {"max_entries": 10})
+                )
             assert listing["count"] == 1
         else:
             with pytest.raises(PreviewError) as err:
                 run_worker("zipdir", empty, LIMITS, {"max_entries": 10})
             assert err.value.code == "SANDBOX_UNAVAILABLE"
+
+
+def test_seccomp_alone_stops_the_child_changing_or_destroying_files(
+    tmp_path: Path,
+) -> None:
+    """B1a: with Landlock out of the picture, files owned by the API's uid are still safe."""
+    target = tmp_path / "library.txt"
+    target.write_text("original bytes")
+    out = child(
+        """
+        import os, sys
+        p = sys.argv[1]
+        def attempt(fn):
+            try:
+                fn()
+                return "allowed"
+            except OSError as e:
+                return "denied" if e.errno in (1, 13) else f"oserror:{e.errno}"
+        out["read"] = open(p).read()  # reading is still fine
+        out["truncate"] = attempt(lambda: os.truncate(p, 0))
+        out["open_w"] = attempt(lambda: open(p, "w"))
+        out["open_a"] = attempt(lambda: open(p, "a"))
+        out["open_rw"] = attempt(lambda: os.open(p, os.O_RDWR))
+        out["create"] = attempt(lambda: os.open(p + ".new", os.O_CREAT | os.O_RDONLY))
+        out["unlink"] = attempt(lambda: os.unlink(p))
+        out["rename"] = attempt(lambda: os.rename(p, p + ".x"))
+        out["chmod"] = attempt(lambda: os.chmod(p, 0))
+        out["link"] = attempt(lambda: os.link(p, p + ".l"))
+        out["symlink"] = attempt(lambda: os.symlink(p, p + ".s"))
+        out["mkdir"] = attempt(lambda: os.mkdir(p + ".d"))
+        """,
+        str(target),
+        seccomp_only=True,
+    )
+    status = out["status"]
+    assert isinstance(status, dict)
+    if not status["seccomp"]:
+        pytest.skip("seccomp filters are not available in this environment")
+    assert out["read"] == "original bytes"
+    for name in (
+        "truncate",
+        "open_w",
+        "open_a",
+        "open_rw",
+        "create",
+        "unlink",
+        "rename",
+        "chmod",
+        "link",
+        "symlink",
+        "mkdir",
+    ):
+        assert out[name] == "denied", name
+    assert target.read_text() == "original bytes"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["library.txt"]
+
+
+def test_seccomp_alone_blocks_io_uring_and_openat2() -> None:
+    """B1b: io_uring and openat2 bypass the checks, so they are refused outright."""
+    out = child(
+        """
+        import ctypes
+        libc = ctypes.CDLL(None, use_errno=True)
+        def nr(n):
+            r = libc.syscall(n, 0, 0, 0)
+            return ctypes.get_errno() if r < 0 else 0
+        out["io_uring_setup"] = nr(425)
+        out["io_uring_enter"] = nr(426)
+        out["openat2"] = nr(437)
+        out["pidfd_getfd"] = nr(438)
+        """
+    )
+    status = out["status"]
+    assert isinstance(status, dict)
+    if not status["seccomp"] or os.uname().machine != "x86_64":
+        pytest.skip("seccomp or x86_64 not available")
+    assert (out["io_uring_setup"], out["io_uring_enter"], out["pidfd_getfd"]) == (
+        1,
+        1,
+        1,
+    )
+    assert out["openat2"] == 38  # ENOSYS
+
+
+def test_the_filter_kills_foreign_abis_and_x32_numbers() -> None:
+    """B1b: the program kills any other architecture and any x32-flagged number (nr >= 0x40000000)
+    before the deny list, and ends in KILL/ERRNO/ALLOW as designed. Pure structure check."""
+    for machine in ("x86_64", "aarch64"):
+        prog = hardening.build_filter(machine)
+        assert prog[0] == (hardening.BPF_LD_W_ABS, 0, 0, 4)
+        assert prog[1][3] == hardening.ARCHES[machine]
+        assert prog[3][0] == hardening.BPF_JGE_K and prog[3][3] == 0x40000000
+        for i, (_code, jt, jf, _k) in enumerate(prog):
+            assert i + 1 + max(jt, jf) <= len(prog)  # no jump leaves the program
+        assert prog[-1][3] == hardening.RET_KILL_PROCESS
+        # the x32 jump lands on the final KILL
+        assert 3 + 1 + prog[3][1] == len(prog) - 1
+        denied = {k for c, _jt, _jf, k in prog if c == hardening.BPF_JEQ_K}
+        assert {425, 426, 427, 438}.issubset(denied)
+
+
+def test_the_worker_child_is_undumpable_after_hardening() -> None:
+    out = child(
+        """
+        import ctypes
+        out["dumpable"] = ctypes.CDLL(None).prctl(3, 0, 0, 0, 0)  # PR_GET_DUMPABLE
+        hardening.make_undumpable()
+        out["after"] = ctypes.CDLL(None).prctl(3, 0, 0, 0, 0)
+        """
+    )
+    assert out["after"] == 0

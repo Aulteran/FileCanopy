@@ -35,6 +35,7 @@ def main() -> int:
     from app.preview import hardening
 
     status = hardening.apply()
+    hardening.make_undumpable()  # execve made the child dumpable again (hide /proc/<pid>)
     if op == "probe":
         sys.stdout.write(json.dumps(status))
         return 0
