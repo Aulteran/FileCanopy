@@ -309,6 +309,112 @@ def test_a_root_manager_checks_every_flagged_item_of_the_root(fx: Fx) -> None:
     assert P(fx, "admin2").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
 
 
+def test_check_does_not_overwrite_a_delete_forever_that_claimed_the_item(
+    fx: Fx, monkeypatch: Any
+) -> None:
+    f, item = trashed(fx)
+    flag_item(fx, item)
+    real = trash._entry_at_trash
+
+    def claim_then_read(*a: Any, **k: Any) -> Any:
+        # a delete forever claims the item between the check's read and its update
+        mark_item_busy(fx, item)
+        return real(*a, **k)
+
+    monkeypatch.setattr(trash, "_entry_at_trash", claim_then_read)
+    r = P(fx, "alice").post(f"/trash/{item}/check")
+    assert r.status_code == 409
+    with fx.w.ctx.sessions() as db:
+        row = db.get(TrashItem, uuid.UUID(item))
+        assert row is not None and row.status == "busy"
+    assert check_events(fx, f) == []
+
+
+def test_check_refuses_while_a_restore_or_purge_is_journaled(fx: Fx) -> None:
+    f, item = trashed(fx)
+    flag_item(fx, item)
+    journal(fx, "purge", f, {"trash_id": item, "step": "claimed"}, "alice@example.com")
+    assert P(fx, "alice").post(f"/trash/{item}/check").status_code == 409
+
+
+def test_check_looks_inside_a_folder(fx: Fx) -> None:
+    me = P(fx, "alice")
+    box = nid(me.mkdir(fx.alice_root, "Box"))
+    nid(me.upload(box, "one.txt", b"1"))
+    nid(me.upload(box, "two.txt", b"22"))
+    item = trash_it(me, box)["item"]["id"]
+    flag_item(fx, item)
+    ok = me.post(f"/trash/{item}/check")
+    assert ok.json()["released"] is True
+    flag_item(fx, item)
+    (item_dir(fx, box, uuid.UUID(item)) / "Box" / "two.txt").unlink()
+    r = me.post(f"/trash/{item}/check")
+    assert r.json()["released"] is False and r.json()["reason"] == "entry_changed"
+    flag_item(fx, item)  # an extra file added on the host is a difference too
+    (item_dir(fx, box, uuid.UUID(item)) / "Box" / "two.txt").write_bytes(b"22")
+    (item_dir(fx, box, uuid.UUID(item)) / "Box" / "extra.txt").write_bytes(b"x")
+    assert me.post(f"/trash/{item}/check").json()["reason"] == "entry_changed"
+
+
+def test_bytes_left_in_the_trash_by_an_interrupted_move_get_a_trash_entry(fx: Fx) -> None:
+    me = P(fx, "alice")
+    f = nid(me.upload(fx.alice_root, "m.txt", b"payload"))
+    tid = uuid.uuid4()
+    src = disk(fx, f)
+    detail = {
+        "src_parent": str(fx.alice_root),
+        "src_name": "m.txt",
+        "trash_id": str(tid),
+        "src_ino": src.stat().st_ino,
+        "step": "source_left_in_trash",
+    }
+    target = item_dir(fx, f, tid)
+    target.mkdir(parents=True)
+    src.rename(target / "m.txt")
+    op = journal(fx, "xmove", f, detail, "alice@example.com")
+    set_status(fx, f, "reconcile_needed")
+    with fx.w.ctx.sessions() as db:
+        row = db.get(FileOperation, op)
+        assert row is not None
+        row.status = "reconcile_needed"
+        db.commit()
+    assert [r["flagged_count"] for r in me.trash_list()["roots"]] == [1]
+    assert me.items() == []  # invisible until the manager checks
+    r = me.post(f"/roots/{fx.alice_root}/trash/check")
+    assert r.json() == {"checked": 1, "released": 1, "still_flagged": 0}
+    items = me.items()
+    assert [i["name"] for i in items] == ["m.txt"] and items[0]["reason"] == "moved_out"
+    assert node_row(fx, f).status == "trashed"
+    assert me.restore(items[0]["id"]).status_code == 200
+    assert disk(fx, f).read_bytes() == b"payload"
+
+
+def test_an_interrupted_move_whose_bytes_changed_is_left_alone(fx: Fx) -> None:
+    me = P(fx, "alice")
+    f = nid(me.upload(fx.alice_root, "m.txt", b"payload"))
+    tid = uuid.uuid4()
+    detail = {
+        "src_parent": str(fx.alice_root),
+        "src_name": "m.txt",
+        "trash_id": str(tid),
+        "src_ino": disk(fx, f).stat().st_ino + 12345,  # not this file
+        "step": "source_left_in_trash",
+    }
+    target = item_dir(fx, f, tid)
+    target.mkdir(parents=True)
+    disk(fx, f).rename(target / "m.txt")
+    op = journal(fx, "xmove", f, detail, "alice@example.com")
+    set_status(fx, f, "reconcile_needed")
+    with fx.w.ctx.sessions() as db:
+        row = db.get(FileOperation, op)
+        assert row is not None
+        row.status = "reconcile_needed"
+        db.commit()
+    r = me.post(f"/roots/{fx.alice_root}/trash/check")
+    assert r.json() == {"checked": 1, "released": 0, "still_flagged": 1}
+    assert me.items() == [] and (target / "m.txt").exists()
+
+
 # ------------------------------------------------------------------ permanent delete
 
 

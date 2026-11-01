@@ -13,6 +13,7 @@ import {
   type Child,
   type NodeInfo,
   type OpResult,
+  type Operation,
   type UndoResult,
 } from "./api";
 import { ActivityPanel } from "./Activity";
@@ -82,6 +83,11 @@ function rowClass(c: Child, selected: boolean): string | undefined {
     c.status === "missing" ? "missing" : "",
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+/** The operation id, only when the server says it can be undone (Create folder cannot). */
+function undoableId(op: Operation | null): string | null {
+  return op && op.detail?.undo ? op.id : null;
 }
 
 export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
@@ -199,7 +205,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       throw err;
     }
     setDialog(null);
-    offerUndo(done, result.operation?.id ?? null);
+    offerUndo(done, undoableId(result.operation));
     await refresh();
   }
 
@@ -241,7 +247,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     try {
       const r = await api.deleteNode(selected.id, selected.revision);
       setSelectedId(null);
-      offerUndo(`Moved ${selected.name} to the Trash`, r.operation?.id ?? null);
+      offerUndo(`Moved ${selected.name} to the Trash`, undoableId(r.operation));
     } catch (err) {
       if (err instanceof ApiError && err.code === "REVISION_CONFLICT")
         await refresh();

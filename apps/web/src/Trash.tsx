@@ -23,6 +23,12 @@ type Confirm =
   | { kind: "item"; item: TrashItem }
   | { kind: "empty"; root: TrashRoot; name: string };
 
+function restoredText(item: TrashItem, name: string): string {
+  return name !== item.name
+    ? `Restored as ${name}, because ${item.name} was taken.`
+    : `Restored ${item.name}.`;
+}
+
 function errorOf(err: unknown, onEnded: () => void): string {
   if (err instanceof ApiError && err.status === 401) onEnded();
   return describeError(err instanceof ApiError ? err.code : "UNKNOWN");
@@ -86,10 +92,7 @@ export function TrashPage({ onEnded, onChanged }: Props) {
   const restore = (item: TrashItem, target: string | null) =>
     act(item, async () => {
       const r = await api.restoreItem(item.id, target);
-      const renamed = r.node.name !== item.name;
-      return renamed
-        ? `Restored as ${r.node.name}, because ${item.name} was taken.`
-        : `Restored ${item.name}.`;
+      return restoredText(item, r.node.name);
     });
 
   const check = (item: TrashItem) =>
@@ -254,10 +257,9 @@ export function TrashPage({ onEnded, onChanged }: Props) {
           onClose={() => setPickFor(null)}
           onSubmit={async (target) => {
             const item = pickFor;
-            await api.restoreItem(item.id, target).then(() => {
-              setMessage(`Restored ${item.name}.`);
-              onChanged();
-            });
+            const r = await api.restoreItem(item.id, target);
+            setMessage(restoredText(item, r.node.name));
+            onChanged();
             setPickFor(null);
             await load();
           }}
@@ -322,8 +324,8 @@ function ConfirmForever({
   return (
     <Modal title="Delete forever?" onClose={onClose}>
       <p>
-        This permanently deletes {what}. It cannot be undone and it is not in
-        any backup you can restore from the app.
+        This permanently deletes {what}. It cannot be undone. Older backups may
+        still contain it until they are pruned.
       </p>
       <p role="alert" className="error">
         {error}

@@ -120,7 +120,13 @@ export type ScanInfo = {
   reason: string | null;
 };
 export type Children = { items: Child[]; next_after: string | null };
-export type Operation = { id: string; action: string; status: string };
+export type Operation = {
+  id: string;
+  action: string;
+  status: string;
+  // Present when the server recorded what is needed to undo it.
+  detail?: { undo?: unknown } | null;
+};
 export type OpResult = {
   node: Child;
   operation: Operation | null;

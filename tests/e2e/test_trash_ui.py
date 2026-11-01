@@ -272,4 +272,10 @@ def test_trash_on_a_phone(browser: Browser, world: World) -> None:
     expect(item.get_by_role("button", name=re.compile("Delete .* forever"))).to_be_visible()
     width = page.evaluate("[document.documentElement.scrollWidth, window.innerWidth]")
     assert width[0] <= width[1], f"horizontal scroll on a phone: {width}"
+    # CI measures phone layouts wider than a local run: keep a margin inside the viewport
+    right = page.evaluate(
+        "Math.max(...[...document.querySelectorAll('.trash *')]"
+        ".map(e => e.getBoundingClientRect().right))"
+    )
+    assert right <= width[1] - 8, f"trash page too close to the edge: {right} of {width[1]}"
     page.close()

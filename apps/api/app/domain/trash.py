@@ -325,6 +325,7 @@ def _mark_trashed(
     op: FileOperation,
     event: str,
     event_details: dict[str, Any],
+    trashed_by: uuid.UUID | None = None,
 ) -> TrashItem:
     """Database half of trashing, in the caller's transaction: the subtree (except entries that
     are already in the trash under their own item) gets the item's id and the status `trashed`."""
@@ -356,7 +357,7 @@ def _mark_trashed(
         kind=node.kind,
         size_bytes=size,
         entry_count=entries,
-        trashed_by=ctx.actor,
+        trashed_by=trashed_by or ctx.actor,
         trashed_at=trashed_at,
         reason=reason,
         purge_after=purge_after,
@@ -1528,14 +1529,79 @@ def check_release_root(ctx: OpCtx, root_node: Node) -> dict[str, int]:
     )
     released = 0
     for item in flagged:
-        if _check_item(ctx, item).released:
-            released += 1
-    return {"checked": len(flagged), "released": released, "still_flagged": len(flagged) - released}
+        try:
+            if _check_item(ctx, item).released:
+                released += 1
+        except OpError:
+            continue  # claimed by a delete forever meanwhile: not ours to touch
+    orphans = orphan_operations(ctx.db, root_node.root_id)
+    adopted = sum(1 for op in orphans if _adopt_orphan(ctx, op))
+    checked = len(flagged) + len(orphans)
+    return {
+        "checked": checked,
+        "released": released + adopted,
+        "still_flagged": checked - released - adopted,
+    }
+
+
+def _operation_running(db: Session, item_id: uuid.UUID) -> bool:
+    """A restore or purge of this item is journaled and unfinished."""
+    for op in db.scalars(
+        select(FileOperation).where(
+            FileOperation.status == "planned", FileOperation.action.in_(("restore", "purge"))
+        )
+    ):
+        if (op.detail or {}).get("trash_id") == str(item_id):
+            return True
+    return False
+
+
+def _tree_matches(ctx: OpCtx, item: TrashItem) -> bool:
+    """A folder item is intact when the item directory holds exactly the entries (names, kinds,
+    file sizes) of the nodes that belong to the item. Bounded by the tree limits."""
+    rows = ctx.db.execute(
+        select(Node.id, Node.parent_id, Node.name, Node.kind, Node.size).where(
+            Node.trash_item_id == item.id
+        )
+    ).all()
+    by_id = {r.id: r for r in rows}
+    expected: dict[tuple[str, ...], tuple[str, int | None]] = {}
+    for r in rows:
+        rel: list[str] = []
+        cur = r
+        while True:
+            rel.append(cur.name)
+            if cur.id == item.node_id:
+                break
+            nxt = by_id.get(cur.parent_id)
+            if nxt is None:
+                return False
+            cur = nxt
+        expected[tuple(reversed(rel))] = (r.kind, r.size if r.kind == "file" else 0)
+    try:
+        with _trash_open(ctx, item.root_id, item.id, create=False) as fd:
+            found = files.scan_tree(
+                fd,
+                item.original_name,
+                max_entries=ctx.settings.max_tree_entries,
+                max_depth=ctx.settings.max_tree_depth,
+            )
+    except (OpError, OSError, StorageError):
+        return False
+    if len(found) != len(expected):
+        return False
+    for rel_path, kind, info in found:
+        want = expected.get(rel_path)
+        if want is None or want[0] != kind:
+            return False
+        if kind == "file" and want[1] is not None and want[1] != info.st_size:
+            return False
+    return True
 
 
 def _check_item(ctx: OpCtx, item: TrashItem) -> CheckResult:
     db = ctx.db
-    if item.status != "reconcile_needed":
+    if item.status != "reconcile_needed" or _operation_running(db, item.id):
         raise OpError(409, "TRASH_ITEM_UNAVAILABLE")
     node = db.get(Node, item.node_id)
     reason: str | None = None
@@ -1561,9 +1627,19 @@ def _check_item(ctx: OpCtx, item: TrashItem) -> CheckResult:
             )
         ):
             reason = "entry_changed"
+        elif item.kind == "dir" and not _tree_matches(ctx, item):
+            reason = "entry_changed"
     if reason is None:
         assert node is not None  # noqa: S101
-        item.status = "in_trash"
+        # Compare-and-swap: a delete forever may have claimed the item since it was read.
+        swapped = db.execute(
+            update(TrashItem)
+            .where(TrashItem.id == item.id, TrashItem.status == "reconcile_needed")
+            .values(status="in_trash")
+        )
+        if swapped.rowcount != 1:  # type: ignore[attr-defined]
+            db.rollback()
+            raise OpError(409, "TRASH_ITEM_UNAVAILABLE")
         if node.status != "trashed":
             db.execute(update(Node).where(Node.id == node.id).values(status="trashed"))
     events.record(
@@ -1584,7 +1660,82 @@ def _check_item(ctx: OpCtx, item: TrashItem) -> CheckResult:
         result="released" if reason is None else reason,
     )
     db.commit()
+    db.refresh(item)
     return CheckResult(item=item, released=reason is None, reason=reason)
+
+
+def orphan_operations(db: Session, root_id: uuid.UUID) -> list[FileOperation]:
+    """Trash or cross-root-move operations left `reconcile_needed` whose bytes may sit in the
+    trash directory without a Trash entry (the source could not be put back, or the database step
+    failed after the rename)."""
+    found: list[FileOperation] = []
+    ops = db.scalars(
+        select(FileOperation).where(
+            FileOperation.status == "reconcile_needed",
+            FileOperation.action.in_(("trash", "xmove")),
+        )
+    )
+    for op in ops:
+        d = op.detail or {}
+        if not d.get("trash_id") or "src_ino" not in d or not op.node_id:
+            continue
+        node = db.get(Node, op.node_id)
+        if node is None or node.root_id != root_id or node.status != "reconcile_needed":
+            continue
+        if db.get(TrashItem, uuid.UUID(d["trash_id"])) is not None:
+            continue
+        found.append(op)
+    return found
+
+
+def _adopt_orphan(ctx: OpCtx, op: FileOperation) -> bool:
+    """Gives the bytes of an interrupted trash or move a Trash entry, when the journal's inode
+    still matches what is in the trash directory. Otherwise leaves everything as it is."""
+    db = ctx.db
+    d = op.detail or {}
+    node = db.get(Node, op.node_id) if op.node_id else None
+    if node is None or node.parent_id is None:
+        return False
+    trash_id = uuid.UUID(d["trash_id"])
+    entry = _entry_at_trash(ctx, node.root_id, trash_id, d.get("src_name", node.name))
+    if entry is None or entry.st_ino != d["src_ino"]:
+        return False
+    now = clock.utcnow()
+    purge_after = (
+        datetime.fromisoformat(d["purge_after"]) if d.get("purge_after") else _deadline(db, now)
+    )
+    entries, size = _subtree_stats(db, node)
+    serialize_tree_changes(db)
+    db.expire_all()
+    fresh = db.get(Node, node.id)
+    if fresh is None or fresh.status != "reconcile_needed":
+        return False
+    _mark_trashed(
+        ctx,
+        fresh,
+        item_id=trash_id,
+        reason="moved_out" if op.action == "xmove" else d.get("reason", "deleted"),
+        trashed_at=now,
+        purge_after=purge_after,
+        entries=entries,
+        size=size,
+        op=op,
+        event="trashed",
+        event_details={"adopted": True},
+        trashed_by=op.actor_user_id,
+    )
+    current = db.get(FileOperation, op.id)
+    if current is not None:
+        _set(current, "committed", step="adopted_into_trash")
+    audit(
+        db,
+        "trash.adopted",
+        actor=ctx.actor,
+        ip=ctx.ip,
+        item_id=str(trash_id),
+    )
+    db.commit()
+    return True
 
 
 def _flag_node(db: Session, op: FileOperation, node: Node) -> str:

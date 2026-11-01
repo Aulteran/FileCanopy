@@ -103,3 +103,13 @@ What was built, and where it differs from the plan above in detail (none of it c
 - **Navigation:** Trash and Recent actions are in a second navigation landmark ("Trash and history") so the Locations list is unchanged.
 - **Tests:** vitest (`history.test.ts`, routes); unit tests in `test_trash_recovery.py`; compose `test_trash_stack.py`; e2e `test_trash_ui.py`.
 - **Not done:** no multi-select delete; the activity panel loads when opened (30 events per page); the Trash page shows no per-item activity; screen-reader behaviour is checked through roles and names only.
+
+### M07b review follow-up (2026-11-01, Opus review; fixes by Sonnet)
+
+- **Check and release is atomic:** the item moves to `in_trash` with a status-guarded update, and is refused (`409 TRASH_ITEM_UNAVAILABLE`) while a delete forever or restore of it is running or journaled.
+- **Folders are checked inside:** the item directory must hold exactly the entries (names, kinds, file sizes) of the nodes that belong to the item, within the tree limits; any difference is `entry_changed`.
+- **Bytes without a Trash entry:** a `trash` or cross-root move left `reconcile_needed` with its bytes in the trash directory (inode matching the journal) is given a Trash entry by the root manager's "Check and release" (`trash.adopted` audit row; the entry keeps the original actor and reason `moved_out` for a move). If the inode does not match, nothing is touched. The Trash page counts these in the interrupted-items banner.
+- **Undo toast** is offered only when the server returned an undo record (so not for Create folder).
+- **Sign-off:** the owner's M07a sign-off is his project-chat message of 2026-11-01 ("I don't think there's anything left to do for M07a").
+- **Tests:** compose `test_trash_stack.py` is in the CI `app` matrix (after the import suite) and the files suite only checks its own users' nodes, so order does not matter; the kill test waits for eight finished deletes before killing the API and asserts that fewer than 60 finished and the per-file node states.
+

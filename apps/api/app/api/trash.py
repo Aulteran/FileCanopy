@@ -285,7 +285,7 @@ def _manageable_roots(
                 .where(TrashItem.root_id == root.id, TrashItem.status == "reconcile_needed")
             )
             or 0
-        )
+        ) + len(trash.orphan_operations(db, root.id))
         roots.append(
             TrashRootOut(
                 flagged_count=int(flagged),
