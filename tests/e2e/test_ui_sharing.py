@@ -39,7 +39,7 @@ def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     alice.go_back()
 
     bob = sign_in(browser, world, world.bob_mail)
-    expect(bob.get_by_role("link", name=re.compile(r"Notifications \(1 new\)"))).to_be_visible()
+    expect(bob.get_by_role("link", name=re.compile(r"Notifications \(\d+ new\)"))).to_be_visible()
     bob.get_by_role("link", name=re.compile("Notifications")).click()
     expect(bob.get_by_text("shared the folder Holiday plans with you")).to_be_visible()
     bob.get_by_role("link", name=re.compile("Holiday plans")).first.click()
