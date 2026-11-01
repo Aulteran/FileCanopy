@@ -10,6 +10,7 @@ const USERS = /^\/admin\/users\/?$/;
 const TRASH = /^\/trash\/?$/;
 const RECENT = /^\/recent\/?$/;
 const NOTICES = /^\/notifications\/?$/;
+const SEARCH = /^\/search\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
@@ -33,6 +34,22 @@ export const USERS_PATH = "/admin/users";
 export const TRASH_PATH = "/trash";
 export const RECENT_PATH = "/recent";
 export const NOTICES_PATH = "/notifications";
+export const SEARCH_PATH = "/search";
+
+export function isSearchPath(pathname: string): boolean {
+  return SEARCH.test(pathname);
+}
+
+/** The address of the results page for a query (the query is in the address, so the back button
+ * and a reload bring the same results back). */
+export function searchPath(q: string): string {
+  return `${SEARCH_PATH}?q=${encodeURIComponent(q.trim().slice(0, 200))}`;
+}
+
+/** The query typed into the search box, from the address bar's "?q=…" part. */
+export function searchQueryFrom(search: string): string {
+  return (new URLSearchParams(search).get("q") ?? "").slice(0, 200);
+}
 
 export function isTrashPath(pathname: string): boolean {
   return TRASH.test(pathname);
@@ -93,11 +110,16 @@ export function useRoute(): {
   trash: boolean;
   recent: boolean;
   notices: boolean;
+  search: string | null;
   go: (path: string, replace?: boolean) => void;
 } {
   const [path, setPath] = useState(window.location.pathname);
+  const [query, setQuery] = useState(window.location.search);
   useEffect(() => {
-    const onPop = (): void => setPath(window.location.pathname);
+    const onPop = (): void => {
+      setPath(window.location.pathname);
+      setQuery(window.location.search);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -106,6 +128,7 @@ export function useRoute(): {
     if (replace) window.history.replaceState(null, "", to);
     else window.history.pushState(null, "", to);
     setPath(window.location.pathname);
+    setQuery(window.location.search);
   }, []);
   return {
     folderId: folderIdFrom(path),
@@ -115,6 +138,7 @@ export function useRoute(): {
     trash: isTrashPath(path),
     recent: isRecentPath(path),
     notices: isNoticesPath(path),
+    search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,
   };
 }
