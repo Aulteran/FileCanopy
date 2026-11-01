@@ -197,6 +197,22 @@
 
 **Tests/evidence:** compose test with an outer proxy container (client IP, per-client throttle, spoofed header, Origin with and without Host, upload/download, cookie flags).
 
+### M07d — In-app document viewer (PDF, images, text)
+
+**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 security review · **Design:** [ADR-019](docs/adr/ADR-019-in-app-document-viewer.md) (Proposed) and the viewer mockup; both need owner approval first. Added 2026-11-01 at the owner's request.
+
+**Goal:** Click a file and read it in the app: a full-page viewer with scrolling, zoom and Download. PDF through self-hosted PDF.js, images, and text/CSV, all served through an access-checked `Range` endpoint. Word, Excel and PowerPoint follow in M10 through a sandboxed converter.
+
+**Acceptance criteria:**
+- [ ] Clicking a PDF, image, text or CSV file opens the viewer; folders still open as folders
+- [ ] `GET /nodes/{id}/view` uses the same ACL as download; the administrator gets nothing in personal folders; unlisted types refused
+- [ ] PDF.js self-hosted, scripting and eval off; CSP changes limited to `worker-src 'self'` (and wasm only if needed)
+- [ ] SVG shown only as a picture; no user content ever inserted as HTML
+- [ ] One `viewed` event per open in the activity panel; downloads unchanged
+- [ ] Works with no AI and no extra container; phone-width layout
+
+**Tests/evidence:** cross-user and admin denial, type mismatch, PDF with JavaScript, truncated/encrypted PDF, scripted SVG, Range edge cases, viewed logged once, e2e open/scroll/zoom, CSP header test.
+
 ### M08 — Sharing and personal-folder isolation
 
 **Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Opus 5.5 review; Sonnet 5.5 coding
@@ -227,14 +243,16 @@
 
 **Constraint carried from M06c (backups):** a restore from a backup must re-apply the most restrictive privacy label (the label recorded with the backed-up content or the label now on its original location, whichever is stricter) and must not turn Private or Confidential content into Normal content; restoring Confidential content needs the same fresh reauthentication as reading it, and background backup or restore jobs never refresh an unlock. Archives must carry labels in their metadata for this. See ADR-016 (Accepted 2026-10-31, not yet built) for the key model this assumes.
 
-### M10 — Document previews and safe extraction
+### M10 — Document previews, Office viewing and safe extraction
 
 **Phase:** documents · **Dependencies:** M09 · **Suggested Claude Code model:** Sonnet 5.5
 
-**Goal:** PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library.
+**Goal:** PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library. Builds on the M07d viewer: Word, Excel and PowerPoint files are converted to PDF by an optional sandboxed converter container (ADR-019) and shown in the same viewer.
 
 **Acceptance criteria:**
 - [ ] PDF and DOCX basic text extraction
+- [ ] Word/Excel/PowerPoint open in the viewer through the converter container (no network, read-only, limits, macros never run); without it, a friendly "download instead" message
+- [ ] Previews of Private/Confidential files need the local-processing opt-in and are removed with the file
 - [ ] Image thumbnail secure and access checked
 - [ ] ZIP stays inert, bounded inspection only
 - [ ] Parser errors do not corrupt originals

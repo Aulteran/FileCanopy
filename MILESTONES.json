@@ -292,6 +292,37 @@
       "status": "not_started"
     },
     {
+      "id": "M07d",
+      "phase": "foundation",
+      "title": "In-app document viewer (PDF, images, text)",
+      "depends_on": [
+        "M07"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 security review",
+      "objective": "Click a file and read it in the app: full-page viewer for PDF (self-hosted PDF.js), images and text/CSV through an access-checked Range endpoint. ADR-019 (Proposed).",
+      "acceptance_criteria": [
+        "Clicking a PDF, image, text or CSV file opens the viewer",
+        "/view endpoint uses the same ACL as download; admin gets nothing in personal folders; unlisted types refused",
+        "PDF.js self-hosted with scripting and eval off; CSP change limited to worker-src self",
+        "SVG shown only as a picture; no user content inserted as HTML",
+        "One viewed event per open in the activity panel",
+        "Works with no AI and no extra container"
+      ],
+      "required_tests": [
+        "cross-user and admin denial",
+        "type mismatch",
+        "PDF with JavaScript",
+        "truncated/encrypted PDF",
+        "scripted SVG",
+        "Range edge cases",
+        "viewed logged once",
+        "e2e open/scroll/zoom",
+        "CSP header test"
+      ],
+      "notes": "Added 2026-11-01 at owner request. Needs owner approval of ADR-019 and the viewer mockup before starting. Office documents follow in M10.",
+      "status": "not_started"
+    },
+    {
       "id": "M08",
       "phase": "foundation",
       "title": "Sharing and personal-folder isolation",
@@ -343,14 +374,17 @@
     {
       "id": "M10",
       "phase": "documents",
-      "title": "Document previews and safe extraction",
+      "title": "Document previews, Office viewing and safe extraction",
       "depends_on": [
-        "M09"
+        "M09",
+        "M07d"
       ],
       "recommended_claude_code_model": "Sonnet 5.5",
-      "objective": "PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library.",
+      "objective": "PDF/text/Office/image/CSV metadata, safe inline previews and extracted text/thumbnail storage outside library. Builds on the M07d viewer: Word/Excel/PowerPoint converted to PDF by an optional sandboxed converter container (ADR-019).",
       "acceptance_criteria": [
         "PDF and DOCX basic text extraction",
+        "Office documents open in the viewer via the converter container; without it a download-instead message",
+        "Private/Confidential previews need the local-processing opt-in and are removed with the file",
         "Image thumbnail secure and access checked",
         "ZIP stays inert, bounded inspection only",
         "Parser errors do not corrupt originals"
