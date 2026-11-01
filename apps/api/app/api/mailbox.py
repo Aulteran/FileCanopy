@@ -125,6 +125,9 @@ class MailboxStatus(BaseModel):
     personal_address: str | None
     ingest_address: str | None
     authentication_configured: bool
+    # Sender checks are trusted but no message has passed yet: the operator has not shown that
+    # the provider adds its header on every path (see the guide).
+    authentication_unproven: bool
     auth_policy: str | None
     last_poll_at: datetime | None
     last_error: str | None
@@ -160,6 +163,7 @@ def mailbox_status(
         personal_address=s.imap_personal_address or None,
         ingest_address=s.imap_ingest_address or None,
         authentication_configured=bool(s.imap_authserv_id),
+        authentication_unproven=bool(s.imap_authserv_id) and count("verified") == 0,
         auth_policy=s.imap_auth_policy if s.imap_configured else None,
         last_poll_at=state.last_poll_at if state else None,
         last_error=state.last_error if state else None,

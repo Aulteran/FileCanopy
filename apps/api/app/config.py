@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     imap_authserv_id: str = ""
     imap_auth_policy: Literal["aligned", "dmarc"] = "aligned"
     imap_recipient_headers: str = "x-original-to,delivered-to"
-    imap_max_message_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
+    imap_max_message_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
     imap_max_parts: int = Field(default=200, ge=1, le=2000)
     imap_max_depth: int = Field(default=6, ge=1, le=20)
     imap_max_attachments: int = Field(default=50, ge=0, le=500)

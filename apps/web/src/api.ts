@@ -555,6 +555,7 @@ export type MailboxStatus = {
   personal_address: string | null;
   ingest_address: string | null;
   authentication_configured: boolean;
+  authentication_unproven: boolean;
   auth_policy: string | null;
   last_poll_at: string | null;
   last_error: string | null;

@@ -199,6 +199,14 @@ export function MailboxAdminPage({ onEnded }: { onEnded: () => void }) {
               {status.errors} failed
             </dd>
           </dl>
+          {status.authentication_unproven && (
+            <p role="note">
+              No message has passed the sender check yet. Before relying on it,
+              send a test from an outside address and from another account on
+              your mail provider, and confirm both carry your provider&apos;s
+              Authentication-Results header (see the mailbox guide).
+            </p>
+          )}
           <button type="button" disabled={busy} onClick={() => void poll()}>
             Check now
           </button>

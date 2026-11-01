@@ -18,7 +18,7 @@ from sqlalchemy import select
 from test_acl import Fx
 from test_auth import PASSWORD, World, signed_in
 from test_files import Api, code
-from test_oidc_mail import FakeSMTP, mail_world, token_of
+from test_oidc_mail import SMTP, FakeSMTP, mail_world, token_of
 
 from app.auth import clock
 from app.config import Settings
@@ -198,7 +198,19 @@ def ev(headers: list[str], domain: str = "example.com", policy: str = "aligned")
 
 def test_authentication_results_policy() -> None:
     assert ev([passing()]).ok
-    assert ev([f"{AUTHSERV}; dmarc=pass header.from=example.com"]).ok
+    dmarc_dkim = f"{AUTHSERV}; dmarc=pass header.from=example.com; dkim=pass header.d=example.com"
+    assert ev([dmarc_dkim]).ok and ev([dmarc_dkim], policy="dmarc").ok
+    # M1: DMARC can pass on SPF alone (shared sending platforms): a DKIM signature from the
+    # sender's own domain is required on every accepting path
+    spf_only = (
+        f"{AUTHSERV}; dmarc=pass header.from=example.com; spf=pass smtp.mailfrom=example.com; "
+        "dkim=none"
+    )
+    assert ev([spf_only]).reason == "AUTH_FAILED"
+    assert ev([spf_only], policy="dmarc").reason == "AUTH_FAILED"
+    assert ev([f"{AUTHSERV}; dmarc=pass header.from=example.com"]).reason == "AUTH_FAILED"
+    third_party = f"{AUTHSERV}; dmarc=pass header.from=example.com; dkim=pass header.d=esp.example"
+    assert ev([third_party]).reason == "AUTH_FAILED"
     both = f"{AUTHSERV}; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=a@example.com"
     assert ev([both]).ok
     assert not ev([both], policy="dmarc").ok
@@ -218,6 +230,27 @@ def test_authentication_results_policy() -> None:
     )  # exact alignment only
     assert ev([]).reason == "AUTH_MISSING"
     assert ev([f"{AUTHSERV}; none"]).reason == "AUTH_FAILED"
+
+
+def test_hostile_envelope_sender_cannot_forge_verdicts() -> None:
+    # L1: a provider that writes an unquoted hostile smtp.mailfrom into its header
+    hostile = (
+        f"{AUTHSERV}; spf=pass smtp.mailfrom="
+        "x;dkim=pass header.d=example.com;spf=pass smtp.mailfrom=example.com;y=z@evil.example"
+    )
+    assert ev([hostile]).reason == "AUTH_AMBIGUOUS"
+    two_spf = (
+        f"{AUTHSERV}; dkim=pass header.d=example.com; spf=fail smtp.mailfrom=a@x.example; "
+        "spf=pass smtp.mailfrom=a@example.com"
+    )
+    assert ev([two_spf]).reason == "AUTH_AMBIGUOUS"
+    two_dmarc = (
+        f"{AUTHSERV}; dkim=pass header.d=example.com; dmarc=pass header.from=example.com; "
+        "dmarc=pass header.from=example.com"
+    )
+    assert ev([two_dmarc]).reason == "AUTH_AMBIGUOUS"
+    junk = f"{AUTHSERV}; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=not a domain"
+    assert ev([junk]).reason == "AUTH_FAILED"
 
 
 def test_authentication_results_only_from_our_provider() -> None:
@@ -445,6 +478,41 @@ def test_admin_cannot_invite_an_address_that_is_a_verified_alias(fx: Fx) -> None
         headers=h,
     )
     assert r.status_code == 409 and code(r) == "EMAIL_EXISTS"
+
+
+def test_intake_and_system_addresses_cannot_be_claimed(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    for reserved in (PERSONAL, INGEST.upper(), SMTP["smtp_from"]):
+        assert code(add_alias(alice, reserved)) == "ADDRESS_RESERVED"
+    admin, h = fx.admin
+    r = admin.post(
+        "/api/v1/admin/users",
+        json={"email": INGEST, "name": "X", "role": "member"},
+        headers=h,
+    )
+    assert r.status_code == 409
+    assert not fx.w.db_rows(UserEmailAlias)
+
+
+def test_internationalised_domains_are_one_identity(fx: Fx) -> None:
+    # L3: sign-in emails keep a Unicode domain; mail addresses are punycode
+    with fx.w.ctx.sessions() as db:
+        bob = db.scalars(select(User).where(User.email == "bob@example.com")).one()
+        bob.email = "bob@bücher.example"
+        db.commit()
+    alice = Api(fx, "alice")
+    assert add_alias(alice, "bob@xn--bcher-kva.example").status_code == 202
+    assert not [a for a in fx.w.db_rows(UserEmailAlias)]  # quietly refused: Bob's mailbox
+    admin, h = fx.admin
+    r = admin.post(
+        "/api/v1/admin/users",
+        json={"email": "bob@xn--bcher-kva.example", "name": "X", "role": "member"},
+        headers=h,
+    )
+    assert r.status_code in (409, 422)
+    # and Bob's own mail is recognised under the punycode spelling
+    raw = build(frm="bob@xn--bcher-kva.example", auth=passing("xn--bcher-kva.example"))
+    assert reason_for(fx, raw) == ("verified", None)
 
 
 def test_alias_limits_and_throttle(fx: Fx) -> None:
@@ -884,6 +952,9 @@ def test_reject_needs_confirmation_and_removes_bytes(fx: Fx) -> None:
 def test_poll_now_wakes_the_poller(fx: Fx) -> None:
     admin, h = fx.admin
     assert admin.post("/api/v1/admin/mailbox/poll", headers=h).status_code == 202
+    assert admin.get("/api/v1/admin/mailbox").json()["authentication_unproven"] is True
+    run_poll(fx.w, FakeBox({1: build()}))
+    assert admin.get("/api/v1/admin/mailbox").json()["authentication_unproven"] is False
 
 
 def test_mailbox_disabled_by_default(make_world: Callable[..., World]) -> None:

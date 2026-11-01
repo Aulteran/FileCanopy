@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db.models import InboundMessage, User, UserEmailAlias
 from app.mail import authres
-from app.mail.address import domain_of, normalize_address
+from app.mail.address import address_forms, domain_of, normalize_address
 from app.mail.mime import ParsedMessage
 
 
@@ -37,12 +37,15 @@ class Decision:
 def resolve_sender(db: Session, address: str) -> tuple[User | None, str | None]:
     """The one active account that owns `address`, or (None, reason)."""
     owners: dict[uuid.UUID, User] = {}
-    for user in db.scalars(select(User).where(User.email == address)):
+    for user in db.scalars(select(User).where(User.email.in_(address_forms(address)))):
         owners[user.id] = user
     alias_users = db.scalars(
         select(User)
         .join(UserEmailAlias, UserEmailAlias.user_id == User.id)
-        .where(UserEmailAlias.email == address, UserEmailAlias.verified_at.is_not(None))
+        .where(
+            UserEmailAlias.email.in_(address_forms(address)),
+            UserEmailAlias.verified_at.is_not(None),
+        )
     )
     for user in alias_users:
         owners[user.id] = user

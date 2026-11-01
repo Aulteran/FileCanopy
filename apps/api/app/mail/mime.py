@@ -17,6 +17,8 @@ from app.mail.address import clean_text, single_from
 
 MAX_HEADER_BLOCK = 64 * 1024
 MAX_HEADERS = 400
+_BOUNDARY = re.compile(rb"boundary=", re.IGNORECASE)
+_CTYPE_LINE = re.compile(rb"\ncontent-type:", re.IGNORECASE)
 _CT = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]{0,62}/[a-z0-9][a-z0-9!#$&^_.+-]{0,62}$")
 _RESERVED = {
     "con",
@@ -115,8 +117,8 @@ def parse_message(raw: bytes, limits: Limits) -> ParsedMessage:
     if head_end > MAX_HEADER_BLOCK or raw.count(b"\n", 0, head_end) > MAX_HEADERS:
         raise MimeRefused("HEADERS_TOO_LARGE")
     # Cheap guard against nesting bombs before the stdlib parser (which recurses) sees them.
-    lowered = raw.lower()
-    if lowered.count(b"boundary=") > limits.max_parts or lowered.count(b"\ncontent-type:") > (
+    # Counted without copying the whole message (review L4).
+    if len(_BOUNDARY.findall(raw)) > limits.max_parts or len(_CTYPE_LINE.findall(raw)) > (
         limits.max_parts * 2
     ):
         raise MimeRefused("TOO_MANY_PARTS")

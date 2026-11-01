@@ -7,6 +7,10 @@ One rule for every address the system compares: ASCII lower case, IDNA domain, p
 import re
 import unicodedata
 from email.headerregistry import Address, AddressHeader
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 _LOCAL = re.compile(r"^[a-z0-9!#$%&'*+/=?^_`{|}~.-]{1,64}$")
 _DOMAIN = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
@@ -30,6 +34,30 @@ def normalize_address(raw: str) -> str | None:
     if not _DOMAIN.match(domain):
         return None
     return f"{local}@{domain}"
+
+
+def address_forms(address: str) -> list[str]:
+    """Both spellings of an address with an internationalised domain: sign-in emails were stored
+    with a Unicode domain, mail addresses are compared as punycode (review L3). Compare against
+    every form so one mailbox cannot belong to two accounts under two spellings."""
+    local, _, domain = address.rpartition("@")
+    forms = [address]
+    try:
+        forms.append(f"{local}@{domain.encode('ascii').decode('idna')}")
+    except UnicodeError:
+        pass
+    return list(dict.fromkeys(forms))
+
+
+def reserved_addresses(settings: "Settings") -> set[str]:
+    """Addresses nobody may claim as a sender identity: the two intake addresses (their mail
+    lands in the mailbox) and the system's own sender address (review L2)."""
+    out = set()
+    for raw in (settings.imap_personal_address, settings.imap_ingest_address, settings.smtp_from):
+        norm = normalize_address(raw) if raw else None
+        if norm:
+            out.add(norm)
+    return out
 
 
 def domain_of(address: str) -> str:

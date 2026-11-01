@@ -9,6 +9,8 @@ header claiming the same id. Everything a sender can write sits below the provid
 import re
 from dataclasses import dataclass, field
 
+from app.mail.address import _DOMAIN
+
 _COMMENT = re.compile(r"\([^()]*\)")
 _RESULT = re.compile(r"^([a-z0-9-]+)(?:/\d+)?\s*=\s*([a-z]+)", re.IGNORECASE)
 _PROP = re.compile(r'([a-z0-9-]+\.[a-z0-9-]+)\s*=\s*("[^"]*"|[^\s;]+)', re.IGNORECASE)
@@ -79,7 +81,9 @@ class AuthDecision:
 
 
 def _domain_of_mailfrom(value: str) -> str:
-    return value.rpartition("@")[2].lower()
+    """The domain of `smtp.mailfrom`, or "" when the value is not a plain domain or address."""
+    domain = value.rpartition("@")[2].lower()
+    return domain if _DOMAIN.match(domain) else ""
 
 
 def _word(result: str | None) -> str:
@@ -109,24 +113,29 @@ def evaluate(
             summary[method] = "pass" if words == {"pass"} else sorted(words)[0]
 
     dmarc = [r for r in first.results if r.method == "dmarc"]
-    if dmarc:
-        if any(r.result != "pass" for r in dmarc):
-            return AuthDecision(False, "AUTH_FAILED", summary)
-        if all(r.props.get("header.from") == from_domain for r in dmarc):
-            return AuthDecision(True, None, summary)
-        return AuthDecision(False, "AUTH_FAILED", summary)  # passed for some other domain
-    if policy == "dmarc":
+    spf = [r for r in first.results if r.method == "spf"]
+    # More than one SPF verdict in the provider's header means a hostile envelope sender may have
+    # injected a second one (review L1): never guess which is real.
+    if len(spf) > 1 or len(dmarc) > 1:
+        return AuthDecision(False, "AUTH_AMBIGUOUS", summary)
+    if dmarc and (dmarc[0].result != "pass" or dmarc[0].props.get("header.from") != from_domain):
         return AuthDecision(False, "AUTH_FAILED", summary)
+    # DMARC can pass on SPF alone, and SPF alignment is weak on shared sending platforms, so a
+    # DKIM signature from the sender's own domain is required on every accepting path (review M1).
     dkim_ok = any(
         r.method == "dkim" and r.result == "pass" and r.props.get("header.d") == from_domain
         for r in first.results
     )
-    spf_ok = any(
-        r.method == "spf"
-        and r.result == "pass"
-        and _domain_of_mailfrom(r.props.get("smtp.mailfrom", "")) == from_domain
-        for r in first.results
+    if not dkim_ok:
+        return AuthDecision(False, "AUTH_FAILED", summary)
+    if dmarc:
+        return AuthDecision(True, None, summary)
+    if policy == "dmarc":
+        return AuthDecision(False, "AUTH_FAILED", summary)
+    spf_ok = bool(spf) and (
+        spf[0].result == "pass"
+        and _domain_of_mailfrom(spf[0].props.get("smtp.mailfrom", "")) == from_domain
     )
-    if dkim_ok and spf_ok:
+    if spf_ok:
         return AuthDecision(True, None, summary)
     return AuthDecision(False, "AUTH_FAILED", summary)

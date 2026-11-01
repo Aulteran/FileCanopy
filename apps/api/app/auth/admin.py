@@ -31,6 +31,7 @@ from app.auth.service import (
     valid_email,
 )
 from app.db.models import AuthToken, User, UserEmailAlias, UserIdentity
+from app.mail.address import address_forms, normalize_address, reserved_addresses
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -113,9 +114,17 @@ def create_invited_user(
     if not name or any(ord(c) < 32 for c in name):
         raise http_error(422, "INVALID_NAME")
     # A verified sender alias is an identity too (M13): one address, one account.
+    mail_address = normalize_address(email)
+    if mail_address is not None and mail_address in reserved_addresses(ctx.settings):
+        raise http_error(409, "EMAIL_EXISTS")  # the intake or system address (review L2)
+    if mail_address is not None and db.scalar(
+        select(User.id).where(User.email.in_(address_forms(mail_address)))
+    ):
+        raise http_error(409, "EMAIL_EXISTS")  # same mailbox under another spelling (review L3)
     if db.scalar(
         select(UserEmailAlias.id).where(
-            UserEmailAlias.email == email, UserEmailAlias.verified_at.is_not(None)
+            UserEmailAlias.email.in_(address_forms(mail_address or email)),
+            UserEmailAlias.verified_at.is_not(None),
         )
     ):
         raise http_error(409, "EMAIL_EXISTS")

@@ -29,7 +29,7 @@ from app.auth.schemas import Ok, Strict
 from app.auth.security import digest, new_token
 from app.auth.service import audit, valid_email
 from app.db.models import User, UserEmailAlias
-from app.mail.address import normalize_address
+from app.mail.address import address_forms, normalize_address, reserved_addresses
 
 router = APIRouter(prefix="/api/v1/me/emails", tags=["aliases"])
 
@@ -74,10 +74,11 @@ def _require_proof(request: Request, db: Session, principal: Principal, proof: A
 
 
 def _owned_elsewhere(db: Session, user_id: uuid.UUID, address: str) -> bool:
-    other_primary = db.scalar(select(User.id).where(User.email == address, User.id != user_id))
+    forms = address_forms(address)
+    other_primary = db.scalar(select(User.id).where(User.email.in_(forms), User.id != user_id))
     other_alias = db.scalar(
         select(UserEmailAlias.id).where(
-            UserEmailAlias.email == address,
+            UserEmailAlias.email.in_(forms),
             UserEmailAlias.verified_at.is_not(None),
             UserEmailAlias.user_id != user_id,
         )
@@ -129,7 +130,10 @@ def add_email(
         raise http_error(429, "TOO_MANY_ATTEMPTS", {"Retry-After": str(retry)})
     _require_proof(request, db, principal, body)
     ctx.throttle.record_failure(db, keys)  # counts every request, successful or not
-    if address == user.email:
+    if address in reserved_addresses(ctx.settings):
+        db.commit()
+        raise http_error(409, "ADDRESS_RESERVED")
+    if address in address_forms(user.email) or user.email in address_forms(address):
         db.commit()
         raise http_error(409, "ALREADY_YOUR_ADDRESS")
     mine = db.scalar(

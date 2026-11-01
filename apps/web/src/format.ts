@@ -135,6 +135,8 @@ const MESSAGES: Record<string, string> = {
     "This server cannot send email, so extra addresses cannot be confirmed. Ask your administrator.",
   ALREADY_YOUR_ADDRESS: "That is already your account address.",
   ALREADY_VERIFIED: "You already confirmed that address.",
+  ADDRESS_RESERVED:
+    "That address is used by this system and cannot be a sender address.",
   ALIAS_LIMIT:
     "You have reached the limit of extra addresses. Remove one first.",
   EMAIL_IN_USE: "That address already belongs to another account.",
