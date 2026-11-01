@@ -94,8 +94,8 @@ class Mailer:
         return (
             to,
             "Your FileCanopy invitation",
-            f"Hello {name},\n\nYou have been invited to FileCanopy. Open this link to choose "
-            f"your password:\n\n{link}\n\nThe link works once and expires in {hours} hours. "
+            f"Hello {name},\n\nYou have been invited to FileCanopy. Open this link to "
+            f"get started:\n\n{link}\n\nThe link works once and expires in {hours} hours. "
             "If you did not expect this message, ignore it.\n",
         )
 

@@ -232,6 +232,14 @@ def invitation_start(
     if (retry := ctx.throttle.retry_after(db, keys)) is not None:
         raise _blocked(retry)
     user = token_usable(db, body.token, "invitation")
+    if user is not None and _link_invitation_ok(db, ctx.settings, user):
+        # An active person without a link, invited to link the provider (provider-only mode):
+        # no password is chosen or changed.
+        if body.password is not None:
+            raise http_error(422, "PASSWORD_NOT_ACCEPTED")
+        return _provider_call(
+            db, _start_invite, request, response, db, digest(body.token), None, None
+        )
     if user is None or user.status != "invited":
         ctx.throttle.record_failure(db, keys)
         db.commit()
@@ -471,8 +479,24 @@ def _finish_reauth(
     if not ctx_of(request).oidc.auth_age_ok(claims):
         raise OidcError("OIDC_REAUTH_STALE")
     sess.reauth_at = now
-    audit(db, "oidc.reauth", actor=user.id, target=user.id, ip=client_ip(request))
+    sess.reauth_strong = ctx_of(request).oidc.auth_time_fresh(claims)
+    audit(
+        db,
+        "oidc.reauth",
+        actor=user.id,
+        target=user.id,
+        ip=client_ip(request),
+        strong=sess.reauth_strong,
+    )
     return "reauthed", None
+
+
+def _link_invitation_ok(db: Session, settings: Any, user: User) -> bool:
+    return (
+        user.status == "active"
+        and oidc_only.effective(db, settings)
+        and oidc_only.is_unlinked(db, settings, user)
+    )
 
 
 def _finish_invite(
@@ -490,16 +514,20 @@ def _finish_invite(
     if row.password_hash is None and not oidc_only.effective(db, ctx.settings):
         raise OidcError("OIDC_STATE_INVALID")
     user = consume_token_hash(db, row.token_hash, "invitation")
-    if user is None or user.status != "invited":
+    if user is None:
+        raise OidcError("INVALID_TOKEN")
+    link_only = _link_invitation_ok(db, ctx.settings, user)
+    if user.status != "invited" and not link_only:
         raise OidcError("INVALID_TOKEN")
     if email is None or email != user.email:
         raise OidcError("OIDC_EMAIL_MISMATCH")  # unverified, missing or a different address
     _link_identity(db, user, issuer, sub, email)
-    user.password_hash = row.password_hash
-    user.password_changed_at = clock.utcnow() if row.password_hash else None
-    user.status = "active"
-    if row.new_name:
-        user.name = row.new_name
+    if not link_only:
+        user.password_hash = row.password_hash
+        user.password_changed_at = clock.utcnow() if row.password_hash else None
+        user.status = "active"
+        if row.new_name:
+            user.name = row.new_name
     drop_unused_tokens(db, user.id)
     if old := presented_session_hash(request):
         revoke_session_by_hash(db, old)

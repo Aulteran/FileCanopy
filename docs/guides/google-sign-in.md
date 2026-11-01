@@ -56,10 +56,16 @@ Google is on" and the redirect address you registered.
 - `email_verified` must be exactly `true`.
 - `FILECANOPY_OIDC_HOSTED_DOMAIN` is checked on the signed token (the `hd` claim), not only sent
   to Google as a hint.
-- Re-authentication (resetting a PIN, turning on provider-only sign-in) shows Google's account
-  chooser. Google does not offer a "type your password again" prompt through this protocol, so for
-  those steps a person who walked away from an unlocked computer could confirm with Google if they
-  are still signed in to Google there. The lock screen (Lock in the top bar) closes that gap.
+- Google does **not** re-check the person when asked to (no `auth_time`, only an account
+  chooser), so a Google confirmation is **never accepted as proof for a PIN**. A person with a
+  password sets or resets their PIN with the password (or the current PIN, or an emailed link when
+  SMTP is configured). A person who was invited through Google without a password (provider-only
+  mode) can set or reset a PIN **only** with the emailed link, so they need SMTP to use Confidential
+  folders. Providers that report `auth_time` (Authentik, Authelia, Keycloak) work for re-checks.
+- The Lock screen stops someone who cannot sign in again. Anyone who can sign in again (password
+  autofill, a Google session left open in the browser) gets a new session, but Confidential folders
+  still need the PIN, which they cannot replace without a proof above. That PIN is the real
+  guarantee.
 
 ## Provider-only sign-in
 
@@ -68,8 +74,9 @@ safety nets:
 
 - It can only be turned on by an administrator who has linked Google **and** has just confirmed
   with Google in the same session.
-- People without a link are counted and must be acknowledged; they cannot sign in until they get
-  a new invitation (which they accept through Google, with no password).
+- People without a link are counted and must be acknowledged; they cannot sign in until the
+  administrator sends them a **link invitation** (Users page, "New invitation link"), which they
+  accept through Google with no password. Google must report their exact invited address.
 - Already signed-in sessions keep working during a Google outage.
 - **If Google is down or misconfigured**, bring passwords back with either:
 

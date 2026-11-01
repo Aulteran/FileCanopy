@@ -382,7 +382,15 @@ def test_a_person_without_a_password_sets_a_pin_through_the_provider(
     assert nc.put("/api/v1/auth/pin", json=body, headers=nh).status_code == 422
     r = nc.put("/api/v1/auth/pin", json={**body, "password": PASSWORD}, headers=nh)
     assert r.status_code == 403  # there is no password to prove
-    assert reauth(w, idp, nc, nh, "sub-nina", email="nina@example.com") == "reauthed"
+    # a provider answer without auth_time (Google) proves nothing about who is at the keyboard
+    weak = reauth(w, idp, nc, nh, "sub-nina", email="nina@example.com")
+    assert weak == "reauthed"
+    r = nc.put("/api/v1/auth/pin", json={**body, "reauth": True}, headers=nh)
+    assert r.status_code == 403 and code(r) == "REAUTH_REQUIRED"
+    fresh = int(time.time()) - 3
+    assert reauth(w, idp, nc, nh, "sub-nina", email="nina@example.com", auth_time=fresh) == (
+        "reauthed"
+    )
     r = nc.put("/api/v1/auth/pin", json={**body, "reauth": True}, headers=nh)
     assert r.status_code == 200, r.text
     # one check, one use
@@ -570,3 +578,89 @@ def test_admin_config_view_names_google(
 
 
 _ = (httpx, jwt)
+
+
+def test_a_link_invitation_brings_an_unlinked_person_back(
+    make_world: Callable[..., World],
+    idp: Idp,
+) -> None:
+    w, c, h = only_world(make_world, idp)
+    onboard_member(w, c, h, "bob@example.com")
+    turn_on(w, idp, c, h, confirm_unlinked_users=1)
+    bob = next(u for u in w.db_rows(User) if u.email == "bob@example.com")
+    assert login(w.browser(), "bob@example.com").status_code == 403
+    r = c.post(f"/api/v1/admin/users/{bob.id}/invitation", headers=h)
+    assert r.status_code == 200, r.text
+    token = r.json()["token"]
+    anon = w.browser()
+    r = anon.post("/api/v1/auth/oidc/invitation/start", json={"token": token, "password": PASSWORD})
+    assert r.status_code == 422 and code(r) == "PASSWORD_NOT_ACCEPTED"
+    # the password route cannot redeem it, and a wrong provider address is refused
+    bad = anon.post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
+    assert bad.status_code == 403
+    url = start(anon, "invitation", token=token)
+    mismatch = idp.authorize(url, "sub-bob", email="someone.else@example.com")
+    assert outcome(callback(anon, idp, mismatch)) == "OIDC_EMAIL_MISMATCH"
+    r = c.post(f"/api/v1/admin/users/{bob.id}/invitation", headers=h)
+    token = r.json()["token"]
+    url = start(anon, "invitation", token=token)
+    code_ = idp.authorize(url, "sub-bob", email="bob@example.com")
+    assert outcome(callback(anon, idp, code_)) == "welcome" and sessions_ok(anon)
+    again = w.browser()
+    assert sso_login(w, idp, "sub-bob", email=None)[1] == "signed_in"
+    assert again is not None
+    # linked people are not offered one, and the password is untouched
+    r = c.post(f"/api/v1/admin/users/{bob.id}/invitation", headers=h)
+    assert r.status_code == 409 and code(r) == "NOT_INVITED"
+
+
+def test_link_invitations_exist_only_in_provider_only_mode(
+    make_world: Callable[..., World],
+    idp: Idp,
+) -> None:
+    w, c, h = only_world(make_world, idp)
+    onboard_member(w, c, h, "bob@example.com")
+    bob = next(u for u in w.db_rows(User) if u.email == "bob@example.com")
+    r = c.post(f"/api/v1/admin/users/{bob.id}/invitation", headers=h)
+    assert r.status_code == 409 and code(r) == "NOT_INVITED"
+
+
+def test_admin_reset_tokens_are_refused_in_provider_only_mode(
+    make_world: Callable[..., World],
+    idp: Idp,
+) -> None:
+    w, c, h = only_world(make_world, idp)
+    onboard_member(w, c, h, "bob@example.com")
+    turn_on(w, idp, c, h, confirm_unlinked_users=1)
+    bob = next(u for u in w.db_rows(User) if u.email == "bob@example.com")
+    r = c.post(f"/api/v1/admin/users/{bob.id}/password-reset", headers=h)
+    assert r.status_code == 403 and code(r) == "PASSWORD_LOGIN_DISABLED"
+
+
+def test_a_password_holder_cannot_replace_the_pin_through_a_weak_provider_check(
+    make_world: Callable[..., World],
+    idp: Idp,
+) -> None:
+    w, c, h = only_world(make_world, idp)
+    assert reauth(w, idp, c, h) == "reauthed"  # no auth_time, as Google sends
+    body = {"pin": "482915", "reauth": True}
+    r = c.put("/api/v1/auth/pin", json=body, headers=h)
+    assert r.status_code == 403 and code(r) == "REAUTH_REQUIRED"
+    assert reauth(w, idp, c, h, auth_time=int(time.time())) == "reauthed"
+    assert c.put("/api/v1/auth/pin", json=body, headers=h).status_code == 200
+
+
+def test_wrong_passwords_on_the_pin_routes_end_the_session_at_five(
+    make_world: Callable[..., World],
+) -> None:
+    w = make_world()
+    c, h = admin_session(w)
+    for i in range(4):
+        r = c.put(
+            "/api/v1/auth/pin", json={"pin": "482915", "password": "wrong password!!"}, headers=h
+        )
+        assert r.status_code == 403, i
+        w.advance(seconds=1)
+    r = c.put("/api/v1/auth/pin", json={"pin": "482915", "password": "wrong password!!"}, headers=h)
+    assert r.status_code == 401 and code(r) == "SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES"
+    assert not sessions_ok(c)

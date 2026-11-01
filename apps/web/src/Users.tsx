@@ -51,6 +51,14 @@ export function UsersPage({ me, onEnded }: Props) {
     api.adminAuthConfig().then(setConfig, () => setConfig(null));
   }, []);
   const mail = config?.smtp.configured === true;
+  // Provider-only mode in force: unlinked people need a link invitation to get back in.
+  const [onlyActive, setOnlyActive] = useState(false);
+  useEffect(() => {
+    api.oidcOnly().then(
+      (o) => setOnlyActive(o.effective),
+      () => undefined,
+    );
+  }, []);
 
   async function act(
     what: () => Promise<OneTimeToken | unknown>,
@@ -121,7 +129,13 @@ export function UsersPage({ me, onEnded }: Props) {
           : "This server does not send email, so copy each invitation or reset link and give it to the person yourself."}
       </p>
 
-      {config && <SignInPanel config={config} onError={fail} />}
+      {config && (
+        <SignInPanel
+          onEffective={setOnlyActive}
+          config={config}
+          onError={fail}
+        />
+      )}
 
       {issued && <LinkPanel issued={issued} onClose={() => setIssued(null)} />}
 
@@ -189,7 +203,10 @@ export function UsersPage({ me, onEnded }: Props) {
                   <td>{STATUS[u.status] ?? u.status}</td>
                   <td>
                     <div className="row-actions">
-                      {u.status === "invited" && (
+                      {(u.status === "invited" ||
+                        (onlyActive &&
+                          u.status === "active" &&
+                          !u.sso_linked)) && (
                         <button
                           disabled={busy}
                           aria-label={`New invitation link for ${u.email}`}
@@ -204,22 +221,26 @@ export function UsersPage({ me, onEnded }: Props) {
                           New invitation link
                         </button>
                       )}
-                      {u.status === "invited" && mail && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Email a new invitation to ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.reissueInvitation(u.id, true),
-                              `New invitation for ${u.email}`,
-                              u.email,
-                            )
-                          }
-                        >
-                          Email invitation
-                        </button>
-                      )}
-                      {u.status === "active" && (
+                      {(u.status === "invited" ||
+                        (onlyActive &&
+                          u.status === "active" &&
+                          !u.sso_linked)) &&
+                        mail && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Email a new invitation to ${u.email}`}
+                            onClick={() =>
+                              void act(
+                                () => api.reissueInvitation(u.id, true),
+                                `New invitation for ${u.email}`,
+                                u.email,
+                              )
+                            }
+                          >
+                            Email invitation
+                          </button>
+                        )}
+                      {u.status === "active" && !onlyActive && (
                         <button
                           disabled={busy}
                           aria-label={`Password reset link for ${u.email}`}
@@ -415,9 +436,11 @@ function LinkPanel({
 function SignInPanel({
   config,
   onError,
+  onEffective,
 }: {
   config: AdminAuthConfig;
   onError: (err: unknown) => void;
+  onEffective: (on: boolean) => void;
 }) {
   const [tested, setTested] = useState("");
   const { smtp, oidc } = config;
@@ -453,7 +476,9 @@ function SignInPanel({
           <span role="status">{tested}</span>
         </div>
       )}
-      {oidc.enabled && <OidcOnlyPanel onError={onError} />}
+      {oidc.enabled && (
+        <OidcOnlyPanel onError={onError} onEffective={onEffective} />
+      )}
     </section>
   );
 }
@@ -463,7 +488,13 @@ function SignInPanel({
  * ever fails, the operator brings passwords back with
  * `docker compose exec api python -m app.auth.cli oidc-only off`, or by starting the server with
  * FILECANOPY_FORCE_LOCAL_LOGIN=true. */
-function OidcOnlyPanel({ onError }: { onError: (err: unknown) => void }) {
+function OidcOnlyPanel({
+  onError,
+  onEffective,
+}: {
+  onError: (err: unknown) => void;
+  onEffective: (on: boolean) => void;
+}) {
   const [st, setSt] = useState<OidcOnly | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -478,7 +509,9 @@ function OidcOnlyPanel({ onError }: { onError: (err: unknown) => void }) {
     setBusy(true);
     setNote("");
     try {
-      setSt(await api.setOidcOnly(enabled, confirm));
+      const next = await api.setOidcOnly(enabled, confirm);
+      setSt(next);
+      onEffective(next.effective);
       setNeedCount(null);
       setNote(
         enabled ? "Password sign-in is off." : "Password sign-in is back on.",
@@ -519,8 +552,8 @@ function OidcOnlyPanel({ onError }: { onError: (err: unknown) => void }) {
       {needCount !== null && (
         <p role="alert" className="error">
           {needCount} {needCount === 1 ? "person" : "people"} cannot sign in
-          once passwords are off, until you send them a new invitation. Turn it
-          on anyway?
+          once passwords are off, until you send them a link invitation from
+          this page. Turn it on anyway?
         </p>
       )}
       <div className="row">

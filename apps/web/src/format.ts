@@ -43,7 +43,7 @@ const MESSAGES: Record<string, string> = {
   PIN_UNAVAILABLE: "PINs are not available right now. Ask your administrator.",
   PROOF_REQUIRED: "Confirm it is you first.",
   REAUTH_REQUIRED:
-    "Confirm with your sign-in provider first, then try again within a few minutes.",
+    "Confirm with your sign-in provider first and try again within a few minutes. If it keeps failing, your provider does not re-check you (Google does not): use your password or an emailed link.",
   SESSION_LOCKED: "The screen is locked. Enter your PIN.",
   OIDC_REAUTH_MISMATCH:
     "That provider account is not the one linked to this account.",

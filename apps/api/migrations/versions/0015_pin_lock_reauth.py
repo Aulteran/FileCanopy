@@ -24,6 +24,11 @@ def upgrade() -> None:
         op.add_column("auth_session", sa.Column("locked_at", sa.DateTime(timezone=True)))
     if "reauth_at" not in cols:
         op.add_column("auth_session", sa.Column("reauth_at", sa.DateTime(timezone=True)))
+    if "reauth_strong" not in cols:
+        op.add_column(
+            "auth_session",
+            sa.Column("reauth_strong", sa.Boolean, nullable=False, server_default=sa.false()),
+        )
     if "user_pin" not in insp.get_table_names():
         op.create_table(
             "user_pin",
@@ -44,5 +49,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("user_pin")
+    op.drop_column("auth_session", "reauth_strong")
     op.drop_column("auth_session", "reauth_at")
     op.drop_column("auth_session", "locked_at")

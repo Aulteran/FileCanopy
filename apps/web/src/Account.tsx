@@ -310,7 +310,9 @@ function PinSection({
             >
               Confirm with the provider
             </button>{" "}
-            You will come back here to finish.
+            You will come back here to finish. This only works if your provider
+            makes you sign in again and tells us so; Google does not, so with
+            Google use your password or an emailed link.
           </p>
         )}
         {kind === "reauth" && reauthed && (

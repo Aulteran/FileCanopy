@@ -277,6 +277,11 @@ class AuthSession(Base):
     locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     # M12b: this session just re-authenticated through the OIDC provider (single use proof).
     reauth_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # True only when the provider vouched (`auth_time`) that the person signed in just now. A PIN
+    # change needs this; turning on provider-only sign-in does not.
+    reauth_strong: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
 
 class UserPin(Base):

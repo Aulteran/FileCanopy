@@ -315,6 +315,14 @@ class OidcProvider:
             return False
         return time.time() - float(at) <= max_age_seconds + LEEWAY_SECONDS
 
+    def auth_time_fresh(self, claims: dict[str, Any], max_age_seconds: int = 300) -> bool:
+        """Strict: the provider says the person signed in within `max_age_seconds`. A token
+        without `auth_time` is not proof of presence (Google omits it)."""
+        at = claims.get("auth_time")
+        if isinstance(at, bool) or not isinstance(at, int | float):
+            return False
+        return time.time() - float(at) <= max_age_seconds + LEEWAY_SECONDS
+
     def verified_email(self, claims: dict[str, Any], access_token: str | None) -> str | None:
         """The email the provider vouches for, or None. Falls back to the userinfo endpoint (some
         providers keep claims out of the ID token); its `sub` must equal the ID token's."""

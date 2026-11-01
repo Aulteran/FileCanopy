@@ -198,7 +198,15 @@ def reissue_invitation(
     send = options.send_email if options else False
     _require_mail(request, send)
     user = _get_user(db, user_id)
-    if user.status != "invited":
+    settings = ctx_of(request).settings
+    # In provider-only mode an active person without a link gets a link invitation: it can only
+    # be accepted through the provider (no password involved) and links that provider account.
+    link_only = (
+        user.status == "active"
+        and oidc_only.effective(db, settings)
+        and oidc_only.is_unlinked(db, settings, user)
+    )
+    if user.status != "invited" and not link_only:
         raise http_error(409, "NOT_INVITED")
     token, row = issue_token(
         db, user, "invitation", ctx_of(request).settings.invitation_ttl_seconds, admin.user.id
@@ -229,6 +237,7 @@ def issue_password_reset(
     send = options.send_email if options else False
     _require_mail(request, send)
     user = _get_user(db, user_id)
+    oidc_only.require_password_login(db, ctx_of(request).settings)  # a reset would be unusable
     if user.status != "active":
         raise http_error(409, "NOT_ACTIVE")
     token, row = issue_token(

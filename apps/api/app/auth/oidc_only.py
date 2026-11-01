@@ -71,6 +71,17 @@ def unlinked_users(db: Session, settings: Settings) -> int:
     )
 
 
+def is_unlinked(db: Session, settings: Settings, user: User) -> bool:
+    return (
+        db.scalar(
+            select(UserIdentity.id).where(
+                UserIdentity.user_id == user.id, UserIdentity.issuer == settings.oidc_issuer
+            )
+        )
+        is None
+    )
+
+
 def guard_linked_admin(db: Session, settings: Settings, target: User) -> None:
     """While the mode is in force, never remove the last administrator who can still sign in."""
     if not effective(db, settings):

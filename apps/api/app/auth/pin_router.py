@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import clock
@@ -25,7 +25,13 @@ from app.auth.deps import (
 from app.auth.pin import SESSION_END_AT, PinError, weak_reason
 from app.auth.schemas import Ok, Strict
 from app.auth.service import audit, consume_token, issue_token
-from app.db.models import AuthSession, AuthToken, ConfidentialUnlock, UserIdentity
+from app.db.models import (
+    AuthAudit,
+    AuthSession,
+    AuthToken,
+    ConfidentialUnlock,
+    UserIdentity,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["pin"])
 
@@ -134,18 +140,43 @@ def check_password(request: Request, db: Session, principal: Principal, password
     if not ctx.passwords.verify(user.password_hash, password):
         ctx.throttle.record_failure(db, keys)
         audit(db, "pin.password_failed", actor=user.id, target=user.id, ip=ip)
+        db.flush()
+        recent = db.scalar(
+            select(func.count())
+            .select_from(AuthAudit)
+            .where(
+                AuthAudit.action == "pin.password_failed",
+                AuthAudit.actor_user_id == user.id,
+                AuthAudit.at >= clock.utcnow() - timedelta(minutes=10),
+            )
+        )
+        if (recent or 0) >= SESSION_END_AT:  # same rule as the Confidential password check (M09)
+            principal.session.revoked_at = clock.utcnow()
+            db.execute(
+                delete(ConfidentialUnlock).where(
+                    ConfidentialUnlock.session_id == principal.session.id
+                )
+            )
+            audit(db, "pin.session_ended", actor=user.id, target=user.id, ip=ip, via="password")
+            db.commit()
+            raise http_error(401, "SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES")
         db.commit()
         raise http_error(403, "INVALID_CREDENTIALS")
     ctx.throttle.clear(db, keys[:1])
 
 
-def consume_reauth(db: Session, principal: Principal, *, ttl: timedelta = REAUTH_TTL) -> bool:
-    """True once if this session re-authenticated through the provider within `ttl`."""
+def consume_reauth(
+    db: Session, principal: Principal, *, ttl: timedelta = REAUTH_TTL, need_strong: bool = False
+) -> bool:
+    """True once if this session re-authenticated through the provider within `ttl`. With
+    `need_strong` the provider must also have said the person signed in just now (`auth_time`):
+    a provider that silently reuses its own session proves nothing about who is at the keyboard."""
     sess = db.get(AuthSession, principal.session.id)
     if sess is None or sess.reauth_at is None:
         return False
-    fresh = sess.reauth_at + ttl > clock.utcnow()
+    fresh = sess.reauth_at + ttl > clock.utcnow() and (sess.reauth_strong or not need_strong)
     sess.reauth_at = None  # single use, fresh or not
+    sess.reauth_strong = False
     return fresh
 
 
@@ -163,7 +194,7 @@ def verify_proof(
     elif kind == "password":
         check_password(request, db, principal, proof.password or "")
     elif kind == "reauth":
-        if not consume_reauth(db, principal):
+        if not consume_reauth(db, principal, need_strong=True):
             db.commit()
             raise http_error(403, "REAUTH_REQUIRED")
     else:
@@ -287,6 +318,7 @@ def lock_screen(
     sess = principal.session
     sess.locked_at = clock.utcnow()
     sess.reauth_at = None
+    sess.reauth_strong = False
     db.execute(
         delete(ConfidentialUnlock).where(ConfidentialUnlock.session_id == principal.session.id)
     )
