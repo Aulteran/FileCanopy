@@ -267,8 +267,7 @@
 git clone https://github.com/Aulteran/FileCanopy.git
 cd FileCanopy
 cp deploy/.env.example deploy/.env
-python -c "import secrets; print(secrets.token_urlsafe(32))"</pre
-              >
+python -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
             </li>
             <li>
               <h3>Start the stack</h3>
@@ -279,8 +278,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"</pre
               <pre>
 mkdir -p library app-data
 docker compose -f deploy/docker-compose.yml up -d --build --wait
-curl http://127.0.0.1:8080/api/v1/health</pre
-              >
+curl http://127.0.0.1:8080/api/v1/health</pre>
             </li>
             <li>
               <h3>Open the app and finish setup</h3>
@@ -291,8 +289,7 @@ curl http://127.0.0.1:8080/api/v1/health</pre
                 an existing folder or zip.
               </p>
               <pre>
-docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre
-              >
+docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
             </li>
           </ol>
           <p style="margin-top: 28px" class="callout">
