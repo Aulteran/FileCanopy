@@ -159,10 +159,14 @@ def list_grants(
     names = {
         r.id: r.name
         for r in db.execute(
-            select(User.id, User.name).where(User.id.in_({g.grantee_user_id for g, _ in inherited}))
+            select(User.id, User.name).where(
+                User.status == "active", User.id.in_({g.grantee_user_id for g, _ in inherited})
+            )
         )
     }
     for g, above in inherited:
+        if g.grantee_user_id not in names:
+            continue
         out.append(
             GrantOut(
                 inherited_from_id=above.id,

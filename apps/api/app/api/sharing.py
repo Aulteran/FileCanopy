@@ -15,7 +15,7 @@ from app.auth.schemas import Ok
 from app.db.models import HIDDEN_NODE_STATUSES, Node, Notification, User
 from app.domain import grants
 from app.policy import engine
-from app.policy.deps import NodeContext, actor_access, write_access
+from app.policy.deps import NodeContext, actor_access, read_access
 from app.policy.model import Actor, Privilege
 
 router = APIRouter(prefix="/api/v1", tags=["sharing"])
@@ -182,7 +182,7 @@ def unread_count(
 class ImpactSide(BaseModel):
     # Names only for whoever manages the sharing of that folder; otherwise just whether anyone is
     # affected (`hidden`), so the warning is shown without revealing who has access.
-    count: int
+    affected: bool
     names: list[str]
     hidden: bool
 
@@ -194,23 +194,25 @@ class ImpactOut(BaseModel):
 
 def _side(db: Session, ids: set[uuid.UUID], *, may_name: bool) -> ImpactSide:
     if not ids:
-        return ImpactSide(count=0, names=[], hidden=False)
+        return ImpactSide(affected=False, names=[], hidden=False)
     if not may_name:
-        return ImpactSide(count=len(ids), names=[], hidden=True)
+        return ImpactSide(affected=True, names=[], hidden=True)  # never a number
     names = sorted(db.scalars(select(User.name).where(User.id.in_(ids), User.status == "active")))
-    return ImpactSide(count=len(ids), names=names[:10], hidden=False)
+    return ImpactSide(affected=True, names=names[:10], hidden=False)
 
 
 @router.get("/nodes/{node_id}/move-impact", response_model=ImpactOut)
 def move_impact(
     target: uuid.UUID,
     copy: bool = False,
-    ctx: NodeContext = Depends(write_access),
+    ctx: NodeContext = Depends(read_access),
     db: Session = Depends(get_db),
 ) -> ImpactOut:
     """Who would gain or lose access if this item were moved (or copied) into `target`. Needs write
-    on the item and on the destination, like the move itself."""
+    on the item (read for a copy) and on the destination, like the operation itself."""
     actor = Actor(ctx.principal.user.id)
+    if not copy and Privilege.WRITE not in ctx.privileges:
+        raise http_error(403, "FORBIDDEN")  # a move needs write on the item; a copy only read
     dest = db.get(Node, target)
     if dest is None or Privilege.WRITE not in engine.effective(db, actor, dest):
         raise http_error(403, "FORBIDDEN")

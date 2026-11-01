@@ -1,13 +1,13 @@
 # M08 — Sharing and personal-folder isolation: design and acceptance plan
 
-- **Status:** implemented 2026-11-01 on `m08-sharing`; Opus review fixes applied; awaiting Opus re-check and merge.
+- **Status:** done 2026-11-01 (PR #13, Opus signed off after re-check, CI green).
 - **Depends on:** M07, M07c, M07d (done). **Decision record:** ADR-004 (grants, admin separation) is unchanged; this milestone adds the owner-facing parts on top of it.
 
 ## What already existed (M03)
 
 Grants on folders (viewer, editor), the central policy, `Shared with me` entry points, admin separation and the grant API. What was missing: any screen, any record of sharing in the folder history, any notice to the person concerned.
 
-## Decisions (accepted by the owner 2026-11-01)
+## Decisions (posted to the owner 2026-11-01 04:25Z as "will follow unless you object"; no objection)
 
 - No expiry on shares; revoke by hand.
 - No passwords and no public links (the spec rules out anonymous links).

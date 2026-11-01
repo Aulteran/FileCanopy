@@ -71,17 +71,17 @@ def test_move_impact_names_who_gains_and_loses(fx: Fx) -> None:
     share(alice, fx.taxes, bob, "viewer")
     secret = nid(alice.mkdir(fx.private, "Letters"))
     into = impact(alice, secret, fx.taxes)  # private folder into a shared one
-    assert into["gain"]["count"] == 1 and into["gain"]["names"] and not into["lose"]["count"]
+    assert into["gain"]["names"] and not into["lose"]["affected"]
     out = impact(alice, fx.y2026, fx.private)  # shared subfolder out to a private one
-    assert out["lose"]["count"] == 1 and not out["gain"]["count"]
-    assert impact(alice, fx.y2026, fx.other)["gain"]["count"] == 0  # within the same share
+    assert out["lose"]["affected"] and not out["gain"]["affected"]
+    assert not impact(alice, fx.y2026, fx.other)["gain"]["affected"]  # within the same share
     copy = impact(alice, secret, fx.taxes, copy=True)
-    assert copy["gain"]["count"] == 1 and copy["lose"]["count"] == 0
+    assert copy["gain"]["names"] and not copy["lose"]["affected"]
     # To another area: the grants stay on the original that goes to the trash.
     gone = impact(alice, fx.taxes, fx.shared_sub)
     # Bob has access to the shared tree too, so he keeps seeing it; the others gain it. Alice does
     # not manage the shared tree, so she is told that people are affected, not who.
-    assert gone["lose"]["count"] == 0 and gone["gain"]["count"] >= 1 and gone["gain"]["hidden"]
+    assert not gone["lose"]["affected"] and gone["gain"]["affected"] and gone["gain"]["hidden"]
 
 
 def test_move_impact_hides_names_from_people_who_do_not_manage_the_sharing(fx: Fx) -> None:
@@ -91,6 +91,7 @@ def test_move_impact_hides_names_from_people_who_do_not_manage_the_sharing(fx: F
     mine = nid(bob.mkdir(fx.root_of("bob@example.com"), "Bob stuff"))
     r = impact(bob, mine, fx.taxes)  # Bob may write here but does not manage the share
     assert r["gain"]["hidden"] is True and r["gain"]["names"] == []
+    assert r["gain"]["affected"] is True and "count" not in r["gain"]  # no number of people
     # A folder Bob cannot write to is refused outright, as is an unknown target.
     assert (
         bob.get(f"/nodes/{mine}/move-impact", params={"target": str(fx.private)}).status_code == 403
@@ -162,3 +163,27 @@ def test_downgrade_blocks_restore_and_undo(fx: Fx) -> None:
     alice.client.delete(f"/api/v1/nodes/{fx.taxes}/grants/{bob.uid}", headers=alice.headers)
     assert bob_c.get(f"/api/v1/nodes/{fx.taxes}").status_code == 403
     assert bob.restore(item).status_code == 403
+
+
+def test_copy_impact_needs_only_read_on_the_item(fx: Fx) -> None:
+    alice, bob = P(fx, "alice"), P(fx, "bob")
+    share(alice, fx.taxes, bob, "viewer")
+    f = nid(alice.upload(fx.taxes, "a.txt", b"x"))
+    bobs = nid(bob.mkdir(fx.root_of("bob@example.com"), "Mine"))
+    share(bob, bobs, P(fx, "carol"), "viewer")
+    # A viewer copying out into a folder he shares with others is warned...
+    r = bob.get(f"/nodes/{f}/move-impact", params={"target": str(bobs), "copy": "true"})
+    assert r.status_code == 200 and r.json()["gain"]["affected"]
+    # ...but a move needs write on the item, so a viewer gets a refusal, not an answer.
+    r = bob.get(f"/nodes/{f}/move-impact", params={"target": str(bobs)})
+    assert r.status_code == 403
+
+
+def test_a_disabled_account_is_not_counted_as_having_access(fx: Fx) -> None:
+    alice, bob = P(fx, "alice"), P(fx, "bob")
+    share(alice, fx.taxes, bob, "viewer")
+    assert alice.get(f"/nodes/{fx.y2026}").json()["shared_with"] == 1
+    c, h = fx.admin
+    c.patch(f"/api/v1/admin/users/{bob.uid}", json={"status": "disabled"}, headers=h)
+    assert alice.get(f"/nodes/{fx.y2026}").json()["shared_with"] == 0
+    assert not [r for r in alice.get(f"/nodes/{fx.y2026}/grants").json() if r["inherited_from_id"]]

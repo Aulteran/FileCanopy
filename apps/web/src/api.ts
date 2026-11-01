@@ -71,7 +71,11 @@ export type Notice = {
   node_name: string | null;
   level: "viewer" | "editor" | null;
 };
-export type ImpactSide = { count: number; names: string[]; hidden: boolean };
+export type ImpactSide = {
+  affected: boolean;
+  names: string[];
+  hidden: boolean;
+};
 export type Impact = { gain: ImpactSide; lose: ImpactSide };
 export type Notices = { unread: number; items: Notice[] };
 export type Child = {

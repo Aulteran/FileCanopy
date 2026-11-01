@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.auth.service import audit
-from app.db.models import Node, NodeGrant, Notification
+from app.db.models import Node, NodeGrant, Notification, User
 from app.domain import events
 
 NOTICE_CAP = 200
@@ -144,7 +144,13 @@ def inherited_grants(db: Session, node: Node) -> list[tuple[NodeGrant, Node]]:
 def users_with_access(db: Session, node_ids: list[uuid.UUID]) -> set[uuid.UUID]:
     if not node_ids:
         return set()
-    return set(db.scalars(select(NodeGrant.grantee_user_id).where(NodeGrant.node_id.in_(node_ids))))
+    return set(
+        db.scalars(
+            select(NodeGrant.grantee_user_id)
+            .join(User, User.id == NodeGrant.grantee_user_id)
+            .where(NodeGrant.node_id.in_(node_ids), User.status == "active")
+        )
+    )
 
 
 def descendant_grantees(db: Session, node: Node) -> set[uuid.UUID]:
@@ -152,7 +158,8 @@ def descendant_grantees(db: Session, node: Node) -> set[uuid.UUID]:
         db.scalars(
             select(NodeGrant.grantee_user_id)
             .join(Node, Node.id == NodeGrant.node_id)
-            .where(Node.lineage.startswith(node.lineage, autoescape=True))
+            .join(User, User.id == NodeGrant.grantee_user_id)
+            .where(User.status == "active", Node.lineage.startswith(node.lineage, autoescape=True))
         )
     )
 
