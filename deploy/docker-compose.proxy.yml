@@ -3,7 +3,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
 # FILECANOPY_PROXY_NETWORK (in deploy/.env) is the name of the proxy's network, see
 # `docker network ls`. The proxy can then reach the app as  http://web:8080  (container name
-# `filecanopy-web-1` also works). Also set FILECANOPY_TRUSTED_PROXIES to that network's subnet.
+# `filecanopy-web-1` also works). Also set FILECANOPY_TRUSTED_PROXIES to the proxy's own address on it (not the whole subnet).
 # Only the web service joins; the database and API stay on the private default network.
 services:
   web:

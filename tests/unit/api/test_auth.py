@@ -528,6 +528,17 @@ def test_public_url_is_an_allowed_origin(make_world: Callable[..., World]) -> No
 
 
 @pytest.mark.parametrize(
+    "configured",
+    ["https://Files.Example.org", "https://files.example.org:443/", "HTTPS://files.example.org"],
+)
+def test_public_url_is_normalized_like_a_browser_origin(configured: str) -> None:
+    s = Settings(database_url="sqlite://", public_url=configured)  # type: ignore[arg-type]
+    assert s.extra_origins == "https://files.example.org"
+    s = Settings(database_url="sqlite://", public_url="http://nas.local:8080")  # type: ignore[arg-type]
+    assert s.extra_origins == "http://nas.local:8080"
+
+
+@pytest.mark.parametrize(
     "bad",
     ["files.example.org", "ftp://files.example.org", "https://x.org/app", "https://x.org?a=1"],
 )

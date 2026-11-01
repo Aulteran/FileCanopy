@@ -32,16 +32,19 @@ header too, so FileCanopy only believes it from the addresses in `FILECANOPY_TRU
   everyone, so one person's mistakes can lock all users out, and the audit log shows the proxy
   address.
 - **Set to your proxy:** each visitor is counted separately and the audit log shows who really
-  connected. A header sent by anyone else is ignored.
+  connected. A forwarded header sent by anyone else is ignored. (This protects against FileCanopy being tricked directly; your proxy must not believe client headers itself, see the NPM section.)
 
-How to find the value: run `docker network inspect <network>` and look at the proxy
-container's `IPv4Address`, or use the whole subnet of a network that only contains your proxy
-(for example `172.18.0.0/16`). If the proxy runs on the host rather than in Docker, FileCanopy
-sees it at the gateway address of the `filecanopy_default` network (`docker network inspect
-filecanopy_default`, field `Gateway`, often `172.x.0.1`).
+How to find the value: trust the proxy's **own single address**, for example
+`FILECANOPY_TRUSTED_PROXIES=172.18.0.5`. Run `docker network inspect <network>` and read the
+proxy container's `IPv4Address`. Give the proxy a fixed address (`ipv4_address:` under its network
+in its compose file) so it survives restarts. Avoid the whole subnet when other apps share the
+network: every container in the range would be allowed to claim any visitor address. A subnet is
+fine for a network that holds only the proxy and FileCanopy. If the proxy runs on the host rather
+than in Docker, FileCanopy sees it at the gateway address of the `filecanopy_default` network
+(`docker network inspect filecanopy_default`, field `Gateway`, often `172.x.0.1`).
 
 **Do not** trust a wider range than your proxies. Anything in the range can pretend to be any
-visitor. `0.0.0.0/0` and `::/0` are refused and the container will not start. After changing the
+visitor. Ranges wider than /8 (IPv4) or /16 (IPv6), such as `0.0.0.0/0`, `1.2.3.4/0` or `::/0`, are refused and the container will not start. After changing the
 setting, check it: sign in with a wrong password, then run
 `docker compose -f deploy/docker-compose.yml exec postgres psql -U filecanopy -d filecanopy -c "select at, action, ip from auth_audit order by id desc limit 3"`.
 The `ip` of the newest `login.failed` row should be your own address, not the proxy's.
@@ -88,13 +91,23 @@ default). A proxy has to let that through:
 1. Put NPM and FileCanopy on one Docker network (see "Joining the proxy's Docker network"). NPM cannot use the `127.0.0.1:8080` port from inside its container.
 2. **Proxy Hosts, Add Proxy Host.** Domain name `files.example.org`. Scheme `http`. Forward
    hostname `web` (or `filecanopy-web-1`), port `8080`. Leave "Block Common Exploits" on.
-   Websockets are not needed.
+   Websockets are not needed. If uploads fail with a 403, try turning "Block Common Exploits" off (its rules were not tested against FileCanopy's upload URLs).
 3. **SSL tab.** Request a Let's Encrypt certificate, tick "Force SSL" and "HTTP/2". Enable HSTS in
    NPM or with `FILECANOPY_HSTS=true`, not both (see below).
-4. **Advanced tab.** Paste the contents of [`npm-advanced.conf`](npm-advanced.conf).
+4. **Advanced tab.** Paste the contents of [`npm-advanced.conf`](npm-advanced.conf). It also
+   contains an important safety line, explained next.
 5. In `deploy/.env` set `FILECANOPY_PUBLIC_URL=https://files.example.org` and
    `FILECANOPY_TRUSTED_PROXIES` to NPM's address on the shared network. Then start FileCanopy
    with the proxy override.
+
+**NPM's default trusts a header any device on your network can send.** Its built-in configuration
+believes `X-Real-IP` from every private address (`10/8`, `172.16/12`, `192.168/16`) and passes
+that value on as the visitor's address. So a phone or laptop on your home network, or any
+container on NPM's network, can send `X-Real-IP: 1.2.3.4` and FileCanopy will record and throttle
+that address, even though FileCanopy trusts NPM correctly. The last line of `npm-advanced.conf`,
+`set_real_ip_from 127.0.0.1/32;`, replaces that list for this host so only the real connection
+address counts. Keep it, and add Cloudflare's ranges as more `set_real_ip_from` lines only if
+Cloudflare is in front of NPM. (The compose test shows both behaviours.)
 
 NPM sends `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` by default. If NPM is reached on a
 port other than 443, `FILECANOPY_PUBLIC_URL` must include it (`https://files.example.org:8443`).

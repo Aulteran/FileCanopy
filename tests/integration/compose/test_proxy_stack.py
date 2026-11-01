@@ -114,8 +114,14 @@ server {{
     }}
 }}"""
 
+        # Nginx Proxy Manager ships these lines at http level: it believes X-Real-IP from any
+        # private address. The outer nginx has them too, so the test can show the effect.
+        npm_defaults = (
+            "set_real_ip_from 10.0.0.0/8;\nreal_ip_header X-Real-IP;\nreal_ip_recursive on;\n"
+        )
         (d / "nginx.conf").write_text(
-            server(8443, "include /npm-advanced.conf;", "proxy_set_header Host $http_host;")
+            npm_defaults
+            + server(8443, "include /npm-advanced.conf;", "proxy_set_header Host $http_host;")
             + server(8444, "include /npm-advanced.conf;", "")  # Host becomes web:8080
             + server(8445, "", "proxy_set_header Host $http_host;")  # stock: 1 MB body limit
         )
@@ -315,6 +321,13 @@ def test_trusted_proxy_gives_the_real_client_address(ps: ProxyStack) -> None:
         # A spoofed X-Forwarded-For from the visitor is not believed; the proxy's peer is.
         assert ps.failed_login(proxy, **{"X-Forwarded-For": SPOOF}) == 401
         assert ps.last_audit_ip() == client, proxy
+    # NPM believes X-Real-IP from private addresses by default (the stock server block here has
+    # that and nothing else): a visitor on the home network can pick the address FileCanopy sees.
+    # The `set_real_ip_from 127.0.0.1/32;` line in npm-advanced.conf turns it off per host.
+    assert ps.failed_login(STOCK, **{"X-Real-IP": SPOOF}) == 401
+    assert ps.last_audit_ip() == SPOOF
+    assert ps.failed_login("nginx", **{"X-Real-IP": SPOOF}) == 401
+    assert ps.last_audit_ip() == client
     # Straight to the bundled nginx (not a trusted proxy): the header is ignored as well.
     req = urllib.request.Request(  # noqa: S310
         f"http://127.0.0.1:{ps.port}/api/v1/auth/login",
@@ -353,9 +366,18 @@ def test_bad_trusted_proxy_values_stop_the_web_container(ps: ProxyStack) -> None
             check=False,
         )  # fmt: skip
 
-    good = nginx_test("10.0.0.0/8, 192.168.1.5 fd00::/8")
+    good = nginx_test("10.0.0.0/8, 192.168.1.5 fd00::/16")
     assert good.returncode == 0, good.stderr
-    for bad in ("0.0.0.0/0", "10.0.0.1; x", "::/0", "*"):
+    for bad in (
+        "0.0.0.0/0",
+        "10.0.0.1; x",
+        "::/0",
+        "*",
+        "1.2.3.4/0",
+        "0::/0",
+        "0.0.0.0/1",
+        "10.0.0.0/7",
+    ):
         r = nginx_test(bad)
         assert r.returncode != 0, bad
         assert "FILECANOPY_TRUSTED_PROXIES" in r.stdout + r.stderr, bad
@@ -401,7 +423,7 @@ def test_origin_when_the_proxy_does_not_forward_host(ps: ProxyStack) -> None:
     assert (status, body["detail"]["code"]) == (403, "ORIGIN_NOT_ALLOWED")
     ps.reconfigure(FILECANOPY_PUBLIC_URL=f"https://localhost:{ps.ports[NOHOST]}")
     assert ps.post_json(NOHOST, "/api/v1/auth/login", login)[0] == 200
-    assert ps.post_json("nginx", "/api/v1/auth/login", login)[0] == 403 or True
+    assert ps.post_json("nginx", "/api/v1/auth/login", login)[0] == 200
     # ALLOWED_ORIGINS reaches the API too
     ps.reconfigure(
         FILECANOPY_PUBLIC_URL="",

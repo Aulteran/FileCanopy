@@ -112,7 +112,7 @@ M06 (a, b, c) is merged and signed off. **M07a (backend) is implemented on `m07-
 ## Post-M06 to-do
 
 - [x] **Owner decisions (2026-11-01):** ADR-019 accepted; M07c (reverse proxy) and M07d (viewer) both run before M08 and will be built in separate threads. Later follow-ups: audio/video playback on the Range endpoint; in-app spreadsheet grid.
-- [~] **Reverse proxy and HTTPS support (M07c, ADR-018) — implemented on `m07c-reverse-proxy`, PR open, Opus review of trusted-proxy handling pending.** Real client IP behind an outer proxy (`FILECANOPY_TRUSTED_PROXIES`, default trust nobody), `FILECANOPY_PUBLIC_URL`/`ALLOWED_ORIGINS` passed through Compose, optional HSTS, `docker-compose.proxy.yml`, tested examples in `deploy/proxy/`, README remote-access section.
+- [~] **Reverse proxy and HTTPS support (M07c, ADR-018) — implemented on `m07c-reverse-proxy`, PR open, Opus review fixes applied (ranges wider than /8 or /16 refused, NPM X-Real-IP trust documented and overridden, single-address advice); re-check pending.** Real client IP behind an outer proxy (`FILECANOPY_TRUSTED_PROXIES`, default trust nobody), `FILECANOPY_PUBLIC_URL`/`ALLOWED_ORIGINS` passed through Compose, optional HSTS, `docker-compose.proxy.yml`, tested examples in `deploy/proxy/`, README remote-access section.
 
 - [ ] **Bulk-import CLI (immich-go style, token-authenticated, resumable, built on the import API) — deferred.** Owner decision 2026-10-31: do not build it during M06. Today's import API (`/nodes/{id}/folder-uploads`, `/imports/{id}/resume`, per-file `PUT`) was shaped so a CLI can reuse it; it would need API tokens (not part of M06) and a resumable client.
 

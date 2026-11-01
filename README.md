@@ -79,7 +79,7 @@ Working, tested setups for **Nginx Proxy Manager**, nginx, Caddy, Traefik and Cl
 | Setting | Meaning |
 |---|---|
 | `FILECANOPY_PUBLIC_URL` | The address you type in the browser, for example `https://files.example.org`. |
-| `FILECANOPY_TRUSTED_PROXIES` | Address or range of your reverse proxy as the app sees it. Empty (default) trusts nobody, and then all users share the proxy's address for sign-in limits and the audit log. |
+| `FILECANOPY_TRUSTED_PROXIES` | The address of your reverse proxy as the app sees it (its own single address, not a whole network). Empty (default) trusts nobody, and then all users share the proxy's address for sign-in limits and the audit log. |
 | `FILECANOPY_HSTS` | `true` sends HSTS. Off by default. |
 
 If your proxy runs in Docker, add `-f deploy/docker-compose.proxy.yml` and set `FILECANOPY_PROXY_NETWORK` so the proxy can reach the app at `http://web:8080`. Uploads can be many GiB: the proxy must allow large bodies and long timeouts (the example files do). Cloudflare limits request bodies to 100 MB on the Free and Pro plans, which also applies to Cloudflare Tunnel; see the proxy guide.

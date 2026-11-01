@@ -17,10 +17,22 @@ trusted=$(printf '%s' "${FILECANOPY_TRUSTED_PROXIES:-}" | tr ',' ' ')
 geo=""
 real=""
 for entry in $trusted; do
+    # A very short prefix trusts a huge part of the internet (1.2.3.4/0 is everything), so refuse
+    # IPv4 prefixes shorter than /8 and IPv6 prefixes shorter than /16.
     case "$entry" in
-        0.0.0.0/0 | ::/0 | 0.0.0.0/0* | ::/0*)
-            echo "FILECANOPY_TRUSTED_PROXIES: refusing '$entry' (trusting every address defeats the check)" >&2
-            exit 1 ;;
+        */*)
+            prefix=${entry#*/}
+            case "$prefix" in
+                *[!0-9]* | "") prefix=999 ;;
+            esac
+            case "$entry" in
+                *:*) min=16 ;;
+                *) min=8 ;;
+            esac
+            if [ "$prefix" -lt "$min" ]; then
+                echo "FILECANOPY_TRUSTED_PROXIES: refusing '$entry' (too wide: trusting a large range defeats the check; list your proxy's own address)" >&2
+                exit 1
+            fi ;;
     esac
     if ! printf '%s' "$entry" | grep -Eq '^[0-9A-Fa-f:.]+(/[0-9]{1,3})?$' ||
        ! printf '%s' "$entry" | grep -Eq '[.:]'; then

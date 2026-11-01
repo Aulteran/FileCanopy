@@ -14,9 +14,9 @@ FileCanopy publishes only `127.0.0.1:8080` (the bundled nginx `web` service). To
 4. **Upload path.** Uploads are one raw streamed request (up to 10 GiB). An outer nginx defaults to `client_max_body_size 1m` and request buffering; Cloudflare caps request bodies (100 MB on Free and Pro), which also applies to Cloudflare Tunnel. Neither is documented.
 5. **No HSTS**, no documented proxy network setup (the `127.0.0.1` binding is unreachable from a proxy in another container), and the README has only one sentence, no examples.
 
-## Decision (proposed)
+## Decision
 
-- Replace the hop count with an explicit trusted-proxy list: `FILECANOPY_TRUSTED_PROXIES` (CIDRs) in nginx using `ngx_http_realip_module` (`set_real_ip_from`, `real_ip_header X-Forwarded-For`, `real_ip_recursive on`), so nginx derives the real client address and then forwards a single clean `X-Forwarded-For` to the API. Default empty: the direct peer is used and a spoofed header is ignored. Keep `FILECANOPY_TRUSTED_PROXY_HOPS` working until removed (migration note in the milestone).
+- Replace the hop count with an explicit trusted-proxy list: `FILECANOPY_TRUSTED_PROXIES` (CIDRs) in nginx using `ngx_http_realip_module` (`set_real_ip_from`, `real_ip_header X-Forwarded-For`, `real_ip_recursive on`), so nginx derives the real client address and then forwards a single clean `X-Forwarded-For` to the API. Default empty: the direct peer is used and a spoofed header is ignored. `FILECANOPY_TRUSTED_PROXY_HOPS` is no longer an owner setting: Compose fixes it at 1 because nginx now hands the API one clean address.
 - Forward `X-Forwarded-Proto` from the outer proxy only when that proxy is trusted; otherwise use nginx `$scheme`.
 - Pass `FILECANOPY_ALLOWED_ORIGINS` through Compose and add a `FILECANOPY_PUBLIC_URL` documented as the recommended setting; the Origin check accepts it.
 - Optional `FILECANOPY_HSTS=true` header from nginx, off by default (a mistaken HSTS is hard to undo on a home domain).

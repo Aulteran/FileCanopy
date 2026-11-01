@@ -114,7 +114,19 @@ class Settings(BaseSettings):
     @property
     def extra_origins(self) -> str:
         """Comma-separated origins accepted besides the request's Host (public URL included)."""
-        return ",".join(o for o in (self.public_url, self.allowed_origins) if o)
+        return ",".join(o for o in (self._public_origin(), self.allowed_origins) if o)
+
+    def _public_origin(self) -> str:
+        """The public URL as a browser sends it in Origin: lower case, no default port."""
+        if not self.public_url:
+            return ""
+        parsed = urlparse(self.public_url)
+        host = (parsed.hostname or "").lower()
+        if ":" in host:
+            host = f"[{host}]"
+        default = {"http": 80, "https": 443}[parsed.scheme]
+        port = "" if parsed.port in (None, default) else f":{parsed.port}"
+        return f"{parsed.scheme}://{host}{port}"
 
     @model_validator(mode="after")
     def _paths_must_be_separate(self) -> "Settings":
