@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, type NodeInfo } from "./api";
+import { ApiError, api, type ArchiveListing, type NodeInfo } from "./api";
 import { describeError, formatSize } from "./format";
 import { folderPath, hasInAppHistory } from "./route";
 import {
@@ -79,6 +79,12 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
       )}
       {node !== null && kind === "pdf" && (
         <PdfView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
+      )}
+      {node !== null && kind === "office" && (
+        <OfficeView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
+      )}
+      {node !== null && kind === "archive" && (
+        <ArchiveView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
       )}
       {node !== null && kind === "image" && (
         <ImageView key={nodeId} nodeId={nodeId} name={node.name} />
@@ -336,6 +342,214 @@ function TableView({ table }: { table: Table }) {
   );
 }
 
+// ---------------------------------------------------------------- Office and ZIP (M10)
+
+async function errorCode(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { detail?: { code?: string } };
+    return body.detail?.code ?? "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+/** Shown when a Private or Confidential file needs the person's say-so before the server reads it
+ * to make a preview. Nothing is sent to a cloud service. */
+function AllowPreviews({ onAllowed }: { onAllowed: () => void }) {
+  const [error, setError] = useState("");
+  return (
+    <section className="viewer-note" role="alert">
+      <h2>Allow previews of protected files?</h2>
+      <p>{describeError("LOCAL_PROCESSING_OPT_IN_REQUIRED")}</p>
+      <p>You can turn this off again at any time under Preview settings.</p>
+      {error && <p className="error">{error}</p>}
+      <p>
+        <button
+          type="button"
+          className="primary"
+          onClick={() =>
+            void api
+              .setLocalProcessing(true)
+              .then(onAllowed)
+              .catch((err: unknown) =>
+                setError(
+                  describeError(err instanceof ApiError ? err.code : "UNKNOWN"),
+                ),
+              )
+          }
+        >
+          Allow on this server
+        </button>
+      </p>
+    </section>
+  );
+}
+
+type Probe =
+  | { state: "loading" }
+  | { state: "ready" }
+  | { state: "optin" }
+  | { state: "error"; code: string };
+
+function OfficeView({
+  nodeId,
+  onEnded,
+}: {
+  nodeId: string;
+  onEnded: () => void;
+}) {
+  const [probe, setProbe] = useState<Probe>({ state: "loading" });
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    setProbe({ state: "loading" });
+    (async () => {
+      try {
+        // The first request makes the PDF (it can take a while); later ones are served from the
+        // server's cache. A one-byte range keeps this check cheap.
+        const res = await fetch(api.previewUrl(nodeId), {
+          headers: { Range: "bytes=0-0" },
+          credentials: "same-origin",
+          signal: abort.signal,
+        });
+        if (res.status === 401) return onEnded();
+        if (res.ok) return setProbe({ state: "ready" });
+        const code = await errorCode(res);
+        setProbe(
+          code === "LOCAL_PROCESSING_OPT_IN_REQUIRED"
+            ? { state: "optin" }
+            : { state: "error", code },
+        );
+      } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") return;
+        setProbe({ state: "error", code: "UNKNOWN" });
+      }
+    })();
+    return () => abort.abort();
+  }, [nodeId, onEnded, attempt]);
+
+  if (probe.state === "loading")
+    return (
+      <p className="loading" aria-live="polite">
+        Preparing the preview… the first time can take up to a minute.
+      </p>
+    );
+  if (probe.state === "optin")
+    return <AllowPreviews onAllowed={() => setAttempt((n) => n + 1)} />;
+  if (probe.state === "error") {
+    if (probe.code === "CONVERTER_UNAVAILABLE")
+      return (
+        <Unsupported
+          nodeId={nodeId}
+          reason="Previews of Word, Excel and PowerPoint files need an optional add-on that is not running here."
+        />
+      );
+    return (
+      <>
+        <CouldNotShow nodeId={nodeId} text={describeError(probe.code)} />
+        {(probe.code === "PREVIEW_BUSY" || probe.code === "TIMEOUT") && (
+          <p>
+            <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </button>
+          </p>
+        )}
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="viewer-banner">
+        Approximate preview. Fonts, spacing and some features can differ from
+        the original. Download the file for the exact document.
+      </p>
+      <PdfView nodeId={nodeId} onEnded={onEnded} url={api.previewUrl(nodeId)} />
+    </>
+  );
+}
+
+type ArchiveState =
+  | { state: "loading" }
+  | { state: "optin" }
+  | { state: "error"; code: string }
+  | { state: "ready"; listing: ArchiveListing };
+
+function ArchiveView({
+  nodeId,
+  onEnded,
+}: {
+  nodeId: string;
+  onEnded: () => void;
+}) {
+  const [data, setData] = useState<ArchiveState>({ state: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setData({ state: "loading" });
+    api
+      .archive(nodeId)
+      .then((listing) => live && setData({ state: "ready", listing }))
+      .catch((err: unknown) => {
+        if (!live) return;
+        if (err instanceof ApiError && err.status === 401) return onEnded();
+        const code = err instanceof ApiError ? err.code : "UNKNOWN";
+        setData(
+          code === "LOCAL_PROCESSING_OPT_IN_REQUIRED"
+            ? { state: "optin" }
+            : { state: "error", code },
+        );
+      });
+    return () => {
+      live = false;
+    };
+  }, [nodeId, onEnded, attempt]);
+
+  if (data.state === "loading") return <p className="loading">Loading…</p>;
+  if (data.state === "optin")
+    return <AllowPreviews onAllowed={() => setAttempt((n) => n + 1)} />;
+  if (data.state === "error")
+    return <CouldNotShow nodeId={nodeId} text={describeError(data.code)} />;
+  const { listing } = data;
+  return (
+    <>
+      <p className="viewer-banner">
+        This is a list of what is inside. Nothing has been opened or unpacked.
+        {listing.suspicious_ratio &&
+          " Some files in it expand to far more than their packed size; be careful opening it."}
+        {listing.encrypted && " Some files in it are password protected."}
+      </p>
+      <div className="viewer-scroll" tabIndex={0}>
+        <table className="viewer-table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listing.entries.map((e, i) => (
+              <tr key={i}>
+                <td>
+                  {e.name}
+                  {e.unsafe_name && " (unusual path, not safe to unpack)"}
+                </td>
+                <td>{e.folder ? "" : formatSize(e.size)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {listing.truncated && (
+        <p className="viewer-banner">
+          Showing the first {listing.entries.length.toLocaleString()} of{" "}
+          {listing.count.toLocaleString()} entries.
+        </p>
+      )}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------- PDF
 
 type PdfJs = typeof import("pdfjs-dist");
@@ -374,7 +588,15 @@ function pdfMessage(err: unknown): string {
   return "This PDF could not be read.";
 }
 
-function PdfView({ nodeId, onEnded }: { nodeId: string; onEnded: () => void }) {
+function PdfView({
+  nodeId,
+  onEnded,
+  url,
+}: {
+  nodeId: string;
+  onEnded: () => void;
+  url?: string;
+}) {
   const [doc, setDoc] = useState<Doc | null>(null);
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -391,7 +613,7 @@ function PdfView({ nodeId, onEnded }: { nodeId: string; onEnded: () => void }) {
       try {
         const pdfjs = await loadPdfJs();
         const opened = pdfjs.getDocument({
-          url: api.viewUrl(nodeId),
+          url: url ?? api.viewUrl(nodeId),
           enableXfa: false,
           stopAtErrors: false,
           cMapUrl: `${PDF_ASSETS}cmaps/`,
@@ -425,7 +647,7 @@ function PdfView({ nodeId, onEnded }: { nodeId: string; onEnded: () => void }) {
       live = false;
       void task?.destroy();
     };
-  }, [nodeId, onEnded]);
+  }, [nodeId, onEnded, url]);
 
   useEffect(() => {
     const el = scroller.current;

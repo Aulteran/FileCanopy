@@ -36,7 +36,7 @@ import {
   type Picked,
 } from "./importer";
 import { folderPath, viewPath } from "./route";
-import { viewKind } from "./viewerTypes";
+import { hasThumbnail, viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
 type Dialog =
@@ -880,6 +880,12 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           {selected ? (
             <>
               <h2>{selected.name}</h2>
+              {selected.kind === "file" &&
+                selected.status === "active" &&
+                hasThumbnail(selected.name) &&
+                privileges.includes("read") && (
+                  <Thumbnail key={selected.id} id={selected.id} />
+                )}
               <dl>
                 <dt>Type</dt>
                 <dd>{selected.kind === "dir" ? "Folder" : "File"}</dd>
@@ -1058,5 +1064,20 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         />
       )}
     </section>
+  );
+}
+
+// A small picture made by the server (re-encoded, no metadata). Hidden when the server declines,
+// for example for a Private file when previews of protected files are not allowed.
+function Thumbnail({ id }: { id: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      className="thumb"
+      src={api.thumbnailUrl(id)}
+      alt=""
+      onError={() => setFailed(true)}
+    />
   );
 }

@@ -35,6 +35,14 @@ What exists now (checked 2026-11-01):
 - Scanned PDFs (JPEG 2000 and JBIG2 images) were tested under the strict CSP. Without `'wasm-unsafe-eval'` PDF.js cannot compile its WebAssembly decoders, logs one warning and decodes with its bundled JavaScript fallbacks; the page draws correctly (e2e `test_scanned_pdf_with_a_jpeg2000_image_draws_under_the_strict_csp`). So `'wasm-unsafe-eval'` was **not** added. It stays available here if large scans prove too slow; that would be an owner decision.
 - PDF.js's licence ships as `/pdfjs/LICENSE` and the notices as `/THIRD_PARTY_NOTICES.md` (Apache-2.0 section 4).
 
+## Implementation notes (M10, 2026-11-01)
+
+- Office files are shown through `GET /nodes/{id}/preview` (a cached PDF) in the same PDF view, with an "approximate preview" banner. Formats: docx, xlsx, pptx, odt, ods, odp, doc, xls, ppt; macro-enabled types are refused. Limits as in section 8, plus a zip-bomb check of the package before it reaches the converter.
+- The local-processing opt-in is a per-user switch (default off). For a personal root both the requester and the owner need it. It is checked on every derivative read, so withdrawing it makes cached derivatives unreachable at once. Showing a PDF or image the browser renders itself still needs none.
+- Macro safety has three layers: packages containing macros are refused by content, the profile is pinned (`MacroSecurityLevel=3`, `DisableActiveContent`), and `--convert-to` is headless. A fixture with an auto-run macro never writes its marker, but a control run at security "low" did not run it either, so the fixture cannot prove the profile setting itself.
+- The converter has no network: the API reaches it over a Unix socket in a volume shared by the two containers only. The parser child (PDF, DOCX, images, zip) is limited by Landlock (Linux 5.13+, best effort; a risk the owner must accept where missing), a seccomp filter (fail closed) and a non-dumpable API process.
+- Details: `docs/milestones/M10-design-and-plan.md`.
+
 ## Alternatives considered
 
 | Option | Why not (or why later) |

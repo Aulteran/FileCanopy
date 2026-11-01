@@ -69,9 +69,14 @@ services:
       FILECANOPY_IMPORT_ENTRY_RETENTION_DAYS: ${FILECANOPY_IMPORT_ENTRY_RETENTION_DAYS:-90}
       FILECANOPY_MAX_OPEN_FOLDER_UPLOADS: ${FILECANOPY_MAX_OPEN_FOLDER_UPLOADS:-5}
       FILECANOPY_SCAN_PAUSE_CEILING_SECONDS: ${FILECANOPY_SCAN_PAUSE_CEILING_SECONDS:-1800}
+      # Office previews (M10): leave empty to keep them off. To turn them on, start the
+      # `converter` profile (COMPOSE_PROFILES=converter) and set this to
+      # unix:///run/converter/converter.sock (the socket in the volume shared with the converter).
+      FILECANOPY_CONVERTER_URL: ${FILECANOPY_CONVERTER_URL:-}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data
+      - converter-socket:/run/converter
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
@@ -107,6 +112,34 @@ services:
       retries: 6
     <<: *hardening
 
+  # Optional sealed Office-to-PDF converter (M10, ADR-019 section 5, converter/README.md).
+  # Off unless the `converter` profile is started. Sealed by: NO network at all (it listens on a
+  # Unix socket in a volume that only the API shares, so it cannot reach the internet, the API's
+  # HTTP port, the database or Docker's DNS), no access to the library, app data or secrets,
+  # read-only root with a small non-executable tmpfs, non-root user, all capabilities dropped, no
+  # privilege escalation, and memory/CPU/process limits.
+  converter:
+    build: { context: ../converter }
+    image: filecanopy-converter:dev
+    profiles: [converter]
+    restart: unless-stopped
+    network_mode: none
+    user: "10002:10002"
+    read_only: true
+    tmpfs:
+      - /tmp:size=768m,mode=1777,noexec,nosuid,nodev
+    volumes:
+      - converter-socket:/run/converter
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2
+    pids_limit: 256
+    environment:
+      CONVERTER_TIMEOUT_SECONDS: ${FILECANOPY_CONVERTER_TIMEOUT_SECONDS:-60}
+      CONVERTER_MAX_BYTES: ${FILECANOPY_PREVIEW_OFFICE_MAX_BYTES:-52428800}
+
   redis:
     image: redis:7-alpine
     profiles: [workers]
@@ -133,3 +166,5 @@ services:
 
 volumes:
   pgdata:
+  # Holds only the converter's Unix socket; mounted by the API and the converter and nothing else.
+  converter-socket:

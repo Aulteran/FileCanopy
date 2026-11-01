@@ -637,6 +637,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/backups/run",
     "/api/v1/admin/backups/key/rotate",
     "/api/v1/auth/lock",  # own session only; no node addressed
+    "/api/v1/preferences/local-processing",  # own account only; no node addressed
 }
 
 

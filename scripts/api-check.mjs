@@ -41,5 +41,6 @@ inDev(
   "-m",
   "not compose",
   "-q",
+  "-rs", // list why tests were skipped (the M10 hardening tests must run in CI)
   "tests/unit/api",
 );

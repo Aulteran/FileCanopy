@@ -56,6 +56,23 @@ export type NodeInfo = {
   locks_in: number | null;
 };
 export type Label = "normal" | "private" | "confidential";
+export type ArchiveListing = {
+  count: number;
+  entries: {
+    name: string;
+    size: number;
+    packed: number;
+    folder: boolean;
+    unsafe_name: boolean;
+    encrypted: boolean;
+  }[];
+  truncated: boolean;
+  total_size: number;
+  total_packed: number;
+  encrypted: boolean;
+  suspicious_ratio: boolean;
+};
+
 export type PrivacyState = {
   own: Label;
   effective: Label;
@@ -637,6 +654,21 @@ export const api = {
     }),
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
   viewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/view`,
+  previewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/preview`,
+  thumbnailUrl: (id: string) => `/api/v1/nodes/${enc(id)}/thumbnail`,
+  archive: (id: string) =>
+    call<ArchiveListing>("GET", `/api/v1/nodes/${enc(id)}/archive`),
+  localProcessing: () =>
+    call<{ enabled: boolean; converter: boolean }>(
+      "GET",
+      "/api/v1/preferences/local-processing",
+    ),
+  setLocalProcessing: (enabled: boolean) =>
+    call<{ enabled: boolean; converter: boolean }>(
+      "PUT",
+      "/api/v1/preferences/local-processing",
+      { enabled },
+    ),
 
   // Reconciliation (M06a routes, M06b UI)
   rescan: (id: string) =>

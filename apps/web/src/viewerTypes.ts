@@ -2,7 +2,7 @@
 // decides again with its own allow-list and a content check; this only picks the screen to show.
 // Nothing here ever produces HTML: text and cells are handed to React as strings.
 
-export type ViewKind = "pdf" | "image" | "text" | "csv";
+export type ViewKind = "pdf" | "image" | "text" | "csv" | "office" | "archive";
 
 const KINDS: Record<string, ViewKind> = {
   pdf: "pdf",
@@ -18,7 +18,27 @@ const KINDS: Record<string, ViewKind> = {
   json: "text",
   csv: "csv",
   tsv: "csv",
+  // Converted to PDF by the optional sealed converter on the server (M10, ADR-019 section 5).
+  docx: "office",
+  doc: "office",
+  odt: "office",
+  xlsx: "office",
+  xls: "office",
+  ods: "office",
+  pptx: "office",
+  ppt: "office",
+  odp: "office",
+  // The viewer lists what is inside; nothing is opened or extracted.
+  zip: "archive",
 };
+
+const THUMBNAILS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
+
+/** True when the server can make a small preview picture of this file (SVG never). */
+export function hasThumbnail(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 && THUMBNAILS.has(name.slice(dot + 1).toLowerCase());
+}
 
 /** The viewer screen for a file name, or null when the app cannot show it (download instead). */
 export function viewKind(name: string): ViewKind | null {

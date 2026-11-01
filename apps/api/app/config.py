@@ -68,6 +68,28 @@ class Settings(BaseSettings):
     trash_purge_enabled: bool = True
     trash_check_seconds: int = Field(default=3600, ge=1)
 
+    # --- Previews, extraction and the optional converter (M10, ADR-019) ---
+    # Base URL of the sealed converter container, e.g. http://converter:8090. Empty = not
+    # configured: Office files then show "download instead" and everything else is unaffected.
+    converter_url: str = ""
+    preview_office_max_bytes: int = Field(default=50 * 1024**2, ge=1)
+    preview_max_pages: int = Field(default=500, ge=1)
+    converter_timeout_seconds: int = Field(default=60, ge=1)
+    # Wall-clock limit and memory cap of the child process that parses PDF, DOCX, images, zips.
+    preview_worker_timeout_seconds: int = Field(default=20, ge=1)
+    preview_worker_memory_bytes: int = Field(default=1024**3, ge=64 * 1024**2)
+    # Refuse to parse files when the kernel cannot install the seccomp filter (no sockets, no exec
+    # in the parser child). Turn off only on a kernel or container runtime that forbids it.
+    preview_require_seccomp: bool = True
+    preview_max_workers: int = Field(default=2, ge=1, le=16)
+    preview_thumb_max_bytes: int = Field(default=30 * 1024**2, ge=1)
+    preview_thumb_max_pixels: int = Field(default=50_000_000, ge=1)
+    preview_pdf_extract_max_bytes: int = Field(default=200 * 1024**2, ge=1)
+    preview_text_max_chars: int = Field(default=1_000_000, ge=1000)
+    preview_zip_max_entries: int = Field(default=1000, ge=1, le=100_000)
+    # Cached derivatives (converted PDFs, extracted text, thumbnails) are trimmed oldest first.
+    preview_cache_max_bytes: int = Field(default=2 * 1024**3, ge=1)
+
     # --- Optional backups (M06c, ADR-015) ---
     # Separate mount for backups. Empty = not configured: the feature stays off and the app is
     # unaffected. Must not equal, contain or sit inside the library or app-data paths.

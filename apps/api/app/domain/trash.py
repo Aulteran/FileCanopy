@@ -72,6 +72,7 @@ from app.domain.fileops import (
 from app.domain.nodes import path_components
 from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
+from app.preview.cache import discard_trash_item
 from app.storage import files
 from app.storage.names import name_key
 from app.storage.resolver import (
@@ -352,6 +353,7 @@ def _mark_trashed(
         .values(status="trashed", trash_item_id=item_id, updated_at=trashed_at)
         .execution_options(synchronize_session=False)
     )
+    discard_trash_item(db, ctx.settings, item_id)  # previews go with the file (M10)
     db.execute(
         update(Node)
         .where(Node.id == node.id)
@@ -993,6 +995,7 @@ def _finish_purge(
         .values(status="purged", updated_at=now)
         .execution_options(synchronize_session=False)
     )
+    discard_trash_item(db, ctx.settings, item_id)  # previews go with the file (M10)
     item.status, item.finished_at = "purged", now
     actor = {"actor_kind": events.SYSTEM, "source": "system"} if system else ctx.event_actor()
     events.record(

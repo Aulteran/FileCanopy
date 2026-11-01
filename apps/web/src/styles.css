@@ -850,3 +850,12 @@ button.danger.primary {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+.thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  margin: 0 0 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #d0d5dd;
+}
