@@ -634,8 +634,8 @@
         "suggest approve/dismiss",
         "cross-user membership"
       ],
-      "notes": "Implemented 2026-11-02 on branch m18-collections (migration 0021), awaiting Opus 5.5 review and merge. Design and threat model: docs/milestones/M18-design-and-plan.md; guide docs/guides/collections.md.",
-      "status": "in_review"
+      "notes": "Implemented 2026-11-02 (migration 0021). Design and threat model: docs/milestones/M18-design-and-plan.md; guide docs/guides/collections.md. Merged via PR #25 (9870ac5) 2026-11-02 after one Opus 5.5 review round (0 High, 1 Medium, 6 Low fixed; a follow-up commit put the routes behind the policy guards and the reviewer re-confirmed) and sign-off, all seven CI jobs green. Follow-ups: a collection view examines at most 2,000 members sorted by name, so many unreadable files added by editors could push the owner's own files out of view (per-adder cap of 400 limits it); AI adding files to an existing collection; collection-aware search filters; bulk add of selected files; MCP list_collections; hidden-reference notice for owners without a number.",
+      "status": "done"
     },
     {
       "id": "M19",
