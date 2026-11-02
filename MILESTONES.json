@@ -661,8 +661,8 @@
         "CPU-only mode",
         "search relevance tests"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Merged via PR #26 (3e32cc7, 2026-11-02); status corrected to done.",
+      "status": "done"
     },
     {
       "id": "M20",
@@ -741,8 +741,8 @@
         "no request leaves the origin (fonts included)",
         "CSP unchanged"
       ],
-      "notes": "Inserted 2026-11-02 at the owner's request. Design spec: project design files brand.html, screens.html, viewer.html and ADR-free (design approved 2026-11-01). Plan in docs/milestones/M21b-design-and-plan.md. Built 2026-11-02 on branch m21b-ui-redesign (PR open, awaiting review): design tokens and component styles replace the old stylesheet (old variable names kept as aliases); Logo A, wordmark, inline Lucide-style icons (apps/web/src/Icon.tsx, iconPaths.ts) and favicon; Bricolage Grotesque and Atkinson Hyperlegible self-hosted from src/fonts with OFL texts emitted to /fonts/ and listed in THIRD_PARTY_NOTICES.md; shell with grouped sidebar and avatar; phone layout; comfortable/compact list toggle (density.ts, per-device localStorage). No API, route, text-label or privacy change; nginx CSP untouched. Evidence: web unit tests 73 passed, typecheck and build clean; axe (WCAG 2.2 AA tags) zero violations on sign-in and browser screens in light and dark at desktop and phone widths against a mock API; only same-origin requests, fonts load locally. The e2e suite needs the Compose stack and is left to CI. Not done: pixel-level pass on every secondary screen (they pick up the new tokens and shared components), details panel and Settings sections from the mockups (no matching features).",
-      "status": "in_review"
+      "notes": "Inserted 2026-11-02 at the owner's request. Design spec: project design files brand.html, screens.html, viewer.html and ADR-free (design approved 2026-11-01). Plan in docs/milestones/M21b-design-and-plan.md. Built 2026-11-02 on branch m21b-ui-redesign (PR open, awaiting review): design tokens and component styles replace the old stylesheet (old variable names kept as aliases); Logo A, wordmark, inline Lucide-style icons (apps/web/src/Icon.tsx, iconPaths.ts) and favicon; Bricolage Grotesque and Atkinson Hyperlegible self-hosted from src/fonts with OFL texts emitted to /fonts/ and listed in THIRD_PARTY_NOTICES.md; shell with grouped sidebar and avatar; phone layout; comfortable/compact list toggle (density.ts, per-device localStorage). No API, route, text-label or privacy change; nginx CSP untouched. Evidence: web unit tests 73 passed, typecheck and build clean; axe (WCAG 2.2 AA tags) zero violations on sign-in and browser screens in light and dark at desktop and phone widths against a mock API; only same-origin requests, fonts load locally. The e2e suite needs the Compose stack and is left to CI. Not done: pixel-level pass on every secondary screen (they pick up the new tokens and shared components), details panel and Settings sections from the mockups (no matching features). Merged via PR #29 (8943aaa, 2026-11-02, all seven CI jobs green).",
+      "status": "done"
     },
     {
       "id": "M22",
