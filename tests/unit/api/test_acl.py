@@ -673,6 +673,17 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/me/inbox/{message_id}/retry",
     "/api/v1/admin/mailbox/shared-intake",
     "/api/v1/admin/quarantine/{message_id}/approve",
+    # M15: AI settings. No node is addressed and no document is read; the gateway that does read
+    # content authorises the caller on the node itself.
+    "/api/v1/ai/status",
+    "/api/v1/ai/me/preference",
+    "/api/v1/ai/me/provider",
+    "/api/v1/ai/me/provider/test",
+    "/api/v1/ai/me/cap",
+    "/api/v1/ai/instance",
+    "/api/v1/ai/instance/provider",
+    "/api/v1/ai/instance/provider/test",
+    "/api/v1/ai/instance/cap",
 }
 
 

@@ -14,6 +14,7 @@ import { VerifyEmailDialog } from "./Emails";
 import { InboxPage, MailboxAdminPage } from "./MailPages";
 import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
+import { AiSettings } from "./AiSettings";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -213,6 +214,7 @@ function Shell({
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [previewSettings, setPreviewSettings] = useState(false);
+  const [aiSettings, setAiSettings] = useState(false);
   // Returning from the provider after linking opens Account with the result.
   // What a provider re-check was for (set in sessionStorage before leaving; never a secret).
   const [pending] = useState(() =>
@@ -389,6 +391,9 @@ function Shell({
       )}
       <button type="button" onClick={() => setPreviewSettings(true)}>
         Preview settings
+      </button>
+      <button type="button" onClick={() => setAiSettings(true)}>
+        AI
       </button>
       {pinSet && (
         <button type="button" onClick={() => void lockNow()}>
@@ -605,6 +610,9 @@ function Shell({
       )}
       {previewSettings && (
         <PreviewSettings onClose={() => setPreviewSettings(false)} />
+      )}
+      {aiSettings && (
+        <AiSettings admin={admin} onClose={() => setAiSettings(false)} />
       )}
     </div>
   );

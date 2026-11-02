@@ -109,6 +109,59 @@ export type NodeInfo = {
   locked: boolean;
   locks_in: number | null;
 };
+export type AiProvider = {
+  id: string;
+  kind: string;
+  mode: "local" | "cloud";
+  model: string;
+  endpoint: string;
+  enabled: boolean;
+  key_set: boolean;
+  price_in_micro: number;
+  price_out_micro: number;
+  consent_ok: boolean;
+};
+export type AiUsage = {
+  month: string;
+  cap_micro: number;
+  spent_micro: number;
+  reserved_micro: number;
+};
+export type AiStatus = {
+  secrets_key_configured: boolean;
+  notice: string;
+  preference: string;
+  preferences: string[];
+  instance_available: boolean;
+  instance_kind: string | null;
+  instance_host: string | null;
+  instance_needs_ack: boolean;
+  instance_mode: "local" | "cloud" | null;
+  personal_tree_ai: boolean;
+  personal_tree_reason: string;
+  my_provider: AiProvider | null;
+  my_usage: AiUsage | null;
+  cloud_kinds: string[];
+  kinds: string[];
+};
+export type AiInstance = {
+  secrets_key_configured: boolean;
+  notice: string;
+  provider: AiProvider | null;
+  usage: AiUsage;
+  kinds: string[];
+};
+export type AiProviderInput = {
+  kind: string;
+  model: string;
+  endpoint: string;
+  api_key?: string;
+  price_in_micro: number;
+  price_out_micro: number;
+  enabled: boolean;
+  acknowledge_cloud: boolean;
+};
+
 export type Label = "normal" | "private" | "confidential";
 export type ArchiveListing = {
   count: number;
@@ -934,6 +987,32 @@ export const api = {
       "/api/v1/preferences/local-processing",
       { enabled },
     ),
+
+  // Optional AI (M15)
+  aiStatus: () => call<AiStatus>("GET", "/api/v1/ai/status"),
+  aiSetPreference: (preference: string, acknowledge_instance = false) =>
+    call<unknown>("PUT", "/api/v1/ai/me/preference", {
+      preference,
+      acknowledge_instance,
+    }),
+  aiPutMine: (body: AiProviderInput) =>
+    call<AiProvider>("PUT", "/api/v1/ai/me/provider", body),
+  aiDeleteMine: () => call<unknown>("DELETE", "/api/v1/ai/me/provider"),
+  aiSetMyCap: (cap_micro: number) =>
+    call<AiUsage>("PUT", "/api/v1/ai/me/cap", { cap_micro }),
+  aiTestMine: (confirm_billed: boolean) =>
+    call<unknown>("POST", "/api/v1/ai/me/provider/test", { confirm_billed }),
+  aiInstance: () => call<AiInstance>("GET", "/api/v1/ai/instance"),
+  aiPutInstance: (body: AiProviderInput) =>
+    call<AiProvider>("PUT", "/api/v1/ai/instance/provider", body),
+  aiDeleteInstance: () =>
+    call<unknown>("DELETE", "/api/v1/ai/instance/provider"),
+  aiSetInstanceCap: (cap_micro: number) =>
+    call<AiUsage>("PUT", "/api/v1/ai/instance/cap", { cap_micro }),
+  aiTestInstance: (confirm_billed: boolean) =>
+    call<unknown>("POST", "/api/v1/ai/instance/provider/test", {
+      confirm_billed,
+    }),
 
   // Reconciliation (M06a routes, M06b UI)
   rescan: (id: string) =>

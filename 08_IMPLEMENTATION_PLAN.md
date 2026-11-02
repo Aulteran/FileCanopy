@@ -322,10 +322,10 @@
 **Goal:** Provider abstraction for Claude/OpenAI/Gemini/llama.cpp/Ollama, personal routing, privacy gating, secrets, per-scope AI spend accounting.
 
 **Acceptance criteria:**
-- [ ] App still operates with zero AI configured
-- [ ] Main tree only instance default; personal opt-out/default/local-only/own provider
-- [ ] Private and Confidential never leave through cloud adapter
-- [ ] Monthly $ cap blocks new requests and usage visible; no consumer-plan credential hacks
+- [x] App still operates with zero AI configured
+- [x] Main tree only instance default; personal opt-out/default/local-only/own provider
+- [x] Private and Confidential never leave through cloud adapter
+- [x] Monthly $ cap blocks new requests and usage visible; no consumer-plan credential hacks
 
 **Tests/evidence:** mock providers, budget race, provider outage, key redaction, policy table, no-cloud protected regression.
 

@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -85,6 +86,14 @@ class User(Base):
     local_processing_opt_in: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    # M15: how this person's personal tree uses AI: off | instance_default |
+    # instance_default_local_only | my_provider.
+    ai_preference: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="off", server_default="off"
+    )
+    # What the person acknowledged about the server's cloud AI (provider row, vendor, notice
+    # version); routing to a different cloud provider needs a new acknowledgement.
+    ai_ack: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 
 class StorageRoot(Base):
@@ -756,3 +765,89 @@ class MailboxState(Base):
     failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     retry_uid: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class AiProvider(Base):
+    """A configured AI provider (M15). `secret_ciphertext` is AES-GCM sealed; no API returns it."""
+
+    __tablename__ = "ai_provider"
+    __table_args__ = (
+        Index(
+            "uq_ai_provider_instance",
+            "scope",
+            unique=True,
+            sqlite_where=text("scope = 'instance'"),
+            postgresql_where=text("scope = 'instance'"),
+        ),
+        Index(
+            "uq_ai_provider_user",
+            "owner_user_id",
+            unique=True,
+            sqlite_where=text("scope = 'user'"),
+            postgresql_where=text("scope = 'user'"),
+        ),
+        CheckConstraint("scope in ('instance', 'user')", name="ck_ai_provider_scope"),
+        CheckConstraint("privacy_mode in ('local', 'cloud')", name="ck_ai_provider_mode"),
+        CheckConstraint(
+            "(scope = 'instance') = (owner_user_id is null)", name="ck_ai_provider_owner"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    scope: Mapped[str] = mapped_column(String(8), nullable=False)  # instance | user
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # anthropic | openai | gemini | ollama | openai_compatible
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    privacy_mode: Mapped[str] = mapped_column(String(8), nullable=False)  # local | cloud
+    label: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    endpoint: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Micro-dollars per million tokens, entered by the person; 0 for local providers.
+    price_in_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    price_out_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # The version of the privacy notice acknowledged before a cloud provider was enabled.
+    consent_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    consent_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class AiBudget(Base):
+    """One scope's spending in one calendar month, in micro-dollars (reserve, then settle)."""
+
+    __tablename__ = "ai_budget"
+    __table_args__ = (UniqueConstraint("scope_key", "month", name="uq_ai_budget_scope_month"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    scope_key: Mapped[str] = mapped_column(String(48), nullable=False)  # instance | user:<uuid>
+    month: Mapped[str] = mapped_column(String(7), nullable=False)  # YYYY-MM (UTC)
+    cap_micro: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    spent_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    reserved_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+
+class AiUsage(Base):
+    """Ledger of AI requests. Never holds prompts, replies, file names or document text."""
+
+    __tablename__ = "ai_usage"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, index=True)
+    month: Mapped[str] = mapped_column(String(7), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    provider_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    provider_kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    # reserved | ok | failed | refused | expired
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reserved_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    final_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)

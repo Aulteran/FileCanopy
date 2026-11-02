@@ -8,7 +8,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
+from app.ai.gateway import AiGateway
+from app.ai.secrets import SecretBox
 from app.api import admin_storage
+from app.api import ai as ai_routes
 from app.api import backups as backup_routes
 from app.api import files as file_routes
 from app.api import imports as import_routes
@@ -131,6 +134,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.previews = previews
     app.state.indexer = indexer
     app.state.mailbox = mailbox
+    app.state.ai_box = SecretBox.from_setting(cfg.secrets_key.get_secret_value())
+    app.state.ai = AiGateway(cfg, sessions, app.state.ai_box)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -186,5 +191,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(import_routes.router)
     app.include_router(admin_storage.router)
     app.include_router(backup_routes.router)
+    app.include_router(ai_routes.router)
 
     return app

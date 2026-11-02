@@ -205,6 +205,24 @@ class Settings(BaseSettings):
     # Break-glass (M12b): ignore the "OIDC-only" switch so password sign-in works again.
     force_local_login: bool = False
 
+    # --- Optional AI (M15, docs/milestones/M15-design-and-plan.md). Nothing here is needed; with no
+    # provider configured the app behaves exactly as before.
+    # 32 random bytes, base64 (url-safe or standard). Seals provider API keys stored in the
+    # database. Empty = keys cannot be stored; local providers (no key) still work.
+    secrets_key: SecretStr = SecretStr("")
+    # Operator allow-list of hosts local AI providers may use (comma separated names or IPs).
+    # Empty = any host that resolves only to loopback or private addresses. The web administrator
+    # role is not trusted to widen this; link-local and metadata addresses are refused either way.
+    ai_local_hosts: str = ""
+    ai_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    ai_max_input_chars: int = Field(default=100_000, ge=100, le=2_000_000)
+    ai_max_output_tokens: int = Field(default=2048, ge=16, le=32_000)
+    ai_max_response_bytes: int = Field(default=1024**2, ge=1024, le=16 * 1024**2)
+    # Default monthly caps in micro-dollars (1_000_000 = $1); each can be changed in the UI.
+    ai_default_cap_micro: int = Field(default=3_000_000, ge=0)
+    ai_breaker_failures: int = Field(default=5, ge=1, le=100)
+    ai_breaker_seconds: int = Field(default=60, ge=1, le=3600)
+
     # --- Confidential PIN (M12b). The pepper keeps a database-only leak from being crackable
     # offline (a six-digit PIN has only 10^6 values). Empty = generate a 256-bit pepper file in
     # app-data on first use.

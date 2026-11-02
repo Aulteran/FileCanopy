@@ -27,6 +27,26 @@ export function formatDate(iso: string): string {
 // Messages never repeat a name or path from the server (an insufficient-permissions error must not
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {
+  CONSENT_REQUIRED:
+    "Tick the box to confirm you understand what cloud AI sends.",
+  PRICES_REQUIRED:
+    "Enter the provider's prices per million tokens so spending can be limited.",
+  API_KEY_REQUIRED: "Enter an API key first.",
+  INVALID_PROVIDER: "The model name or address is not valid.",
+  SECRETS_KEY_NOT_CONFIGURED:
+    "This server has no secrets key, so API keys cannot be stored. See the AI guide.",
+  LOCAL_ENDPOINT_ADMIN_ONLY:
+    "Only an administrator can add a local AI address.",
+  BILLING_CONFIRMATION_REQUIRED: "Confirm that the test may be billed.",
+  BUDGET_EXCEEDED: "The monthly limit is reached, so the test was not sent.",
+  PROVIDER_AUTH: "The provider rejected the API key.",
+  PROVIDER_OUTAGE: "The provider could not be reached.",
+  PROVIDER_TIMEOUT: "The provider took too long to answer.",
+  PROVIDER_RATE_LIMIT: "The provider is limiting requests. Try again later.",
+  ENDPOINT_NOT_LOCAL:
+    "That address is not on a private network, or could not be looked up.",
+  CONFLICT: "Someone else changed this at the same time. Reload and try again.",
+  INVALID_CAP: "That limit is not valid.",
   FORBIDDEN: "You do not have access to that.",
   LOCKED: "This folder is locked. Unlock it with your PIN to continue.",
   SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES:
