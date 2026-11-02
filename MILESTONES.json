@@ -556,8 +556,8 @@
         "policy table",
         "no-cloud protected regression"
       ],
-      "notes": "Implemented 2026-11-02 on branch m15-ai-capability-layer (migration 0018). Design and threat model: docs/milestones/M15-design-and-plan.md; guide docs/guides/ai.md. Awaiting Opus 5.5 security review and CI.",
-      "status": "in_review"
+      "notes": "Implemented 2026-11-02 (migration 0018). Design and threat model: docs/milestones/M15-design-and-plan.md; guide docs/guides/ai.md. Merged via PR #22 (0c1ba77) 2026-11-02 after one Opus 5.5 review round (1 High, 2 Medium, 4 Low fixed) and sign-off, all seven CI jobs green. Follow-ups for M16+: generate() text is caller-supplied, so every consumer must build it only from the files listed in node_ids (check in review); FILECANOPY_AI_LOCAL_HOSTS can extend the local host set (operator trust).",
+      "status": "done"
     },
     {
       "id": "M16",

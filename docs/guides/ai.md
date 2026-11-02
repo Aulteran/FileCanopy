@@ -27,8 +27,10 @@ keys.
   enters. The address must resolve only to loopback or private addresses (a Docker service name
   or a LAN host); anything that resolves to a public, link-local or cloud-metadata address is
   refused when saved and again on every request. The server connects to the address it checked.
-  To restrict this further, set `FILECANOPY_AI_LOCAL_HOSTS` (comma-separated host names) in the
-  deployment environment; the web administrator cannot change it. People cannot add local addresses (the server would otherwise act as a proxy to your
+  To name the hosts explicitly, set `FILECANOPY_AI_LOCAL_HOSTS` (comma-separated host names) in the
+  deployment environment. Only listed hosts are accepted then, and a listed host is trusted as
+  the operator's choice (it may be outside the private ranges); link-local and metadata addresses
+  are still refused. The web administrator cannot change this list. People cannot add local addresses (the server would otherwise act as a proxy to your
   network).
 
 ## Who uses what
