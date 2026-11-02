@@ -76,8 +76,8 @@ def test_release_override_covers_every_service_built_from_source() -> None:
     for service in ours:
         assert re.search(rf"^  {service}:\s*$", release, re.MULTILINE), f"{service} missing"
     assert "${FILECANOPY_VERSION:?" in release, "the version must be required, never defaulted"
-    code = "
-".join(l for l in release.splitlines() if not l.lstrip().startswith("#"))
+    lines = [line for line in release.splitlines() if not line.lstrip().startswith("#")]
+    code = "\n".join(lines)
     assert "latest" not in code
 
 
@@ -242,3 +242,64 @@ def test_an_interrupted_backup_starts_the_app_again(tmp_path: Path, sig: signal.
     calls = log.read_text()
     assert "stop web api worker" in calls
     assert "start api" in calls and "start web" in calls, calls
+
+
+def fake_backup(tmp_path: Path) -> Path:
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    for name in ("db.dump", "app-data.tar.gz", "library.tar.gz"):
+        (backup / name).write_bytes(b"x")
+    (backup / "MANIFEST").write_text("format=1\nschema=0023\n")
+    sums = subprocess.run(  # noqa: S603
+        ["sha256sum", "db.dump", "app-data.tar.gz", "library.tar.gz", "MANIFEST"],  # noqa: S607
+        cwd=backup,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    (backup / "SHA256SUMS").write_text(sums)
+    return backup
+
+
+def run_restore(
+    tmp_path: Path, app_data: Path, docker_body: str
+) -> subprocess.CompletedProcess[str]:
+    deploy = stage_scripts(tmp_path / "stage")
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "docker").write_text(f"#!/bin/sh\n{docker_body}\n")
+    (stub / "docker").chmod(0o755)
+    env = {
+        "PATH": f"{stub}:/usr/bin:/bin",
+        "HOME": str(tmp_path),
+        "FILECANOPY_LIBRARY_PATH": str(tmp_path / "library"),
+        "FILECANOPY_APP_DATA_PATH": str(app_data),
+    }
+    return subprocess.run(  # noqa: S603
+        ["sh", str(deploy / "scripts" / "restore.sh"), str(fake_backup(tmp_path))],  # noqa: S607
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_restore_refuses_occupied_or_unreadable_targets(tmp_path: Path) -> None:
+    occupied = tmp_path / "app-data"
+    occupied.mkdir()
+    (occupied / "x").write_text("x")
+    r = run_restore(tmp_path / "a", occupied, "exit 0")
+    assert r.returncode != 0 and "is not empty" in r.stderr
+    not_a_folder = tmp_path / "file"
+    not_a_folder.write_text("x")
+    r = run_restore(tmp_path / "b", not_a_folder, "exit 0")
+    assert r.returncode != 0 and "is not a folder" in r.stderr
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_a_failed_restore_says_how_to_start_over(tmp_path: Path) -> None:
+    r = run_restore(tmp_path, tmp_path / "app-data", "exit 1")
+    assert r.returncode != 0
+    assert "The restore did not finish" in r.stderr
+    assert "docker compose down -v" in r.stderr

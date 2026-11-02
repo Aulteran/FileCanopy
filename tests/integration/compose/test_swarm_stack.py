@@ -60,7 +60,8 @@ class Swarm:
         self.library.mkdir()
         self.app_data.mkdir()
         self.secret = f"{self.name}_pg"
-        self.password = secrets.token_urlsafe(24)
+        # Characters that break a naive database URL: the stack must quote the secret.
+        self.password = secrets.token_urlsafe(16) + "@:/?#%x"
         uid = str(os.getuid()) if hasattr(os, "getuid") else "10001"
         gid = str(os.getgid()) if hasattr(os, "getgid") else "10001"
         self.env = {

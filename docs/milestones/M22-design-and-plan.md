@@ -56,7 +56,7 @@ incremental layer); multi-node Swarm; Kubernetes/Helm.
 | T1 | A backup leaks everything (files, hashes, sealed keys, pepper) | Folder mode 0700; guide and script output say so plainly; destination refused inside library/app-data; encryption of the destination is the operator's (stated limit). The in-app M06c backups stay encrypted. |
 | T2 | A restore overwrites a live install | Refuses non-empty database, `app-data`, `library`; never deletes; checksum-verified first. |
 | T3 | Torn backup (database and files from different moments) | Default stops web/API; manifest records `consistent=no` for `--no-stop`. |
-| T4 | Tampered or truncated backup | `SHA256SUMS` checked before anything is touched (test flips a byte). |
+| T4 | Damaged or truncated backup | `SHA256SUMS` checked before anything is touched (test flips a byte). It detects damage, not deliberate tampering: someone who can edit the backup can edit the checksums too. Keep the backup where only you can write. |
 | T5 | A floating image tag or a changed base image changes what runs | Digest-pinned bases; required version; no `latest`; unit test enforces. |
 | T6 | Swarm reschedules postgres to an empty node (looks like data loss) | Placement constraint on the data label; one replica; documented. |
 | T7 | Database password visible in `docker inspect` / service spec | Swarm secret; test asserts the password is absent from the service spec. |

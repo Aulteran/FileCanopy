@@ -36,9 +36,30 @@ if [ "$library" = 1 ] && [ ! -f "$SRC/library.tar.gz" ]; then
   die "this backup has no library; use --skip-library"
 fi
 
-empty_or_missing() { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; }
+# An unreadable folder is an error, never "empty".
+empty_or_missing() {
+  [ -e "$1" ] || return 0
+  [ -d "$1" ] || die "$1 is not a folder"
+  listing=$(ls -A "$1") || die "cannot read $1"
+  [ -z "$listing" ]
+}
 empty_or_missing "$APP_DATA_DIR" || die "$APP_DATA_DIR is not empty"
 [ "$library" = 0 ] || empty_or_missing "$LIBRARY_DIR" || die "$LIBRARY_DIR is not empty"
+
+cleanup_help() {
+  [ $? -eq 0 ] && return 0
+  cat >&2 <<HELP
+
+The restore did not finish. The database and folders may be partly filled, and restore.sh will
+refuse to run again until they are empty. To start over:
+  1. docker compose down -v         (removes the containers and the database volume)
+  2. empty $APP_DATA_DIR
+     and, unless you used --skip-library, $LIBRARY_DIR
+  3. run restore.sh again
+The backup in $SRC is not changed by any of this.
+HELP
+}
+trap cleanup_help EXIT
 
 fc --profile '*' stop web api worker >/dev/null 2>&1 || true
 echo "Starting the database ..."

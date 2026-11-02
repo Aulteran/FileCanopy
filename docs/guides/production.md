@@ -67,6 +67,8 @@ deploy/scripts/restore.sh /mnt/other-disk/filecanopy-backups/filecanopy-20261102
 
 The script checks the checksums, starts only the database, loads the dump, unpacks `app-data/` and `library/`, then starts the whole stack (running any migrations if the backup is older than the code). It stops with a message instead of continuing when the backup is damaged, when `library/` or `app-data/` is not empty, or when the database already has tables. To replace a broken install on the same machine, move the old folders aside and run `docker compose down -v` first, which deletes the old database volume; then run the restore.
 
+If a restore stops partway, the script prints how to clean up and start over (remove the containers and database volume, empty the two folders, run it again); it refuses to continue over a half-filled install on purpose.
+
 A backup made by a **newer** release cannot be restored into an older one: the migration step refuses. Run the same or a newer version.
 
 After a restore: sign in, open a few files, and check the Activity log. The first scan afterwards may take a while on a large library. The restore drill (a destroyed install rebuilt from a backup, with accounts, the database and the files compared byte for byte) runs in the repository's tests.

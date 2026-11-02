@@ -15,7 +15,7 @@ Docker Compose is the primary way to run FileCanopy and the better tested one. U
 
 ## Deploy
 
-On the manager node, from the repository's `deploy/` directory:
+On the manager node, from the repository root:
 
 ```bash
 # 1. Mark the node that holds the data, and create the two folders there (absolute paths).
@@ -60,5 +60,5 @@ Set `FILECANOPY_PUBLIC_URL`, and `FILECANOPY_TRUSTED_PROXIES` to the proxy's add
 
 ## Upgrade, backup and restore
 
-- **Upgrade:** change `FILECANOPY_VERSION`, export it, and run `docker stack deploy` again. The API applies new migrations when its new task starts. Take a backup first.
+- **Upgrade:** change `FILECANOPY_VERSION`, export it, and run `docker stack deploy` again. The API applies new migrations when its new task starts. Take a backup first. If an upgrade fails, Swarm's automatic rollback only restores the old image; it cannot undo database migrations that already ran. Restore the backup into the old version instead (and remove the stack first).
 - **Backup and restore:** the scripts in `deploy/scripts/` drive Docker Compose. For a stack, use the same steps by hand: dump the database from the postgres task (`docker exec <task> pg_dump -U filecanopy -d filecanopy --format=custom > db.dump`), archive `library/` and `app-data/` with `tar`, and restore into an empty stack in the reverse order. Stop the `api` and `web` services (`docker service scale filecanopy_api=0 filecanopy_web=0`) while you copy. The restore drill itself is tested with Compose only.
