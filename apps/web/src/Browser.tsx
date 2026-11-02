@@ -404,6 +404,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
+  async function splitSelected(): Promise<void> {
+    if (!selected) return;
+    try {
+      const item = await api.splitSuggest(selected.id);
+      setErrorText("");
+      setUndoable(null);
+      if (item.skipped) setNotice(describeSkipped(item.skipped));
+      else
+        setNotice(
+          "A split suggestion is ready. Open AI suggestions in the sidebar to check it and split.",
+        );
+    } catch (err) {
+      setErrorText(fail(err));
+    }
+  }
+
   async function dismissSelected(): Promise<void> {
     if (!selected) return;
     try {
@@ -1003,6 +1019,16 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                         Suggest organization
                       </button>
                     )}
+                    {selected.kind === "file" &&
+                      selected.name.toLowerCase().endsWith(".pdf") && (
+                        <button
+                          disabled={!canWrite}
+                          title={noWrite}
+                          onClick={() => void splitSelected()}
+                        >
+                          Suggest PDF split
+                        </button>
+                      )}
                     <button
                       disabled={!canWrite}
                       title={noWrite}

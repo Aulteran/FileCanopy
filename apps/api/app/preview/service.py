@@ -127,6 +127,40 @@ class PreviewService:
             raise PreviewError("PREVIEW_FAILED")
         return text
 
+    def pdf_pages(self, file: BinaryIO, size: int) -> dict[str, Any]:
+        """Per-page descriptors of a PDF for split proposals (M17): same limited worker."""
+        if size > self.settings.preview_pdf_extract_max_bytes:
+            raise PreviewError("TOO_LARGE", 413)
+        with self.gate:
+            out = run_worker(
+                "pdfpages",
+                file,
+                self.limits(4 * 1024 * 1024),
+                {"max_pages": self.settings.preview_max_pages, "head_chars": 300},
+            )
+        try:
+            result: dict[str, Any] = json.loads(out)
+        except ValueError:
+            raise PreviewError("PREVIEW_FAILED") from None
+        if not isinstance(result.get("descriptors"), list):
+            raise PreviewError("PREVIEW_FAILED")
+        return result
+
+    def pdf_part(self, file: BinaryIO, size: int, pages: list[int]) -> bytes:
+        """A new PDF of the given 1-based pages, checked against the source inside the worker."""
+        if size > self.settings.preview_pdf_extract_max_bytes:
+            raise PreviewError("TOO_LARGE", 413)
+        with self.gate:
+            data = run_worker(
+                "pdfpart",
+                file,
+                self.limits(size + 4 * 1024 * 1024),
+                {"pages": pages},
+            )
+        if not data.startswith(b"%PDF-"):
+            raise PreviewError("PREVIEW_FAILED")
+        return data
+
     def thumbnail(
         self, node_id: uuid.UUID, file: BinaryIO, size: int, revision: int, mtime_ns: int
     ) -> Path:

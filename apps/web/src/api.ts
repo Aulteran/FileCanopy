@@ -197,6 +197,47 @@ export type SuggestItem = {
   applied?: boolean;
 };
 
+// PDF split proposals and duplicate suggestions (M17)
+export type SplitPart = { start: number; end: number; name: string };
+export type SplitProposal = {
+  id: string;
+  node_id: string;
+  node_name: string;
+  parent_name: string | null;
+  status: string;
+  source: "heuristic" | "ai";
+  page_count: number;
+  parts: SplitPart[];
+  blank_pages: number[];
+  left_out: number[];
+  warnings: string[];
+  reason: string;
+  confidence: number; // per mille; the model's own claim (0 for the built-in rules)
+  created_at: string;
+  outcome: string;
+  created_nodes: string[];
+  undoable: boolean;
+};
+export type SplitSuggest = {
+  node_id: string;
+  skipped?: string;
+  proposal_id?: string;
+  status?: string;
+};
+export type DuplicateMember = {
+  node_id: string;
+  name: string;
+  size: number;
+  revision: number;
+  parent_id: string | null;
+  parent_name: string | null;
+};
+export type DuplicateGroup = {
+  kind: "exact" | "near";
+  similarity: number; // per mille
+  members: DuplicateMember[];
+};
+
 export type AiInstance = {
   secrets_key_configured: boolean;
   notice: string;
@@ -1094,6 +1135,38 @@ export const api = {
     ),
   organizeDismiss: (id: string) =>
     call<unknown>("POST", `/api/v1/ai/organize/proposals/${enc(id)}/dismiss`),
+
+  // PDF split proposals (M17)
+  splitSuggest: (node_id: string, use_ai = true) =>
+    call<SplitSuggest>("POST", "/api/v1/ai/split/suggest", {
+      node_id,
+      use_ai,
+    }),
+  splitProposals: (status = "pending") =>
+    call<{ items: SplitProposal[] }>(
+      "GET",
+      `/api/v1/ai/split/proposals?status=${enc(status)}`,
+    ),
+  splitApprove: (id: string, drop_blank: boolean, cuts?: number[]) =>
+    call<{ id: string; status: string; left_out: number[] }>(
+      "POST",
+      `/api/v1/ai/split/proposals/${enc(id)}/approve`,
+      cuts ? { drop_blank, cuts } : { drop_blank },
+    ),
+  splitDismiss: (id: string) =>
+    call<unknown>("POST", `/api/v1/ai/split/proposals/${enc(id)}/dismiss`),
+  splitUndo: (id: string) =>
+    call<UndoResult>(
+      "POST",
+      `/api/v1/ai/split/proposals/${enc(id)}/undo`,
+      undefined,
+      { headers: key() },
+    ),
+  duplicates: (near = true) =>
+    call<{ groups: DuplicateGroup[] }>(
+      "GET",
+      `/api/v1/duplicates?near=${near ? "true" : "false"}`,
+    ),
 
   // Reconciliation (M06a routes, M06b UI)
   rescan: (id: string) =>

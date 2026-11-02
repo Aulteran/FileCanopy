@@ -351,6 +351,25 @@ def _undo_copy(ctx: OpCtx, op: FileOperation, spec: dict[str, Any], key: str | N
     return _trash_created(ctx, op.id, created, reason="copy_undone", key=key, extra={})
 
 
+def trash_split_outputs(
+    ctx: OpCtx, proposal_id: uuid.UUID, created: set[uuid.UUID], key: str | None
+) -> UndoResult:
+    """Undo of a PDF split (M17): moves the parts it created to the trash (reason
+    `split_undone`), leaving any part that was edited, moved or renamed since where it is and
+    reporting it. The source PDF was never touched, so nothing else needs restoring."""
+    try:
+        return _trash_created(
+            ctx,
+            proposal_id,
+            created,
+            reason="split_undone",
+            key=key,
+            extra={"proposal_id": str(proposal_id)},
+        )
+    except OpError as err:
+        raise _conflict(err) from err
+
+
 def undo_import(ctx: OpCtx, batch: ImportBatch, key: str | None = None) -> UndoResult:
     """Moves the entries an import batch created to the trash (reason `import_undone`), skipping
     and reporting anything that changed since. Only the person who ran the batch (the route's

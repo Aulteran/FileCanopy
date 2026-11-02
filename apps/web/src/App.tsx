@@ -21,6 +21,7 @@ import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
+  DUPLICATES_PATH,
   INBOX_PATH,
   ORGANIZE_PATH,
   isVerifyEmailPath,
@@ -38,6 +39,7 @@ import {
 import { SearchPage } from "./Search";
 import { SetupScreen } from "./Setup";
 import { NotificationsPage } from "./Share";
+import { DuplicatesPage } from "./Duplicates";
 import { OrganizePage } from "./Organize";
 import { RecentPage, TrashPage } from "./Trash";
 import { TokenPage } from "./TokenPage";
@@ -197,6 +199,7 @@ function Shell({
     notices,
     inbox,
     organize,
+    duplicates,
     mailbox,
     search,
     go,
@@ -269,6 +272,7 @@ function Shell({
       !notices &&
       !inbox &&
       !organize &&
+      !duplicates &&
       !mailbox &&
       search === null
     )
@@ -284,6 +288,7 @@ function Shell({
     notices,
     inbox,
     organize,
+    duplicates,
     mailbox,
     search,
     go,
@@ -530,6 +535,18 @@ function Shell({
             </li>
             <li>
               <a
+                href={DUPLICATES_PATH}
+                aria-current={duplicates ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(DUPLICATES_PATH);
+                }}
+              >
+                Duplicates
+              </a>
+            </li>
+            <li>
+              <a
                 href={ORGANIZE_PATH}
                 aria-current={organize ? "page" : undefined}
                 onClick={(e) => {
@@ -559,6 +576,12 @@ function Shell({
             <p>Only administrators can manage users.</p>
           ))}
         {inbox && <InboxPage onEnded={onEnded} go={go} />}
+        {duplicates && (
+          <DuplicatesPage
+            onEnded={onEnded}
+            onChanged={() => setReload((n) => n + 1)}
+          />
+        )}
         {organize && (
           <OrganizePage
             onEnded={onEnded}

@@ -42,7 +42,7 @@ def main() -> int:
     if args.get("require_seccomp", True) and not status["seccomp"]:
         sys.stdout.write(json.dumps({"error": "SANDBOX_UNAVAILABLE"}))
         return 3
-    from app.preview import archive, extract, thumb
+    from app.preview import archive, extract, pdfsplit, thumb
 
     stdin = open(0, "rb", closefd=False)  # noqa: SIM115 - fd 0 stays open; this is the file
     try:
@@ -56,6 +56,13 @@ def main() -> int:
             return 0
         elif op == "zipdir":
             result = archive.list_zip(stdin, int(args["max_entries"]))
+        elif op == "pdfpages":
+            result = pdfsplit.page_descriptors(
+                stdin, int(args["max_pages"]), int(args["head_chars"])
+            )
+        elif op == "pdfpart":
+            sys.stdout.buffer.write(pdfsplit.extract_part(stdin, [int(p) for p in args["pages"]]))
+            return 0
         elif op == "pdfinfo":
             result = pdfinfo(stdin, int(args["max_pages"]))
         else:

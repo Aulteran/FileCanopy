@@ -5,6 +5,7 @@ import {
   isBackupsPath,
   isInboxPath,
   isMailboxPath,
+  isDuplicatesPath,
   isOrganizePath,
   isVerifyEmailPath,
   isRecentPath,
@@ -102,6 +103,11 @@ describe("mail routes", () => {
   it("knows the AI suggestions page", () => {
     expect(isOrganizePath("/organize")).toBe(true);
     expect(isOrganizePath("/organize/x")).toBe(false);
+  });
+
+  it("knows the duplicates page", () => {
+    expect(isDuplicatesPath("/duplicates")).toBe(true);
+    expect(isDuplicatesPath("/duplicates/x")).toBe(false);
   });
 
   it("knows the inbox, the mailbox admin page and the confirm link", () => {

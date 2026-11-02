@@ -90,7 +90,7 @@ DEFAULT_RETENTION_DAYS = 30
 MIN_RETENTION_DAYS = 7
 MAX_RETENTION_DAYS = 3650
 WARNING_DAYS = 7
-REASONS = ("deleted", "moved_out", "import_undone", "copy_undone")
+REASONS = ("deleted", "moved_out", "import_undone", "copy_undone", "split_undone")
 LIVE_ITEM_STATUSES = ("in_trash", "busy", "reconcile_needed")
 
 
