@@ -280,8 +280,8 @@ def status(request: Request, _: Principal = Depends(current_principal)) -> Statu
 
 @router.get("/tokens", response_model=list[TokenOut])
 def list_tokens(
-    _: None = Depends(require_enabled),
     principal: Principal = Depends(current_principal),
+    _: None = Depends(require_enabled),
     db: Session = Depends(get_db),
 ) -> list[TokenOut]:
     now = clock.utcnow()
@@ -298,8 +298,8 @@ def list_tokens(
 def create_token(
     body: CreateToken,
     request: Request,
-    _: None = Depends(require_enabled),
     principal: Principal = Depends(current_principal),
+    _: None = Depends(require_enabled),
     db: Session = Depends(get_db),
 ) -> CreatedOut:
     cfg = _settings(request)
@@ -352,8 +352,8 @@ def create_token(
 def revoke_token(
     token_id: uuid.UUID,
     request: Request,
-    _: None = Depends(require_enabled),
     principal: Principal = Depends(current_principal),
+    _: None = Depends(require_enabled),
     db: Session = Depends(get_db),
 ) -> Ok:
     row = db.get(McpToken, token_id)

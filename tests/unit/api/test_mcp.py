@@ -613,7 +613,7 @@ def test_cross_user_and_shares(fx: Fx) -> None:
     assert "builder" in bob.data("get_text_excerpt", node_id=str(f))["text"]
     assert bob.error("list_files", folder_id=str(fx.taxes)) == "Not found."
     kinds = {r["kind"] for r in bob.data("list_folders")["items"]}
-    assert kinds == {"personal", "shared_with_me"}
+    assert kinds == {"personal", "shared", "shared_with_me"}
     meta = bob.data("get_file_metadata", node_id=str(f))
     assert meta["parent_id"] == str(fx.y2026)
     assert bob.data("get_file_metadata", node_id=str(fx.y2026))["parent_id"] is None  # Taxes unseen
