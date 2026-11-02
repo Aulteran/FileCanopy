@@ -226,7 +226,54 @@ export function ShareDialog({
   );
 }
 
+const MAIL_REASONS: Record<string, string> = {
+  SHARED_INTAKE_UNSET: "no shared folder is set up for emailed files yet",
+  INTAKE_FORBIDDEN: "you cannot add files to that folder",
+  INTAKE_UNAVAILABLE: "the folder is not available",
+  NO_PERSONAL_ROOT: "you have no personal folder",
+  RATE_LIMITED: "too many messages today",
+  STORAGE_FULL: "the mail holding area is full",
+  ATTACHMENTS_REFUSED: "none of the attachments could be filed",
+  PROCESSING_FAILED: "it kept failing",
+  ARCHIVE_TOO_MANY_ENTRIES: "an archive has too many files",
+  ARCHIVE_TOO_LARGE: "an archive is too large when unpacked",
+  ARCHIVE_RATIO: "an archive expands too much",
+  ARCHIVE_NESTED: "an archive contains another archive",
+  ARCHIVE_INVALID: "an archive is damaged",
+  TOO_LARGE: "an attachment is too large",
+};
+
+function mailNoticeText(n: Notice): string | null {
+  const count = n.count ?? 1;
+  const files = `${count} ${count === 1 ? "file" : "files"}`;
+  const reason = n.detail
+    ? (MAIL_REASONS[n.detail] ?? "a problem")
+    : "a problem";
+  switch (n.kind) {
+    case "mail_filed":
+      return n.node_name
+        ? `${files} from your email ${count === 1 ? "was" : "were"} filed in ${n.node_name}.`
+        : `${files} from your email ${count === 1 ? "was" : "were"} filed.`;
+    case "mail_shared":
+      return n.node_name
+        ? `${files} arrived by email in the shared folder ${n.node_name}.`
+        : `${files} arrived by email in the shared email folder.`;
+    case "mail_refused":
+      return `${count === 1 ? "An attachment" : `${count} attachments`} from your email could not be filed: ${reason}.`;
+    case "mail_failed":
+      return `An email you sent could not be filed: ${reason}. See your Email inbox.`;
+    case "mail_quarantine":
+      return `${count} ${count === 1 ? "email waits" : "emails wait"} for review in the mailbox quarantine.`;
+    case "mail_intake_unset":
+      return "Emailed files are waiting for a shared email folder. Choose one on the Mailbox page.";
+    default:
+      return null;
+  }
+}
+
 export function noticeText(n: Notice): string {
+  const mail = mailNoticeText(n);
+  if (mail !== null) return mail;
   const who = n.actor_name ?? "Someone";
   const can = n.level === "editor" ? "edit" : "view";
   if (n.kind === "shared")

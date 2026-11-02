@@ -21,6 +21,7 @@ from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
 from app.db.models import InboundAttachment, InboundMessage
+from app.mail import archives, notices
 from app.mail.decision import decide
 from app.mail.mime import Limits, MimeRefused, ParsedMessage, parse_message
 
@@ -44,6 +45,14 @@ def limits_of(settings: Settings) -> Limits:
         settings.imap_max_parts,
         settings.imap_max_depth,
         settings.imap_max_attachments,
+    )
+
+
+def archive_limits(settings: Settings) -> archives.ArchiveLimits:
+    return archives.ArchiveLimits(
+        settings.mail_archive_max_entries,
+        settings.mail_archive_max_uncompressed_bytes,
+        settings.mail_archive_max_ratio,
     )
 
 
@@ -104,6 +113,9 @@ def record_unreadable(
     row = _base(key, uidvalidity, uid, received, size, status, reason)
     db.add(row)
     _commit_unique(db)
+    if status == "quarantined":
+        notices.quarantine_arrived(db)
+        db.commit()
     return _existing(db, key, uidvalidity, uid) or row
 
 
@@ -161,7 +173,14 @@ def ingest(
         row.subject = parsed.subject
         row.message_id_hash = parsed.message_id_hash
         row.attachment_count = len(parsed.attachments)
-        keep = decision.status == "quarantined" and bool(parsed.attachments)
+        # Verified mail waits for the filing worker; quarantined bytes are kept only for mail
+        # addressed to the shared intake (personal and unknown-destination mail: metadata only).
+        keep = bool(parsed.attachments) and (
+            decision.status == "verified" or decision.destination == "shared"
+        )
+        if decision.status == "verified":
+            row.processing_state = "pending" if parsed.attachments else "filed"
+            row.process_after = clock.utcnow()
         total = sum(a.size for a in parsed.attachments)
         if keep and _stored_total(db) + total <= settings.mail_quarantine_quota_bytes:
             files = quarantine_dir(settings) / str(row.id)
@@ -199,6 +218,9 @@ def ingest(
         db.rollback()
         _remove(files)
         raise
+    if row.status == "quarantined":
+        notices.quarantine_arrived(db)
+        db.commit()
     return row
 
 

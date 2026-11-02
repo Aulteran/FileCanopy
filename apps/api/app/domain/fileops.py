@@ -72,6 +72,8 @@ class OpCtx:
     # The login session of the person at the browser; None in background work, which therefore
     # never counts as unlocked for Confidential folders (M09).
     session_id: uuid.UUID | None = None
+    # Where the action came from, as recorded in the file's history: "ui", or "email" (M14).
+    source: str = "ui"
 
     def event_actor(self) -> dict[str, Any]:
         """Keyword arguments naming the actor for `events.record`."""
@@ -82,7 +84,7 @@ class OpCtx:
                 "proposal_id": self.proposal_id,
                 "source": "ai",
             }
-        return {"actor_kind": "user", "actor_user_id": self.actor, "source": "ui"}
+        return {"actor_kind": "user", "actor_user_id": self.actor, "source": self.source}
 
 
 @dataclass

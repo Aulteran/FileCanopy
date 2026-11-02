@@ -44,6 +44,9 @@ class NotificationOut(BaseModel):
     node_id: uuid.UUID | None
     node_name: str | None
     level: str | None
+    # Mail notices (M14): how many, and a static reason code. Never a file name or subject.
+    count: int | None
+    detail: str | None
 
 
 class UnreadOut(BaseModel):
@@ -134,6 +137,8 @@ def list_notifications(
                 node_id=node.id if visible and node else None,
                 node_name=node.name if visible and node else None,
                 level=n.level,
+                count=n.count,
+                detail=n.detail,
             )
         )
     return NotificationsOut(unread=unread or 0, items=items)

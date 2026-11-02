@@ -22,9 +22,11 @@ def notify(
     recipient: uuid.UUID,
     kind: str,
     *,
-    node_id: uuid.UUID,
+    node_id: uuid.UUID | None,
     actor: uuid.UUID | None,
     level: str | None = None,
+    count: int | None = None,
+    detail: str | None = None,
 ) -> None:
     # Keep the newest NOTICE_CAP per person: notices are a short feed, not an archive.
     old = db.scalars(
@@ -42,6 +44,8 @@ def notify(
             node_id=node_id,
             actor_user_id=actor,
             level=level,
+            count=count,
+            detail=detail,
             created_at=clock.utcnow(),
         )
     )

@@ -254,6 +254,9 @@ class Notification(Base):
     node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     level: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # M14 (mail kinds): how many files or messages, and a static reason code. Never names.
+    count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detail: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -702,6 +705,20 @@ class InboundMessage(Base):
     content_state: Mapped[str] = mapped_column(String(8), nullable=False, default="none")
     duplicate_of: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # M14: the queue for `verified` messages. null (not verified) | pending | filed | partial |
+    # failed. `process_after` is both the retry time and the claim lease while a worker has it.
+    processing_state: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    process_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    process_after: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    process_error: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    filed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    filed_node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    manual_retries: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
 
 class InboundAttachment(Base):
@@ -720,6 +737,9 @@ class InboundAttachment(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     stored_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # M14: the file this became, or a refusal code (ARCHIVE_*, TOO_LARGE, NOT_KEPT ...).
+    node_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(24), nullable=True)
 
 
 class MailboxState(Base):

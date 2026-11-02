@@ -542,11 +542,13 @@ def test_verified_personal_message(fx: Fx) -> None:
     m = only(fx)
     assert (m.status, m.destination, m.reason) == ("verified", "personal", None)
     assert m.resolved_user_id == fx.uid("alice@example.com")
-    assert m.from_address == "alice@example.com" and m.content_state == "none"
+    assert m.from_address == "alice@example.com"
     assert m.auth_summary["dmarc"] == "pass"
     atts = fx.w.db_rows(InboundAttachment)
     assert [a.display_name for a in atts] == ["scan.pdf"] and atts[0].stored_name is None
-    assert not (fx.w.settings.app_data_path / "mail-quarantine").exists()
+    # M14: the attachment was filed and the staged bytes are gone
+    assert (m.processing_state, m.content_state, m.filed_count) == ("filed", "purged", 1)
+    assert not (fx.w.settings.app_data_path / "mail-quarantine" / str(m.id)).exists()
     assert box.closed
 
 
@@ -701,7 +703,13 @@ def test_revalidate_at_processing_time(fx: Fx) -> None:
 def test_quarantine_stores_bytes_under_server_names(fx: Fx) -> None:
     run_poll(
         fx.w,
-        FakeBox({1: build(frm="stranger@example.com", attachments=[("../../evil.sh", b"rm")])}),
+        FakeBox(
+            {
+                1: build(
+                    frm="stranger@example.com", to=INGEST, attachments=[("../../evil.sh", b"rm")]
+                )
+            }
+        ),
     )
     m = only(fx)
     assert m.status == "quarantined" and m.content_state == "stored"
@@ -715,14 +723,17 @@ def test_quarantine_stores_bytes_under_server_names(fx: Fx) -> None:
 def test_quota_keeps_metadata_only(make_world: Callable[..., World]) -> None:
     w = mail_world(make_world, **{**IMAP, "mail_quarantine_quota_bytes": 10})
     Fx(w)
-    run_poll(w, FakeBox({1: build(frm="x@example.com", attachments=[("big.pdf", b"x" * 100)])}))
+    run_poll(
+        w,
+        FakeBox({1: build(frm="x@example.com", to=INGEST, attachments=[("big.pdf", b"x" * 100)])}),
+    )
     m = w.db_rows(InboundMessage)[0]
     assert m.content_state == "dropped"
     assert w.db_rows(InboundAttachment)[0].stored_name is None
 
 
 def test_retention_removes_bytes_but_keeps_the_row(fx: Fx) -> None:
-    run_poll(fx.w, FakeBox({1: build(frm="stranger@example.com")}))
+    run_poll(fx.w, FakeBox({1: build(frm="stranger@example.com", to=INGEST)}))
     m = only(fx)
     base = fx.w.settings.app_data_path / "mail-quarantine" / str(m.id)
     assert base.exists()
@@ -845,7 +856,7 @@ def seed_two(fx: Fx) -> None:
         FakeBox(
             {
                 1: build(),
-                2: build(frm="stranger@example.com", attachments=[("evil.exe", b"MZ")]),
+                2: build(frm="stranger@example.com", to=INGEST, attachments=[("evil.exe", b"MZ")]),
                 3: build(frm="bob@example.com", auth=passing()),
             }
         ),

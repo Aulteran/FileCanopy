@@ -19,7 +19,7 @@ from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
 from app.db.models import MailboxState
-from app.mail import store
+from app.mail import ingest, store
 from app.mail.imap import ImapClient, MailboxClient, MailboxError
 
 log = logging.getLogger("filecanopy.mail")
@@ -89,6 +89,10 @@ def poll_once(
                 state.lease_until = None
                 state.last_poll_at = clock.utcnow()
             db.commit()
+    try:
+        ingest.process_pending(sessions, settings)
+    except Exception as exc:  # filing trouble never stops polling
+        log.warning("mail filing pass failed: %s", type(exc).__name__)
     store.sweep_retention(sessions, settings)
     return recorded
 

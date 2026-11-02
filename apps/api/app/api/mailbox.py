@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -29,12 +29,24 @@ from app.auth.deps import (
 )
 from app.auth.schemas import Ok, Strict
 from app.auth.service import audit
-from app.db.models import InboundAttachment, InboundMessage, MailboxState
-from app.mail import store
+from app.config import Settings
+from app.db.models import (
+    HIDDEN_NODE_STATUSES,
+    AppSetting,
+    InboundAttachment,
+    InboundMessage,
+    MailboxState,
+    Node,
+    StorageRoot,
+)
+from app.domain.fileops import OpCtx, OpError
+from app.mail import ingest, store
+from app.policy import engine
+from app.policy.model import Actor, Privilege
 
 router = APIRouter(prefix="/api/v1", tags=["mailbox"])
 
-QUARANTINE_STATES = ("quarantined", "error", "rejected")
+QUARANTINE_STATES = ("quarantined", "error", "rejected", "approved")
 _STORED = re.compile(r"^\d{1,4}\.bin$")
 
 
@@ -44,6 +56,7 @@ class AttachmentOut(BaseModel):
     content_type: str
     size_bytes: int
     stored: bool
+    outcome: str | None  # filed, or why it was not (ARCHIVE_*, TOO_LARGE, NOT_KEPT ...)
 
 
 class MessageOut(BaseModel):
@@ -59,9 +72,15 @@ class MessageOut(BaseModel):
     content_state: str
     auth_summary: dict[str, Any]
     attachments: list[AttachmentOut]
+    processing_state: str | None
+    process_error: str | None
+    filed_count: int
+    # The folder the files went to, only while the reader can open it.
+    filed_folder_id: uuid.UUID | None
+    can_retry: bool
 
 
-def _out(db: Session, m: InboundMessage) -> MessageOut:
+def _out(db: Session, m: InboundMessage, reader: Principal) -> MessageOut:
     atts = db.scalars(
         select(InboundAttachment)
         .where(InboundAttachment.message_id == m.id)
@@ -79,6 +98,11 @@ def _out(db: Session, m: InboundMessage) -> MessageOut:
         attachment_count=m.attachment_count,
         content_state=m.content_state,
         auth_summary=dict(m.auth_summary or {}),
+        processing_state=m.processing_state,
+        process_error=m.process_error,
+        filed_count=m.filed_count,
+        filed_folder_id=_visible_folder(db, m, reader),
+        can_retry=_can_retry(m),
         attachments=[
             AttachmentOut(
                 id=a.id,
@@ -86,9 +110,29 @@ def _out(db: Session, m: InboundMessage) -> MessageOut:
                 content_type=a.content_type,
                 size_bytes=a.size_bytes,
                 stored=a.stored_name is not None,
+                outcome=a.outcome,
             )
             for a in atts
         ],
+    )
+
+
+def _visible_folder(db: Session, m: InboundMessage, reader: Principal) -> uuid.UUID | None:
+    if m.filed_node_id is None:
+        return None
+    node = db.get(Node, m.filed_node_id)
+    if node is None or node.status in HIDDEN_NODE_STATUSES:
+        return None
+    actor = Actor(reader.user.id, session_id=reader.session.id)
+    return node.id if Privilege.TRAVERSE in engine.effective(db, actor, node) else None
+
+
+def _can_retry(m: InboundMessage) -> bool:
+    return (
+        m.processing_state == "failed"
+        and m.manual_retries < 1
+        and m.process_error not in ingest.FINAL_ERRORS
+        and m.content_state == "stored"
     )
 
 
@@ -112,7 +156,7 @@ def my_inbox(
         .limit(limit)
         .offset(offset)
     ).all()
-    return [_out(db, m) for m in rows]
+    return [_out(db, m, principal) for m in rows]
 
 
 # ------------------------------------------------------------------ administrators
@@ -135,6 +179,26 @@ class MailboxStatus(BaseModel):
     quarantined: int
     errors: int
     verified: int
+    shared_intake_set: bool
+    waiting_for_intake: int
+    failed_to_file: int
+
+
+def _count_where(db: Session, *conditions: Any) -> int:
+    return int(db.scalar(select(func.count()).select_from(InboundMessage).where(*conditions)) or 0)
+
+
+def _waiting(db: Session) -> int:
+    return _count_where(
+        db,
+        InboundMessage.processing_state == "failed",
+        InboundMessage.process_error == "SHARED_INTAKE_UNSET",
+    )
+
+
+def _failed(db: Session) -> int:
+    """A count only: whose mail it is and what it holds stay with the sender."""
+    return _count_where(db, InboundMessage.processing_state == "failed")
 
 
 @router.get("/admin/mailbox", response_model=MailboxStatus)
@@ -171,6 +235,9 @@ def mailbox_status(
         quarantined=count("quarantined"),
         errors=count("error"),
         verified=count("verified"),
+        shared_intake_set=ingest.shared_intake_id(db) is not None,
+        waiting_for_intake=_waiting(db),
+        failed_to_file=_failed(db),
     )
 
 
@@ -186,7 +253,7 @@ def poll_now(request: Request, _: Principal = Depends(require_admin)) -> Ok:
 def quarantine_list(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0, le=100_000),
-    _: Principal = Depends(require_admin),
+    admin: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> list[MessageOut]:
     rows = db.scalars(
@@ -196,7 +263,7 @@ def quarantine_list(
         .limit(limit)
         .offset(offset)
     ).all()
-    return [_out(db, m) for m in rows]
+    return [_out(db, m, admin) for m in rows]
 
 
 def _quarantined(db: Session, message_id: uuid.UUID) -> InboundMessage:
@@ -209,10 +276,10 @@ def _quarantined(db: Session, message_id: uuid.UUID) -> InboundMessage:
 @router.get("/admin/quarantine/{message_id}", response_model=MessageOut)
 def quarantine_detail(
     message_id: uuid.UUID,
-    _: Principal = Depends(require_admin),
+    admin: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> MessageOut:
-    return _out(db, _quarantined(db, message_id))
+    return _out(db, _quarantined(db, message_id), admin)
 
 
 @router.get("/admin/quarantine/{message_id}/attachments/{attachment_id}/content")
@@ -225,7 +292,12 @@ def quarantine_download(
 ) -> FileResponse:
     m = _quarantined(db, message_id)
     att = db.get(InboundAttachment, attachment_id)
-    if att is None or att.message_id != m.id or att.stored_name is None or m.status == "rejected":
+    if (
+        att is None
+        or att.message_id != m.id
+        or att.stored_name is None
+        or m.status not in ("quarantined", "error")
+    ):
         raise http_error(404, "NOT_FOUND")
     if not _STORED.match(att.stored_name):
         raise http_error(404, "NOT_FOUND")
@@ -269,7 +341,7 @@ def quarantine_reject(
     if not body.confirm:
         raise http_error(422, "CONFIRMATION_REQUIRED")
     m = _quarantined(db, message_id)
-    if m.status != "rejected":
+    if m.status in ("quarantined", "error"):
         store.purge_content(db, ctx_of(request).settings, m)
         m.status = "rejected"  # the original reason code stays
         audit(
@@ -280,4 +352,187 @@ def quarantine_reject(
             message=str(m.id),
         )
         db.commit()
-    return _out(db, m)
+    return _out(db, m, admin)
+
+
+# ------------------------------------------------------------------ retry (the sender)
+
+
+@router.post("/me/inbox/{message_id}/retry", response_model=MessageOut, status_code=202)
+def retry_filing(
+    message_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+) -> MessageOut:
+    """One manual retry of a message that could not be filed; the sender's own mail only."""
+    m = db.get(InboundMessage, message_id)
+    if m is None or m.status != "verified" or m.resolved_user_id != principal.user.id:
+        raise http_error(404, "NOT_FOUND")
+    if not _can_retry(m):
+        raise http_error(409, "NOT_RETRYABLE")
+    if not ingest.requeue(db, m.id):
+        raise http_error(409, "NOT_RETRYABLE")
+    m.manual_retries += 1
+    audit(db, "mail.retry", actor=principal.user.id, ip=client_ip(request), message=str(m.id))
+    db.commit()
+    db.refresh(m)
+    request.app.state.mailbox.poll_now()
+    return _out(db, m, principal)
+
+
+# ------------------------------------------------------------------ shared intake (administrators)
+
+
+class SharedIntakeOut(BaseModel):
+    node_id: uuid.UUID | None
+    name: str | None  # only while the administrator can open the folder
+    usable: bool
+
+
+class SharedIntakeIn(Strict):
+    node_id: uuid.UUID | None
+
+
+def _intake_out(db: Session, admin: Principal) -> SharedIntakeOut:
+    wanted = ingest.shared_intake_id(db)
+    if wanted is None:
+        return SharedIntakeOut(node_id=None, name=None, usable=False)
+    node = db.get(Node, wanted)
+    actor = Actor(admin.user.id, session_id=admin.session.id)
+    visible = node is not None and Privilege.TRAVERSE in engine.effective(db, actor, node)
+    try:
+        ingest.shared_intake(db)
+        usable = True
+    except ingest.Permanent:
+        usable = False
+    return SharedIntakeOut(
+        node_id=wanted, name=node.name if visible and node else None, usable=usable
+    )
+
+
+@router.get("/admin/mailbox/shared-intake", response_model=SharedIntakeOut)
+def get_shared_intake(
+    admin: Principal = Depends(require_admin), db: Session = Depends(get_db)
+) -> SharedIntakeOut:
+    return _intake_out(db, admin)
+
+
+@router.put("/admin/mailbox/shared-intake", response_model=SharedIntakeOut)
+def set_shared_intake(
+    body: SharedIntakeIn,
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> SharedIntakeOut:
+    """Designates the shared-tree folder that `ingest@` mail is filed into (null clears it). The
+    administrator must be able to write there, and the folder must be in the shared tree."""
+    row = db.get(AppSetting, ingest.SHARED_INTAKE_KEY)
+    if body.node_id is None:
+        if row is not None:
+            db.delete(row)
+    else:
+        node = db.get(Node, body.node_id)
+        root = db.get(StorageRoot, node.root_id) if node is not None else None
+        actor = Actor(admin.user.id, session_id=admin.session.id)
+        if (
+            node is None
+            or root is None
+            or root.kind != "shared"
+            or node.kind != "dir"
+            or node.status != "active"
+            or Privilege.WRITE not in engine.effective(db, actor, node)
+        ):
+            raise http_error(403, "FORBIDDEN")  # one answer for missing, personal and no access
+        if row is None:
+            db.add(AppSetting(key=ingest.SHARED_INTAKE_KEY, value=str(node.id)))
+        else:
+            row.value = str(node.id)
+    audit(
+        db,
+        "mail.shared_intake_set",
+        actor=admin.user.id,
+        ip=client_ip(request),
+        node_id=str(body.node_id) if body.node_id else None,
+    )
+    db.flush()
+    requeued = ingest.requeue_intake_waiting(db) if body.node_id else 0
+    db.commit()
+    if requeued:
+        request.app.state.mailbox.poll_now()
+    return _intake_out(db, admin)
+
+
+# ------------------------------------------------------------------ approval (administrators)
+
+
+class Approve(Strict):
+    destination_id: uuid.UUID
+    attachment_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+
+
+def _forget_staged(settings: Settings, m: InboundMessage, att: InboundAttachment) -> None:
+    """Deletes one attachment's staged bytes once it was filed or refused."""
+    if att.stored_name is not None:
+        (store.quarantine_dir(settings) / str(m.id) / att.stored_name).unlink(missing_ok=True)
+        att.stored_name = None
+
+
+@router.post("/admin/quarantine/{message_id}/approve", response_model=MessageOut)
+def quarantine_approve(
+    message_id: uuid.UUID,
+    body: Approve,
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> MessageOut:
+    """Files chosen quarantined attachments into a *shared-tree* folder the administrator can
+    write to, with the administrator's own rights, like an upload they made themselves. Approval
+    never reaches a personal folder: the destination is refused unless it is in the shared tree,
+    and it grants the unknown sender nothing."""
+    settings = ctx_of(request).settings
+    m = _quarantined(db, message_id)
+    if m.status != "quarantined":
+        raise http_error(409, "NOT_PENDING")
+    dest = db.get(Node, body.destination_id)
+    root = db.get(StorageRoot, dest.root_id) if dest is not None else None
+    if dest is None or root is None or root.kind != "shared":
+        raise http_error(403, "FORBIDDEN")  # missing, personal and unreadable look the same
+    wanted = set(body.attachment_ids)
+    every = list(db.scalars(select(InboundAttachment).where(InboundAttachment.message_id == m.id)))
+    atts = [a for a in every if a.id in wanted]
+    if len(atts) != len(wanted):
+        raise http_error(404, "NOT_FOUND")
+    if any(a.stored_name is None or a.outcome is not None for a in atts):
+        raise http_error(409, "CONTENT_NOT_KEPT")
+    ctx = OpCtx(
+        db, settings, admin.user.id, client_ip(request), session_id=admin.session.id, source="email"
+    )
+    filed = 0
+    for att in sorted(atts, key=lambda a: a.position):
+        try:
+            refusal = ingest.file_attachment(ctx, dest.id, m, att)
+        except OpError as err:
+            raise http_error(err.status, err.code) from err
+        if refusal is None:
+            filed += 1
+        else:
+            att.outcome = refusal
+        _forget_staged(settings, m, att)
+        db.commit()
+    m.filed_count += filed
+    m.filed_node_id = dest.id if filed else m.filed_node_id
+    if all(a.stored_name is None for a in every):
+        m.status = "approved"
+        store.purge_content(db, settings, m)
+    audit(
+        db,
+        "mail.quarantine_approved",
+        actor=admin.user.id,
+        ip=client_ip(request),
+        message=str(m.id),
+        filed=filed,
+        destination=str(dest.id),
+    )
+    db.commit()
+    return _out(db, m, admin)
