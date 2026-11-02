@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type PinProof, type PinStatus } from "./api";
 import { Modal } from "./Dialogs";
+import { SenderAddresses } from "./Emails";
 import { describeError } from "./format";
 
 // Your account: link or unlink the single sign-on provider (only when the server has one). Both
@@ -111,6 +112,7 @@ export function AccountDialog({
         pinToken={pinToken}
         onChanged={onPinChanged}
       />
+      <SenderAddresses reauthed={reauthed} />
     </Modal>
   );
 }

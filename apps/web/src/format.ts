@@ -131,6 +131,16 @@ const MESSAGES: Record<string, string> = {
     "More changed since you looked. Review the new numbers before applying.",
   NOT_SUSPENDED: "Syncing is not paused for this folder.",
   INVALID_CREDENTIALS: "Email or password is incorrect.",
+  MAIL_NOT_CONFIGURED:
+    "This server cannot send email, so extra addresses cannot be confirmed. Ask your administrator.",
+  ALREADY_YOUR_ADDRESS: "That is already your account address.",
+  ALREADY_VERIFIED: "You already confirmed that address.",
+  ADDRESS_RESERVED:
+    "That address is used by this system and cannot be a sender address.",
+  ALIAS_LIMIT:
+    "You have reached the limit of extra addresses. Remove one first.",
+  EMAIL_IN_USE: "That address already belongs to another account.",
+  MAILBOX_NOT_CONFIGURED: "No inbound mailbox is set up on this server.",
   INVALID_SETUP_TOKEN: "The setup token is not correct.",
   SETUP_ALREADY_COMPLETE: "Setup was already completed. Sign in instead.",
   INVALID_EMAIL: "That email address is not valid.",

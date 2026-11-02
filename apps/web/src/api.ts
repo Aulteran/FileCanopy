@@ -514,6 +514,57 @@ function send<T>(
   });
 }
 
+export type MailAlias = {
+  id: string;
+  email: string;
+  verified: boolean;
+  created_at: string;
+};
+export type MyEmails = {
+  primary: string;
+  aliases: MailAlias[];
+  can_add: boolean;
+  limit: number;
+};
+export type MailProof = { password?: string; reauth?: boolean };
+export type MailAttachment = {
+  id: string;
+  display_name: string;
+  content_type: string;
+  size_bytes: number;
+  stored: boolean;
+};
+export type MailMessage = {
+  id: string;
+  received_at: string;
+  from_address: string | null;
+  subject: string | null;
+  destination: string;
+  status: string;
+  reason: string | null;
+  size_bytes: number;
+  attachment_count: number;
+  content_state: string;
+  auth_summary: Record<string, string>;
+  attachments: MailAttachment[];
+};
+export type MailboxStatus = {
+  configured: boolean;
+  host: string | null;
+  folder: string | null;
+  personal_address: string | null;
+  ingest_address: string | null;
+  authentication_configured: boolean;
+  authentication_unproven: boolean;
+  auth_policy: string | null;
+  last_poll_at: string | null;
+  last_error: string | null;
+  failures: number;
+  quarantined: number;
+  errors: number;
+  verified: number;
+};
+
 const enc = encodeURIComponent;
 const key = (): Record<string, string> => ({
   "Idempotency-Key": crypto.randomUUID(),
@@ -659,6 +710,29 @@ export const api = {
     ),
   unlock: (id: string, secret: { pin: string } | { password: string }) =>
     call<PrivacyState>("POST", `/api/v1/nodes/${enc(id)}/unlock`, secret),
+  myEmails: () => call<MyEmails>("GET", "/api/v1/me/emails"),
+  addEmail: (email: string, proof: MailProof) =>
+    call<{ status: string }>("POST", "/api/v1/me/emails", { email, ...proof }),
+  verifyEmail: (token: string) =>
+    call<MailAlias>("POST", "/api/v1/me/emails/verify", { token }),
+  removeEmail: (id: string, proof: MailProof) =>
+    call<{ status: string }>(
+      "POST",
+      `/api/v1/me/emails/${enc(id)}/remove`,
+      proof,
+    ),
+  myInbox: () => call<MailMessage[]>("GET", "/api/v1/me/inbox?limit=100"),
+  mailboxStatus: () => call<MailboxStatus>("GET", "/api/v1/admin/mailbox"),
+  pollMailbox: () =>
+    call<{ status: string }>("POST", "/api/v1/admin/mailbox/poll", {}),
+  quarantine: () =>
+    call<MailMessage[]>("GET", "/api/v1/admin/quarantine?limit=100"),
+  rejectQuarantined: (id: string) =>
+    call<MailMessage>("POST", `/api/v1/admin/quarantine/${enc(id)}/reject`, {
+      confirm: true,
+    }),
+  quarantineDownloadUrl: (id: string, attachment: string) =>
+    `/api/v1/admin/quarantine/${enc(id)}/attachments/${enc(attachment)}/content`,
   pinStatus: () => call<PinStatus>("GET", "/api/v1/auth/pin"),
   setPin: (pin: string, proof: PinProof) =>
     call<{ status: string }>("PUT", "/api/v1/auth/pin", { pin, ...proof }),

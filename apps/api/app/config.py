@@ -1,12 +1,15 @@
 """Runtime configuration. All values come from the environment; nothing here needs AI settings."""
 
 import os
+import re
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_ADDR_RE = re.compile(r"^[a-z0-9._%+-]{1,64}@[a-z0-9.-]+\.[a-z]{2,}$")
 
 
 class ConfigError(ValueError):
@@ -150,6 +153,33 @@ class Settings(BaseSettings):
     # "none" is accepted for a loopback relay only, unless this says otherwise.
     smtp_allow_plaintext: bool = False
 
+    # --- Inbound mailbox (M13, ADR-007). Empty host = off. Read-only IMAP polling; nothing is
+    # deleted, moved or flagged in the mailbox. Credentials come from the environment only.
+    imap_host: str = ""
+    imap_port: int = Field(default=993, ge=1, le=65535)
+    imap_security: Literal["ssl", "starttls", "none"] = "ssl"  # "none": loopback hosts only
+    imap_username: str = ""
+    imap_password: SecretStr = SecretStr("")
+    imap_folder: str = Field(default="INBOX", max_length=200)
+    imap_poll_seconds: int = Field(default=120, ge=30, le=3600)
+    imap_timeout_seconds: int = Field(default=30, ge=5, le=300)
+    imap_personal_address: str = ""
+    imap_ingest_address: str = ""
+    # The authserv-id our provider writes into Authentication-Results. Empty = no sender can be
+    # authenticated, so every message is quarantined.
+    imap_authserv_id: str = ""
+    imap_auth_policy: Literal["aligned", "dmarc"] = "aligned"
+    imap_recipient_headers: str = "x-original-to,delivered-to"
+    imap_max_message_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    imap_max_parts: int = Field(default=200, ge=1, le=2000)
+    imap_max_depth: int = Field(default=6, ge=1, le=20)
+    imap_max_attachments: int = Field(default=50, ge=0, le=500)
+    imap_max_per_poll: int = Field(default=50, ge=1, le=1000)
+    mail_quarantine_retention_days: int = Field(default=30, ge=0, le=3650)  # 0 = keep
+    mail_quarantine_quota_bytes: int = Field(default=1024**3, ge=0)
+    alias_ttl_seconds: int = 24 * 3600
+    max_aliases_per_user: int = Field(default=10, ge=0, le=50)
+
     # --- OIDC sign-in (M12, ADR-020). Empty issuer or client id = off; local sign-in is unaffected.
     oidc_issuer: str = ""
     oidc_client_id: str = ""
@@ -202,6 +232,16 @@ class Settings(BaseSettings):
         return bool(self.smtp_host and self.smtp_from)
 
     @property
+    def imap_configured(self) -> bool:
+        return bool(
+            self.imap_host
+            and self.imap_username
+            and self.imap_password.get_secret_value()
+            and self.imap_personal_address
+            and self.imap_ingest_address
+        )
+
+    @property
     def oidc_is_google(self) -> bool:
         return self.oidc_issuer.rstrip("/") == "https://accounts.google.com"
 
@@ -231,6 +271,25 @@ class Settings(BaseSettings):
                     "smtp_security=none is only allowed for a loopback host "
                     "(or set FILECANOPY_SMTP_ALLOW_PLAINTEXT=true)"
                 )
+        if self.imap_host or self.imap_username or self.imap_personal_address:
+            if not self.imap_configured:
+                raise ConfigError(
+                    "imap_host, imap_username, imap_password, imap_personal_address and "
+                    "imap_ingest_address must all be set"
+                )
+            personal = self.imap_personal_address.strip().lower()
+            ingest = self.imap_ingest_address.strip().lower()
+            for addr in (personal, ingest):
+                if not _ADDR_RE.match(addr):
+                    raise ConfigError("imap intake addresses must be plain email addresses")
+            if personal == ingest:
+                raise ConfigError("the personal and ingest addresses must differ")
+            if self.imap_security == "none" and self.imap_host not in (
+                "localhost",
+                "127.0.0.1",
+                "::1",
+            ):
+                raise ConfigError("imap_security=none is only allowed for a loopback host")
         if self.oidc_issuer or self.oidc_client_id:
             if not self.oidc_enabled:
                 raise ConfigError("oidc_issuer and oidc_client_id must both be set")

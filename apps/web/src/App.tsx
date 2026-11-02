@@ -10,6 +10,8 @@ import {
 import { Auth } from "./Auth";
 import { BackupsPage } from "./Backups";
 import { Browser } from "./Browser";
+import { VerifyEmailDialog } from "./Emails";
+import { InboxPage, MailboxAdminPage } from "./MailPages";
 import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { PreviewSettings } from "./PreviewSettings";
@@ -18,6 +20,9 @@ import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
+  INBOX_PATH,
+  isVerifyEmailPath,
+  MAILBOX_PATH,
   NOTICES_PATH,
   RECENT_PATH,
   searchPath,
@@ -63,6 +68,14 @@ function writeDeferred(userId: string, ids: Set<string>): void {
   }
 }
 
+// A one-time token from an emailed "confirm this address" link (M13), taken out of the address bar.
+function takeAliasToken(): { token: string | null } | null {
+  if (!isVerifyEmailPath(window.location.pathname)) return null;
+  const token = tokenFromHash(window.location.hash);
+  window.history.replaceState(null, "", "/");
+  return { token };
+}
+
 function takePinToken(): string | null {
   if (!/^\/pin-reset\/?$/.test(window.location.pathname)) return null;
   const token = tokenFromHash(window.location.hash);
@@ -90,6 +103,7 @@ function SignedInApp() {
   const [sso] = useState(takeSsoResult);
   // A one-time token from an emailed PIN reset link, taken out of the address bar at once.
   const [pinToken] = useState(takePinToken);
+  const [aliasLink] = useState(takeAliasToken);
 
   const start = useCallback(async () => {
     setFailed(false);
@@ -137,6 +151,7 @@ function SignedInApp() {
         onEnded={ended}
         sso={sso}
         pinToken={pinToken}
+        aliasLink={aliasLink}
       />
     );
   }
@@ -161,11 +176,13 @@ function Shell({
   onEnded,
   sso,
   pinToken,
+  aliasLink,
 }: {
   session: Session;
   onEnded: () => void;
   sso: string | null;
   pinToken: string | null;
+  aliasLink: { token: string | null } | null;
 }) {
   const {
     folderId,
@@ -175,9 +192,12 @@ function Shell({
     trash,
     recent,
     notices,
+    inbox,
+    mailbox,
     search,
     go,
   } = useRoute();
+  const [verifyOpen, setVerifyOpen] = useState(aliasLink !== null);
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(() => {
     api
@@ -242,6 +262,8 @@ function Shell({
       !trash &&
       !recent &&
       !notices &&
+      !inbox &&
+      !mailbox &&
       search === null
     )
       go(folderPath(roots[0]!.node_id), true);
@@ -254,6 +276,8 @@ function Shell({
     trash,
     recent,
     notices,
+    inbox,
+    mailbox,
     search,
     go,
   ]);
@@ -326,6 +350,19 @@ function Shell({
           }}
         >
           Users
+        </a>
+      )}
+      {withBackups && admin && (
+        <a
+          href={MAILBOX_PATH}
+          className="toplink"
+          aria-current={mailbox ? "page" : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            go(MAILBOX_PATH);
+          }}
+        >
+          Mailbox
         </a>
       )}
       {withBackups && (
@@ -469,6 +506,18 @@ function Shell({
                 Notifications{unread > 0 ? ` (${unread} new)` : ""}
               </a>
             </li>
+            <li>
+              <a
+                href={INBOX_PATH}
+                aria-current={inbox ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(INBOX_PATH);
+                }}
+              >
+                Email inbox
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -486,6 +535,13 @@ function Shell({
             <UsersPage me={session.user.id} onEnded={onEnded} />
           ) : (
             <p>Only administrators can manage users.</p>
+          ))}
+        {inbox && <InboxPage onEnded={onEnded} />}
+        {mailbox &&
+          (admin ? (
+            <MailboxAdminPage onEnded={onEnded} />
+          ) : (
+            <p>Only administrators can manage the mailbox.</p>
           ))}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
@@ -539,6 +595,12 @@ function Shell({
                 ? describeError(sso)
                 : undefined
           }
+        />
+      )}
+      {verifyOpen && aliasLink !== null && (
+        <VerifyEmailDialog
+          token={aliasLink.token}
+          onClose={() => setVerifyOpen(false)}
         />
       )}
       {previewSettings && (

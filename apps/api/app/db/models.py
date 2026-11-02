@@ -639,3 +639,100 @@ class SearchJob(Base):
     run_after: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     error: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class UserEmailAlias(Base):
+    """An extra sender address for one account (M13). Pending until the mailed link is used; a
+    verified address is unique across accounts. The account's own `email` is also a sender
+    identity but lives on the user row."""
+
+    __tablename__ = "user_email_alias"
+    __table_args__ = (
+        UniqueConstraint("user_id", "email", name="uq_alias_user_email"),
+        Index(
+            "uq_alias_verified_email",
+            "email",
+            unique=True,
+            sqlite_where=text("verified_at IS NOT NULL"),
+            postgresql_where=text("verified_at IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(254), nullable=False)  # normalized
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class InboundMessage(Base):
+    """One message seen in the inbound mailbox (M13, ADR-007). Metadata only: no body is stored.
+    status: verified | quarantined | rejected | duplicate | error."""
+
+    __tablename__ = "inbound_message"
+    __table_args__ = (
+        UniqueConstraint("mailbox_key", "uidvalidity", "uid", name="uq_inbound_uid"),
+        Index("ix_inbound_status_at", "status", "received_at"),
+        Index("ix_inbound_sha", "content_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    mailbox_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    uidvalidity: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    uid: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message_id_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    from_address: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    destination: Mapped[str] = mapped_column(String(12), nullable=False, default="unknown")
+    status: Mapped[str] = mapped_column(String(12), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    resolved_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    auth_summary: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
+    attachment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # none (nothing kept) | stored | dropped (over quota) | purged (retention or rejection)
+    content_state: Mapped[str] = mapped_column(String(8), nullable=False, default="none")
+    duplicate_of: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class InboundAttachment(Base):
+    """Attachment metadata. `display_name` is for display only; stored bytes use `stored_name`."""
+
+    __tablename__ = "inbound_attachment"
+    __table_args__ = (UniqueConstraint("message_id", "position", name="uq_attachment_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("inbound_message.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    stored_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
+class MailboxState(Base):
+    """Checkpoint, lease and retry bookkeeping for one polled mailbox."""
+
+    __tablename__ = "mailbox_state"
+
+    mailbox_key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    uidvalidity: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    last_uid: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    last_poll_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retry_uid: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

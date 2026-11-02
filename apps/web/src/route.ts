@@ -11,6 +11,8 @@ const TRASH = /^\/trash\/?$/;
 const RECENT = /^\/recent\/?$/;
 const NOTICES = /^\/notifications\/?$/;
 const SEARCH = /^\/search\/?$/;
+const INBOX = /^\/inbox\/?$/;
+const MAILBOX = /^\/admin\/mail\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
@@ -35,6 +37,21 @@ export const TRASH_PATH = "/trash";
 export const RECENT_PATH = "/recent";
 export const NOTICES_PATH = "/notifications";
 export const SEARCH_PATH = "/search";
+export const INBOX_PATH = "/inbox";
+export const MAILBOX_PATH = "/admin/mail";
+
+export function isInboxPath(pathname: string): boolean {
+  return INBOX.test(pathname);
+}
+
+export function isMailboxPath(pathname: string): boolean {
+  return MAILBOX.test(pathname);
+}
+
+/** The one-time secret of an emailed "confirm this address" link, on "/verify-email#token=…". */
+export function isVerifyEmailPath(pathname: string): boolean {
+  return /^\/verify-email\/?$/.test(pathname);
+}
 
 export function isSearchPath(pathname: string): boolean {
   return SEARCH.test(pathname);
@@ -110,6 +127,8 @@ export function useRoute(): {
   trash: boolean;
   recent: boolean;
   notices: boolean;
+  inbox: boolean;
+  mailbox: boolean;
   search: string | null;
   go: (path: string, replace?: boolean) => void;
 } {
@@ -138,6 +157,8 @@ export function useRoute(): {
     trash: isTrashPath(path),
     recent: isRecentPath(path),
     notices: isNoticesPath(path),
+    inbox: isInboxPath(path),
+    mailbox: isMailboxPath(path),
     search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,
   };

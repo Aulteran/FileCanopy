@@ -12,6 +12,7 @@ from app.api import admin_storage
 from app.api import backups as backup_routes
 from app.api import files as file_routes
 from app.api import imports as import_routes
+from app.api import mailbox as mailbox_routes
 from app.api import nodes as storage_nodes
 from app.api import previews as preview_routes
 from app.api import privacy as privacy_routes
@@ -20,6 +21,7 @@ from app.api import search as search_routes
 from app.api import sharing as sharing_routes
 from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
+from app.auth import aliases as alias_routes
 from app.auth import bootstrap, oidc_only
 from app.auth import router as auth_router
 from app.auth.deps import AuthContext, scrub_validation_errors
@@ -38,6 +40,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
+from app.mail.poller import MailboxPoller
 from app.notifications.mail import Mailer
 from app.preview.hardening import make_undumpable
 from app.preview.service import PreviewService
@@ -89,7 +92,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         trash_service.start()
         previews.start()
         indexer.start()
+        mailbox.start()  # does nothing without a configured mailbox
         yield
+        mailbox.stop()
         indexer.stop()
         previews.stop()
         trash_service.stop()
@@ -105,6 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     trash_service = TrashService(sessions, cfg)
     previews = PreviewService(cfg, sessions)
     indexer = Indexer(cfg, sessions, previews)
+    mailbox = MailboxPoller(cfg, sessions)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
     passwords = Passwords(cfg)
@@ -124,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.trash = trash_service
     app.state.previews = previews
     app.state.indexer = indexer
+    app.state.mailbox = mailbox
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -164,6 +171,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(oidc_router)
     app.include_router(pin_router)
+    app.include_router(alias_routes.router)
+    app.include_router(mailbox_routes.router)
     app.include_router(sharing_routes.router)
     app.include_router(privacy_routes.router)
     app.include_router(auth_admin.router)

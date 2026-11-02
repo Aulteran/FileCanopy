@@ -17,9 +17,10 @@ ADRs record cross-cutting technical decisions. Each one is written as **Proposed
 | [ADR-012](ADR-012-authentication-and-bootstrap.md) | Local authentication, sessions and first-admin bootstrap (M02) | Accepted |
 | [ADR-016](ADR-016-per-root-backup-keys.md) | Per-root backup key pairs with administrator escrow and an owner recovery key | Accepted (not yet implemented) |
 | [ADR-017](ADR-017-trash-location-and-retention.md) | Trash location, visibility and retention defaults (M07) | Accepted |
+| [ADR-007](ADR-007-email-trust-and-quarantine.md) | Email trust and quarantine pipeline (M13) | Proposed |
 | [ADR-019](ADR-019-in-app-document-viewer.md) | In-app document viewer: PDF.js, images, text, Office via a sandboxed converter | Accepted |
 
-Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-005 privacy labels, ADR-006 AI providers, ADR-007 email trust, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
+Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-005 privacy labels, ADR-006 AI providers, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
 
 ## Template
 

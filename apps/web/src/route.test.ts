@@ -3,6 +3,9 @@ import {
   folderIdFrom,
   folderPath,
   isBackupsPath,
+  isInboxPath,
+  isMailboxPath,
+  isVerifyEmailPath,
   isRecentPath,
   isSearchPath,
   isTrashPath,
@@ -91,5 +94,17 @@ describe("search routes", () => {
     expect(searchQueryFrom("?q=tax%20%26%20more")).toBe("tax & more");
     expect(searchQueryFrom("")).toBe("");
     expect(searchQueryFrom(`?q=${"a".repeat(300)}`)).toHaveLength(200);
+  });
+});
+
+describe("mail routes", () => {
+  it("knows the inbox, the mailbox admin page and the confirm link", () => {
+    expect(isInboxPath("/inbox")).toBe(true);
+    expect(isInboxPath("/inbox/x")).toBe(false);
+    expect(isMailboxPath("/admin/mail")).toBe(true);
+    expect(isMailboxPath("/admin/mailbox")).toBe(false);
+    expect(isVerifyEmailPath("/verify-email")).toBe(true);
+    expect(isVerifyEmailPath("/verify-email/x")).toBe(false);
+    expect(tokenFromHash("#token=abc")).toBe("abc");
   });
 });

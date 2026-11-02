@@ -55,7 +55,7 @@ def js(c: Client, method: str, path: str, body: dict[str, Any] | None = None, **
 
 
 def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0015"
+    assert stack.sql("select version_num from alembic_version") == "0016"
     assert stack.sql(
         "select count(*) from information_schema.columns "
         "where table_name = 'node' and column_name in ('revision', 'size')"
