@@ -20,17 +20,15 @@ const WHY: Record<string, string> = {
   timeout: "The AI service took too long. Here are the matching passages.",
   bad_output:
     "The AI gave an answer that could not be used. Here are the matching passages.",
+  not_grounded:
+    "The files did not clearly answer this, so no answer is shown. Here are the matching passages.",
   changed:
     "A file changed while the AI was working, so the answer was dropped. Here are the matching passages.",
 };
 
 /** One sentence for why no generated answer is shown, or null when there is nothing to explain. */
 export function describeChatReason(a: ChatAnswer): string | null {
-  if (a.status === "answered") {
-    return a.grounded
-      ? null
-      : "The documents did not clearly answer this. What follows is not taken from your files.";
-  }
+  if (a.status === "answered") return null;
   if (a.status === "no_sources") {
     return a.reason === "protected_withheld"
       ? "Only protected files match, and the AI provider you use is not allowed to read them."
@@ -46,8 +44,8 @@ export function describeChatReason(a: ChatAnswer): string | null {
 export function describeWithheld(n: number): string | null {
   if (n <= 0) return null;
   return n === 1
-    ? "1 more matching file is Private or Confidential and was not sent to the AI."
-    : `${n} more matching files are Private or Confidential and were not sent to the AI.`;
+    ? "1 more matching file is Private and was not sent to the AI."
+    : `${n} more matching files are Private and were not sent to the AI.`;
 }
 
 /** Where the answer was worked out, in words. */

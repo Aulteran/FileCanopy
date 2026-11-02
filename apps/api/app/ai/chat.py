@@ -99,6 +99,7 @@ class ChatResult:
     citations: list[Citation] = field(default_factory=list)
     withheld_protected: int = 0  # readable by the person, but not allowed to reach this provider
     provider_mode: str | None = None
+    sent: bool = False  # a request may have reached the provider (audit)
 
 
 class ChatLimiter:
@@ -162,6 +163,7 @@ def _candidates(
     actor: Actor,
     question: str,
     folder_id: uuid.UUID | None,
+    root_id: uuid.UUID,
 ) -> list[Hit]:
     """Ranked hits from full-text (every content word, then each word alone) and, when it is
     switched on and healthy, meaning-based search. Both apply the person's scope and the
@@ -171,12 +173,28 @@ def _candidates(
     lists: list[list[Hit]] = []
     if words:
         lists.append(
-            query.search(db, actor, " ".join(words), folder_id=folder_id, limit=20, radius=radius)
+            query.search(
+                db,
+                actor,
+                " ".join(words),
+                folder_id=folder_id,
+                limit=20,
+                radius=radius,
+                root_id=root_id,
+            )
         )
         if len(words) > 1:
             for w in words:
                 lists.append(
-                    query.search(db, actor, w, folder_id=folder_id, limit=10, radius=radius)
+                    query.search(
+                        db,
+                        actor,
+                        w,
+                        folder_id=folder_id,
+                        limit=10,
+                        radius=radius,
+                        root_id=root_id,
+                    )
                 )
     if semantic.is_active(db, sem.settings) and sem.allow_query(actor.user_id):
         db.commit()  # no database transaction is held while the embedding server thinks
@@ -191,6 +209,7 @@ def _candidates(
                 folder_id=folder_id,
                 limit=20,
                 snippet_chars=cfg.chat_excerpt_chars,
+                root_id=root_id,
             )
             if near:
                 lists.append(near)
@@ -229,8 +248,8 @@ def build_text(question: str, sources: list[Citation], fence: str) -> str:
     lines = [f"Question: {' '.join(question.split())}", "", "Sources:"]
     for s in sources:
         lines += [
-            f"Source {s.n}: file name {s.name}",
             f"<<<SOURCE-{fence} {s.n}",
+            f"File name: {s.name}",
             s.excerpt,
             f"SOURCE-{fence}>>>",
         ]
@@ -265,7 +284,7 @@ def ask(
     actor = Actor(user.id, session_id=session_id)
     root = _root_for(db, user, scope)
     if root is None or not question:
-        return _done(db, user, ip, scope, ChatResult("no_sources"), 0)
+        return _done(db, user, ip, scope, ChatResult("no_sources"), [])
 
     # (1) Whose provider, and in which mode, is known before any source is chosen.
     route = resolve_route(db, root_kind=root.kind, owner=user if root.kind == "personal" else None)
@@ -275,7 +294,7 @@ def ask(
     # (2)-(3) Retrieve, then decide every file again for this provider.
     chosen: list[tuple[Node, str]] = []
     withheld = 0
-    for hit in _candidates(db, cfg, sem, actor, question, folder_id):
+    for hit in _candidates(db, cfg, sem, actor, question, folder_id, root.id):
         node = db.get(Node, hit.node_id)
         if node is None or node.kind != "file" or node.root_id != root.id:
             continue  # another tree, or not a file: one request is one tree
@@ -302,18 +321,14 @@ def ask(
             ip,
             scope,
             ChatResult("no_sources", reason, None, False, [], withheld, mode),
-            0,
+            [],
         )
 
-    def passages(reason: str) -> ChatResult:
-        return _done(
-            db,
-            user,
-            ip,
-            scope,
-            ChatResult("passages_only", reason, None, False, sources, withheld, mode),
-            len(sources),
+    def passages(reason: str, sent: bool = False) -> ChatResult:
+        result = ChatResult(
+            "passages_only", reason, None, False, sources, withheld, mode, sent=sent
         )
+        return _done(db, user, ip, scope, result, sources)
 
     if provider is None:
         return passages(route.reason)
@@ -335,7 +350,7 @@ def ask(
     except AiRefused as exc:
         return passages(exc.reason)
     except AiError as exc:
-        return passages(exc.code.lower())
+        return passages(exc.code.lower(), sent=True)  # the request may have gone out
 
     # (5) The model's numbers become real files; access is checked once more.
     for s in sources:
@@ -343,26 +358,36 @@ def ask(
         if node is not None:
             db.refresh(node)
         if node is None or not query.may_show_text(db, actor, node):
-            return passages("changed")  # access or label changed while the model worked
+            return passages("changed", sent=True)  # access or label changed while it worked
     valid = {s.n for s in sources}
     cited = [n for n in dict.fromkeys(got.value.citations) if n in valid]
-    grounded = got.value.grounded and bool(cited)
+    if not (got.value.grounded and cited):
+        # An answer that does not rest on the sources is not shown; the passages are.
+        return passages("not_grounded", sent=True)
     result = ChatResult(
         "answered",
-        None if grounded else "not_grounded",
-        _tidy(got.value.answer, valid),
-        grounded,
-        [s for s in sources if s.n in cited] if grounded else [],
+        None,
+        _tidy(got.value.answer, set(cited)),
+        True,
+        [s for s in sources if s.n in cited],
         withheld,
         mode,
+        sent=True,
     )
-    return _done(db, user, ip, scope, result, len(sources))
+    return _done(db, user, ip, scope, result, sources)
 
 
 def _done(
-    db: Session, user: User, ip: str | None, scope: str, result: ChatResult, used: int
+    db: Session,
+    user: User,
+    ip: str | None,
+    scope: str,
+    result: ChatResult,
+    used: list[Citation],
 ) -> ChatResult:
-    """Counts and modes only: the question and the text are never written to the audit log."""
+    """File ids, counts and modes only: the question and the text are never written to the audit
+    log. `node_ids` are the files whose excerpts were put in the request; `sent` says whether a
+    request may have reached the provider."""
     audit(
         db,
         "chat.ask",
@@ -371,7 +396,9 @@ def _done(
         status=result.status,
         reason=result.reason,
         scope=scope,
-        sources=used,
+        sources=len(used),
+        node_ids=[str(s.node_id) for s in used],
+        sent=result.sent,
         withheld=result.withheld_protected,
         provider_mode=result.provider_mode,
     )

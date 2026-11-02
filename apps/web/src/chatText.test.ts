@@ -21,14 +21,26 @@ describe("chat text", () => {
     expect(describeChatReason(base)).toBeNull();
   });
 
-  it("warns when an answer is not taken from the files", () => {
+  it("shows only passages when the files did not answer", () => {
     expect(
-      describeChatReason({ ...base, grounded: false, reason: "not_grounded" }),
-    ).toMatch(/not taken from your files/);
+      describeChatReason({
+        ...base,
+        status: "passages_only",
+        answer: null,
+        grounded: false,
+        reason: "not_grounded",
+      }),
+    ).toMatch(/no answer is shown/);
   });
 
   it("explains each fallback and never shows a raw code", () => {
-    for (const reason of ["ai_off", "budget_exceeded", "outage", "changed"]) {
+    for (const reason of [
+      "ai_off",
+      "budget_exceeded",
+      "outage",
+      "changed",
+      "not_grounded",
+    ]) {
       const t = describeChatReason({
         ...base,
         status: "passages_only",

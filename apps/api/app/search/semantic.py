@@ -732,6 +732,7 @@ def semantic_hits(
     folder_id: uuid.UUID | None = None,
     limit: int = 25,
     snippet_chars: int = SNIPPET_CHARS,
+    root_id: uuid.UUID | None = None,
 ) -> list[Hit] | None:
     """Nearest chunks the person may read, best chunk per file. `None` means semantic search is
     not available right now (callers fall back to full-text); an empty list means nothing matched.
@@ -753,7 +754,7 @@ def semantic_hits(
         qvec = semantic.query_vector(q)
     if qvec is None or len(qvec) != cfg.dim:
         return None
-    scope = scope_filter(db, actor, folder)
+    scope = scope_filter(db, actor, folder, root_id)
     dialect = db.get_bind().dialect.name
     snippet = func.substr(
         SearchDoc.body, SearchChunk.start + 1, SearchChunk.end - SearchChunk.start

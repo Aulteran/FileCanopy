@@ -121,9 +121,10 @@ def test_invented_citations_make_the_answer_ungrounded(fx: Fx, net: Net) -> None
     doc(fx, alice, fx.y2026, "roof.txt", ROOF)
     net.text = reply("It was probably about 5,000 [3].", citations=[3, 99])
     out = ok(alice)
-    assert out["status"] == "answered" and out["grounded"] is False
-    assert out["reason"] == "not_grounded" and out["citations"] == []
-    assert "[3]" not in out["answer"]
+    # an answer that rests on no real source is not shown; the passages are
+    assert out["status"] == "passages_only" and out["reason"] == "not_grounded"
+    assert out["answer"] is None and out["grounded"] is False
+    assert len(out["citations"]) == 1
 
 
 @pytest.mark.parametrize(
@@ -370,7 +371,7 @@ def test_questions_are_rate_limited_per_person(fx: Fx, net: Net) -> None:
 
 def test_the_audit_log_holds_counts_never_the_question_or_the_text(fx: Fx, net: Net) -> None:
     alice, _ = cloud(fx)
-    doc(fx, alice, fx.y2026, "roof.txt", ROOF)
+    roof = doc(fx, alice, fx.y2026, "roof.txt", ROOF)
     net.text = reply()
     ok(alice, "How much was the roof repair? Zanzibar-code-77")
     rows = [a for a in fx.w.db_rows(AuthAudit) if a.action == "chat.ask"]
@@ -378,6 +379,7 @@ def test_the_audit_log_holds_counts_never_the_question_or_the_text(fx: Fx, net: 
     blob = json.dumps(rows[0].details)
     assert "Zanzibar" not in blob and "4,200" not in blob
     assert rows[0].details["sources"] == 1 and rows[0].details["status"] == "answered"
+    assert rows[0].details["node_ids"] == [str(roof)] and rows[0].details["sent"] is True
 
 
 @pytest.mark.parametrize(
@@ -414,3 +416,43 @@ def test_core_files_work_with_chat_failing(fx: Fx, net: Net) -> None:
     assert ok(alice)["status"] == "passages_only"
     assert alice.download(roof).status_code == 200
     assert alice.upload(fx.y2026, "after.txt", b"still fine").status_code == 201
+
+
+def test_file_names_sit_inside_the_data_fence(fx: Fx, net: Net) -> None:
+    alice, _ = cloud(fx)
+    doc(fx, alice, fx.y2026, "roof.txt", ROOF)
+    net.text = reply()
+    ok(alice)
+    prompt = json.loads(net.requests[-1].content)["messages"][0]["content"]
+    assert re.search(r"<<<SOURCE-[0-9a-f]{16} 1\nFile name: roof\.txt\n", prompt)
+    assert "file name roof.txt" not in prompt
+
+
+def test_only_markers_for_cited_sources_survive(fx: Fx, net: Net) -> None:
+    alice, _ = cloud(fx)
+    doc(fx, alice, fx.y2026, "roof.txt", ROOF)
+    doc(fx, alice, fx.y2026, "roof2.txt", "Second roof repair quote: 3,900 EUR.")
+    net.text = reply("Cited [1], listed but not cited [2], made up [9].", citations=[1])
+    out = ok(alice)
+    assert out["status"] == "answered" and [c["n"] for c in out["citations"]] == [1]
+    assert out["answer"] == "Cited [1], listed but not cited , made up ."
+
+
+def test_other_trees_cannot_crowd_out_results(fx: Fx, net: Net) -> None:
+    alice, _ = cloud(fx)
+    bob = Api(fx, "bob")
+    for i in range(30):
+        doc(fx, bob, fx.shared_sub, f"fund{i}.txt", "Roof roof repair roof fund " * 5)
+    own = doc(fx, alice, fx.y2026, "own.txt", "My roof repair note.")
+    net.text = reply()
+    out = ok(alice, scope="mine")
+    assert [c["node_id"] for c in out["citations"]] == [str(own)]
+
+
+def test_audit_says_whether_anything_was_sent(fx: Fx, net: Net) -> None:
+    alice = Api(fx, "alice")  # AI off: passages only, nothing sent
+    roof = doc(fx, alice, fx.y2026, "roof.txt", ROOF)
+    ok(alice)
+    row = [a for a in fx.w.db_rows(AuthAudit) if a.action == "chat.ask"][-1]
+    assert row.details["sent"] is False and row.details["node_ids"] == [str(roof)]
+    assert net.requests == []

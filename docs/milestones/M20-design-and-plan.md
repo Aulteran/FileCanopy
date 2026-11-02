@@ -41,13 +41,13 @@ beyond what OCR already put in the index, MCP (M21).
 | T1 | Private or Confidential excerpts reach a cloud provider | Provider decided first; cloud sees Normal sources only (step 3); the gateway independently refuses a request whose strictest label is not Normal (`ClearedInput`, `assert_deliverable`). Confidential is never retrieved. A label raised during the call discards the answer (step 6). |
 | T2 | Another person's data appears | Sources must belong to the chosen tree and pass the same decision as search; `mine` is the caller's own tree only (a read grant on someone else's folder does not make it part of this chat); a hidden file and a missing file give the same response, with no count or name. |
 | T3 | Prompt injection from a document | Sources sit between lines carrying a random per-request fence; the rules call them data; a document cannot imitate the fence. The model can only return a typed answer, so even a fully fooled model cannot name a path, call a tool or mutate anything: there is no action channel. |
-| T4 | Hallucinated files or citations | The model cites numbers only; the server maps them to real files the person can read, drops others and removes `[k]` markers that name no source. An answer without a valid citation is shown as "not taken from your files". |
+| T4 | Hallucinated files or citations | The model cites numbers only; the server maps them to real files the person can read, drops others and removes `[k]` markers that name no source. An answer that is not grounded or has no valid citation is not shown; the passages are. Only markers for cited sources survive in the text. |
 | T5 | Implicit actions | Output model forbids extra fields; the answer is rendered as plain text; no route here writes files, labels, grants or settings. |
 | T6 | Cost runaway | Gateway budget (atomic reserve, monthly cap) applies unchanged; per-person rate limit (10 a minute); at most 6 excerpts and the gateway's input cap; empty results make no call. A refused budget degrades to passages. |
 | T7 | Outage or refusal blocks the feature | Every refusal or failure returns the matching passages with a reason; there is no fallback to another provider, and core file operations never call this code. |
-| T8 | Question or text leaks through logs | The audit row (`chat.ask`) holds status, reason, scope, source count, withheld count and provider mode only. Excerpts are not logged. |
+| T8 | Question or text leaks through logs | The audit row (`chat.ask`) holds status, reason, scope, counts, provider mode, the ids of the files whose excerpts were put in the request, and whether a request may have been sent. Questions and excerpts are not logged. |
 | T9 | Private text to a local model without consent | `may_show_text` requires the owner's local-processing opt-in for Private; Confidential is never used, even unlocked. |
-| T10 | Metadata leak via file names | Names of the used sources are sent to the model (they help it answer) only for sources that passed the decision; names of withheld files are never included. |
+| T10 | Metadata leak via file names | Names of the used sources are sent inside each source's data fence (so a hostile name cannot imitate the markers) only for sources that passed the decision; names of withheld files are never included. |
 
 ## Defaults chosen (owner can override)
 

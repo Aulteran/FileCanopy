@@ -13,7 +13,7 @@ For a written answer, set up an AI provider (see `docs/guides/ai.md`). Meaning-b
 ## What it does and does not do
 
 - It answers from the passages it found and numbers them. Click a source to open the file.
-- If the files do not clearly answer, the answer is marked "not taken from your files".
+- If the files do not clearly answer, no answer is shown, only the matching passages.
 - It never changes anything. It cannot move, rename, delete, share or relabel a file.
 - Nothing is saved. The question and answer are gone when you leave the page.
 - It looks in **My files** or **Shared files**, one at a time.

@@ -51,7 +51,9 @@ def snippet_of(body: str, terms: list[str], radius: int = SNIPPET_RADIUS) -> str
     return ("… " if start > 0 else "") + chunk + (" …" if pos + radius * 2 < len(body) else "")
 
 
-def _scope(db: Session, actor: Actor, folder: Node | None) -> list[ColumnElement[bool]]:
+def _scope(
+    db: Session, actor: Actor, folder: Node | None, root_id: uuid.UUID | None = None
+) -> list[ColumnElement[bool]]:
     """SQL narrowing only (never the decision): the subtrees of the person's entry points."""
     points = engine.entry_points(db, actor)
     prefixes = [n.lineage for n in points]
@@ -61,7 +63,10 @@ def _scope(db: Session, actor: Actor, folder: Node | None) -> list[ColumnElement
         return [literal_column("1") == 0]
     # `lineage` is "/id/id/" (every ancestor and the node itself, each followed by a slash), so a
     # prefix match selects the entry point and everything below it. Ids contain no wildcards.
-    return [or_(*[Node.lineage.like(p + "%") for p in prefixes])]
+    conditions = [or_(*[Node.lineage.like(p + "%") for p in prefixes])]
+    if root_id is not None:  # one tree only: other trees must not use up the candidates
+        conditions.append(Node.root_id == root_id)
+    return conditions
 
 
 def _inside(lineage: str, prefixes: list[str]) -> bool:
@@ -76,6 +81,7 @@ def search(
     folder_id: uuid.UUID | None = None,
     limit: int = 25,
     radius: int = SNIPPET_RADIUS,
+    root_id: uuid.UUID | None = None,
 ) -> list[Hit]:
     terms = terms_of(q)
     if not terms:
@@ -85,7 +91,7 @@ def search(
         folder = db.get(Node, folder_id)
         if folder is None or Privilege.TRAVERSE not in engine.effective(db, actor, folder):
             return []  # same answer as an empty folder: nothing about the node is revealed
-    scope = _scope(db, actor, folder)
+    scope = _scope(db, actor, folder, root_id)
     visible = Node.status.not_in(HIDDEN_NODE_STATUSES)
     hits: dict[uuid.UUID, Hit] = {}
 
