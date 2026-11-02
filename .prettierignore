@@ -2,6 +2,8 @@
 *.md
 # Milestone status is hand-maintained with its own layout.
 MILESTONES.json
+# Approved design mockups are reference-only and kept as delivered.
+docs/design/
 node_modules/
 coverage/
 package-lock.json
