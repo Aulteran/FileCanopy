@@ -6,6 +6,9 @@ import {
   isInboxPath,
   isMailboxPath,
   isDuplicatesPath,
+  isCollectionsPath,
+  collectionIdFrom,
+  collectionPath,
   isOrganizePath,
   isVerifyEmailPath,
   isRecentPath,
@@ -108,6 +111,16 @@ describe("mail routes", () => {
   it("knows the duplicates page", () => {
     expect(isDuplicatesPath("/duplicates")).toBe(true);
     expect(isDuplicatesPath("/duplicates/x")).toBe(false);
+  });
+
+  it("knows the collections pages", () => {
+    const id = "0b1c2d3e-0000-4000-8000-000000000001";
+    expect(isCollectionsPath("/collections")).toBe(true);
+    expect(isCollectionsPath(`/collections/${id}`)).toBe(true);
+    expect(isCollectionsPath("/collections/x")).toBe(false);
+    expect(collectionIdFrom(`/collections/${id}`)).toBe(id);
+    expect(collectionIdFrom("/collections")).toBeNull();
+    expect(collectionPath(id)).toBe(`/collections/${id}`);
   });
 
   it("knows the inbox, the mailbox admin page and the confirm link", () => {

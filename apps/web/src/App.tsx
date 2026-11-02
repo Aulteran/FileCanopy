@@ -21,6 +21,7 @@ import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
+  COLLECTIONS_PATH,
   DUPLICATES_PATH,
   INBOX_PATH,
   ORGANIZE_PATH,
@@ -39,6 +40,7 @@ import {
 import { SearchPage } from "./Search";
 import { SetupScreen } from "./Setup";
 import { NotificationsPage } from "./Share";
+import { CollectionsPage } from "./Collections";
 import { DuplicatesPage } from "./Duplicates";
 import { OrganizePage } from "./Organize";
 import { RecentPage, TrashPage } from "./Trash";
@@ -200,6 +202,8 @@ function Shell({
     inbox,
     organize,
     duplicates,
+    collections,
+    collectionId,
     mailbox,
     search,
     go,
@@ -273,6 +277,7 @@ function Shell({
       !inbox &&
       !organize &&
       !duplicates &&
+      !collections &&
       !mailbox &&
       search === null
     )
@@ -289,6 +294,7 @@ function Shell({
     inbox,
     organize,
     duplicates,
+    collections,
     mailbox,
     search,
     go,
@@ -535,6 +541,18 @@ function Shell({
             </li>
             <li>
               <a
+                href={COLLECTIONS_PATH}
+                aria-current={collections ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(COLLECTIONS_PATH);
+                }}
+              >
+                Collections
+              </a>
+            </li>
+            <li>
+              <a
                 href={DUPLICATES_PATH}
                 aria-current={duplicates ? "page" : undefined}
                 onClick={(e) => {
@@ -576,6 +594,14 @@ function Shell({
             <p>Only administrators can manage users.</p>
           ))}
         {inbox && <InboxPage onEnded={onEnded} go={go} />}
+        {collections && (
+          <CollectionsPage
+            collectionId={collectionId}
+            me={session.user.id}
+            go={go}
+            onEnded={onEnded}
+          />
+        )}
         {duplicates && (
           <DuplicatesPage
             onEnded={onEnded}
@@ -584,6 +610,7 @@ function Shell({
         )}
         {organize && (
           <OrganizePage
+            go={go}
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
           />

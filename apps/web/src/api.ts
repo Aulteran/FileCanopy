@@ -224,6 +224,48 @@ export type SplitSuggest = {
   proposal_id?: string;
   status?: string;
 };
+export type CollectionSummary = {
+  id: string;
+  title: string;
+  role: "owner" | "editor" | "viewer";
+  owner_name: string | null;
+  from_suggestion: boolean;
+};
+export type CollectionFile = {
+  node_id: string;
+  name: string;
+  size: number;
+  revision: number;
+  parent_id: string | null;
+  parent_name: string | null;
+};
+export type CollectionDetail = {
+  id: string;
+  title: string;
+  role: "owner" | "editor" | "viewer";
+  owner_name: string | null;
+  count: number;
+  updated_at: string | null; // owner only
+  members: CollectionFile[];
+  shares: { user_id: string; name: string; level: "viewer" | "editor" }[];
+};
+export type CollectionSuggestion = {
+  id: string;
+  status: string;
+  title: string;
+  reason: string;
+  confidence: number;
+  created_at: string;
+  outcome: string;
+  collection_id: string | null;
+  members: CollectionFile[];
+};
+export type CollectionSuggestResult = {
+  suggestion_ids: string[];
+  skipped: Record<string, string>;
+  refused?: string;
+  note?: string;
+};
 export type DuplicateMember = {
   node_id: string;
   name: string;
@@ -1166,6 +1208,68 @@ export const api = {
     call<{ groups: DuplicateGroup[] }>(
       "GET",
       `/api/v1/duplicates?near=${near ? "true" : "false"}`,
+    ),
+
+  // Collections (M18)
+  collections: () =>
+    call<{ items: CollectionSummary[] }>("GET", "/api/v1/collections"),
+  collection: (id: string) =>
+    call<CollectionDetail>("GET", `/api/v1/collections/${enc(id)}`),
+  createCollection: (title: string, node_ids: string[] = []) =>
+    call<CollectionDetail>("POST", "/api/v1/collections", { title, node_ids }),
+  renameCollection: (id: string, title: string) =>
+    call<CollectionDetail>("PUT", `/api/v1/collections/${enc(id)}`, { title }),
+  deleteCollection: (id: string) =>
+    call<unknown>("DELETE", `/api/v1/collections/${enc(id)}`),
+  addToCollection: (id: string, node_ids: string[]) =>
+    call<CollectionDetail>("POST", `/api/v1/collections/${enc(id)}/members`, {
+      node_ids,
+    }),
+  removeFromCollection: (id: string, node_ids: string[]) =>
+    call<CollectionDetail>(
+      "POST",
+      `/api/v1/collections/${enc(id)}/members/remove`,
+      { node_ids },
+    ),
+  shareCollection: (id: string, user_id: string, level: "viewer" | "editor") =>
+    call<CollectionDetail>(
+      "PUT",
+      `/api/v1/collections/${enc(id)}/shares/${enc(user_id)}`,
+      { level },
+    ),
+  unshareCollection: (id: string, user_id: string) =>
+    call<CollectionDetail | { left: true }>(
+      "DELETE",
+      `/api/v1/collections/${enc(id)}/shares/${enc(user_id)}`,
+    ),
+  collectionsOfNode: (node_id: string) =>
+    call<{ items: { id: string; title: string }[] }>(
+      "GET",
+      `/api/v1/nodes/${enc(node_id)}/collections`,
+    ),
+  collectionSuggest: (node_ids: string[]) =>
+    call<CollectionSuggestResult>("POST", "/api/v1/ai/collections/suggest", {
+      node_ids,
+    }),
+  collectionSuggestions: (status = "pending") =>
+    call<{ items: CollectionSuggestion[] }>(
+      "GET",
+      `/api/v1/ai/collections/suggestions?status=${enc(status)}`,
+    ),
+  collectionSuggestionApprove: (
+    id: string,
+    title?: string,
+    exclude: string[] = [],
+  ) =>
+    call<{ id: string; status: string; collection_id: string }>(
+      "POST",
+      `/api/v1/ai/collections/suggestions/${enc(id)}/approve`,
+      { title, exclude },
+    ),
+  collectionSuggestionDismiss: (id: string) =>
+    call<unknown>(
+      "POST",
+      `/api/v1/ai/collections/suggestions/${enc(id)}/dismiss`,
     ),
 
   // Reconciliation (M06a routes, M06b UI)

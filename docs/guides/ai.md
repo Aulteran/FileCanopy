@@ -7,7 +7,7 @@ FileCanopy works fully with no AI. This guide covers turning it on. Design and t
 
 Providers, who may use them, a cloud consent record, monthly dollar caps and a usage ledger (M15), and
 organisation suggestions for names and folders (M16, see `ai-organize.md`), and PDF splitting with
-duplicate suggestions (M17, see `ai-split.md`). Collections, semantic search and chat arrive in later milestones and call the same gateway
+duplicate suggestions (M17, see `ai-split.md`). Collection suggestions (M18, see `collections.md`) use it too. Semantic search and chat arrive in later milestones and call the same gateway
 (`app/ai/gateway.py`).
 
 ## Storing cloud API keys

@@ -946,3 +946,75 @@ class SplitProposal(Base):
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+
+
+class Collection(Base):
+    """A virtual group of file references (M18). Holds no file content and no path: members are
+    node ids, so a rename or move never breaks one and nothing is copied. Visible only to the
+    owner and to people it was shared with; a share never grants access to a member file."""
+
+    __tablename__ = "collection"
+    __table_args__ = (UniqueConstraint("owner_user_id", "title_key", name="uq_collection_title"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(80), nullable=False)
+    title_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # Set when an approved AI suggestion made it (the person approved; AI never creates).
+    suggestion_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+
+
+class CollectionMember(Base):
+    __tablename__ = "collection_member"
+
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("collection.id", ondelete="CASCADE"), primary_key=True
+    )
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    added_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    added_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class CollectionShare(Base):
+    """Who else may open a collection. level: viewer | editor (editors add and remove members they
+    can read themselves). It says nothing about the files."""
+
+    __tablename__ = "collection_share"
+
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("collection.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    level: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class CollectionSuggestion(Base):
+    """One AI grouping suggestion (M18), private to the requester. `title` and `reason` are
+    model-derived, so the row is only read through `app.ai.collect`, which re-checks that every
+    member is still readable and Normal and otherwise retires the row and clears the text.
+    status: pending | approved | dismissed | stale. `node_ids` lists the proposed members."""
+
+    __tablename__ = "collection_suggestion"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(10), index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # per mille
+    node_ids: Mapped[Any] = mapped_column(Json, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    collection_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")

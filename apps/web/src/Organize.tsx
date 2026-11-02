@@ -5,6 +5,7 @@ import {
   type OrganizeProposal,
   type SplitProposal,
 } from "./api";
+import { CollectionSuggestions } from "./Collections";
 import { describeError } from "./format";
 import {
   describeConfidence,
@@ -25,9 +26,11 @@ function errorOf(err: unknown, onEnded: () => void): string {
 }
 
 export function OrganizePage({
+  go,
   onEnded,
   onChanged,
 }: {
+  go: (path: string) => void;
   onEnded: () => void;
   onChanged: () => void;
 }) {
@@ -340,6 +343,7 @@ export function OrganizePage({
           </ul>
         </>
       )}
+      <CollectionSuggestions go={go} onEnded={onEnded} />
     </section>
   );
 }
