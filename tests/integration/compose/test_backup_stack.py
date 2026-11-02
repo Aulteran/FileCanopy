@@ -85,7 +85,7 @@ def wait_run(admin: Client, kind: str, timeout: float = 90) -> dict[str, Any]:
 
 
 def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0016"
+    assert stack.sql("select version_num from alembic_version") == "0017"
     admin = setup_admin(stack)
     status = admin.call("GET", "/api/v1/admin/backups")[1]
     assert status["settings"]["enabled"] is False  # off by default
