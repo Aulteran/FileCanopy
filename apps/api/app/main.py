@@ -13,6 +13,7 @@ from app.ai.secrets import SecretBox
 from app.api import admin_storage
 from app.api import ai as ai_routes
 from app.api import backups as backup_routes
+from app.api import collections as collections_routes
 from app.api import files as file_routes
 from app.api import imports as import_routes
 from app.api import mailbox as mailbox_routes
@@ -196,5 +197,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ai_routes.router)
     app.include_router(organize_routes.router)
     app.include_router(pdfsplit_routes.router)
+    app.include_router(collections_routes.router)
 
     return app

@@ -18,6 +18,8 @@ import {
   type UndoResult,
 } from "./api";
 import { ActivityPanel } from "./Activity";
+import { AddToCollectionDialog } from "./Collections";
+import { describeSuggestResult } from "./collectionsText";
 import { NameDialog, TargetDialog } from "./Dialogs";
 import { ShareDialog } from "./Share";
 import { describeError, formatDate, formatSize, progressText } from "./format";
@@ -41,7 +43,14 @@ import { hasThumbnail, viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
 type Dialog =
-  null | "folder" | "rename" | "move" | "copy" | "share" | "privacy";
+  | null
+  | "folder"
+  | "rename"
+  | "move"
+  | "copy"
+  | "share"
+  | "privacy"
+  | "collect";
 type Upload = {
   id: number;
   file: File;
@@ -404,6 +413,27 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
+  async function suggestCollections(): Promise<void> {
+    const ids = items
+      .filter((c) => c.kind === "file" && c.status === "active")
+      .slice(0, 20)
+      .map((c) => c.id);
+    try {
+      const res = await api.collectionSuggest(ids);
+      setErrorText("");
+      setUndoable(null);
+      setNotice(
+        `${describeSuggestResult(res)}${
+          res.suggestion_ids.length > 0
+            ? " Open Collections in the sidebar to review them."
+            : ""
+        }`,
+      );
+    } catch (err) {
+      setErrorText(fail(err));
+    }
+  }
+
   async function splitSelected(): Promise<void> {
     if (!selected) return;
     try {
@@ -649,6 +679,13 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           onClick={() => setDialog("folder")}
         >
           New folder
+        </button>
+        <button
+          disabled={items.filter((c) => c.kind === "file").length < 2}
+          title="Ask AI which of the files listed here belong together"
+          onClick={() => void suggestCollections()}
+        >
+          Suggest collections
         </button>
         <LabelBadge label={info.privacy_effective} />
         {info.shared_with !== null && info.kind === "dir" && (
@@ -1011,6 +1048,11 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                       Copy…
                     </button>
                     {selected.kind === "file" && (
+                      <button onClick={() => setDialog("collect")}>
+                        Add to collection…
+                      </button>
+                    )}
+                    {selected.kind === "file" && (
                       <button
                         disabled={!canWrite}
                         title={noWrite}
@@ -1099,6 +1141,20 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
               `Renamed to ${name}`,
             )
           }
+        />
+      )}
+      {dialog === "collect" && selected && (
+        <AddToCollectionDialog
+          nodeId={selected.id}
+          name={selected.name}
+          onClose={() => setDialog(null)}
+          onEnded={onEnded}
+          onDone={(message) => {
+            setDialog(null);
+            setErrorText("");
+            setUndoable(null);
+            setNotice(message);
+          }}
         />
       )}
       {(dialog === "move" || dialog === "copy") && selected && (

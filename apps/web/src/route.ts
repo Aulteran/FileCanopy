@@ -14,6 +14,7 @@ const SEARCH = /^\/search\/?$/;
 const INBOX = /^\/inbox\/?$/;
 const ORGANIZE = /^\/organize\/?$/;
 const DUPLICATES = /^\/duplicates\/?$/;
+const COLLECTIONS = /^\/collections(?:\/([0-9a-f-]{36}))?\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
@@ -42,6 +43,7 @@ export const SEARCH_PATH = "/search";
 export const INBOX_PATH = "/inbox";
 export const ORGANIZE_PATH = "/organize";
 export const DUPLICATES_PATH = "/duplicates";
+export const COLLECTIONS_PATH = "/collections";
 export const MAILBOX_PATH = "/admin/mail";
 
 export function isInboxPath(pathname: string): boolean {
@@ -54,6 +56,18 @@ export function isOrganizePath(pathname: string): boolean {
 
 export function isDuplicatesPath(pathname: string): boolean {
   return DUPLICATES.test(pathname);
+}
+
+export function isCollectionsPath(pathname: string): boolean {
+  return COLLECTIONS.test(pathname);
+}
+
+export function collectionIdFrom(pathname: string): string | null {
+  return COLLECTIONS.exec(pathname)?.[1] ?? null;
+}
+
+export function collectionPath(id: string): string {
+  return `${COLLECTIONS_PATH}/${id}`;
 }
 
 export function isMailboxPath(pathname: string): boolean {
@@ -142,6 +156,8 @@ export function useRoute(): {
   inbox: boolean;
   organize: boolean;
   duplicates: boolean;
+  collections: boolean;
+  collectionId: string | null;
   mailbox: boolean;
   search: string | null;
   go: (path: string, replace?: boolean) => void;
@@ -174,6 +190,8 @@ export function useRoute(): {
     inbox: isInboxPath(path),
     organize: isOrganizePath(path),
     duplicates: isDuplicatesPath(path),
+    collections: isCollectionsPath(path),
+    collectionId: collectionIdFrom(path),
     mailbox: isMailboxPath(path),
     search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,

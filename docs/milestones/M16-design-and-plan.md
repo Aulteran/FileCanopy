@@ -14,7 +14,7 @@ the administrator) has chosen `auto`, the administrator has set a confidence bar
 deterministic check passes does the server apply a rename or move without asking, as the
 `ai_agent` actor so the existing undo reverses it.
 
-**Not in scope:** splitting and duplicates (M17), collections (M19), embeddings/chat (M19/M20),
+**Not in scope:** splitting and duplicates (M17), collections (M18), embeddings/chat (M19/M20),
 background processing of new uploads or email intake (follow-up), proposals for Private or
 Confidential files (they get no AI call in M16).
 

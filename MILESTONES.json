@@ -634,8 +634,8 @@
         "suggest approve/dismiss",
         "cross-user membership"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-02 on branch m18-collections (migration 0021), awaiting Opus 5.5 review and merge. Design and threat model: docs/milestones/M18-design-and-plan.md; guide docs/guides/collections.md.",
+      "status": "in_review"
     },
     {
       "id": "M19",
