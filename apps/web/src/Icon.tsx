@@ -1,6 +1,6 @@
 import { ICON_PATHS, type IconName } from "./iconPaths";
 
-// Decorative inline icon: the markup is a fixed constant from iconPaths.ts, never user input.
+// Decorative inline icon (JSX from iconPaths.tsx).
 // Meaning always comes from the visible text next to it (or an aria-label on the button).
 export function Icon({ name, size }: { name: IconName; size?: number }) {
   return (
@@ -11,8 +11,9 @@ export function Icon({ name, size }: { name: IconName; size?: number }) {
       height={size}
       aria-hidden="true"
       focusable="false"
-      dangerouslySetInnerHTML={{ __html: ICON_PATHS[name] }}
-    />
+    >
+      {ICON_PATHS[name]}
+    </svg>
   );
 }
 
