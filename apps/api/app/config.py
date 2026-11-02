@@ -177,6 +177,16 @@ class Settings(BaseSettings):
     imap_max_per_poll: int = Field(default=50, ge=1, le=1000)
     mail_quarantine_retention_days: int = Field(default=30, ge=0, le=3650)  # 0 = keep
     mail_quarantine_quota_bytes: int = Field(default=1024**3, ge=0)
+    # Bytes of recognised mail waiting to be filed. Separate from the quarantine quota so that
+    # unauthenticated mail to the intake address can never starve recognised senders.
+    mail_staging_quota_bytes: int = Field(default=1024**3, ge=0)
+    # M14: limits applied to an archive attachment before it reaches the library (zip family,
+    # gzip, bzip2, xz); no archive inside an archive is allowed.
+    mail_archive_max_entries: int = Field(default=1000, ge=1, le=100_000)
+    mail_archive_max_uncompressed_bytes: int = Field(default=1024**3, ge=1)
+    mail_archive_max_ratio: int = Field(default=100, ge=1)
+    # Messages filed per sender per rolling day; the rest wait as `failed` / RATE_LIMITED.
+    mail_daily_messages_per_sender: int = Field(default=200, ge=1)
     alias_ttl_seconds: int = 24 * 3600
     max_aliases_per_user: int = Field(default=10, ge=0, le=50)
 

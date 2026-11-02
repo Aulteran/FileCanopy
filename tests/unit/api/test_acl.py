@@ -668,6 +668,11 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/quarantine/{message_id}",
     "/api/v1/admin/quarantine/{message_id}/attachments/{attachment_id}/content",
     "/api/v1/admin/quarantine/{message_id}/reject",
+    # M14: the sender's own message; the other two are administrators and the upload code checks
+    # their own folder rights
+    "/api/v1/me/inbox/{message_id}/retry",
+    "/api/v1/admin/mailbox/shared-intake",
+    "/api/v1/admin/quarantine/{message_id}/approve",
 }
 
 

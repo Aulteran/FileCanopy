@@ -147,13 +147,25 @@ export type Grant = {
 export type Person = { id: string; name: string; hint: string | null };
 export type Notice = {
   id: string;
-  kind: "shared" | "share_changed" | "unshared" | "share_left";
+  kind:
+    | "shared"
+    | "share_changed"
+    | "unshared"
+    | "share_left"
+    | "mail_filed"
+    | "mail_shared"
+    | "mail_refused"
+    | "mail_failed"
+    | "mail_quarantine"
+    | "mail_intake_unset";
   at: string;
   read: boolean;
   actor_name: string | null;
   node_id: string | null;
   node_name: string | null;
   level: "viewer" | "editor" | null;
+  count: number | null;
+  detail: string | null;
 };
 export type ImpactSide = {
   affected: boolean;
@@ -533,6 +545,7 @@ export type MailAttachment = {
   content_type: string;
   size_bytes: number;
   stored: boolean;
+  outcome: string | null;
 };
 export type MailMessage = {
   id: string;
@@ -547,6 +560,16 @@ export type MailMessage = {
   content_state: string;
   auth_summary: Record<string, string>;
   attachments: MailAttachment[];
+  processing_state: "pending" | "filed" | "partial" | "failed" | null;
+  process_error: string | null;
+  filed_count: number;
+  filed_folder_id: string | null;
+  can_retry: boolean;
+};
+export type SharedIntake = {
+  node_id: string | null;
+  name: string | null;
+  usable: boolean;
 };
 export type MailboxStatus = {
   configured: boolean;
@@ -563,6 +586,9 @@ export type MailboxStatus = {
   quarantined: number;
   errors: number;
   verified: number;
+  shared_intake_set: boolean;
+  waiting_for_intake: number;
+  failed_to_file: number;
 };
 
 const enc = encodeURIComponent;
@@ -730,6 +756,23 @@ export const api = {
   rejectQuarantined: (id: string) =>
     call<MailMessage>("POST", `/api/v1/admin/quarantine/${enc(id)}/reject`, {
       confirm: true,
+    }),
+  retryFiling: (id: string) =>
+    call<MailMessage>("POST", `/api/v1/me/inbox/${enc(id)}/retry`, {}),
+  sharedIntake: () =>
+    call<SharedIntake>("GET", "/api/v1/admin/mailbox/shared-intake"),
+  setSharedIntake: (nodeId: string | null) =>
+    call<SharedIntake>("PUT", "/api/v1/admin/mailbox/shared-intake", {
+      node_id: nodeId,
+    }),
+  approveQuarantined: (
+    id: string,
+    destination: string,
+    attachments: string[],
+  ) =>
+    call<MailMessage>("POST", `/api/v1/admin/quarantine/${enc(id)}/approve`, {
+      destination_id: destination,
+      attachment_ids: attachments,
     }),
   quarantineDownloadUrl: (id: string, attachment: string) =>
     `/api/v1/admin/quarantine/${enc(id)}/attachments/${enc(attachment)}/content`,

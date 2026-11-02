@@ -61,7 +61,7 @@ def root_node(stack: Stack, relative_dir: str) -> str:
 
 
 def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0016"
+    assert stack.sql("select version_num from alembic_version") == "0017"
     assert stack.sql("select count(*) from storage_root where kind = 'shared'") == "1"
     admin = setup_admin(stack)
     users = stack.sql("select count(*) from app_user")  # the auth suite may have added accounts
@@ -76,7 +76,7 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
         "update alembic_version set version_num = '0002'"
     )
     stack.compose("run", "--rm", "migrate")
-    assert stack.sql("select version_num from alembic_version") == "0016"
+    assert stack.sql("select version_num from alembic_version") == "0017"
     uid = user_id(stack, "admin@example.com")
     assert stack.sql(f"select relative_dir from storage_root where owner_user_id = '{uid}'") == (
         f"personal/{uid}"

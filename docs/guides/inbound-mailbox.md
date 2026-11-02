@@ -1,9 +1,9 @@
 # Inbound mailbox (optional)
 
-FileCanopy can read one mailbox over IMAP so people can email documents to it. In this version
-(M13) the mailbox is a **foundation**: messages are read, parsed, matched to a person or held in a
-quarantine, and listed. Nothing is filed into anyone's folders yet (that is the next milestone).
-FileCanopy works fully without a mailbox.
+FileCanopy can read one mailbox over IMAP so people can email documents to it. Messages are read,
+parsed and matched to a person or held in a quarantine. Attachments from a recognised person are
+filed as if that person had uploaded them (see "Where attachments go"). FileCanopy works fully
+without a mailbox.
 
 ## What you need
 
@@ -60,10 +60,65 @@ A message is recognised only when **all** of these are true:
 3. The recipient header added by your provider names exactly one of the two intake addresses.
    The visible `To:` and `Cc:` lines are never used.
 
+Under the default `aligned` policy an SPF result only counts when `smtp.mailfrom` is a full
+address (it contains an `@`); a bare domain does not.
+
 Anything else is **held**, with a reason, for an administrator: unknown or ambiguous sender,
 failed or missing sender check, forwarded mail, oversized or odd messages. Held mail is not
-given to any person or AI service. Attachments are kept for 30 days in a private folder under
-app-data (not in the library), then deleted; the record stays.
+given to any person or AI service. Attachments of held mail addressed to the **shared** address are
+kept for 30 days in a private folder under app-data (not in the library), then deleted; the
+record stays. Held mail addressed to the personal address, or to an unknown address, keeps
+metadata only (names, sizes, hashes): an administrator cannot put it in a personal folder anyway.
+
+## Where attachments go
+
+A recognised message waits in a queue with its attachments staged under app-data, then:
+
+- **`personaldocs@`**: into a folder called `Email inbox` at the top of the sender's own files
+  (created the first time). The sender can rename or move it; a file with that name, or a folder
+  the sender cannot write to, makes filing fail and the sender is told.
+- **`ingest@`**: into the **shared email folder** an administrator picks on the Mailbox page
+  (open the folder in Files and paste its address). The sender must be allowed to add files there,
+  exactly as in the web page. Until a folder is chosen, shared mail waits and administrators get
+  a reminder; it is filed when one is chosen.
+
+Each attachment goes through the same upload code as the web page, acting as the sender: the same
+permission checks, name rules, file history (marked "email") and search indexing. Names are
+cleaned; clashes become `name (2).ext`. The message body is never filed.
+
+Before an archive reaches the library it is checked: at most 1000 entries, 1 GiB unpacked, an
+expansion ratio under 100 for large entries, and no archive inside an archive (zip, Office and
+OpenDocument files, gzip, bzip2, xz). Other archive formats (7z, rar, tar) are stored as plain
+files. A refused attachment is not filed and the sender is told why; the rest of the message is
+filed. These limits are `FILECANOPY_MAIL_ARCHIVE_MAX_ENTRIES`, `_MAX_UNCOMPRESSED_BYTES`,
+`_MAX_RATIO`.
+
+If filing fails for a reason that may pass (a busy folder, a full disk) it is retried five times
+with growing delays; after that the message is marked failed, the sender gets one notice and may
+press **Try again** once in the Email inbox page. Permanent problems (no permission, no shared
+folder yet) fail straight away. Each person is limited to
+`FILECANOPY_MAIL_DAILY_MESSAGES_PER_SENDER` (200) filed messages a day.
+
+If an address stops belonging to the sender (removed, moved to another account, account disabled)
+before filing, nothing is filed and the message is held.
+
+## Who is told
+
+Notices are in the app, never by email, and never contain file names, subjects or addresses.
+
+- Personal mail: only its owner.
+- Shared mail: the sender and every active administrator, as a count; an administrator sees the
+  folder name only if they can open that folder.
+- Administrators also get one merged "N emails wait for review" notice for held mail, and a
+  reminder while shared mail waits for a folder. They are never told about a person's failures.
+
+## Approving held mail
+
+For a held message whose attachments were kept (shared address only), an administrator can file
+the attachments into the shared email folder with their own rights, or reject the message. This
+gives the unknown sender nothing: no account, no address, no access. Approval cannot place a file
+in a personal folder. To have future mail from an address recognised, its owner adds it to their
+account (Account, Sender addresses) and confirms it from the link we send.
 
 ## Limits
 
@@ -75,4 +130,4 @@ messages are held without being downloaded.
 - Forwarded mail usually fails the sender check and is held.
 - A provider that does not add the recipient header (some catch-all setups) holds everything;
   use a provider or alias setup that does.
-- Administrators see held mail but never a person's recognised mail.
+- Administrators see held mail but never a person's recognised mail, its failures or its files.

@@ -536,7 +536,7 @@ function Shell({
           ) : (
             <p>Only administrators can manage users.</p>
           ))}
-        {inbox && <InboxPage onEnded={onEnded} />}
+        {inbox && <InboxPage onEnded={onEnded} go={go} />}
         {mailbox &&
           (admin ? (
             <MailboxAdminPage onEnded={onEnded} />

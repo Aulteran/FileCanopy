@@ -21,6 +21,7 @@ from app.auth import clock
 from app.auth.service import audit
 from app.config import Settings
 from app.db.models import InboundAttachment, InboundMessage
+from app.mail import archives, notices
 from app.mail.decision import decide
 from app.mail.mime import Limits, MimeRefused, ParsedMessage, parse_message
 
@@ -47,11 +48,21 @@ def limits_of(settings: Settings) -> Limits:
     )
 
 
-def _stored_total(db: Session) -> int:
+def archive_limits(settings: Settings) -> archives.ArchiveLimits:
+    return archives.ArchiveLimits(
+        settings.mail_archive_max_entries,
+        settings.mail_archive_max_uncompressed_bytes,
+        settings.mail_archive_max_ratio,
+    )
+
+
+def _stored_total(db: Session, *, verified: bool) -> int:
+    """Bytes held for recognised mail (staging) or for everything else (quarantine)."""
+    recognised = InboundMessage.status == "verified"
     total = db.scalar(
         select(func.coalesce(func.sum(InboundAttachment.size_bytes), 0))
         .join(InboundMessage, InboundMessage.id == InboundAttachment.message_id)
-        .where(InboundMessage.content_state == "stored")
+        .where(InboundMessage.content_state == "stored", recognised if verified else ~recognised)
     )
     return int(total or 0)
 
@@ -104,6 +115,9 @@ def record_unreadable(
     row = _base(key, uidvalidity, uid, received, size, status, reason)
     db.add(row)
     _commit_unique(db)
+    if status == "quarantined":
+        notices.quarantine_arrived(db)
+        db.commit()
     return _existing(db, key, uidvalidity, uid) or row
 
 
@@ -161,9 +175,22 @@ def ingest(
         row.subject = parsed.subject
         row.message_id_hash = parsed.message_id_hash
         row.attachment_count = len(parsed.attachments)
-        keep = decision.status == "quarantined" and bool(parsed.attachments)
+        # Verified mail waits for the filing worker; quarantined bytes are kept only for mail
+        # addressed to the shared intake (personal and unknown-destination mail: metadata only).
+        keep = bool(parsed.attachments) and (
+            decision.status == "verified" or decision.destination == "shared"
+        )
+        if decision.status == "verified":
+            row.processing_state = "pending" if parsed.attachments else "filed"
+            row.process_after = clock.utcnow()
         total = sum(a.size for a in parsed.attachments)
-        if keep and _stored_total(db) + total <= settings.mail_quarantine_quota_bytes:
+        is_verified = decision.status == "verified"
+        quota = (
+            settings.mail_staging_quota_bytes
+            if is_verified
+            else settings.mail_quarantine_quota_bytes
+        )
+        if keep and _stored_total(db, verified=is_verified) + total <= quota:
             files = quarantine_dir(settings) / str(row.id)
             row.content_state = "stored"
         elif keep:
@@ -199,6 +226,9 @@ def ingest(
         db.rollback()
         _remove(files)
         raise
+    if row.status == "quarantined":
+        notices.quarantine_arrived(db)
+        db.commit()
     return row
 
 

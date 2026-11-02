@@ -81,8 +81,13 @@ class AuthDecision:
 
 
 def _domain_of_mailfrom(value: str) -> str:
-    """The domain of `smtp.mailfrom`, or "" when the value is not a plain domain or address."""
-    domain = value.rpartition("@")[2].lower()
+    """The domain of `smtp.mailfrom`, or "" when the value is not an address. A bare domain is
+    refused (M14): a provider that drops the quotes around a quoted local part could otherwise let
+    a hostile envelope sender smuggle text that looks like a second result into the header."""
+    local, at, domain = value.rpartition("@")
+    if not at or not local:
+        return ""
+    domain = domain.lower()
     return domain if _DOMAIN.match(domain) else ""
 
 
