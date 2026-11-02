@@ -556,8 +556,8 @@
         "policy table",
         "no-cloud protected regression"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-02 on branch m15-ai-capability-layer (migration 0018). Design and threat model: docs/milestones/M15-design-and-plan.md; guide docs/guides/ai.md. Awaiting Opus 5.5 security review and CI.",
+      "status": "in_review"
     },
     {
       "id": "M16",
