@@ -27,8 +27,9 @@ from app.db.models import HIDDEN_NODE_STATUSES, Node, SearchDoc
 from app.policy import engine, privacy
 from app.policy.model import Actor, Privilege
 
-EXACT_SCAN_CAP = 500  # hash groups examined per request
+EXACT_SCAN_CAP = 2000  # hash groups examined per request (unreadable ones count too)
 NEAR_SCAN_CAP = 1000  # documents compared per request
+NEAR_TEXT_CHARS = 20_000  # text compared per document (only this prefix is loaded)
 MAX_GROUPS = 50
 MAX_MEMBERS = 20
 MIN_TEXT_CHARS = 200
@@ -153,7 +154,7 @@ def similarity(a: list[int], b: list[int]) -> int:
 def near_groups(db: Session, actor: Actor, folder: Node | None) -> list[Group]:
     scope = _scope(db, actor, folder)
     rows = db.execute(
-        select(Node, SearchDoc.body)
+        select(Node, func.substr(SearchDoc.body, 1, NEAR_TEXT_CHARS))
         .join(SearchDoc, SearchDoc.node_id == Node.id)
         .where(
             Node.status.not_in(HIDDEN_NODE_STATUSES),

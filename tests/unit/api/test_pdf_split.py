@@ -5,7 +5,9 @@ import ast
 import hashlib
 import io
 import json
+import os
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -687,3 +689,174 @@ def test_ocr_fills_scanned_pages_without_text_and_survives_failures(
     assert done == 1 and seen == [[1], [3]]
     assert desc[0]["head"] == "Scanned letter Page 1 of 1" and desc[0]["marker"] == [1, 1]
     assert desc[2]["head"] == "" and desc[3]["head"] == ""
+
+
+# --- Opus review round 1 ---------------------------------------------------------
+def raw_pdf(page: bytes, extra_objs: list[bytes], content: bytes) -> bytes:
+    """One page; `page` is the page dictionary body, objects 4.. are `extra_objs`."""
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        page,
+        b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream",
+        *extra_objs,
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return bytes(out)
+
+
+PAGE = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R "
+
+
+def descriptor_of(data: bytes) -> dict[str, Any]:
+    return dict(pdfsplit.page_descriptors(io.BytesIO(data), 10, 100)["descriptors"][0])
+
+
+def test_pages_with_only_forms_or_annotations_are_not_blank() -> None:
+    form = (
+        b"<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Length 12 >>\n"
+        b"stream\n0 0 50 50 re f\nendstream"
+    )
+    only_form = raw_pdf(PAGE + b"/Resources << /XObject << /Fm0 5 0 R >> >> >>", [form], b"/Fm0 Do")
+    assert descriptor_of(only_form)["blank"] is False
+    stamp = raw_pdf(
+        PAGE + b"/Annots [5 0 R] >>",
+        [b"<< /Type /Annot /Subtype /Stamp /Rect [0 0 50 50] >>"],
+        b"",
+    )
+    assert descriptor_of(stamp)["blank"] is False
+    inline = raw_pdf(PAGE + b">>", [], b"q 10 0 0 10 0 0 cm BI /W 1 /H 1 /CS /G /BPC 8 ID 0 EI Q")
+    assert descriptor_of(inline)["blank"] is False
+    assert descriptor_of(raw_pdf(PAGE + b">>", [], b""))["blank"] is True
+
+
+def test_page_fingerprint_sees_content_even_without_text() -> None:
+    a = raw_pdf(PAGE + b">>", [], b"0 0 5 5 re f")
+    b = raw_pdf(PAGE + b">>", [], b"0 0 6 6 re f")
+    fa = pdfsplit._page_fingerprint(PdfReader(io.BytesIO(a)).pages[0])
+    fb = pdfsplit._page_fingerprint(PdfReader(io.BytesIO(b)).pages[0])
+    assert fa != fb
+    out = pdfsplit.extract_part(io.BytesIO(a), [1])  # a text-less page still verifies
+    assert out.startswith(b"%PDF-")
+
+
+def test_title_cleaning_removes_format_characters() -> None:
+    names = split.part_names("scan.pdf", ["Invoice‮gnp.exe", "zero​width"])
+    assert all(ch not in "".join(names) for ch in "‮​")
+    assert names[0].startswith("Invoice")
+
+
+def test_file_name_is_inside_the_fence() -> None:
+    desc = [{"n": 1, "head": "a", "blank": False}]
+    text = split.build_text("evil name.pdf", desc, 50, "abc")
+    lines = text.splitlines()
+    start, end = lines.index("<<<DOCUMENT-abc"), lines.index("DOCUMENT-abc>>>")
+    name_line = next(i for i, ln in enumerate(lines) if ln.startswith("File name:"))
+    assert start < name_line < end
+
+
+def test_lost_claim_stops_the_split_and_cleans_up(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
+    alice = Api(fx, "alice")
+    f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
+    pid = suggest(alice, f)["proposal_id"]
+    real = PreviewService.pdf_part
+    calls = {"n": 0}
+
+    def reclaimed_meanwhile(self: PreviewService, file: Any, size: int, pages: list[int]) -> bytes:
+        calls["n"] += 1
+        if calls["n"] == 2:  # another request reclaimed the row while the first part was written
+            with fx.w.ctx.sessions() as db:
+                row = db.get(SplitProposal, uuid.UUID(pid))
+                assert row is not None
+                row.status = "failed"
+                db.commit()
+        return real(self, file, size, pages)
+
+    monkeypatch.setattr(PreviewService, "pdf_part", reclaimed_meanwhile)
+    r = sp(alice, f"/proposals/{pid}/approve", {})
+    assert r.status_code == 409 and code(r) == "CLAIM_LOST"
+    assert [n for n in kids(alice, fx.alice_root) if "part" in n] == []  # no second, orphan set
+    assert fx.w.db_rows(SplitProposal)[0].status == "failed"  # never overwritten with "applied"
+    assert "ai.split_failed" in {a.action for a in fx.w.db_rows(AuthAudit)}
+
+
+def test_failed_row_with_parts_can_be_undone_and_stuck_rows_are_reclaimed(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
+    pid = suggest(alice, f)["proposal_id"]
+    assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 200
+    with fx.w.ctx.sessions() as db:  # pretend the run died after writing: failed, parts remain
+        row = db.get(SplitProposal, uuid.UUID(pid))
+        assert row is not None
+        row.status = "failed"
+        db.commit()
+    shown = alice.client.get("/api/v1/ai/split/proposals?status=failed").json()["items"]
+    assert shown[0]["undoable"] is True
+    r = sp(alice, f"/proposals/{pid}/undo")
+    assert r.status_code == 200 and r.json()["trashed"] == 2
+    assert [n for n in kids(alice, fx.alice_root) if "part" in n] == []
+    # an `applying` row with no sign of life for a long time is failed and audited
+    f2 = up(alice, fx.alice_root, "other.pdf", pdf(TWO_DOCS))
+    pid2 = suggest(alice, f2)["proposal_id"]
+    with fx.w.ctx.sessions() as db:
+        row = db.get(SplitProposal, uuid.UUID(pid2))
+        assert row is not None
+        row.status = "applying"
+        row.decided_at = row.created_at - timedelta(hours=1)
+        db.commit()
+    pending(alice)  # any listing reclaims
+    rows = {str(r.id): r for r in fx.w.db_rows(SplitProposal)}
+    assert rows[pid2].status == "failed" and rows[pid2].outcome == "abandoned"
+    audits = [a for a in fx.w.db_rows(AuthAudit) if a.action == "ai.split_failed"]
+    assert any(pid2 in json.dumps(a.details) for a in audits)
+
+
+def test_failed_requests_leave_audit_rows(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
+    pid = suggest(alice, f)["proposal_id"]
+    assert sp(alice, f"/proposals/{pid}/approve", {"cuts": [9, 10]}).status_code == 422
+    assert alice.rename(f, "renamed.pdf", 1).status_code == 200
+    assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 409
+    codes = [
+        a.details.get("code") for a in fx.w.db_rows(AuthAudit) if a.action == "ai.split_failed"
+    ]
+    assert "bad_ranges" in codes and "changed" in codes
+
+
+def test_same_size_rewrite_with_kept_mtime_is_caught_by_the_digest(fx: Fx) -> None:
+    alice = Api(fx, "alice")
+    data = pdf(TWO_DOCS)
+    f = up(alice, fx.alice_root, "scan.pdf", data)
+    path = disk(fx, f)
+    pid = suggest(alice, f)["proposal_id"]
+    stat = path.stat()
+    path.write_bytes(data.replace(b"Invoice 100", b"Invoice 999"))  # same size, other content
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    r = sp(alice, f"/proposals/{pid}/approve", {})
+    assert r.status_code == 409 and code(r) == "SOURCE_CHANGED"
+    assert [n for n in kids(alice, fx.alice_root) if "part" in n] == []
+
+
+def test_someone_elses_old_pending_proposal_does_not_block_forever(fx: Fx) -> None:
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    f = up(alice, fx.shared_root, "shared.pdf", pdf(TWO_DOCS))
+    first = suggest(alice, f)["proposal_id"]
+    assert suggest(bob, f)["skipped"] == "busy"
+    with fx.w.ctx.sessions() as db:
+        row = db.get(SplitProposal, uuid.UUID(first))
+        assert row is not None
+        row.created_at = row.created_at - timedelta(days=8)
+        db.commit()
+    assert suggest(bob, f)["status"] == "pending"
+    statuses = {str(r.id): (r.status, r.outcome) for r in fx.w.db_rows(SplitProposal)}
+    assert statuses[first] == ("stale", "expired")

@@ -19,6 +19,7 @@ Hard limits, enforced by construction (see the tests):
   makes a second approval or a dismissal during the work impossible.
 """
 
+import hashlib
 import io
 import os
 import re
@@ -26,6 +27,7 @@ import secrets
 import unicodedata
 import uuid
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -54,7 +56,8 @@ MIN_PAGES = 2
 MAX_PARTS = 50
 AI_MAX_PAGES = 100
 OCR_MAX_PAGES = 40
-APPLY_TIMEOUT_MINUTES = 15
+APPLY_TIMEOUT_MINUTES = 15  # without a sign of life (each part written refreshes it)
+PENDING_TTL = timedelta(days=7)
 CHUNK = 1 << 20
 _BAD_TITLE_CHARS = re.compile(r'[\x00-\x1f\x7f/\\:*?"<>|]')
 
@@ -196,6 +199,8 @@ def clean_title(raw: str | None) -> str | None:
     if not raw:
         return None
     text = unicodedata.normalize("NFC", _BAD_TITLE_CHARS.sub(" ", raw))
+    # Format characters (bidi overrides, zero-width marks) can make a name read as another one.
+    text = "".join(c for c in text if unicodedata.category(c) not in ("Cf", "Zl", "Zp"))
     text = " ".join(text.split()).strip(" .")
     if not text or not any(c.isalnum() for c in text) or len(text) > 100:
         return None
@@ -233,12 +238,17 @@ def snapshot_of(node: Node) -> dict[str, Any]:
     }
 
 
+def _core(snap: dict[str, Any]) -> dict[str, Any]:
+    """The snapshot without the optional content digest (which background hashing may add)."""
+    return {k: v for k, v in snap.items() if k != "sha256"}
+
+
 def _is_fresh(db: Session, node: Node | None, snap: dict[str, Any]) -> bool:
     return (
         node is not None
         and node.kind == "file"
         and node.status == "active"
-        and snapshot_of(node) == snap
+        and snapshot_of(node) == _core(snap)
         and privacy.effective_label(db, node) == "normal"
     )
 
@@ -266,9 +276,10 @@ def _can_split(db: Session, actor: Actor, node: Node) -> bool:
 
 
 def build_text(name: str, desc: list[dict[str, Any]], per_page: int, fence: str) -> str:
-    lines = [f"File name: {' '.join(name.split())}", f"Pages: {len(desc)}"]
-    lines.append("Pages, each with the start of its text, between the marker lines.")
+    lines = [f"Pages: {len(desc)}"]
+    lines.append("File name and pages, each with the start of its text, between the marker lines.")
     lines.append(f"<<<DOCUMENT-{fence}")
+    lines.append(f"File name: {' '.join(name.split())}")
     for d in desc:
         head = " ".join(str(d["head"]).split())[:per_page]
         lines.append(f"[page {d['n']}] " + ("(blank)" if d["blank"] else head or "(no text)"))
@@ -344,13 +355,18 @@ def propose(
     )
     if open_row is not None:
         if open_row.status == "applying" or open_row.owner_user_id != user.id:
-            if open_row.owner_user_id != user.id and open_row.snapshot != snap:
-                if not _retire(db, open_row, "stale", "changed"):
+            expired = open_row.created_at < clock.utcnow() - PENDING_TTL
+            if (
+                open_row.status == "pending"
+                and open_row.owner_user_id != user.id
+                and (_core(open_row.snapshot) != snap or expired)
+            ):
+                if not _retire(db, open_row, "stale", "expired" if expired else "changed"):
                     return Proposed(node_id, skipped="busy")
                 open_row = None
             else:
                 return Proposed(node_id, skipped="busy")
-        elif open_row.snapshot == snap and (open_row.source == "ai" or not use_ai):
+        elif _core(open_row.snapshot) == snap and (open_row.source == "ai" or not use_ai):
             return Proposed(node_id, proposal=open_row)
 
     ctx = OpCtx(db, settings, user.id, ip, session_id=session_id)
@@ -439,7 +455,7 @@ def propose(
         warnings=warnings,
         reason=reason,
         confidence=confidence,
-        snapshot=snap,
+        snapshot={**snap, "sha256": node.content_hash} if node.content_hash else snap,
         outputs=[],
         created_at=clock.utcnow(),
     )
@@ -497,29 +513,68 @@ def _retire(db: Session, row: SplitProposal, status: str, outcome: str) -> bool:
 
 
 def reclaim_stuck(db: Session) -> None:
-    from datetime import timedelta
-
-    db.execute(
-        update(SplitProposal)
-        .where(
-            SplitProposal.status == "applying",
-            or_(
-                SplitProposal.decided_at.is_(None),
-                SplitProposal.decided_at
-                < clock.utcnow() - timedelta(minutes=APPLY_TIMEOUT_MINUTES),
-            ),
+    """A split that shows no sign of life (each part written refreshes `decided_at`) for
+    APPLY_TIMEOUT_MINUTES is marked failed so the file is not locked for ever. Parts it already
+    wrote stay listed in `outputs`, and the person can move them to the trash with undo."""
+    cutoff = clock.utcnow() - timedelta(minutes=APPLY_TIMEOUT_MINUTES)
+    stuck = list(
+        db.scalars(
+            select(SplitProposal).where(
+                SplitProposal.status == "applying",
+                or_(SplitProposal.decided_at.is_(None), SplitProposal.decided_at < cutoff),
+            )
         )
-        .values(status="failed", outcome="abandoned")
     )
+    for row in stuck:
+        res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+            update(SplitProposal)
+            .where(SplitProposal.id == row.id, SplitProposal.status == "applying")
+            .values(status="failed", outcome="abandoned", decided_at=clock.utcnow())
+        )
+        if res.rowcount == 1:
+            audit(
+                db,
+                "ai.split_failed",
+                actor=row.owner_user_id,
+                proposal_id=str(row.id),
+                code="abandoned",
+            )
     db.commit()
 
 
 def _finish(
     db: Session, row: SplitProposal, status: str, outcome: str, by: uuid.UUID, **extra: Any
+) -> bool:
+    """Ends a claimed proposal, but only while it is still `applying`: a row that was reclaimed
+    meanwhile is never overwritten. Returns False when the claim was lost."""
+    res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+        update(SplitProposal)
+        .where(SplitProposal.id == row.id, SplitProposal.status == "applying")
+        .values(status=status, outcome=outcome, decided_at=clock.utcnow(), decided_by=by, **extra)
+    )
+    db.commit()
+    db.refresh(row)
+    return res.rowcount == 1
+
+
+def _beat(db: Session, proposal_id: uuid.UUID, outputs: list[str]) -> None:
+    """Records the parts written so far and shows the claim is alive. Raises when the claim is
+    gone (the proposal was reclaimed), so the loop stops instead of writing a second set."""
+    res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+        update(SplitProposal)
+        .where(SplitProposal.id == proposal_id, SplitProposal.status == "applying")
+        .values(outputs=outputs, decided_at=clock.utcnow())
+    )
+    db.commit()
+    if res.rowcount != 1:
+        raise OpError(409, "CLAIM_LOST")
+
+
+def _failed(
+    db: Session, row: SplitProposal, user_id: uuid.UUID, ip: str | None, code: str, state: str
 ) -> None:
-    row.status, row.outcome, row.decided_at, row.decided_by = status, outcome, clock.utcnow(), by
-    for key, value in extra.items():
-        setattr(row, key, value)
+    _finish(db, row, state, code, user_id)
+    audit(db, "ai.split_failed", actor=user_id, ip=ip, proposal_id=str(row.id), code=code)
     db.commit()
 
 
@@ -559,11 +614,9 @@ def apply(
     except Exception:  # a disk or database error must not leave the file locked as "applying"
         db.rollback()
         stuck = db.get(SplitProposal, proposal_id)
-        if stuck is not None and stuck.status == "applying":
+        if stuck is not None:
             _cleanup_outputs(db, settings, stuck, user_id, session_id, ip)
-            _finish(db, stuck, "failed", "OPERATION_FAILED", user_id)
-            audit(db, "ai.split_failed", actor=user_id, ip=ip, proposal_id=str(proposal_id))
-            db.commit()
+            _failed(db, stuck, user_id, ip, "OPERATION_FAILED", "failed")
         raise SplitError(500, "OPERATION_FAILED") from None
 
 
@@ -583,9 +636,13 @@ def _cleanup_outputs(
 
     ctx = OpCtx(db, settings, user_id, ip, session_id=session_id)
     try:
-        undo.trash_split_outputs(ctx, row.id, {uuid.UUID(x) for x in row.outputs}, None)
+        res = undo.trash_split_outputs(ctx, row.id, {uuid.UUID(x) for x in row.outputs}, None)
     except Exception:  # noqa: BLE001 - the failure is already being reported
-        db.rollback()
+        db.rollback()  # the parts stay listed, so undo can still move them to the trash later
+        return
+    if not res.left_in_place:
+        db.execute(update(SplitProposal).where(SplitProposal.id == row.id).values(outputs=[]))
+        db.commit()
 
 
 def _apply_claimed(
@@ -606,15 +663,15 @@ def _apply_claimed(
     user = db.get(User, user_id)
     node = db.get(Node, row.node_id)
     if user is None or user.status != "active":
-        _finish(db, row, "failed", "FORBIDDEN", user_id)
+        _failed(db, row, user_id, ip, "FORBIDDEN", "failed")
         raise SplitError(403, "FORBIDDEN")
     actor = _actor(user_id, session_id)
     if node is None or not _is_fresh(db, node, row.snapshot):
         _scrub(row)
-        _finish(db, row, "stale", "changed", user_id)
+        _failed(db, row, user_id, ip, "changed", "stale")
         raise SplitError(409, "STALE")
     if not _can_split(db, actor, node):
-        _finish(db, row, "failed", "FORBIDDEN", user_id)
+        _failed(db, row, user_id, ip, "FORBIDDEN", "failed")
         raise SplitError(403, "FORBIDDEN")
     n = row.page_count
     blank = {int(p) for p in row.blank_pages}
@@ -628,6 +685,7 @@ def _apply_claimed(
         kept, left = plan_pages(parts, blank, n, drop_blank)
     except Rejected as bad:
         row.status = "pending"  # the person can fix the request and try again
+        audit(db, "ai.split_failed", actor=user_id, ip=ip, proposal_id=str(row.id), code=bad.code)
         db.commit()
         raise SplitError(422, bad.code.upper()) from None
     titles_by_kept = [p["title"] for p in parts if pages_of(p, blank, drop_blank)[0]]
@@ -650,6 +708,14 @@ def _apply_claimed(
         try:
             if dl.size != row.snapshot["size"] or dl.mtime_ns != row.snapshot["mtime_ns"]:
                 raise OpError(409, "SOURCE_CHANGED")
+            digest = row.snapshot.get("sha256")
+            if digest:
+                h = hashlib.sha256()
+                while chunk := dl.file.read(CHUNK):
+                    h.update(chunk)
+                dl.file.seek(0)
+                if h.hexdigest() != digest:
+                    raise OpError(409, "SOURCE_CHANGED")
             for i, (pages, name) in enumerate(zip(kept, names, strict=True), start=1):
                 data = previews.pdf_part(dl.file, dl.size, pages)
                 up = fileops.Upload(ctx, node.parent_id, name, "keep_both", f"split-{pid}-{i}")  # type: ignore[arg-type]
@@ -664,8 +730,7 @@ def _apply_claimed(
                     except BaseException:
                         up.abort()
                         raise
-                row.outputs = [str(c.id) for c in created]
-                db.commit()
+                _beat(db, proposal_id, [str(c.id) for c in created])
         finally:
             dl.file.close()
     except (OpError, PreviewError) as err:
@@ -677,11 +742,11 @@ def _apply_claimed(
             if isinstance(err, OpError) and err.code in ("SOURCE_CHANGED", "NAME_CONFLICT")
             else err.status
         )
+        if created:
+            row.outputs = [str(c.id) for c in created]  # written, possibly not yet recorded
         _cleanup_outputs(db, settings, row, user_id, session_id, ip)
         state = "stale" if code == "SOURCE_CHANGED" else "failed"
-        _finish(db, row, state, code, user_id)
-        audit(db, "ai.split_failed", actor=user_id, ip=ip, proposal_id=pid, code=code)
-        db.commit()
+        _failed(db, row, user_id, ip, code, state)
         raise SplitError(status, code) from err
     row = db.get(SplitProposal, proposal_id) or row
     events.record(
@@ -693,9 +758,14 @@ def _apply_claimed(
         parts=len(created),
         left_out=len(left),
     )
-    _finish(
+    if not _finish(
         db, row, "applied", "approved", user_id, left_out=left, outputs=[str(c.id) for c in created]
-    )
+    ):
+        row.outputs = [str(c.id) for c in created]
+        _cleanup_outputs(db, settings, row, user_id, session_id, ip)
+        audit(db, "ai.split_failed", actor=user_id, ip=ip, proposal_id=pid, code="CLAIM_LOST")
+        db.commit()
+        raise SplitError(409, "CLAIM_LOST")
     audit(
         db,
         "ai.split_approved",
@@ -789,7 +859,7 @@ def visible(
                 node.name,
                 parent.name if parent and engine.decide(db, actor, parent).privileges else None,
                 names,
-                row.status == "applied" and bool(row.outputs),
+                row.status in ("applied", "failed") and bool(row.outputs),
             )
         )
     return out
@@ -815,7 +885,7 @@ def undo(
     row = db.get(SplitProposal, proposal_id)
     if row is None or row.owner_user_id != user_id:
         raise SplitError(404, "NOT_FOUND")
-    if row.status != "applied" or not row.outputs:
+    if row.status not in ("applied", "failed") or not row.outputs:
         raise SplitError(409, "NOT_REVERSIBLE")
     ctx = OpCtx(db, settings, user_id, ip, session_id=session_id)
     result = undo_domain.trash_split_outputs(ctx, row.id, {uuid.UUID(x) for x in row.outputs}, key)

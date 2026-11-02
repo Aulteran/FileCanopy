@@ -88,3 +88,17 @@ Page thumbnails in the review (the text preview shows ranges and names only); re
 into the parts; background proposals after upload or email intake; Private PDFs with local AI
 (review only); a "not duplicates" dismissal; duplicate groups across a chosen folder; splitting
 other document types.
+
+## Review round 1 (Opus: 0 High, 2 Medium, 8 Low, all fixed)
+
+M1 a running split refreshes its claim after every part (`_beat`), every change after the claim is a
+compare-and-set on `status='applying'`, a lost claim stops the loop and trashes the parts written,
+and `applied` can no longer overwrite `failed`. M2 a page is blank only if it has no text, no
+XObject (image or form), shading, pattern, annotation or inline image and almost no content. L1
+undo also works on a `failed` row that still lists parts. L2 the file name is inside the fence. L3
+title cleaning drops Unicode format characters. L4 another person's pending proposal expires after 7
+days. L5 every failure (422, stale, forbidden, reclaim) writes `ai.split_failed` with the code. L6
+part verification also compares each page's content stream and resource names, and a re-parse
+failure is a coded refusal. L7 the proposal pins the file's SHA-256 (when known) and approval
+re-hashes the source. L8 the exact scan cap is 2000 groups and near-duplicate text is truncated in
+SQL to 20,000 characters.

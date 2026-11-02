@@ -55,6 +55,29 @@ def _has_image(page: Any) -> bool:
         return True
 
 
+def _has_marks(page: Any) -> bool:
+    """Anything a person could see besides text: any XObject (image or form), a shading or
+    pattern, an annotation (a stamp or signature) or an inline image. Unknown structure counts
+    as marks, so a page is only called blank when it is provably empty."""
+    try:
+        annots = page.get("/Annots")
+        annots = annots.get_object() if annots is not None else None
+        if annots:
+            return True
+        res = page.get("/Resources")
+        res = res.get_object() if res is not None else None
+        if res is not None:
+            for key in ("/XObject", "/Shading", "/Pattern"):
+                found = res.get(key)
+                found = found.get_object() if found is not None else None
+                if found:
+                    return True
+        data = page.get_contents()
+        return data is not None and b"BI" in data.get_data() and b"EI" in data.get_data()
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def _content_len(page: Any) -> int:
     try:
         data = page.get_contents()
@@ -67,6 +90,25 @@ def _fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()[:16]
 
 
+def _page_fingerprint(page: Any) -> str:
+    """Text, the decoded content stream and the names of the resources a page uses. Scanned
+    pages have no text, so the content stream and resource names carry the comparison."""
+    parts = [_text(page)]
+    try:
+        data = page.get_contents()
+        parts.append(hashlib.sha256(data.get_data() if data is not None else b"").hexdigest())
+        res = page.get("/Resources")
+        res = res.get_object() if res is not None else {}
+        for key in sorted(str(k) for k in res):
+            sub = res.get(key)
+            sub = sub.get_object() if sub is not None else {}
+            names = sorted(str(k) for k in sub) if isinstance(sub, dict) else []
+            parts.append(key + ":" + ",".join(names))
+    except Exception:  # noqa: BLE001
+        parts.append("unreadable")
+    return _fingerprint("|".join(parts))
+
+
 def page_descriptors(f: BinaryIO, max_pages: int, head_chars: int) -> dict[str, Any]:
     reader = _reader(f)
     n = len(reader.pages)
@@ -77,7 +119,7 @@ def page_descriptors(f: BinaryIO, max_pages: int, head_chars: int) -> dict[str, 
         page = reader.pages[i]
         text = _text(page)
         marker = _MARKER.search(text)
-        blank = not text and not _has_image(page) and _content_len(page) <= BLANK_CONTENT_BYTES
+        blank = not text and not _has_marks(page) and _content_len(page) <= BLANK_CONTENT_BYTES
         try:
             rotation = int(page.rotation) % 360
         except Exception:  # noqa: BLE001
@@ -126,13 +168,18 @@ def extract_part(f: BinaryIO, wanted: list[int]) -> bytes:
     except Exception:  # noqa: BLE001
         raise Refuse("SPLIT_FAILED") from None
     data = out.getvalue()
-    check = PdfReader(io.BytesIO(data), strict=False)
-    if len(check.pages) != len(wanted):
-        raise Refuse("SPLIT_VERIFY_FAILED")
-    for i, p in enumerate(wanted):
-        src, new = reader.pages[p - 1], check.pages[i]
-        if int(src.rotation) % 360 != int(new.rotation) % 360:
+    try:
+        check = PdfReader(io.BytesIO(data), strict=False)
+        if len(check.pages) != len(wanted):
             raise Refuse("SPLIT_VERIFY_FAILED")
-        if _fingerprint(_text(src)) != _fingerprint(_text(new)):
-            raise Refuse("SPLIT_VERIFY_FAILED")
+        for i, p in enumerate(wanted):
+            src, new = reader.pages[p - 1], check.pages[i]
+            if int(src.rotation) % 360 != int(new.rotation) % 360:
+                raise Refuse("SPLIT_VERIFY_FAILED")
+            if _page_fingerprint(src) != _page_fingerprint(new):
+                raise Refuse("SPLIT_VERIFY_FAILED")
+    except Refuse:
+        raise
+    except Exception:  # noqa: BLE001 - a part that cannot be re-read is a failed verification
+        raise Refuse("SPLIT_VERIFY_FAILED") from None
     return data
