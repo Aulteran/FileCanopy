@@ -695,6 +695,12 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/ai/organize/proposals/{proposal_id}/approve",
     "/api/v1/ai/organize/proposals/{proposal_id}/dismiss",
     "/api/v1/ai/organize/stats",
+    "/api/v1/ai/split/suggest",
+    "/api/v1/ai/split/proposals",
+    "/api/v1/ai/split/proposals/{proposal_id}/approve",
+    "/api/v1/ai/split/proposals/{proposal_id}/dismiss",
+    "/api/v1/ai/split/proposals/{proposal_id}/undo",
+    "/api/v1/duplicates",
 }
 
 

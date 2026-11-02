@@ -609,8 +609,8 @@
         "collision",
         "source preservation"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-02 on branch m17-pdf-split-duplicates (migration 0020), awaiting Opus 5.5 review and merge. Design and threat model: docs/milestones/M17-design-and-plan.md; guide docs/guides/ai-split.md.",
+      "status": "in_review"
     },
     {
       "id": "M18",

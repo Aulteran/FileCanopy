@@ -24,7 +24,7 @@ def stack(app_stack: Stack) -> Stack:
 
 
 def test_parallel_wrong_pins_are_counted_before_they_are_compared(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0019"
+    assert stack.sql("select version_num from alembic_version") == "0020"
     m = Member(stack, "pin")
     status, out = js(m.client, "PUT", "/api/v1/auth/pin", {"pin": PIN, "password": PASSWORD})
     assert status == 200, out
