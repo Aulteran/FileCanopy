@@ -160,6 +160,7 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 | PDF splitting, duplicate detection, collections | Planned (M17–M18) |
 | Optional AI (providers, organization proposals, local semantic search, chat) | Planned (M15–M16, M18–M20) |
 | Optional MCP integration | Planned (M21) |
+| Full UI redesign build | Planned (M21a) |
 | Production packaging, Docker Stack variant, hardening, public release | Planned (M22–M24) |
 
 The full plan is in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`. The current state is recorded in `PROJECT_STATUS.md`, and design decisions are in `docs/adr/`.

@@ -717,12 +717,41 @@
       "status": "not_started"
     },
     {
+      "id": "M21a",
+      "phase": "advanced",
+      "title": "Full UI redesign build",
+      "depends_on": [
+        "M21"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; Opus 5.5 only if the owner asks for a review",
+      "objective": "Apply the owner-approved 2026-11-01 design (brand system, 14 screen mockups, viewer mockup, 07_UI_UX.md) to the whole web app. Visual and structural change only: no behaviour, API or privacy change.",
+      "acceptance_criteria": [
+        "Design tokens from the brand system (light and dark themes following the device, comfortable list by default with a compact toggle) replace the current styles",
+        "Canopy-folder logo A and the FileCanopy name appear in the header, favicon and sign-in screens",
+        "Bricolage Grotesque and Atkinson Hyperlegible are self-hosted with OFL licences shipped; no external font requests; CSP unchanged; icons are inlined Lucide-style SVGs",
+        "App shell matches the mockups: sidebar navigation from 07_UI_UX.md (only entries for features that exist) and a phone layout",
+        "Every existing screen is restyled; mockup-only screens (for features not yet built) get no fake controls",
+        "WCAG 2.2 AA contrast in both themes, visible focus, reduced motion respected, dialog ARIA kept",
+        "No behaviour or API change and no privacy regression; Locked and Confidential views leak nothing new; existing unit and e2e tests pass"
+      ],
+      "required_tests": [
+        "existing unit and e2e suites",
+        "visual/e2e checks at desktop and phone widths in light and dark themes",
+        "axe accessibility pass",
+        "no request leaves the origin (fonts included)",
+        "CSP unchanged"
+      ],
+      "notes": "Inserted 2026-11-02 at the owner's request. Design spec: project design files brand.html, screens.html, viewer.html and ADR-free (design approved 2026-11-01). Plan in docs/milestones/M21a-design-and-plan.md.",
+      "status": "not_started"
+    },
+    {
       "id": "M22",
       "phase": "release",
       "title": "Production packaging, backup, restore, Stack variant",
       "depends_on": [
         "M18",
-        "M19"
+        "M19",
+        "M21a"
       ],
       "recommended_claude_code_model": "Sonnet 5.5",
       "objective": "Pinned images, upgrade/migrations, backup/restore guides, reverse proxy TLS examples, validated Stack deployment sample.",
