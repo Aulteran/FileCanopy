@@ -59,10 +59,18 @@ def search(
     want = mode
     if want == "auto":
         want = "hybrid" if semantic.is_active(db, sem.settings) else "fulltext"
-    if want == "fulltext":
+    qvec = None
+    if want != "fulltext" and semantic.is_active(db, sem.settings):
+        if not sem.allow_query(actor.user_id):
+            raise http_error(429, "SEARCH_TOO_FAST")
+        # The embedding call is a network round trip: end this request's transaction first so no
+        # database connection is held while the model server thinks.
+        db.commit()
+        qvec = sem.query_vector(q)
+    if want == "fulltext" or qvec is None:
         hits = query.search(db, actor, q, folder_id=folder, limit=limit)
         return SearchOut(hits=[HitOut(**vars(h)) for h in hits], mode="fulltext")
-    near = semantic.semantic_hits(db, actor, sem, q, folder_id=folder, limit=limit * 2)
+    near = semantic.semantic_hits(db, actor, sem, q, qvec=qvec, folder_id=folder, limit=limit * 2)
     if near is None:
         hits = query.search(db, actor, q, folder_id=folder, limit=limit)
         return SearchOut(hits=[HitOut(**vars(h)) for h in hits], mode="fulltext")

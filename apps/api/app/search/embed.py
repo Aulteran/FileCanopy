@@ -31,6 +31,7 @@ KINDS = ("openai_compatible", "ollama")
 MIN_DIM = 8
 MAX_DIM = 2000  # the largest size pgvector can index; bigger models are out of scope
 MAX_PREFIX = 120
+REFERENCE_MIN_COSINE = 0.98
 # Fixed synthetic texts for verification. They contain no document content.
 PROBES = (
     "FileCanopy embedding health check: a short sentence about invoices and insurance.",
@@ -72,10 +73,15 @@ def normalise(vec: list[float]) -> list[float]:
     """Unit length, so cosine similarity is a dot product. Rejects NaN, infinity and zero."""
     if not vec or any(not math.isfinite(x) for x in vec):
         raise EmbedError("BAD_VECTOR")
-    norm = math.sqrt(sum(x * x for x in vec))
-    if norm < 1e-9:
+    peak = max(abs(x) for x in vec)  # scale first: the sum of squares could overflow to infinity
+    if peak < 1e-12:
         raise EmbedError("BAD_VECTOR")
-    return [x / norm for x in vec]
+    scaled = [x / peak for x in vec]
+    norm = math.sqrt(sum(x * x for x in scaled))
+    out = [x / norm for x in scaled]
+    if not all(math.isfinite(x) for x in out):
+        raise EmbedError("BAD_VECTOR")
+    return out
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -181,8 +187,9 @@ class EmbeddingClient:
         return vectors
 
 
-def verify(client: EmbeddingClient, make_input: Any) -> int:
-    """Health and dimension check: two probe texts, twice. Returns the (stable) dimension.
+def verify(client: EmbeddingClient, make_input: Any) -> tuple[int, list[list[float]]]:
+    """Health and dimension check: two probe texts, twice. Returns the (stable) dimension and the
+    probe vectors, which are kept as the model fingerprint (see `matches_reference`).
 
     The answers must be finite, non-zero, equal in length across both calls, within the supported
     range, and different probes must not collapse to the same vector."""
@@ -197,4 +204,16 @@ def verify(client: EmbeddingClient, make_input: Any) -> int:
         raise EmbedError("DEGENERATE")
     if cosine(first[0], second[0]) < 0.98:
         raise EmbedError("UNSTABLE")
-    return dim
+    return dim, first
+
+
+def matches_reference(vectors: list[list[float]], reference: list[list[float]]) -> bool:
+    """True when the probes embed (almost) as they did at verification: the same model answers.
+    A model swapped behind the same address and name changes these vectors even when their size
+    stays the same."""
+    if len(vectors) != len(reference) or not reference:
+        return False
+    return all(
+        len(v) == len(r) and cosine(v, r) >= REFERENCE_MIN_COSINE
+        for v, r in zip(vectors, reference, strict=True)
+    )

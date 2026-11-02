@@ -63,6 +63,7 @@ class Net:
         self.zero = False
         self.same = False
         self.noise = False
+        self.swapped = False
         self.model_scale = 1.0
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -79,6 +80,8 @@ class Net:
                 v = [1.0] + [0.0] * (self.dim - 1)
             if self.zero:
                 v = [0.0] * self.dim
+            if self.swapped:
+                v = v[len(v) // 2 :] + v[: len(v) // 2]  # another model, same size
             if self.noise and len(self.requests) % 2:
                 v = list(reversed(v))  # the same text, a different answer each call
             vecs.append(v)
@@ -716,3 +719,90 @@ def test_workers_do_not_start_when_search_is_disabled(make_fx: Callable[..., Fx]
     with fx.w.ctx.sessions() as db:
         assert semantic.inactive_reason(db, fx.w.settings) == "search_disabled"
         assert not semantic.is_active(db, fx.w.settings)
+
+
+# ---------------------------------------------------------------- Opus review round 1
+
+
+def test_a_model_swapped_behind_the_same_address_and_name_is_detected(
+    fx: Fx, alice: Api, admin: Api, net: Net
+) -> None:
+    seed(fx, alice)
+    configure(fx, admin, net)
+    run_semantic(fx)
+    assert sem_names(alice, "vacation") == ["summer.txt"]
+    sem = sem_of(fx)
+    net.swapped = True  # same kind, address, model name and dimension; different vectors
+    with sem.sessions() as db:
+        sem.recheck(db)
+    state = admin.get("/admin/semantic").json()
+    assert state["error"] == "MODEL_CHANGED" and not state["healthy"] and not state["active"]
+    assert search_json(alice, "vacation", mode="semantic")["mode"] == "fulltext"
+    # it does not recover on its own: the administrator must verify, which starts a new generation
+    with sem.sessions() as db:
+        sem.recheck(db)
+    assert admin.get("/admin/semantic").json()["error"] == "MODEL_CHANGED"
+    assert admin.post("/admin/semantic/verify").json()["generation"] == 2
+    assert chunks(fx) == []
+    put(admin, "/admin/semantic/enabled", {"enabled": True})
+    indexer(fx).tick()
+    assert {c.generation for c in chunks(fx)} == {2}
+    # the old model coming back is detected the same way
+    net.swapped = False
+    with sem.sessions() as db:
+        sem.recheck(db)
+    assert admin.get("/admin/semantic").json()["error"] == "MODEL_CHANGED"
+
+
+def test_queries_are_rate_limited_per_person_and_only_when_they_call_the_model(
+    make_fx: Callable[..., Fx], net: Net
+) -> None:
+    fx = make_fx(semantic_query_per_minute=3)
+    alice, admin, bob = Api(fx, "alice"), Api(fx, "admin"), Api(fx, "bob")
+    seed(fx, alice)
+    configure(fx, admin, net)
+    run_semantic(fx)
+    for _ in range(3):
+        assert alice.get("/search", params={"q": "vacation"}).status_code == 200
+    r = alice.get("/search", params={"q": "vacation"})
+    assert r.status_code == 429 and r.json()["detail"]["code"] == "SEARCH_TOO_FAST"
+    assert alice.get("/search", params={"q": "vacation", "mode": "fulltext"}).status_code == 200
+    assert bob.get("/search", params={"q": "vacation"}).status_code == 200  # per person
+    fx.w.advance(seconds=61)
+    sem_of(fx)._recent.clear()  # the limiter uses the monotonic clock
+    assert alice.get("/search", params={"q": "vacation"}).status_code == 200
+
+
+def test_query_embedding_has_its_own_short_timeout_and_a_global_cap(
+    fx: Fx, alice: Api, admin: Api, net: Net, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed(fx, alice)
+    configure(fx, admin, net)
+    run_semantic(fx)
+    sem = sem_of(fx)
+    seen: list[float | None] = []
+    real = sem.client
+    monkeypatch.setattr(
+        sem, "client", lambda spec, timeout=None: (seen.append(timeout), real(spec, timeout))[1]
+    )
+    assert sem_names(alice, "vacation") == ["summer.txt"]
+    assert seen == [float(fx.w.settings.semantic_query_timeout_seconds)] or seen == [
+        fx.w.settings.semantic_query_timeout_seconds
+    ]
+    assert fx.w.settings.semantic_query_timeout_seconds < fx.w.settings.semantic_timeout_seconds
+    # every slot busy: the query quietly uses full-text instead of queueing behind the model
+    held = [sem._slots.acquire() for _ in range(fx.w.settings.semantic_query_concurrency)]
+    assert held
+    out = search_json(alice, "bill", mode="hybrid")
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    for _ in held:
+        sem._slots.release()
+    assert search_json(alice, "bill", mode="hybrid")["mode"] == "hybrid"
+
+
+def test_normalise_survives_huge_values_without_overflowing() -> None:
+    v = embed.normalise([1e200, 1e200, 0.0])
+    assert all(math.isfinite(x) for x in v)
+    assert abs(math.sqrt(sum(x * x for x in v)) - 1.0) < 1e-9
+    with pytest.raises(embed.EmbedError):
+        embed.normalise([1e-300, 0.0])

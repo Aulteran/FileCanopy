@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     semantic_timeout_seconds: int = Field(default=60, ge=1, le=600)
     semantic_max_response_bytes: int = Field(default=16 * 1024**2, ge=1024)
     # Pause after every embedding request, so the endpoint is never saturated (CPU-only hosts).
+    # Query-time embedding: its own short timeout, a per-person rate limit and a global cap on
+    # concurrent calls, so search cannot be used to hold the model server or database sessions.
+    semantic_query_timeout_seconds: int = Field(default=8, ge=1, le=60)
+    semantic_query_per_minute: int = Field(default=30, ge=1, le=10_000)
+    semantic_query_concurrency: int = Field(default=2, ge=1, le=64)
     semantic_pause_ms: int = Field(default=200, ge=0, le=60_000)
     semantic_health_seconds: int = Field(default=300, ge=10)
     # Cosine similarity a semantic hit needs to be shown. Models differ; tune per model.

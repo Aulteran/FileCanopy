@@ -11,6 +11,7 @@ a count of hidden nodes is ever reported.
 """
 
 import logging
+import math
 import threading
 import time
 import uuid
@@ -43,7 +44,7 @@ from app.preview.sandbox import PreviewError
 from app.preview.service import require_processing_allowed
 from app.search import embed
 from app.search.indexer import identity_for
-from app.search.query import SCAN_CAP, SCAN_PAGE, Hit, finish_hits, may_show_text, scope_filter
+from app.search.query import SCAN_CAP, Hit, finish_hits, may_show_text, scope_filter
 
 log = logging.getLogger("filecanopy.semantic")
 
@@ -78,6 +79,8 @@ class SemanticConfig:
     error: str | None = None
     checked_at: str | None = None
     verified: str = ""  # signature (kind|endpoint|model) the vectors were made with
+    # Normalised probe vectors from verification: the model fingerprint (M19 review M2).
+    reference: list[list[float]] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -197,11 +200,16 @@ class Semantic:
         self.resolver = resolver
         self.allow_hosts = allow_hosts
         self.transport = transport
+        self._lock = threading.Lock()
+        self._recent: dict[uuid.UUID, list[float]] = {}
+        self._slots = threading.BoundedSemaphore(settings.semantic_query_concurrency)
 
-    def client(self, spec: embed.EndpointSpec) -> embed.EmbeddingClient:
+    def client(
+        self, spec: embed.EndpointSpec, timeout: float | None = None
+    ) -> embed.EmbeddingClient:
         return embed.EmbeddingClient(
             spec,
-            timeout=self.settings.semantic_timeout_seconds,
+            timeout=timeout or self.settings.semantic_timeout_seconds,
             max_response_bytes=self.settings.semantic_max_response_bytes,
             transport=self.transport,
             resolver=self.resolver,
@@ -231,7 +239,7 @@ class Semantic:
             raise embed.EmbedError("NOT_CONFIGURED")
         client = self.client(spec)
         try:
-            dim = embed.verify(client, self.probe_input)
+            dim, probes = embed.verify(client, self.probe_input)
         except embed.EmbedError as exc:
             cfg.healthy, cfg.error, cfg.checked_at = False, exc.code, now().isoformat()
             save_config(db, cfg)
@@ -239,11 +247,13 @@ class Semantic:
             raise
         finally:
             client.close()
-        if cfg.verified != spec.signature or cfg.dim != dim:
+        changed_model = bool(cfg.reference) and not embed.matches_reference(probes, cfg.reference)
+        if cfg.verified != spec.signature or cfg.dim != dim or changed_model:
             cfg.generation += 1
             db.execute(delete(SearchChunk))
             db.execute(delete(SearchEmbed))
             cfg.verified, cfg.dim = spec.signature, dim
+            cfg.reference = probes
         cfg.healthy, cfg.error, cfg.checked_at = True, None, now().isoformat()
         save_config(db, cfg)
         db.commit()
@@ -261,8 +271,13 @@ class Semantic:
             return  # edited and not yet verified: stays off until the administrator verifies
         client = self.client(spec)
         try:
-            dim = embed.verify(client, self.probe_input)
-            ok, error = dim == cfg.dim, (None if dim == cfg.dim else "DIMENSION_CHANGED")
+            dim, probes = embed.verify(client, self.probe_input)
+            if dim != cfg.dim:
+                ok, error = False, "DIMENSION_CHANGED"
+            elif cfg.reference and not embed.matches_reference(probes, cfg.reference):
+                ok, error = False, "MODEL_CHANGED"  # same address, name and size, other model
+            else:
+                ok, error = True, None
         except embed.EmbedError as exc:
             ok, error = False, exc.code
         finally:
@@ -279,18 +294,37 @@ class Semantic:
         save_config(db, cfg)
         db.commit()
 
-    def embed_query(self, db: Session, q: str) -> list[float] | None:
-        cfg = load_config(db)
+    def allow_query(self, user_id: uuid.UUID) -> bool:
+        """Per-person sliding-window limit on queries that call the embedding server."""
+        limit = self.settings.semantic_query_per_minute
+        t = time.monotonic()
+        with self._lock:
+            recent = [x for x in self._recent.get(user_id, []) if t - x < 60]
+            if len(recent) >= limit:
+                self._recent[user_id] = recent
+                return False
+            recent.append(t)
+            self._recent[user_id] = recent
+            if len(self._recent) > 10_000:  # forget people who have been quiet
+                self._recent = {k: v for k, v in self._recent.items() if v and t - v[-1] < 60}
+        return True
+
+    def query_vector(self, q: str) -> list[float] | None:
+        """Embeds a query. Uses its own short-lived session (the caller's is not held during the
+        network call), a short timeout and a global cap on concurrent calls."""
+        with self.sessions() as db:
+            cfg = load_config(db)
         spec = cfg.spec
-        if spec is None:
+        if spec is None or not self._slots.acquire(blocking=False):
             return None
-        client = self.client(spec)
+        client = self.client(spec, self.settings.semantic_query_timeout_seconds)
         try:
             vec = client.embed([self.probe_input(cfg.query_prefix + q)])[0]
         except (embed.EmbedError, AiRefused):
             return None
         finally:
             client.close()
+            self._slots.release()
         return vec if len(vec) == cfg.dim else None
 
 
@@ -692,6 +726,7 @@ def semantic_hits(
     semantic: Semantic,
     q: str,
     *,
+    qvec: list[float] | None = None,
     folder_id: uuid.UUID | None = None,
     limit: int = 25,
 ) -> list[Hit] | None:
@@ -711,8 +746,9 @@ def semantic_hits(
         folder = db.get(Node, folder_id)
         if folder is None or Privilege.TRAVERSE not in engine.effective(db, actor, folder):
             return []
-    qvec = semantic.embed_query(db, q)
-    if qvec is None:
+    if qvec is None:  # routes embed first, with the database session released
+        qvec = semantic.query_vector(q)
+    if qvec is None or len(qvec) != cfg.dim:
         return None
     scope = scope_filter(db, actor, folder)
     dialect = db.get_bind().dialect.name
@@ -742,14 +778,8 @@ def semantic_hits(
             bindparam("qv", qvec, type_=Embedding())
         )
         stmt = joined.add_columns(dist.label("dist")).order_by(dist, SearchChunk.id)
-        for offset in range(0, SCAN_CAP, SCAN_PAGE):
-            rows = db.execute(stmt.offset(offset).limit(SCAN_PAGE)).all()
-            if not rows:
-                break
-            for node, snip, d in rows:
-                ranked.append((node, snip or "", 1.0 - float(d)))
-            if 1.0 - float(rows[-1][2]) < settings.semantic_min_score:
-                break
+        for node, snip, d in db.execute(stmt.limit(SCAN_CAP)).all():  # one fetch, not paged
+            ranked.append((node, snip or "", 1.0 - float(d)))
     else:  # SQLite: development and unit tests; exact cosine in Python over the narrowed rows
         stmt = joined.add_columns(SearchChunk.embedding).limit(20_000)
         for node, snip, vec in db.execute(stmt).all():
@@ -761,8 +791,8 @@ def semantic_hits(
     seen: set[uuid.UUID] = set()
     opted: dict[uuid.UUID, bool] = {}
     for node, snip, score in ranked[:SCAN_CAP]:
-        if score < settings.semantic_min_score:
-            break  # sorted: nothing below here can qualify
+        if not math.isfinite(score) or score < settings.semantic_min_score:
+            continue
         if node.id in seen:
             continue
         seen.add(node.id)

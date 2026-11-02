@@ -111,3 +111,7 @@ should opt out.
   file needs that administrator's opt-in).
 - One endpoint for the whole instance; per-person endpoints are out of scope.
 - Image embeddings, cross-language tuning and model download or management are not provided.
+
+## Review round 1 (Opus) and what changed
+
+M1: query-time embedding is limited to 30 queries a minute per person (`429 SEARCH_TOO_FAST`, only when a query would call the model), a global cap of 2 concurrent calls (a busy model means the query answers from full-text instead of queueing), its own 8 s timeout, and the request's database transaction is ended before the network call. The PostgreSQL scan is one `LIMIT` fetch instead of up to ten `OFFSET` pages. M2: verification stores the normalised probe vectors as the model fingerprint; every health check compares fresh probes with them (cosine at least 0.98) and answers `MODEL_CHANGED` otherwise, so a model swapped behind the same address, name and size turns search off until an administrator verifies again (new generation). L1: `normalise` scales by the largest component first so the sum of squares cannot overflow, and non-finite scores are skipped. Tests: `test_a_model_swapped_...`, `test_queries_are_rate_limited_...`, `test_query_embedding_has_its_own_short_timeout_...`, `test_normalise_survives_huge_values_...`.
