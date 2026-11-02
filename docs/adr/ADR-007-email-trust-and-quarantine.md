@@ -1,6 +1,6 @@
 # ADR-007: Email trust and quarantine pipeline
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-01)
 - **Date:** 2026-11-01
 - **Milestone:** M13
 
