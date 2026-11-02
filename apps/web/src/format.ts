@@ -189,6 +189,13 @@ const MESSAGES: Record<string, string> = {
   ALREADY_VERIFIED: "You already confirmed that address.",
   ADDRESS_RESERVED:
     "That address is used by this system and cannot be a sender address.",
+  ACKNOWLEDGEMENT_REQUIRED:
+    "Tick the box to confirm you understand the app may pass what it reads to its own AI provider.",
+  INVALID_SCOPES: "Choose at least one thing the app may do.",
+  EXPIRY_TOO_LONG: "That lifetime is longer than this server allows.",
+  TOKEN_LIMIT:
+    "You have reached the limit of connected apps. Revoke one first.",
+  RATE_LIMITED: "Too many calls. Try again in a minute.",
   ALIAS_LIMIT:
     "You have reached the limit of extra addresses. Remove one first.",
   EMAIL_IN_USE: "That address already belongs to another account.",

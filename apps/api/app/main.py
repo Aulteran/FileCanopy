@@ -50,6 +50,8 @@ from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
 from app.mail.poller import MailboxPoller
+from app.mcp import router as mcp_routes
+from app.mcp.tokens import TokenLimiter
 from app.notifications.mail import Mailer
 from app.preview.hardening import make_undumpable
 from app.preview.service import PreviewService
@@ -152,6 +154,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     semantic_indexer = SemanticIndexer(semantic)
     app.state.semantic = semantic
     app.state.chat_limiter = ChatLimiter(cfg.chat_per_minute)
+    app.state.mcp_limiter = TokenLimiter(cfg.mcp_per_minute)
     app.state.semantic_indexer = semantic_indexer
 
     @app.exception_handler(RequestValidationError)
@@ -214,5 +217,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(chat_routes.router)
     app.include_router(pdfsplit_routes.router)
     app.include_router(collections_routes.router)
+    app.include_router(mcp_routes.router)
 
     return app

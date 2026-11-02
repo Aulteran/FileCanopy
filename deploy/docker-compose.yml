@@ -126,6 +126,8 @@ services:
       FILECANOPY_AI_LOCAL_HOSTS: ${FILECANOPY_AI_LOCAL_HOSTS:-}
       FILECANOPY_SEMANTIC_PAUSE_MS: ${FILECANOPY_SEMANTIC_PAUSE_MS:-200}
       FILECANOPY_SEMANTIC_MIN_SCORE: ${FILECANOPY_SEMANTIC_MIN_SCORE:-0.3}
+      # Optional MCP interface (M21): off unless set to true. Read-only; see docs/guides/mcp.md.
+      FILECANOPY_MCP_ENABLED: ${FILECANOPY_MCP_ENABLED:-false}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data

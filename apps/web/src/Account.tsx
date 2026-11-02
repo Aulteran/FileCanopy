@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type PinProof, type PinStatus } from "./api";
 import { Modal } from "./Dialogs";
+import { ConnectedApps } from "./ConnectedApps";
 import { SenderAddresses } from "./Emails";
 import { describeError } from "./format";
 
@@ -113,6 +114,7 @@ export function AccountDialog({
         onChanged={onPinChanged}
       />
       <SenderAddresses reauthed={reauthed} />
+      <ConnectedApps reauthed={reauthed} />
     </Modal>
   );
 }
