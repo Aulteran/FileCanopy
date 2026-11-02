@@ -695,6 +695,9 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/ai/organize/me",
     "/api/v1/ai/organize/instance",
     "/api/v1/ai/organize/suggest",
+    # M20: one question over one tree. Candidates come from the search layer (scope and
+    # may_show_text), each file is decided again, and the gateway decides it a third time.
+    "/api/v1/chat/ask",
     "/api/v1/ai/organize/proposals",
     "/api/v1/ai/organize/proposals/{proposal_id}/approve",
     "/api/v1/ai/organize/proposals/{proposal_id}/dismiss",

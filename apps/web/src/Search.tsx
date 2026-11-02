@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, api, type SearchHit, type SearchStatus } from "./api";
+import { AskPanel } from "./Ask";
 import { describeError } from "./format";
 import { folderPath, viewPath } from "./route";
 
@@ -115,6 +116,7 @@ export function SearchPage({ q, go, onEnded }: Props) {
         </p>
       )}
       {state === "ready" && note && <p className="hint">{note}</p>}
+      <AskPanel initial={q} go={go} onEnded={onEnded} />
     </section>
   );
 }
