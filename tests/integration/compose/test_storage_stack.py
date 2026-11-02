@@ -61,7 +61,7 @@ def root_node(stack: Stack, relative_dir: str) -> str:
 
 
 def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0021"
+    assert stack.sql("select version_num from alembic_version") == "0022"
     assert stack.sql("select count(*) from storage_root where kind = 'shared'") == "1"
     admin = setup_admin(stack)
     users = stack.sql("select count(*) from app_user")  # the auth suite may have added accounts
@@ -69,7 +69,8 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     # Re-create the pre-M03 state (accounts but no storage tables) and migrate for real.
     stack.sql(
         "drop table collection_member, collection_share, collection_suggestion, collection, "
-        "split_proposal, ai_proposal, search_doc, search_job, confidential_unlock, "
+        "split_proposal, ai_proposal, search_chunk, search_embed, search_doc, search_job, "
+        "confidential_unlock, "
         "notification, trash_item, "
         "backup_chain_state, backup_run, "
         "import_entry, import_batch, file_event, scan_run, file_operation, node_grant, node, "
@@ -78,7 +79,7 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
         "update alembic_version set version_num = '0002'"
     )
     stack.compose("run", "--rm", "migrate")
-    assert stack.sql("select version_num from alembic_version") == "0021"
+    assert stack.sql("select version_num from alembic_version") == "0022"
     uid = user_id(stack, "admin@example.com")
     assert stack.sql(f"select relative_dir from storage_root where owner_user_id = '{uid}'") == (
         f"personal/{uid}"

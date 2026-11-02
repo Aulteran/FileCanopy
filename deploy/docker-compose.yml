@@ -15,8 +15,12 @@ x-hardening: &hardening
   security_opt: ["no-new-privileges:true"]
 
 services:
+  # PostgreSQL 17 (Alpine, as before) plus the pgvector extension for the optional local semantic
+  # search (M19), built from deploy/postgres/Dockerfile. The extension is only available here;
+  # nothing uses it until an administrator verifies a local embedding endpoint.
   postgres:
-    image: postgres:17-alpine
+    build: { context: ./postgres }
+    image: filecanopy-postgres:dev
     restart: unless-stopped
     environment:
       POSTGRES_DB: filecanopy
@@ -115,6 +119,13 @@ services:
       # (COMPOSE_PROFILES=ocr) and this set to unix:///run/ocr/ocr.sock.
       FILECANOPY_SEARCH_ENABLED: ${FILECANOPY_SEARCH_ENABLED:-true}
       FILECANOPY_OCR_URL: ${FILECANOPY_OCR_URL:-}
+      # Optional local semantic search (M19): an administrator connects an embedding server in the
+      # app (Account > AI > Meaning-based search); nothing runs before that. Hosts named here are
+      # the only ones accepted for local AI and embedding endpoints (empty = any private address).
+      # The pause after each embedding request keeps a CPU-only host responsive.
+      FILECANOPY_AI_LOCAL_HOSTS: ${FILECANOPY_AI_LOCAL_HOSTS:-}
+      FILECANOPY_SEMANTIC_PAUSE_MS: ${FILECANOPY_SEMANTIC_PAUSE_MS:-200}
+      FILECANOPY_SEMANTIC_MIN_SCORE: ${FILECANOPY_SEMANTIC_MIN_SCORE:-0.3}
     volumes:
       - ${FILECANOPY_LIBRARY_PATH:-../library}:/library
       - ${FILECANOPY_APP_DATA_PATH:-../app-data}:/app-data

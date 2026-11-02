@@ -9,6 +9,8 @@ import {
   type AiUsage,
   type OrganizeInstance,
   type OrganizeSettings,
+  type SemanticAdmin,
+  type SemanticMe,
 } from "./api";
 import { Modal } from "./Dialogs";
 import { describeError } from "./format";
@@ -438,6 +440,202 @@ function OrganizeSection({ admin }: { admin: boolean }) {
   );
 }
 
+const SEMANTIC_STATES: Record<string, string> = {
+  not_configured: "Not set up.",
+  not_verified: "Saved, but not checked yet.",
+  unhealthy: "The model server is not answering correctly, so this is off.",
+  pgvector_missing: "The database cannot store vectors (pgvector is missing).",
+  search_disabled: "Search indexing is switched off on this server.",
+  off: "Checked and ready, but switched off.",
+  active: "On.",
+};
+
+/** Optional meaning-based search (M19). It needs a model server on your own network; nothing is
+ * sent to a cloud service, and ordinary search keeps working whatever happens here. */
+function SemanticSection({ admin }: { admin: boolean }) {
+  const [mine, setMine] = useState<SemanticMe | null>(null);
+  const [inst, setInst] = useState<SemanticAdmin | null>(null);
+  const [form, setForm] = useState({
+    kind: "openai_compatible",
+    endpoint: "",
+    model: "",
+    doc_prefix: "",
+    query_prefix: "",
+  });
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .semanticMe()
+      .then(setMine)
+      .catch(() => setError(describeError("UNKNOWN")));
+    if (admin)
+      api
+        .semanticAdmin()
+        .then((i) => {
+          setInst(i);
+          setForm({
+            kind: i.kind || "openai_compatible",
+            endpoint: i.endpoint,
+            model: i.model,
+            doc_prefix: i.doc_prefix,
+            query_prefix: i.query_prefix,
+          });
+        })
+        .catch(() => setError(describeError("UNKNOWN")));
+  }, [admin]);
+  useEffect(load, [load]);
+
+  async function run(fn: () => Promise<unknown>, done: string): Promise<void> {
+    setError("");
+    setMsg("");
+    try {
+      await fn();
+      setMsg(done);
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+    load();
+  }
+
+  if (!mine) return null;
+  return (
+    <section>
+      <h3>Meaning-based search</h3>
+      <p className="muted">
+        Optional. When an administrator connects a model server on your own
+        network, search can also find files whose meaning is close to your
+        words. Nothing is sent to a cloud service, Confidential files are never
+        used, and ordinary search works with or without it.
+      </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={mine.opt_out}
+          onChange={(e) =>
+            void run(
+              () => api.semanticSetMe(e.target.checked),
+              e.target.checked
+                ? "Your files will not be used for meaning-based search."
+                : "Saved.",
+            )
+          }
+        />
+        Do not use my files for meaning-based search
+      </label>
+      {mine.available && !mine.opt_out && (
+        <p className="muted">
+          {mine.indexed_files} of your files are ready
+          {mine.waiting_files > 0
+            ? `, ${mine.waiting_files} still waiting`
+            : ""}
+          .
+        </p>
+      )}
+      {admin && inst && (
+        <>
+          <h4>Model server (administrators)</h4>
+          <p className="muted">
+            {SEMANTIC_STATES[inst.state] ?? inst.state}
+            {inst.dimension ? ` Vector size ${inst.dimension}.` : ""}{" "}
+            {inst.totals.embedded_files} files ready, {inst.totals.waiting}{" "}
+            waiting.
+            {inst.edited_since_verify
+              ? " Changed since the last check: check it again."
+              : ""}
+          </p>
+          <label>
+            Type
+            <select
+              value={form.kind}
+              onChange={(e) => setForm({ ...form, kind: e.target.value })}
+            >
+              {inst.kinds.map((k) => (
+                <option key={k} value={k}>
+                  {KIND_LABELS[k] ?? k}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Address (on your network)
+            <input
+              value={form.endpoint}
+              placeholder="http://192.168.1.20:8081"
+              onChange={(e) => setForm({ ...form, endpoint: e.target.value })}
+            />
+          </label>
+          <label>
+            Model name
+            <input
+              value={form.model}
+              onChange={(e) => setForm({ ...form, model: e.target.value })}
+            />
+          </label>
+          <label>
+            Text added before each file passage (optional)
+            <input
+              value={form.doc_prefix}
+              onChange={(e) => setForm({ ...form, doc_prefix: e.target.value })}
+            />
+          </label>
+          <label>
+            Text added before each search (optional)
+            <input
+              value={form.query_prefix}
+              onChange={(e) =>
+                setForm({ ...form, query_prefix: e.target.value })
+              }
+            />
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              onClick={() =>
+                void run(() => api.semanticSave(form), "Saved. Now check it.")
+              }
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={!inst.kind || !inst.endpoint}
+              onClick={() =>
+                void run(() => api.semanticVerify(), "The model server works.")
+              }
+            >
+              Check connection
+            </button>
+            <button
+              type="button"
+              disabled={!inst.healthy && !inst.enabled}
+              onClick={() =>
+                void run(
+                  () => api.semanticEnable(!inst.enabled),
+                  inst.enabled ? "Switched off." : "Switched on.",
+                )
+              }
+            >
+              {inst.enabled ? "Switch off" : "Switch on"}
+            </button>
+          </div>
+          <p className="muted">
+            Changing the model builds the index again in the background; search
+            keeps working meanwhile.
+          </p>
+        </>
+      )}
+      {msg && <p role="status">{msg}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function AiSettings({
   admin,
   onClose,
@@ -543,6 +741,7 @@ export function AiSettings({
         </section>
       )}
       <OrganizeSection admin={admin} />
+      <SemanticSection admin={admin} />
       {admin && instance && (
         <section>
           <h3>Server AI (shared files)</h3>

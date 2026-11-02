@@ -188,3 +188,9 @@ def _finish(db: Session, actor: Actor, hits: list[Hit]) -> list[Hit]:
         if h.match == "name+content":
             h.match = "content"
     return hits
+
+
+# Used by the semantic search (M19), which must apply exactly the same scope and show-text rules.
+scope_filter = _scope
+may_show_text = _may_show_text
+finish_hits = _finish
