@@ -609,8 +609,8 @@
         "collision",
         "source preservation"
       ],
-      "notes": "Implemented 2026-11-02 on branch m17-pdf-split-duplicates (migration 0020), awaiting Opus 5.5 review and merge. Design and threat model: docs/milestones/M17-design-and-plan.md; guide docs/guides/ai-split.md.",
-      "status": "in_review"
+      "notes": "Implemented 2026-11-02 (migration 0020). Design and threat model: docs/milestones/M17-design-and-plan.md; guide docs/guides/ai-split.md. Merged via PR #24 (f294746) 2026-11-02 after one Opus 5.5 review round (0 High, 2 Medium, 8 Low fixed) and sign-off, all seven CI jobs green. Follow-ups: blank-page check should look for paint operators instead of the 64-byte content threshold (short vector drawings); page thumbnails in the review; remap bookmarks into parts; background proposals after upload/email intake; Private PDFs with local AI (review only); a not-duplicates dismissal.",
+      "status": "done"
     },
     {
       "id": "M18",
