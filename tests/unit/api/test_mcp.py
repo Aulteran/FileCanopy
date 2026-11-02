@@ -17,6 +17,7 @@ from test_auth import PASSWORD, World
 from test_files import Api, code
 
 from app.db.models import AuthAudit, McpToken, Node, User
+from app.domain import nodes
 from app.mcp import tokens, tools
 
 READ_TOOLS = {
@@ -501,6 +502,32 @@ def test_paging(fx: Fx) -> None:
     assert names(page2["items"]) == ["f2.txt", "f3.txt"]
     page3 = c.data("list_files", folder_id=str(fx.y2026), limit=2, after=page2["next_after"])
     assert names(page3["items"]) == ["f4.txt"] and page3["next_after"] is None
+
+
+def test_paging_never_exposes_the_name_of_a_protected_row(fx: Fx) -> None:
+    _, c = client_for(fx)
+    with fx.w.ctx.sessions() as db:
+        parent = db.get(Node, fx.y2026)
+        assert parent is not None
+        for i in range(tools.SCAN_CAP + 5):
+            child = nodes.create_child_dir(db, parent, f"d{i:04d}")
+            # the first is open; everything else up to and past the scan limit is protected
+            child.privacy_label = "normal" if i == 0 else "private"
+        db.commit()
+    seen: list[str] = []
+    after: str | None = None
+    for _ in range(5):
+        args: dict[str, Any] = {"folder_id": str(fx.y2026), "limit": 10}
+        if after is not None:
+            args["after"] = after
+        page = c.data("list_folders", **args)
+        seen += names(page["items"])
+        after = page["next_after"]
+        assert after is None or after in seen  # a boundary is a row the client was shown
+        if after is None:
+            break
+    assert after is None and seen == ["d0000"] + [n for n in seen[1:]]
+    assert not any(n.startswith("d0") and n != "d0000" for n in seen)
 
 
 def test_lists_are_capped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -177,7 +177,9 @@ def _children(
         if len(out) == limit:
             return out, out[-1].name
         out.append(n)
-    return out, (rows[-1].name if len(rows) == SCAN_CAP else None)
+    # The cursor is always the name of a row the client was shown: a scanned row that is hidden
+    # from it never reaches the client, not even as a page boundary.
+    return out, (out[-1].name if out and len(rows) == SCAN_CAP else None)
 
 
 # --------------------------------------------------------------------------- handlers

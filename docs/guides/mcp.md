@@ -70,3 +70,19 @@ changes anything, but the app and its model may still act oddly on what they rea
   are refused.
 - The audit log records token creation and revocation and each call (tool, token id, result),
   never what was asked or returned.
+
+## Known limits (by design, for now)
+
+- **Shared address.** Failed token attempts are throttled per client address before the token is
+  read. Someone sending many bad tokens from the same address (for example behind one proxy or
+  NAT without `FILECANOPY_TRUSTED_PROXY_HOPS` set) can lock out other apps behind that address for
+  the throttle window, until it passes.
+- **One API process.** The 60-calls-a-minute limit is kept in memory per API process. Run a single
+  API worker (the default) or the effective limit is multiplied by the number of workers.
+- **Collection titles.** `list_collections` shows a collection's title even when none of its files
+  can be offered to an app (for example because they are all in Private folders). Do not put
+  anything sensitive in a collection title.
+- **Tokens outlive password changes.** Changing your password or signing out everywhere does not
+  revoke connected-app tokens. Revoke them under Account → Connected apps; a disabled account
+  stops all of its tokens at once.
+

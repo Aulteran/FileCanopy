@@ -28,3 +28,12 @@ evidence: `docs/milestones/M21-design-and-plan.md`. User guide: `docs/guides/mcp
 - Audit rows hold tool name, token id and outcome; never queries, names, text or token values.
 - Adding a tool means: a scope, a closed schema, the Normal-only rule, tests in
   `tests/unit/api/test_mcp.py`, and a design note. Mutating tools need their own milestone.
+
+## Known limits
+
+- The per-address bad-token throttle runs before authentication, so a noisy client can lock out
+  others behind the same address for the window. The rate limiter is in memory per process (needs
+  a single API worker). `list_collections` shows titles regardless of member visibility. Tokens
+  are not revoked on password change or sign-out-everywhere (a disabled account does stop them).
+  Paging cursors are always the name of a row the client was shown.
+
