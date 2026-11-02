@@ -77,9 +77,8 @@ class ReleaseStack(Stack):
         env = dict(self.env)
         for key in ("FILECANOPY_LIBRARY_PATH", "FILECANOPY_APP_DATA_PATH"):
             env[key] = Path(env[key]).as_posix()  # the scripts are POSIX sh, also under Git Bash
-        env["COMPOSE_FILE"] = env["COMPOSE_PATH_SEPARATOR"].join(
-            Path(f).as_posix() for f in self.files
-        )
+        # No COMPOSE_FILE: the scripts must pick the release override from FILECANOPY_VERSION.
+        env.pop("COMPOSE_FILE")
         r = subprocess.run(  # noqa: S603
             ["sh", str(SCRIPTS / name), *args],  # noqa: S607
             env=env,

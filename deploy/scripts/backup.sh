@@ -51,7 +51,11 @@ restart() {
   done
 }
 if [ "$stop" = 1 ]; then
+  # dash does not run the EXIT trap on a signal, so turn Ctrl-C and kill into a normal exit.
   trap restart EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
   echo "Stopping web and API while copying ..."
   fc --profile '*' stop web api worker >/dev/null
 fi
@@ -81,7 +85,7 @@ fi
   echo "format=1"
   echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "schema=$(psql_value 'select version_num from alembic_version')"
-  echo "version=${FILECANOPY_VERSION:-source}"
+  echo "version=$(env_value FILECANOPY_VERSION source)"
   if [ "$library" = 1 ]; then echo "library=included"; else echo "library=skipped"; fi
   if [ "$stop" = 1 ]; then echo "consistent=yes"; else echo "consistent=no"; fi
 } > "$OUT/MANIFEST"

@@ -1,9 +1,12 @@
 """M22: the release packaging stays pinned and consistent. Reads the repository's Dockerfiles,
 Compose files, stack file and scripts; no Docker needed."""
 
+import os
 import re
 import shutil
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -73,7 +76,9 @@ def test_release_override_covers_every_service_built_from_source() -> None:
     for service in ours:
         assert re.search(rf"^  {service}:\s*$", release, re.MULTILINE), f"{service} missing"
     assert "${FILECANOPY_VERSION:?" in release, "the version must be required, never defaulted"
-    assert "latest" not in release.replace("no floating", "")
+    code = "
+".join(l for l in release.splitlines() if not l.lstrip().startswith("#"))
+    assert "latest" not in code
 
 
 def test_stack_file_uses_published_images_and_opens_no_ports() -> None:
@@ -105,3 +110,135 @@ def test_scripts_parse(script: str) -> None:
         check=False,
     )
     assert r.returncode == 0, r.stderr
+
+
+# --------------------------------------------------------------- script behaviour (stubbed docker)
+
+
+def stage_scripts(tmp_path: Path, env_file: str | None = None) -> Path:
+    deploy = tmp_path / "deploy"
+    shutil.copytree(DEPLOY / "scripts", deploy / "scripts")
+    if env_file is not None:
+        (deploy / ".env").write_text(env_file)
+    return deploy
+
+
+def run_probe(deploy: Path, body: str, **env: str) -> str:
+    probe = deploy / "scripts" / "probe.sh"
+    probe.write_text('. "$(dirname -- "$0")/lib.sh"\n' + body + "\n")
+    base = {"PATH": "/usr/bin:/bin", "HOME": str(deploy)}
+    r = subprocess.run(  # noqa: S603
+        ["sh", str(probe)],  # noqa: S607
+        env={**base, **env},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert r.returncode == 0, r.stderr
+    return r.stdout.strip()
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_scripts_use_the_release_override_when_a_version_is_set(tmp_path: Path) -> None:
+    core = run_probe(stage_scripts(tmp_path / "a"), 'echo "$COMPOSE_FILE"')
+    assert core.endswith("deploy/docker-compose.yml")
+    from_env = run_probe(
+        stage_scripts(tmp_path / "b"), 'echo "$COMPOSE_FILE"', FILECANOPY_VERSION="1.2.3"
+    )
+    from_dotenv = run_probe(
+        stage_scripts(tmp_path / "c", "FILECANOPY_VERSION=1.2.3\n"), 'echo "$COMPOSE_FILE"'
+    )
+    for chosen in (from_env, from_dotenv):
+        files = chosen.split(":")
+        assert files[0].endswith("docker-compose.yml")
+        assert files[1].endswith("docker-compose.release.yml"), chosen
+    explicit = run_probe(
+        stage_scripts(tmp_path / "d", "FILECANOPY_VERSION=1.2.3\n"),
+        'echo "$COMPOSE_FILE"',
+        COMPOSE_FILE="/x/mine.yml",
+    )
+    assert explicit == "/x/mine.yml"
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_dotenv_values_are_read_like_compose(tmp_path: Path) -> None:
+    env = (
+        "  export A = spaced # comment\n"
+        'B="quoted # kept" # comment\n'
+        "C='single'\n"
+        "D=plain\r\n"
+        "# E=commented\n"
+        "F=first\nF=last\n"
+    )
+    deploy = stage_scripts(tmp_path, env)
+    out = run_probe(
+        deploy,
+        'for k in A B C D E F; do echo "$k=$(env_value $k none)"; done',
+    ).splitlines()
+    assert out == ["A=spaced", "B=quoted # kept", "C=single", "D=plain", "E=none", "F=last"]
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_a_failing_database_query_is_not_hidden(tmp_path: Path) -> None:
+    deploy = stage_scripts(tmp_path)
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "docker").write_text("#!/bin/sh\nexit 3\n")
+    (stub / "docker").chmod(0o755)
+    probe = deploy / "scripts" / "probe.sh"
+    probe.write_text('. "$(dirname -- "$0")/lib.sh"\nset -e\npsql_value "select 1"\necho reached\n')
+    r = subprocess.run(  # noqa: S603
+        ["sh", str(probe)],  # noqa: S607
+        env={"PATH": f"{stub}:/usr/bin:/bin", "HOME": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert r.returncode != 0 and "reached" not in r.stdout
+    assert "database query failed" in r.stderr
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGINT, signal.SIGHUP])
+def test_an_interrupted_backup_starts_the_app_again(tmp_path: Path, sig: signal.Signals) -> None:
+    deploy = stage_scripts(tmp_path)
+    library, app_data, dest = tmp_path / "library", tmp_path / "app-data", tmp_path / "dest"
+    for d in (library, app_data, dest):
+        d.mkdir()
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    log, ready = tmp_path / "calls.log", tmp_path / "ready"
+    (stub / "docker").write_text(
+        "#!/bin/sh\n"
+        'echo "$@" >> "$STUB_LOG"\n'
+        'case "$*" in\n'
+        '  *"ps --status running --services"*) printf "postgres\napi\nweb\n" ;;\n'
+        '  *pg_dump*) touch "$STUB_READY"; exec sleep 30 ;;\n'
+        "esac\n"
+    )
+    (stub / "docker").chmod(0o755)
+    env = {
+        "PATH": f"{stub}:/usr/bin:/bin",
+        "HOME": str(tmp_path),
+        "STUB_LOG": str(log),
+        "STUB_READY": str(ready),
+        "FILECANOPY_LIBRARY_PATH": str(library),
+        "FILECANOPY_APP_DATA_PATH": str(app_data),
+    }
+    proc = subprocess.Popen(  # noqa: S603
+        ["sh", str(deploy / "scripts" / "backup.sh"), str(dest)],  # noqa: S607
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,  # like a terminal: the signal reaches the whole process group
+    )
+    for _ in range(100):
+        if ready.exists():
+            break
+        time.sleep(0.1)
+    assert ready.exists(), "backup never reached the database dump"
+    os.killpg(proc.pid, sig)
+    proc.wait(timeout=20)
+    calls = log.read_text()
+    assert "stop web api worker" in calls
+    assert "start api" in calls and "start web" in calls, calls
