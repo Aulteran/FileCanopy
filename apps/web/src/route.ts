@@ -12,6 +12,7 @@ const RECENT = /^\/recent\/?$/;
 const NOTICES = /^\/notifications\/?$/;
 const SEARCH = /^\/search\/?$/;
 const INBOX = /^\/inbox\/?$/;
+const ORGANIZE = /^\/organize\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
@@ -38,10 +39,15 @@ export const RECENT_PATH = "/recent";
 export const NOTICES_PATH = "/notifications";
 export const SEARCH_PATH = "/search";
 export const INBOX_PATH = "/inbox";
+export const ORGANIZE_PATH = "/organize";
 export const MAILBOX_PATH = "/admin/mail";
 
 export function isInboxPath(pathname: string): boolean {
   return INBOX.test(pathname);
+}
+
+export function isOrganizePath(pathname: string): boolean {
+  return ORGANIZE.test(pathname);
 }
 
 export function isMailboxPath(pathname: string): boolean {
@@ -128,6 +134,7 @@ export function useRoute(): {
   recent: boolean;
   notices: boolean;
   inbox: boolean;
+  organize: boolean;
   mailbox: boolean;
   search: string | null;
   go: (path: string, replace?: boolean) => void;
@@ -158,6 +165,7 @@ export function useRoute(): {
     recent: isRecentPath(path),
     notices: isNoticesPath(path),
     inbox: isInboxPath(path),
+    organize: isOrganizePath(path),
     mailbox: isMailboxPath(path),
     search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,

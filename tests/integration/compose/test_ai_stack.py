@@ -42,7 +42,7 @@ def stack(app_stack: Stack) -> Stack:
 
 
 def test_budget_reservations_never_pass_the_cap_on_postgres(stack: Stack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0018"
+    assert stack.sql("select version_num from alembic_version") == "0019"
     r = stack.compose("exec", "-T", "api", "python", "-c", SCRIPT)
     out = json.loads(r.stdout.strip().splitlines()[-1])
     assert out["wins"] == 6  # six times 150k fit in 1M; a seventh would pass the cap

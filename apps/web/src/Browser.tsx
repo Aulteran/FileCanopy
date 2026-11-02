@@ -22,6 +22,7 @@ import { NameDialog, TargetDialog } from "./Dialogs";
 import { ShareDialog } from "./Share";
 import { describeError, formatDate, formatSize, progressText } from "./format";
 import { describeUndoConflict } from "./history";
+import { describeSkipped } from "./organizeText";
 import {
   activeUploads,
   droppedEntries,
@@ -376,6 +377,28 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         background.current = true;
         void refresh();
       }, 3000);
+    } catch (err) {
+      setErrorText(fail(err));
+    }
+  }
+
+  async function suggestSelected(): Promise<void> {
+    if (!selected) return;
+    try {
+      const { items } = await api.organizeSuggest([selected.id]);
+      const item = items[0];
+      setErrorText("");
+      setUndoable(null);
+      if (item?.skipped) setNotice(describeSkipped(item.skipped));
+      else if (item?.applied)
+        setNotice(
+          "AI renamed or moved this file. You can undo it on the AI suggestions page.",
+        );
+      else
+        setNotice(
+          "A suggestion is ready. Open AI suggestions in the sidebar to apply or dismiss it.",
+        );
+      if (item?.applied) await refresh();
     } catch (err) {
       setErrorText(fail(err));
     }
@@ -971,6 +994,15 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     >
                       Copy…
                     </button>
+                    {selected.kind === "file" && (
+                      <button
+                        disabled={!canWrite}
+                        title={noWrite}
+                        onClick={() => void suggestSelected()}
+                      >
+                        Suggest organization
+                      </button>
+                    )}
                     <button
                       disabled={!canWrite}
                       title={noWrite}
