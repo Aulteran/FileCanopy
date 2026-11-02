@@ -12,6 +12,7 @@ import json
 import threading
 import time
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -20,7 +21,14 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai import budget
-from app.ai.providers import Adapter, ProviderError
+from app.ai.providers import (
+    WRAPPER_OVERHEAD_BYTES,
+    Adapter,
+    ProviderError,
+    Resolver,
+    parse_allow_list,
+    system_resolver,
+)
 from app.ai.routing import (
     CONSENT_VERSION,
     AiRefused,
@@ -100,12 +108,23 @@ class AiGateway:
         sessions: "sessionmaker[Session]",
         box: SecretBox,
         transport: httpx.BaseTransport | None = None,
+        resolver: Resolver = system_resolver,
     ) -> None:
         self._s = settings
+        self._resolver = resolver
+        self._allow = parse_allow_list(settings.ai_local_hosts)
         self._sessions = sessions
         self._box = box
         self._transport = transport
         self.breaker = Breaker(settings.ai_breaker_failures, settings.ai_breaker_seconds)
+
+    @property
+    def resolver(self) -> Resolver:
+        return self._resolver
+
+    @property
+    def allow_hosts(self) -> frozenset[str]:
+        return self._allow
 
     # --- adapters ---------------------------------------------------------------------------
     def adapter_for(self, provider: AiProvider) -> Adapter:
@@ -127,13 +146,15 @@ class AiGateway:
             timeout=self._s.ai_timeout_seconds,
             max_response_bytes=self._s.ai_max_response_bytes,
             transport=self._transport,
+            resolver=self._resolver,
+            allow_hosts=self._allow,
         )
 
     # --- the public call --------------------------------------------------------------------
     def generate(
         self,
         caller: AiCaller,
-        node_id: uuid.UUID,
+        node_ids: Sequence[uuid.UUID],
         *,
         purpose: str,
         instructions: str,
@@ -141,14 +162,20 @@ class AiGateway:
         output_model: type[T],
         max_output_tokens: int | None = None,
     ) -> Generated[T]:
-        """Raises `AiRefused` (not sent: policy, consent, budget, unavailable) or `AiError`."""
+        """Raises `AiRefused` (not sent: policy, consent, budget, unavailable) or `AiError`.
+
+        `text` must be derived only from the files in `node_ids`: the gate uses the strictest
+        label among them, and every one must be readable by the caller (and unlocked, for
+        Confidential). Callers that mix in text from elsewhere must list that file too."""
         max_out = min(
             max_output_tokens or self._s.ai_max_output_tokens, self._s.ai_max_output_tokens
         )
+        if not node_ids or len(set(node_ids)) > 20:
+            raise AiRefused("node_unavailable")
         if len(text) + len(instructions) > self._s.ai_max_input_chars:
             raise AiRefused("input_too_large")
         with self._sessions() as db:
-            route, label, cleared = self._authorise(db, caller, node_id, text)
+            route, label, cleared = self._authorise(db, caller, list(dict.fromkeys(node_ids)), text)
             return self._run(
                 db, caller, route, cleared, purpose, instructions, text, output_model, max_out
             )
@@ -204,7 +231,9 @@ class AiGateway:
         month = budget.month_key()
         if provider.privacy_mode == "cloud":
             est = budget.cost_micro(
-                budget.estimate_tokens(len(text) + len(instructions)),
+                budget.estimate_tokens(
+                    len(text.encode()) + len(instructions.encode()) + WRAPPER_OVERHEAD_BYTES
+                ),
                 max_out,
                 provider.price_in_micro,
                 provider.price_out_micro,
@@ -251,7 +280,11 @@ class AiGateway:
             else 0
         )
         if reserved or final:
-            budget.settle(db, route.scope_key, month, reserved, final)
+            # Settle only a reservation we still own; if the stale sweep already gave it back,
+            # just record what was spent.
+            owned = budget.claim(db, usage.id) if reserved else True
+            budget.settle(db, route.scope_key, month, reserved if owned else 0, final)
+            usage.reason = "" if owned else "after_expiry"
         usage.status, usage.final_micro = "ok", final
         usage.input_tokens, usage.output_tokens = done.input_tokens, done.output_tokens
         db.commit()
@@ -267,19 +300,20 @@ class AiGateway:
 
     # --- steps ----------------------------------------------------------------------------
     def _authorise(
-        self, db: Session, caller: AiCaller, node_id: uuid.UUID, text: str
+        self, db: Session, caller: AiCaller, node_ids: list[uuid.UUID], text: str
     ) -> tuple[Route, str, ClearedInput]:
         user = db.get(User, caller.user_id)
-        node = db.get(Node, node_id)
         actor = Actor(caller.user_id, caller.kind, caller.session_id)
-        if (
-            user is None
-            or node is None
-            or node.kind != "file"
-            or not engine.decide(db, actor, node).allows(Privilege.READ)
+        nodes = [db.get(Node, i) for i in node_ids]
+        if user is None or any(
+            n is None or n.kind != "file" or not engine.decide(db, actor, n).allows(Privilege.READ)
+            for n in nodes
         ):
             raise AiRefused("node_unavailable")  # one answer for missing and forbidden
-        root = db.get(StorageRoot, node.root_id)
+        files = [n for n in nodes if n is not None]
+        if len({n.root_id for n in files}) != 1:
+            raise AiRefused("mixed_roots")  # one request is one tree, one provider, one budget
+        root = db.get(StorageRoot, files[0].root_id)
         if root is None:
             raise AiRefused("node_unavailable")
         if root.kind == "personal":
@@ -295,14 +329,18 @@ class AiGateway:
             raise AiRefused(route.reason)
         if provider.privacy_mode == "cloud" and provider.consent_version != CONSENT_VERSION:
             raise AiRefused("consent_required")
-        # The label is read now, from the database: nothing the caller says can lower it.
-        label = privacy.effective_label(db, node)
-        scope = privacy.confidential_scope(db, node)
-        unlocked = (
-            caller.kind == "user"
-            and scope is not None
-            and privacy.live_unlock(db, caller.user_id, caller.session_id, scope) is not None
-        )
+        # Labels are read now, from the database: nothing the caller says can lower them. The
+        # request is as protected as the most protected file it was built from.
+        label = "normal"
+        unlocked = True
+        for n in files:
+            label = privacy.stricter(label, privacy.effective_label(db, n))
+            scope = privacy.confidential_scope(db, n)
+            if scope is not None and not (
+                caller.kind == "user"
+                and privacy.live_unlock(db, caller.user_id, caller.session_id, scope) is not None
+            ):
+                unlocked = False
         cleared = clear(
             text,
             label=label,
@@ -366,7 +404,7 @@ class AiGateway:
         refused: bool = False,
         count: bool = True,
     ) -> None:
-        if reserved:
+        if reserved and budget.claim(db, usage.id):
             budget.release(db, route.scope_key, month, reserved)
         usage.status = "refused" if refused else "failed"
         usage.reason = code.lower()[:40]

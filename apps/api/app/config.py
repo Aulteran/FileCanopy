@@ -210,6 +210,10 @@ class Settings(BaseSettings):
     # 32 random bytes, base64 (url-safe or standard). Seals provider API keys stored in the
     # database. Empty = keys cannot be stored; local providers (no key) still work.
     secrets_key: SecretStr = SecretStr("")
+    # Operator allow-list of hosts local AI providers may use (comma separated names or IPs).
+    # Empty = any host that resolves only to loopback or private addresses. The web administrator
+    # role is not trusted to widen this; link-local and metadata addresses are refused either way.
+    ai_local_hosts: str = ""
     ai_timeout_seconds: int = Field(default=60, ge=1, le=600)
     ai_max_input_chars: int = Field(default=100_000, ge=100, le=2_000_000)
     ai_max_output_tokens: int = Field(default=2048, ge=16, le=32_000)

@@ -39,7 +39,7 @@ no-cloud-protected regression.
 |---|---|---|
 | D1 | Secret key | `FILECANOPY_SECRETS_KEY` (32 random bytes, base64), env or file. AES-256-GCM, associated data = provider id + owner, random nonce. Unset: storing a key answers `503 SECRETS_KEY_NOT_CONFIGURED` and local providers (no key) still work. Rotation = re-enter keys. |
 | D2 | Cloud hosts | Hard-coded per vendor (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`), https only, redirects off. No custom base URL for cloud. |
-| D3 | Local endpoints | Administrators only, saved with a check that the URL is http(s) with no credentials in it; requests never follow redirects. A person's own provider is cloud-vendor only (avoids using the server as an SSRF proxy). |
+| D3 | Local endpoints | Administrators only. "Local" is checked by where the packets go, not by the provider kind (review H1): every address the host resolves to must be loopback or private (RFC 1918, ULA); link-local, metadata (`169.254.0.0/16`, `fd00:ec2::254`), unspecified and multicast never pass; the check runs when saving and again at every call, and the call connects to the address that was checked (no DNS rebinding). `FILECANOPY_AI_LOCAL_HOSTS` lets the operator narrow this to named hosts; the web administrator role cannot widen it. No redirects. A person's own provider is cloud-vendor only. |
 | D4 | Pricing | No built-in price table (it goes stale and an unverifiable number would look authoritative). The provider config carries input and output USD per million tokens; a cloud provider without prices is refused. |
 | D5 | Caps | Instance default $3.00 per month, per-person own-provider default $3.00; local providers cost 0 and are not capped. Estimates use a conservative upper bound (input tokens ≈ chars/3 plus `max_output_tokens`). Cap 0 blocks cloud use. |
 | D6 | Cloud consent | First cloud enablement (instance, or a person's own) needs an explicit acknowledgement of a versioned notice; stored with who and when. Key verification is an opt-in test request with a billing warning. |
@@ -61,7 +61,11 @@ no-cloud-protected regression.
 | T7 | Prompt injection in documents steering actions. | M15 executes nothing from model text; D9 typed validated output only; the consumers (M16+) add the validator. |
 | T8 | Consumer-plan credential reuse. | Only provider API keys are accepted; UI says so; no OAuth/session cookie flows. |
 
-## Data (migration 0017)
+## Review round 1 (Opus, 1 High, 2 Medium, 4 Low) - all fixed
+
+H1 local endpoints verified by address (D3). M1 `generate` takes the list of source files, gates on the strictest label and needs every one readable/unlocked; `ClearedInput` is a plain immutable class that cannot be replaced or copied. M2 choosing the server's cloud AI records the person's acknowledgement (provider row, vendor, notice version); a changed provider asks again (`instance_consent_required`). L1 the ledger row is claimed before settle/release and the call has a whole-request deadline. L2 the reservation uses the UTF-8 byte length (plus the fixed wrapper). L3 partial unique indexes and CHECKs on `ai_provider`; concurrent saves answer `409 CONFLICT`. L4 PostgreSQL race test in `tests/integration/compose/test_ai_stack.py`. Not changed: one person on the server's AI can use the whole instance budget (noted in the guide).
+
+## Data (migration 0018)
 
 `ai_provider` (id, scope `instance|user`, owner_user_id, kind, label, endpoint, model, privacy_mode
 `local|cloud`, price_in_micro, price_out_micro, secret_ciphertext, enabled, consent_version,

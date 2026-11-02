@@ -281,6 +281,7 @@ export function AiSettings({
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [instance, setInstance] = useState<AiInstance | null>(null);
   const [error, setError] = useState("");
+  const [ack, setAck] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -298,7 +299,7 @@ export function AiSettings({
 
   async function choose(preference: string): Promise<void> {
     try {
-      await api.aiSetPreference(preference);
+      await api.aiSetPreference(preference, ack);
       load();
     } catch (err) {
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
@@ -333,6 +334,35 @@ export function AiSettings({
               ))}
             </select>
           </label>
+          {status.instance_kind && (
+            <p className="muted">
+              The server's AI is{" "}
+              {KIND_LABELS[status.instance_kind] ?? status.instance_kind}
+              {status.instance_host ? ` at ${status.instance_host}` : ""}.
+            </p>
+          )}
+          {status.instance_mode === "cloud" &&
+            (status.preference === "instance_default" ||
+              status.instance_needs_ack) && (
+              <>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={ack}
+                    onChange={(e) => setAck(e.target.checked)}
+                  />
+                  {status.notice}
+                </label>
+                {status.instance_needs_ack && (
+                  <button
+                    type="button"
+                    onClick={() => void choose("instance_default")}
+                  >
+                    Agree and use the server's AI
+                  </button>
+                )}
+              </>
+            )}
           <h4>My own provider</h4>
           <ProviderForm
             key={status.my_provider?.id ?? "none"}

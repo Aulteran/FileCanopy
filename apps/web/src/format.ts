@@ -43,6 +43,9 @@ const MESSAGES: Record<string, string> = {
   PROVIDER_OUTAGE: "The provider could not be reached.",
   PROVIDER_TIMEOUT: "The provider took too long to answer.",
   PROVIDER_RATE_LIMIT: "The provider is limiting requests. Try again later.",
+  ENDPOINT_NOT_LOCAL:
+    "That address is not on a private network, or could not be looked up.",
+  CONFLICT: "Someone else changed this at the same time. Reload and try again.",
   INVALID_CAP: "That limit is not valid.",
   FORBIDDEN: "You do not have access to that.",
   LOCKED: "This folder is locked. Unlock it with your PIN to continue.",

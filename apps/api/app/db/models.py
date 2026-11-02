@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -90,6 +91,9 @@ class User(Base):
     ai_preference: Mapped[str] = mapped_column(
         String(32), nullable=False, default="off", server_default="off"
     )
+    # What the person acknowledged about the server's cloud AI (provider row, vendor, notice
+    # version); routing to a different cloud provider needs a new acknowledgement.
+    ai_ack: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 
 class StorageRoot(Base):
@@ -767,6 +771,27 @@ class AiProvider(Base):
     """A configured AI provider (M15). `secret_ciphertext` is AES-GCM sealed; no API returns it."""
 
     __tablename__ = "ai_provider"
+    __table_args__ = (
+        Index(
+            "uq_ai_provider_instance",
+            "scope",
+            unique=True,
+            sqlite_where=text("scope = 'instance'"),
+            postgresql_where=text("scope = 'instance'"),
+        ),
+        Index(
+            "uq_ai_provider_user",
+            "owner_user_id",
+            unique=True,
+            sqlite_where=text("scope = 'user'"),
+            postgresql_where=text("scope = 'user'"),
+        ),
+        CheckConstraint("scope in ('instance', 'user')", name="ck_ai_provider_scope"),
+        CheckConstraint("privacy_mode in ('local', 'cloud')", name="ck_ai_provider_mode"),
+        CheckConstraint(
+            "(scope = 'instance') = (owner_user_id is null)", name="ck_ai_provider_owner"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     scope: Mapped[str] = mapped_column(String(8), nullable=False)  # instance | user

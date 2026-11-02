@@ -133,6 +133,9 @@ export type AiStatus = {
   preference: string;
   preferences: string[];
   instance_available: boolean;
+  instance_kind: string | null;
+  instance_host: string | null;
+  instance_needs_ack: boolean;
   instance_mode: "local" | "cloud" | null;
   personal_tree_ai: boolean;
   personal_tree_reason: string;
@@ -987,8 +990,11 @@ export const api = {
 
   // Optional AI (M15)
   aiStatus: () => call<AiStatus>("GET", "/api/v1/ai/status"),
-  aiSetPreference: (preference: string) =>
-    call<unknown>("PUT", "/api/v1/ai/me/preference", { preference }),
+  aiSetPreference: (preference: string, acknowledge_instance = false) =>
+    call<unknown>("PUT", "/api/v1/ai/me/preference", {
+      preference,
+      acknowledge_instance,
+    }),
   aiPutMine: (body: AiProviderInput) =>
     call<AiProvider>("PUT", "/api/v1/ai/me/provider", body),
   aiDeleteMine: () => call<unknown>("DELETE", "/api/v1/ai/me/provider"),

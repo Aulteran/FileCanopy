@@ -32,9 +32,10 @@ def cost_micro(tokens_in: int, tokens_out: int, price_in: int, price_out: int) -
     return math.ceil((tokens_in * price_in + tokens_out * price_out) / 1_000_000)
 
 
-def estimate_tokens(chars: int) -> int:
-    """A deliberately high estimate (about 3 characters per token) for the reservation."""
-    return math.ceil(chars / 3) + 16
+def estimate_tokens(utf8_bytes: int) -> int:
+    """An upper bound for the reservation: a token is never shorter than one byte, so the UTF-8
+    length of everything sent (CJK, emoji and code included) can only over-count (M15 review L2)."""
+    return utf8_bytes + 32
 
 
 def _row(db: Session, scope_key: str, month: str) -> AiBudget | None:
@@ -72,6 +73,18 @@ def set_cap(db: Session, scope_key: str, default_cap: int, cap_micro: int) -> Ai
     row.cap_micro = cap_micro
     db.commit()
     return row
+
+
+def claim(db: Session, usage_id: object, to: str = "settling") -> bool:
+    """Take ownership of a reservation before settling or releasing it. False when someone else
+    already did (the stale sweep gave it back), so it is never returned twice (review L1)."""
+    got: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+        update(AiUsage)
+        .where(AiUsage.id == usage_id, AiUsage.status == "reserved")
+        .values(status=to)
+    )
+    db.commit()
+    return got.rowcount == 1
 
 
 def sweep_stale(db: Session, scope_key: str) -> int:

@@ -7,20 +7,31 @@ key, and an administrator never sees whose provider or budget a person has.
 
 import uuid
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.ai import budget
 from app.ai.gateway import AiCaller, AiError, AiGateway
-from app.ai.providers import CLOUD_KINDS, KINDS, mode_of, validate_endpoint, validate_model
+from app.ai.providers import (
+    CLOUD_KINDS,
+    KINDS,
+    EndpointError,
+    mode_of,
+    validate_endpoint,
+    validate_model,
+)
 from app.ai.routing import (
     CONSENT_VERSION,
     INSTANCE_PROVIDER_KEY,
     PREFERENCES,
     AiRefused,
+    instance_provider,
+    instance_signature,
     resolve_route,
 )
 from app.ai.secrets import SecretBox, SecretsError, aad_for
@@ -92,6 +103,9 @@ class CapBody(BaseModel):
 class PreferenceBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     preference: Literal["off", "instance_default", "instance_default_local_only", "my_provider"]
+    # Required when the server's AI is a cloud service and the person picks "instance_default"
+    # (or re-confirms after the administrator changed the provider).
+    acknowledge_instance: bool = False
 
 
 class TestBody(BaseModel):
@@ -112,6 +126,15 @@ def _out(p: AiProvider) -> ProviderOut:
         price_out_micro=p.price_out_micro,
         consent_ok=p.privacy_mode == "local" or p.consent_version == CONSENT_VERSION,
     )
+
+
+def _commit_provider(db: Session, *, flush: bool = False) -> None:
+    """Two simultaneous saves of the one provider of a scope: the second gets a clean conflict."""
+    try:
+        db.flush() if flush else db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise http_error(409, "CONFLICT") from None
 
 
 def _usage(db: Session, scope_key: str, default_cap: int) -> dict[str, Any]:
@@ -156,9 +179,12 @@ def _save(
     mode = mode_of(body.kind)
     if scope == "user" and mode != "cloud":
         raise http_error(403, "LOCAL_ENDPOINT_ADMIN_ONLY")
+    gw = gateway_of(request)
     try:
-        endpoint = validate_endpoint(body.kind, body.endpoint)
+        endpoint = validate_endpoint(body.kind, body.endpoint, gw.resolver, gw.allow_hosts)
         model = validate_model(body.model)
+    except EndpointError:
+        raise http_error(422, "ENDPOINT_NOT_LOCAL") from None
     except ValueError:
         raise http_error(422, "INVALID_PROVIDER") from None
     if mode == "cloud" and not (body.price_in_micro or body.price_out_micro):
@@ -218,6 +244,11 @@ def status(
         "preference": user.ai_preference,
         "preferences": list(PREFERENCES),
         "instance_available": shared.provider is not None,
+        # What choosing the server's AI would mean: where it runs, so a person can judge it.
+        "instance_kind": inst.kind if inst and inst.enabled else None,
+        "instance_host": (urlparse(inst.endpoint).netloc if inst and inst.enabled else None)
+        or None,
+        "instance_needs_ack": personal.reason == "instance_consent_required",
         # Only the facts a person needs: not the endpoint or key state of the instance provider.
         "instance_mode": inst.privacy_mode if inst and inst.enabled else None,
         "shared_tree_ai": shared.provider is not None,
@@ -238,6 +269,12 @@ def set_preference(
     db: Session = Depends(get_db),
 ) -> Ok:
     user = principal.user
+    if body.preference == "instance_default":
+        shared = instance_provider(db)
+        if shared is not None and shared.privacy_mode == "cloud":
+            if not body.acknowledge_instance:
+                raise http_error(409, "CONSENT_REQUIRED")
+            user.ai_ack = instance_signature(shared)
     user.ai_preference = body.preference
     audit(db, "ai.preference", actor=user.id, ip=client_ip(request), value=body.preference)
     db.commit()
@@ -262,7 +299,7 @@ def put_my_provider(
         kind=provider.kind,
         enabled=provider.enabled,
     )
-    db.commit()
+    _commit_provider(db)
     return _out(provider)
 
 
@@ -335,7 +372,7 @@ def put_instance_provider(
     db: Session = Depends(get_db),
 ) -> ProviderOut:
     provider = _save(request, db, principal, _instance(db), body, scope="instance")
-    db.flush()
+    _commit_provider(db, flush=True)
     setting = db.get(AppSetting, INSTANCE_PROVIDER_KEY)
     if setting is None:
         db.add(AppSetting(key=INSTANCE_PROVIDER_KEY, value=str(provider.id)))
@@ -350,7 +387,7 @@ def put_instance_provider(
         kind=provider.kind,
         enabled=provider.enabled,
     )
-    db.commit()
+    _commit_provider(db)
     return _out(provider)
 
 

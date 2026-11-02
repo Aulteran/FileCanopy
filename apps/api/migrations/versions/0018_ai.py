@@ -46,6 +46,28 @@ def upgrade() -> None:
             sa.Column("consent_at", TS),
             sa.Column("consent_by", sa.Uuid),
             sa.Column("created_at", TS, nullable=False),
+            sa.CheckConstraint("scope in ('instance', 'user')", name="ck_ai_provider_scope"),
+            sa.CheckConstraint("privacy_mode in ('local', 'cloud')", name="ck_ai_provider_mode"),
+            sa.CheckConstraint(
+                "(scope = 'instance') = (owner_user_id is null)", name="ck_ai_provider_owner"
+            ),
+        )
+        # One provider for the instance and one per person: concurrent saves cannot duplicate.
+        op.create_index(
+            "uq_ai_provider_instance",
+            "ai_provider",
+            ["scope"],
+            unique=True,
+            sqlite_where=sa.text("scope = 'instance'"),
+            postgresql_where=sa.text("scope = 'instance'"),
+        )
+        op.create_index(
+            "uq_ai_provider_user",
+            "ai_provider",
+            ["owner_user_id"],
+            unique=True,
+            sqlite_where=sa.text("scope = 'user'"),
+            postgresql_where=sa.text("scope = 'user'"),
         )
     if "ai_budget" not in names:
         op.create_table(
@@ -83,10 +105,14 @@ def upgrade() -> None:
             batch.add_column(
                 sa.Column("ai_preference", sa.String(32), nullable=False, server_default="off")
             )
+    if "ai_ack" not in columns:
+        with op.batch_alter_table("app_user") as batch:
+            batch.add_column(sa.Column("ai_ack", sa.String(120)))
 
 
 def downgrade() -> None:
     with op.batch_alter_table("app_user") as batch:
+        batch.drop_column("ai_ack")
         batch.drop_column("ai_preference")
     op.drop_table("ai_usage")
     op.drop_table("ai_budget")

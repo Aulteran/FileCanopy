@@ -24,7 +24,11 @@ keys.
   million tokens from the provider's price page: FileCanopy ships no price table, because a stale
   number would look authoritative.
 - Local: Ollama or an OpenAI-compatible server such as llama.cpp, at an address the administrator
-  enters. People cannot add local addresses (the server would otherwise act as a proxy to your
+  enters. The address must resolve only to loopback or private addresses (a Docker service name
+  or a LAN host); anything that resolves to a public, link-local or cloud-metadata address is
+  refused when saved and again on every request. The server connects to the address it checked.
+  To restrict this further, set `FILECANOPY_AI_LOCAL_HOSTS` (comma-separated host names) in the
+  deployment environment; the web administrator cannot change it. People cannot add local addresses (the server would otherwise act as a proxy to your
   network).
 
 ## Who uses what
@@ -33,6 +37,11 @@ keys.
 - A person's personal files: Off (default), the server's provider, the server's provider only if
   it is local, or their own cloud provider and budget. A file in someone else's personal folder is
   never sent on your account, even if it was shared with you.
+- Choosing "Use the server's AI" while it is a cloud service asks the person to agree first; if the
+  administrator later changes the provider or vendor, their files stop using it until they agree
+  again (the AI dialog shows this).
+- Everyone on the server's AI shares one budget, so one person can use it up; set the cap with that
+  in mind.
 - Private and Confidential files never go to a cloud provider. A local provider needs the person's
   local-processing opt-in (Preview settings), and Confidential also needs an unlocked folder; a
   background job is never unlocked. There is no fallback: if a local provider is down the request

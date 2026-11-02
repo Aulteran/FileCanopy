@@ -7,7 +7,7 @@ anything else and re-check the label themselves (defence in depth, 03_SECURITY_P
 """
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -59,6 +59,12 @@ def user_provider(db: Session, user_id: uuid.UUID) -> AiProvider | None:
     )
 
 
+def instance_signature(provider: AiProvider) -> str:
+    """What a person agreed to when they chose the server's cloud AI: this provider row and vendor.
+    Changing either asks them again (M15 review M2)."""
+    return f"{provider.id}:{provider.kind}:v{CONSENT_VERSION}"
+
+
 def resolve_route(db: Session, *, root_kind: str, owner: User | None) -> Route:
     """`root_kind` is the storage root the content lives in. The shared tree uses the instance
     provider and never a person's credentials; a personal tree follows its owner's choice."""
@@ -70,7 +76,11 @@ def resolve_route(db: Session, *, root_kind: str, owner: User | None) -> Route:
     choice = owner.ai_preference
     if choice == "instance_default":
         provider = instance_provider(db)
-        return Route(provider, "instance", "ok" if provider else "ai_not_configured")
+        if provider is None:
+            return Route(None, "instance", "ai_not_configured")
+        if provider.privacy_mode == "cloud" and owner.ai_ack != instance_signature(provider):
+            return Route(None, "instance", "instance_consent_required")
+        return Route(provider, "instance", "ok")
     if choice == "instance_default_local_only":
         provider = instance_provider(db)
         if provider is None:
@@ -87,18 +97,45 @@ def resolve_route(db: Session, *, root_kind: str, owner: User | None) -> Route:
 _MINT = object()
 
 
-@dataclass(frozen=True)
 class ClearedInput:
-    """Text that passed the gate for one provider mode. Built only by `clear`."""
+    """Text that passed the gate for one provider mode. Built only by `clear`.
 
+    Deliberately not a dataclass and not copyable: `dataclasses.replace`, `copy` and pickling
+    would otherwise let in-process code keep the proof and swap the label or the text (M15
+    review M1). Attributes cannot be reassigned after construction."""
+
+    __slots__ = ("text", "label", "provider_mode")
     text: str
     label: str
     provider_mode: str
-    _proof: object = field(repr=False, compare=False, default=None)
 
-    def __post_init__(self) -> None:
-        if self._proof is not _MINT:
+    def __init__(self, token: object, text: str, label: str, provider_mode: str) -> None:
+        if token is not _MINT:
             raise TypeError("ClearedInput is created by routing.clear only")
+        object.__setattr__(self, "text", text)
+        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "provider_mode", provider_mode)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("ClearedInput is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("ClearedInput is immutable")
+
+    def __replace__(self, **changes: object) -> "ClearedInput":
+        raise TypeError("ClearedInput cannot be modified or copied")
+
+    def __copy__(self) -> "ClearedInput":
+        raise TypeError("ClearedInput cannot be modified or copied")
+
+    def __deepcopy__(self, memo: object) -> "ClearedInput":
+        raise TypeError("ClearedInput cannot be modified or copied")
+
+    def __reduce__(self) -> str | tuple[object, ...]:
+        raise TypeError("ClearedInput cannot be modified or copied")
+
+    def __repr__(self) -> str:  # never shows the text
+        return f"ClearedInput(label={self.label!r}, mode={self.provider_mode!r})"
 
 
 def clear(
@@ -114,13 +151,13 @@ def clear(
     )
     if not verdict.allowed:
         raise AiRefused(verdict.reason)
-    return ClearedInput(text=text, label=label, provider_mode=provider_mode, _proof=_MINT)
+    return ClearedInput(_MINT, text, label, provider_mode)
 
 
 def assert_deliverable(cleared: object, provider_mode: str) -> ClearedInput:
     """What an adapter calls before any network use: a real `ClearedInput`, cleared for this very
     provider mode, and never protected content on a cloud adapter."""
-    if not isinstance(cleared, ClearedInput) or cleared._proof is not _MINT:
+    if not isinstance(cleared, ClearedInput):
         raise AiRefused("not_cleared")
     if cleared.provider_mode != provider_mode:
         raise AiRefused("mode_mismatch")

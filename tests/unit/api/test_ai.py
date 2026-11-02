@@ -2,6 +2,9 @@
 network or a paid API."""
 
 import base64
+import copy
+import dataclasses
+import ipaddress
 import json
 import logging
 import os
@@ -21,6 +24,7 @@ from test_files import Api, code
 
 from app.ai import budget
 from app.ai.gateway import AiCaller, AiError
+from app.ai.providers import EndpointError
 from app.ai.routing import AiRefused, ClearedInput, assert_deliverable, clear, resolve_route
 from app.ai.secrets import SecretBox, SecretsError, aad_for, parse_key
 from app.db.models import (
@@ -74,9 +78,36 @@ class Net:
         )
 
 
+HOSTS = {"ollama.internal": ["10.0.0.5"], "evil.example": ["93.184.216.34"]}
+
+
+def fake_resolver(host: str, port: int) -> list[str]:
+    """No real DNS in tests: a fixed table, like a zone the test controls."""
+    if host in HOSTS:
+        return HOSTS[host]
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        raise EndpointError("unresolvable") from None
+    return [host]
+
+
+@pytest.fixture(autouse=True)
+def reset_hosts() -> Any:
+    saved = {k: list(v) for k, v in HOSTS.items()}
+    yield
+    HOSTS.clear()
+    HOSTS.update(saved)
+
+
+def with_resolver(fx: Fx) -> Fx:
+    fx.w.app.state.ai._resolver = fake_resolver
+    return fx
+
+
 @pytest.fixture
 def fx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Fx:
-    return Fx(World(tmp_path, monkeypatch, secrets_key=KEY))
+    return with_resolver(Fx(World(tmp_path, monkeypatch, secrets_key=KEY)))
 
 
 @pytest.fixture
@@ -129,9 +160,16 @@ def caller(fx: Fx, email: str, *, job: bool = False) -> AiCaller:
     return AiCaller(uid, None if job else sid, "job" if job else "user")
 
 
-def run(fx: Fx, who: AiCaller, node: uuid.UUID, text: str = "invoice text") -> Any:
+def run(
+    fx: Fx, who: AiCaller, node: uuid.UUID | list[uuid.UUID], text: str = "invoice text"
+) -> Any:
     return gateway(fx).generate(
-        who, node, purpose="test", instructions="Classify.", text=text, output_model=Out
+        who,
+        [node] if isinstance(node, uuid.UUID) else node,
+        purpose="test",
+        instructions="Classify.",
+        text=text,
+        output_model=Out,
     )
 
 
@@ -147,7 +185,8 @@ def label(api: Api, node: uuid.UUID, value: str) -> None:
 
 
 def set_pref(api: Api, value: str) -> None:
-    assert put(api, "/me/preference", {"preference": value}).status_code == 200
+    body = {"preference": value, "acknowledge_instance": True}
+    assert put(api, "/me/preference", body).status_code == 200
 
 
 def usage_rows(fx: Fx) -> list[AiUsage]:
@@ -272,7 +311,8 @@ def test_cloud_needs_secrets_key_consent_prices_and_a_key(
         "INVALID_PROVIDER"
     )
     assert code(put(admin, "/instance/provider", cloud_body(model="a b;c"))) == "INVALID_PROVIDER"
-    bare = Fx(World(tmp_path / "x", monkeypatch)) if (tmp_path / "x").mkdir() is None else fx
+    (tmp_path / "x").mkdir()
+    bare = with_resolver(Fx(World(tmp_path / "x", monkeypatch)))
     r = put(Api(bare, "admin"), "/instance/provider", cloud_body())
     assert r.status_code == 503 and code(r) == "SECRETS_KEY_NOT_CONFIGURED"
     # local providers need no key and no secrets key
@@ -356,7 +396,7 @@ def test_local_provider_for_protected_needs_opt_in_and_unlock(fx: Fx, net: Net) 
     # a background job is never unlocked
     with pytest.raises(AiRefused):
         run(fx, caller(fx, "alice", job=True), fc)
-    assert all(req.url.host == "ollama.internal" for req in net.requests)
+    assert all(req.headers["host"] == "ollama.internal:11434" for req in net.requests)
 
 
 def test_no_fallback_from_local_to_cloud_on_outage(fx: Fx, net: Net) -> None:
@@ -369,7 +409,9 @@ def test_no_fallback_from_local_to_cloud_on_outage(fx: Fx, net: Net) -> None:
     with pytest.raises(AiError) as e:
         run(fx, caller(fx, "alice"), f)
     assert e.value.code == "OUTAGE"
-    assert {r.url.host for r in net.requests} == {"ollama.internal"}  # the cloud was never tried
+    assert {r.headers["host"] for r in net.requests} == {
+        "ollama.internal:11434"
+    }  # the cloud was never tried
 
 
 def test_other_peoples_personal_files_and_admin(fx: Fx, net: Net) -> None:
@@ -510,3 +552,198 @@ def test_secret_key_parsing() -> None:
         parse_key("short")
     box = SecretBox.from_setting("")
     assert not box.configured
+
+
+# --- review fixes ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://evil.example:8080",  # a name that resolves to a public address
+        "https://93.184.216.34",
+        "http://169.254.169.254",  # cloud metadata
+        "http://[fd00:ec2::254]",
+        "http://[::ffff:169.254.169.254]",
+        "http://0.0.0.0:11434",
+        "http://nowhere.invalid",  # does not resolve: cannot be verified, so refused
+    ],
+)
+def test_local_endpoint_must_be_local(fx: Fx, endpoint: str) -> None:
+    admin = Api(fx, "admin")
+    r = put(admin, "/instance/provider", local_body(endpoint=endpoint))
+    assert r.status_code == 422 and code(r) == "ENDPOINT_NOT_LOCAL", endpoint
+
+
+def test_local_endpoint_accepts_private_and_loopback(fx: Fx) -> None:
+    admin = Api(fx, "admin")
+    for ep in ("http://ollama.internal:11434", "http://127.0.0.1:11434", "http://192.168.1.9"):
+        assert put(admin, "/instance/provider", local_body(endpoint=ep)).status_code == 200
+
+
+def test_dns_rebinding_is_refused_at_connect_time(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    assert put(admin, "/instance/provider", local_body()).status_code == 200  # private when saved
+    set_pref(alice, "instance_default")
+    with fx.w.ctx.sessions() as db:
+        u = db.get(User, alice.uid)
+        assert u is not None
+        u.local_processing_opt_in = True
+        db.commit()
+    f = file_in(alice, fx.shared_sub, "x.txt")
+    shared_private = fx.folder(fx.alice_root, "Priv")
+    label(alice, shared_private, "private")
+    secret = file_in(alice, shared_private)
+    HOSTS["ollama.internal"] = ["93.184.216.34"]  # the name now points at the internet
+    with pytest.raises(AiError) as e:
+        run(fx, caller(fx, "alice"), secret, text="passport number")
+    assert e.value.code == "OUTAGE" and net.requests == []
+    HOSTS["ollama.internal"] = ["169.254.169.254"]
+    with pytest.raises(AiError):
+        run(fx, caller(fx, "alice"), secret)
+    assert net.requests == [] and f  # nothing was sent anywhere
+
+
+def test_operator_allow_list_narrows_local_hosts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fx2 = with_resolver(Fx(World(tmp_path, monkeypatch, secrets_key=KEY, ai_local_hosts="gpu.lan")))
+    HOSTS["gpu.lan"] = ["10.1.1.1"]
+    admin = Api(fx2, "admin")
+    assert code(put(admin, "/instance/provider", local_body())) == "ENDPOINT_NOT_LOCAL"
+    ok = put(admin, "/instance/provider", local_body(endpoint="http://gpu.lan:8080"))
+    assert ok.status_code == 200
+    # even a listed host cannot be link-local
+    HOSTS["gpu.lan"] = ["169.254.169.254"]
+    bad = put(admin, "/instance/provider", local_body(endpoint="http://gpu.lan:8080"))
+    assert code(bad) == "ENDPOINT_NOT_LOCAL"
+
+
+def test_cleared_input_cannot_be_copied_or_replaced() -> None:
+    c = clear(
+        "secret-body",
+        label="normal",
+        provider_mode="cloud",
+        local_opt_in=False,
+        unlocked_by_person=False,
+    )
+    with pytest.raises(TypeError):
+        dataclasses.replace(c, label="normal")  # type: ignore[type-var]
+    with pytest.raises(TypeError):
+        copy.copy(c)
+    with pytest.raises(TypeError):
+        copy.deepcopy(c)
+    with pytest.raises(AttributeError):
+        c.label = "private"  # type: ignore[misc]
+    assert "secret-body" not in repr(c)
+
+
+def test_request_is_as_protected_as_its_strictest_source(fx: Fx, net: Net) -> None:
+    alice, admin = Api(fx, "alice"), Api(fx, "admin")
+    put(admin, "/instance/provider", cloud_body())
+    set_pref(alice, "instance_default")
+    plain = file_in(alice, fx.y2026, "plain.txt")
+    folder = fx.folder(fx.alice_root, "Medical")
+    label(alice, folder, "private")
+    secret = file_in(alice, folder, "scan.txt")
+    me = caller(fx, "alice")
+    assert run(fx, me, plain).value.ok
+    sent = len(net.requests)
+    # Private-derived text under a Normal node id is no longer enough: list every source.
+    with pytest.raises(AiRefused) as e:
+        run(fx, me, [plain, secret], text="text extracted from both")
+    assert e.value.reason == "protected_never_cloud" and len(net.requests) == sent
+    with pytest.raises(AiRefused) as e:
+        run(fx, me, [])
+    assert e.value.reason == "node_unavailable"
+    other = file_in(Api(fx, "bob"), fx.root_of("bob@example.com"))
+    with pytest.raises(AiRefused):
+        run(fx, me, [plain, other])
+    assert len(net.requests) == sent
+
+
+def test_person_must_agree_to_the_servers_cloud_ai(fx: Fx, net: Net) -> None:
+    alice, admin = Api(fx, "alice"), Api(fx, "admin")
+    put(admin, "/instance/provider", local_body())
+    assert put(alice, "/me/preference", {"preference": "instance_default"}).status_code == 200
+    f = file_in(alice, fx.y2026)
+    assert run(fx, caller(fx, "alice"), f).value.ok  # local: nothing to agree to
+    # the administrator now switches the server to a cloud vendor
+    assert put(admin, "/instance/provider", cloud_body()).status_code == 200
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), f)
+    assert e.value.reason == "instance_consent_required"
+    assert alice.get("/ai/status").json()["instance_needs_ack"] is True
+    assert put(alice, "/me/preference", {"preference": "instance_default"}).status_code == 409
+    assert (
+        put(
+            alice,
+            "/me/preference",
+            {"preference": "instance_default", "acknowledge_instance": True},
+        ).status_code
+        == 200
+    )
+    assert run(fx, caller(fx, "alice"), f).value.ok
+    # a different vendor needs a new agreement
+    assert put(admin, "/instance/provider", cloud_body(kind="openai")).status_code == 200
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), f)
+    assert e.value.reason == "instance_consent_required"
+
+
+def test_late_finish_does_not_return_the_reservation_twice(fx: Fx) -> None:
+    with fx.w.ctx.sessions() as db:
+        assert budget.reserve(db, "instance", 1_000_000, 3_000_000)
+        row = AiUsage(
+            at=budget.clock.utcnow(),
+            month=budget.month_key(),
+            scope_key="instance",
+            provider_kind="anthropic",
+            model="m",
+            purpose="x",
+            status="reserved",
+            reserved_micro=1_000_000,
+        )
+        db.add(row)
+        db.commit()
+        fx.w.advance(minutes=30)
+        assert budget.sweep_stale(db, "instance") == 1
+        assert budget.claim(db, row.id) is False  # the sweep owns it now: no second release
+        b = db.scalars(select(AiBudget)).one()
+        assert b.reserved_micro == 0
+        budget.settle(db, "instance", row.month, 0, 250_000)  # the late result is still counted
+        db.refresh(b)
+        assert (b.reserved_micro, b.spent_micro) == (0, 250_000)
+
+
+def test_reservation_estimate_is_a_byte_bound() -> None:
+    cjk = "漢字" * 500  # 1000 characters, 3000 bytes; real tokenisers can spend 1+ per character
+    assert budget.estimate_tokens(len(cjk.encode())) >= 3000
+    assert budget.estimate_tokens(0) > 0
+
+
+def test_one_provider_per_scope_is_enforced_by_the_database(fx: Fx) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    from app.auth import clock
+
+    def row(scope: str, owner: uuid.UUID | None, mode: str = "local") -> AiProvider:
+        return AiProvider(
+            scope=scope,
+            owner_user_id=owner,
+            kind="ollama",
+            privacy_mode=mode,
+            model="m",
+            created_at=clock.utcnow(),
+        )
+
+    uid = fx.uid("alice@example.com")
+    for bad in (
+        [row("instance", None), row("instance", None)],
+        [row("user", uid), row("user", uid)],
+        [row("instance", uid)],
+        [row("user", None)],
+        [row("planet", None)],
+        [row("instance", None, "elsewhere")],
+    ):
+        with fx.w.ctx.sessions() as db, pytest.raises(IntegrityError):
+            db.add_all(bad)
+            db.commit()
