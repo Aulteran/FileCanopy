@@ -1,0 +1,38 @@
+# Published images instead of building from source (M22). Add it with a second -f:
+#   docker compose -f docker-compose.yml -f docker-compose.release.yml up -d --wait
+# Needs Docker Compose 2.24 or newer (for !reset).
+#
+# FILECANOPY_VERSION is required and has no default on purpose: you choose the release you run,
+# and an upgrade is a deliberate edit of this one value. There is no floating "latest" tag.
+# FILECANOPY_IMAGE_PREFIX is where the images live; the four service images are
+# <prefix>-postgres, <prefix>-api, <prefix>-web (and <prefix>-converter, <prefix>-ocr for the
+# optional profiles), all tagged with the same version.
+#
+# `pull_policy: missing` means a version you already have is never fetched again, and a release
+# image is never rebuilt on your machine. The base images inside them are pinned by digest.
+x-release: &release
+  build: !reset null
+  pull_policy: missing
+
+services:
+  postgres:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-postgres:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  migrate:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  api:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  web:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-web:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  converter:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-converter:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  ocr:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-ocr:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
+  worker:
+    <<: *release
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}

@@ -101,9 +101,13 @@ docker compose -f deploy/docker-compose.yml up -d --build --wait
 
 Database migrations run automatically on start. Your `deploy/.env` file is ignored by git, so `git pull` does not change it.
 
+For a production setup (published images pinned to a version, whole-install backup and restore, HTTPS, the Docker Swarm variant) read the [production guide](docs/guides/production.md).
+
 ## Backups
 
-Backups are off by default, and the app does not need a backup disk to run. To turn them on:
+There are two kinds. The **disaster-recovery backup** copies the database, `app-data/` and `library/` in one go and restores into an empty install: `deploy/scripts/backup.sh <folder>` and `deploy/scripts/restore.sh <backup>` (see the [production guide](docs/guides/production.md#4-back-up)). The **in-app backups** described next are optional, encrypted, incremental copies of the library only.
+
+In-app backups are off by default, and the app does not need a backup disk to run. To turn them on:
 
 1. Set `FILECANOPY_BACKUP_PATH` in `deploy/.env` to a folder on a **separate disk or share**. It must not be inside `library/` or `app-data/`, and a copy on the same disk is not a real backup. The API user (`FILECANOPY_UID`/`FILECANOPY_GID`) must own that folder.
 2. Start the stack with the backup override file:

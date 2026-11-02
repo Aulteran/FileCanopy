@@ -1,0 +1,133 @@
+# FileCanopy as a Docker Swarm stack (M22). Docker Compose (deploy/docker-compose.yml) is the
+# primary, best-tested way to run FileCanopy; use this file only if you already run Swarm.
+# Step by step: deploy/stack/README.md.
+#
+#   docker stack deploy --resolve-image never -c deploy/stack/docker-stack.yml filecanopy
+#
+# What differs from Compose, and why:
+#  - It runs PUBLISHED images only (no build). FILECANOPY_VERSION is required: pick a release.
+#  - `docker stack deploy` ignores depends_on and one-shot ordering, so the API runs the
+#    (idempotent, lock-serialised) migrations itself before it starts serving, and every service
+#    restarts until its neighbour is ready. Startup therefore looks like a few restarts at first.
+#  - The database password is a Swarm secret, not an environment variable.
+#  - ONE replica of each service. FileCanopy keeps its state in a folder and a database on one
+#    node; the database and the folders are pinned to the node you label (see the README), so a
+#    reschedule can never start an empty database on another machine.
+#  - Nothing is published to the network. The web service joins the attachable `edge` network;
+#    your TLS reverse proxy joins it too and reaches the app at http://web:8080.
+#  - The optional converter, OCR and worker profiles of the Compose file are not part of this
+#    file; the core app is.
+#
+# Interpolated variables come from your shell (docker stack deploy does not read deploy/.env):
+#   set -a; . deploy/.env; set +a
+services:
+  postgres:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-postgres:${FILECANOPY_VERSION:?set FILECANOPY_VERSION to the release you run}
+    environment:
+      POSTGRES_DB: filecanopy
+      POSTGRES_USER: filecanopy
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    secrets: [pg_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filecanopy -d filecanopy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.filecanopy.data == true]
+      update_config: { order: stop-first, failure_action: rollback }
+      restart_policy: { condition: any, delay: 5s }
+
+  api:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION to the release you run}
+    user: "${FILECANOPY_UID:-10001}:${FILECANOPY_GID:-10001}"
+    read_only: true
+    cap_drop: [ALL]
+    command:
+      - sh
+      - -c
+      - >-
+        FILECANOPY_DATABASE_URL="postgresql+psycopg://filecanopy:$$(cat /run/secrets/pg_password)@postgres:5432/filecanopy";
+        export FILECANOPY_DATABASE_URL;
+        python -m app.db.migrate &&
+        exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+    environment:
+      FILECANOPY_LIBRARY_PATH: /library
+      FILECANOPY_APP_DATA_PATH: /app-data
+      # The bundled nginx hands the API one clean client address (see the web service).
+      FILECANOPY_TRUSTED_PROXY_HOPS: "1"
+      FILECANOPY_PUBLIC_URL: ${FILECANOPY_PUBLIC_URL:-}
+      FILECANOPY_ALLOWED_ORIGINS: ${FILECANOPY_ALLOWED_ORIGINS:-}
+      FILECANOPY_COOKIE_SECURE: ${FILECANOPY_COOKIE_SECURE:-true}
+      FILECANOPY_SETUP_TOKEN: ${FILECANOPY_SETUP_TOKEN:-}
+      FILECANOPY_MAX_UPLOAD_BYTES: ${FILECANOPY_MAX_UPLOAD_BYTES:-10737418240}
+      # Any other FILECANOPY_* setting from deploy/.env.example can be added here the same way.
+    secrets: [pg_password]
+    volumes:
+      - type: tmpfs
+        target: /tmp
+      - type: bind
+        source: ${FILECANOPY_LIBRARY_PATH:?set FILECANOPY_LIBRARY_PATH to an absolute path on the data node}
+        target: /library
+      - type: bind
+        source: ${FILECANOPY_APP_DATA_PATH:?set FILECANOPY_APP_DATA_PATH to an absolute path on the data node}
+        target: /app-data
+    networks: [internal]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.filecanopy.data == true]
+      update_config: { order: stop-first, failure_action: rollback }
+      restart_policy: { condition: any, delay: 5s }
+
+  web:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-web:${FILECANOPY_VERSION:?set FILECANOPY_VERSION to the release you run}
+    read_only: true
+    cap_drop: [ALL]
+    environment:
+      # IP or CIDR of the reverse proxy in front of this service, as web sees it. Empty = nobody.
+      FILECANOPY_TRUSTED_PROXIES: ${FILECANOPY_TRUSTED_PROXIES:-}
+      FILECANOPY_HSTS: ${FILECANOPY_HSTS:-false}
+    volumes:
+      - type: tmpfs
+        target: /tmp
+    networks: [internal, edge]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      replicas: 1
+      update_config: { order: stop-first, failure_action: rollback }
+      restart_policy: { condition: any, delay: 5s }
+
+networks:
+  internal:
+  edge:
+    driver: overlay
+    attachable: true
+
+volumes:
+  pgdata:
+
+secrets:
+  pg_password:
+    external: true
+    name: ${FILECANOPY_PG_SECRET:-filecanopy_pg_password}
