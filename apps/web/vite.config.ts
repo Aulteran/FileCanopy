@@ -33,6 +33,17 @@ function pdfjsAssets(): Plugin {
         fileName: "THIRD_PARTY_NOTICES.md",
         source: readFileSync(join(root, "..", "..", "THIRD_PARTY_NOTICES.md")),
       });
+      // SIL OFL 1.1: the licence of each self-hosted font (src/fonts) ships with the build.
+      for (const name of [
+        "OFL-BricolageGrotesque.txt",
+        "OFL-AtkinsonHyperlegible.txt",
+      ]) {
+        this.emitFile({
+          type: "asset",
+          fileName: `fonts/${name}`,
+          source: readFileSync(join(import.meta.dirname, "src", "fonts", name)),
+        });
+      }
       for (const [dir, keep] of dirs) {
         for (const name of readdirSync(join(root, dir))) {
           if (!keep(name)) continue;

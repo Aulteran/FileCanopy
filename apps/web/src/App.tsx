@@ -1,3 +1,4 @@
+import { Icon, Wordmark } from "./Icon";
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
@@ -172,6 +173,12 @@ function SignedInApp() {
   );
 }
 
+const ROOT_ICON = {
+  personal: "folder-user",
+  shared: "folder-shared",
+  shared_with_me: "share",
+} as const;
+
 function rootLabel(r: EntryPoint): string {
   if (r.kind === "shared_with_me")
     return `${r.name}${r.owner_name ? ` (from ${r.owner_name})` : ""}`;
@@ -343,7 +350,9 @@ function Shell({
 
   const header = (withBackups: boolean) => (
     <header className="topbar">
-      <span className="brand">FileCanopy</span>
+      <span className="brand">
+        <Wordmark />
+      </span>
       {withBackups && (
         <a
           href={BACKUPS_PATH}
@@ -354,7 +363,8 @@ function Shell({
             go(BACKUPS_PATH);
           }}
         >
-          Backups
+          <Icon name="backup" />
+          <span className="lbl">Backups</span>
         </a>
       )}
       {withBackups && admin && (
@@ -367,7 +377,8 @@ function Shell({
             go(USERS_PATH);
           }}
         >
-          Users
+          <Icon name="users" />
+          <span className="lbl">Users</span>
         </a>
       )}
       {withBackups && admin && (
@@ -380,7 +391,8 @@ function Shell({
             go(MAILBOX_PATH);
           }}
         >
-          Mailbox
+          <Icon name="mail" />
+          <span className="lbl">Mailbox</span>
         </a>
       )}
       {withBackups && (
@@ -402,24 +414,37 @@ function Shell({
             defaultValue={search ?? ""}
             maxLength={200}
           />
-          <button type="submit">Search</button>
+          <button type="submit">
+            <Icon name="search" />
+            <span className="lbl">Search</span>
+          </button>
         </form>
       )}
+      <span className="spacer" />
       <button type="button" onClick={() => setPreviewSettings(true)}>
-        Preview settings
+        <Icon name="image" />
+        <span className="lbl">Preview settings</span>
       </button>
       <button type="button" onClick={() => setAiSettings(true)}>
-        AI
+        <Icon name="sparkles" />
+        <span className="lbl">AI</span>
       </button>
       {pinSet && (
         <button type="button" onClick={() => void lockNow()}>
-          Lock
+          <Icon name="lock" />
+          <span className="lbl">Lock</span>
         </button>
       )}
       <button type="button" onClick={() => setAccount(true)}>
-        Account
+        <Icon name="settings" />
+        <span className="lbl">Account</span>
       </button>
-      <span className="who">{session.user.name}</span>
+      <span className="who">
+        <span className="avatar" aria-hidden="true">
+          {initials(session.user.name)}
+        </span>
+        <span className="nm">{session.user.name}</span>
+      </span>
       <button onClick={() => void logout()}>Sign out</button>
     </header>
   );
@@ -463,6 +488,9 @@ function Shell({
       {header(true)}
       <div className="sidenav">
         <nav aria-label="Locations">
+          <span className="grp-h" aria-hidden="true">
+            Files
+          </span>
           <ul>
             {roots.map((r) => (
               <li key={r.node_id}>
@@ -474,6 +502,7 @@ function Shell({
                     go(folderPath(r.node_id));
                   }}
                 >
+                  <Icon name={ROOT_ICON[r.kind]} />
                   {rootLabel(r)}
                 </a>
                 {r.setup_open && (
@@ -490,6 +519,9 @@ function Shell({
           </ul>
         </nav>
         <nav aria-label="Trash and history">
+          <span className="grp-h" aria-hidden="true">
+            History and tools
+          </span>
           <ul>
             <li>
               <a
@@ -500,6 +532,7 @@ function Shell({
                   go(TRASH_PATH);
                 }}
               >
+                <Icon name="trash" />
                 Trash
               </a>
             </li>
@@ -512,6 +545,7 @@ function Shell({
                   go(RECENT_PATH);
                 }}
               >
+                <Icon name="activity" />
                 Recent actions
               </a>
             </li>
@@ -524,6 +558,7 @@ function Shell({
                   go(NOTICES_PATH);
                 }}
               >
+                <Icon name="bell" />
                 Notifications{unread > 0 ? ` (${unread} new)` : ""}
               </a>
             </li>
@@ -536,6 +571,7 @@ function Shell({
                   go(INBOX_PATH);
                 }}
               >
+                <Icon name="mail" />
                 Email inbox
               </a>
             </li>
@@ -548,6 +584,7 @@ function Shell({
                   go(COLLECTIONS_PATH);
                 }}
               >
+                <Icon name="layers" />
                 Collections
               </a>
             </li>
@@ -560,6 +597,7 @@ function Shell({
                   go(DUPLICATES_PATH);
                 }}
               >
+                <Icon name="copy" />
                 Duplicates
               </a>
             </li>
@@ -572,6 +610,7 @@ function Shell({
                   go(ORGANIZE_PATH);
                 }}
               >
+                <Icon name="sparkles" />
                 AI suggestions
               </a>
             </li>
@@ -689,4 +728,11 @@ function Shell({
       )}
     </div>
   );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] ?? "?";
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
+  return (first + last).toUpperCase();
 }

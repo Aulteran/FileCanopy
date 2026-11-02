@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
@@ -175,8 +176,10 @@ export function TrashPage({ onEnded, onChanged }: Props) {
             <li key={item.id} className="trash-item">
               <div className="trash-main">
                 <strong>
-                  <span aria-hidden="true">
-                    {item.kind === "dir" ? "📁 " : "📄 "}
+                  <span
+                    className={`fi ${item.kind === "dir" ? "folder" : "doc"}`}
+                  >
+                    <Icon name={item.kind === "dir" ? "folder" : "file"} />
                   </span>
                   {item.name}
                 </strong>

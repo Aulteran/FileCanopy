@@ -11,6 +11,9 @@ decoders and fonts next to the files they cover under `/pdfjs/`.
 | Standard fonts (Foxit, Liberation) | see `pdfjs/standard_fonts/LICENSE_FOXIT`, `LICENSE_LIBERATION` | `pdfjs/standard_fonts/` |
 | CMaps and ICC profile | as distributed with PDF.js (`pdfjs/LICENSE`, `pdfjs/iccs/LICENSE`) | `pdfjs/cmaps/`, `pdfjs/iccs/` |
 | React and React DOM | MIT | `assets/index-*.js` |
+| Bricolage Grotesque (variable, latin subset) | SIL OFL 1.1 | `assets/bricolage-grotesque-*.woff2`, licence at `fonts/OFL-BricolageGrotesque.txt` |
+| Atkinson Hyperlegible 400 and 700 (latin subset) | SIL OFL 1.1 | `assets/atkinson-hyperlegible-*.woff2`, licence at `fonts/OFL-AtkinsonHyperlegible.txt` |
+| Lucide-style icons (hand-drawn set from the approved design) | project's own (AGPL-3.0-only) | inlined in `assets/index-*.js` |
 
 The PDF.js scripting sandbox (QuickJS) is deliberately not shipped. Updating PDF.js is part of the
 release checklist (ADR-019); re-check this list when it changes.

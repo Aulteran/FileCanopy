@@ -1,3 +1,4 @@
+import { Logo } from "./Icon";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type AuthConfig } from "./api";
 import { describeError } from "./format";
@@ -106,7 +107,12 @@ export function TokenPage({ kind }: { kind: Kind }) {
 
   return (
     <main className="auth">
-      <h1>FileCanopy</h1>
+      <h1 className="brandh">
+        <Logo size={44} />
+        <span>
+          File<span className="c">Canopy</span>
+        </span>
+      </h1>
       {done ? (
         <section aria-labelledby="token-title">
           <h2 id="token-title">
