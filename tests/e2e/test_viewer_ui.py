@@ -145,7 +145,7 @@ def test_pictures_text_and_tables_never_run_or_inject_markup(
 
     open_file(page, "evil.svg")
     expect(page.locator("img.viewer-image")).to_be_visible()
-    # never inlined into the page; the app's own decorative icons (svg.i) and logo (svg.logo) are fine
+    # never inlined into the page (the app's own icons, svg.i, and logo are fine)
     expect(page.locator("svg:not(.i):not(.logo)")).to_have_count(0)
     page.go_back()
 
