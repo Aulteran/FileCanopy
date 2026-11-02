@@ -1,4 +1,4 @@
-# M21a — Full UI redesign build
+# M21b — Full UI redesign build
 
 Added 2026-11-02 at the owner's request; acceptance plan approved the same day. Sits between M21 and M22. Not started.
 
@@ -12,7 +12,7 @@ Warm, friendly look with forest/leaf greens and rounded corners; light and dark 
 
 ## Acceptance plan
 
-See the criteria and tests in `MILESTONES.json` (M21a) and `08_IMPLEMENTATION_PLAN.md`.
+See the criteria and tests in `MILESTONES.json` (M21b) and `08_IMPLEMENTATION_PLAN.md`.
 
 ## Rules
 

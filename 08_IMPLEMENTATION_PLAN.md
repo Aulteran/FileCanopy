@@ -9,7 +9,7 @@
 | Foundation / core alpha | M00–M09 | Secure multiuser portable folder-based file manager, import/reconcile, sharing, auditing, trash/undo, confidential UI lock; no AI required |
 | Documents / ingestion | M10–M14 | Preview, extraction/OCR, regular search, invites/OIDC, verified email senders and quarantine/ingestion |
 | Intelligent workflows | M15–M18 | Provider abstraction and costs, AI review/auto-safety, document splitting, virtual collections |
-| Advanced integrations | M19–M21a | Optional local semantic search, document chat, disabled-by-default MCP, full UI redesign build |
+| Advanced integrations | M19–M21b | Optional local semantic search, document chat, disabled-by-default MCP, full UI redesign build |
 | Release | M22–M24 | Backup/recovery/Stack documentation, security hardening, reproducible public release |
 
 **Dependency policy:** Later milestones may be broken into even smaller sessions as necessary, but each slice must be tested and status-tracked. Exact model availability is plan-dependent; use `/model` inside Claude Code to select what the account exposes. High-stakes review can be a separate user-approved session if Opus isn't available.
@@ -413,11 +413,11 @@
 
 **Tests/evidence:** MCP auth, origin/CSRF, cross-user file, private/local-only barrier, rate limiting.
 
-### M21a — Full UI redesign build
+### M21b — Full UI redesign build
 
 **Phase:** advanced · **Dependencies:** M21 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 only on request
 
-**Goal:** Apply the owner-approved 2026-11-01 design (brand system, 14 screen mockups, viewer mockup, `07_UI_UX.md`) to the whole web app. Visual and structural change only. Details: `docs/milestones/M21a-design-and-plan.md`.
+**Goal:** Apply the owner-approved 2026-11-01 design (brand system, 14 screen mockups, viewer mockup, `07_UI_UX.md`) to the whole web app. Visual and structural change only. Details: `docs/milestones/M21b-design-and-plan.md`.
 
 **Acceptance criteria:**
 - [ ] Brand design tokens (light/dark following the device, comfortable list default, compact toggle) replace current styles
@@ -432,7 +432,7 @@
 
 ### M22 — Production packaging, backup, restore, Stack variant
 
-**Phase:** release · **Dependencies:** M18, M19, M21a · **Suggested Claude Code model:** Sonnet 5.5
+**Phase:** release · **Dependencies:** M18, M19, M21b · **Suggested Claude Code model:** Sonnet 5.5
 
 **Goal:** Pinned images, upgrade/migrations, backup/restore guides, reverse proxy TLS examples, validated Stack deployment sample.
 

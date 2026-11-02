@@ -717,7 +717,7 @@
       "status": "not_started"
     },
     {
-      "id": "M21a",
+      "id": "M21b",
       "phase": "advanced",
       "title": "Full UI redesign build",
       "depends_on": [
@@ -741,7 +741,7 @@
         "no request leaves the origin (fonts included)",
         "CSP unchanged"
       ],
-      "notes": "Inserted 2026-11-02 at the owner's request. Design spec: project design files brand.html, screens.html, viewer.html and ADR-free (design approved 2026-11-01). Plan in docs/milestones/M21a-design-and-plan.md.",
+      "notes": "Inserted 2026-11-02 at the owner's request. Design spec: project design files brand.html, screens.html, viewer.html and ADR-free (design approved 2026-11-01). Plan in docs/milestones/M21b-design-and-plan.md.",
       "status": "not_started"
     },
     {
@@ -751,7 +751,7 @@
       "depends_on": [
         "M18",
         "M19",
-        "M21a"
+        "M21b"
       ],
       "recommended_claude_code_model": "Sonnet 5.5",
       "objective": "Pinned images, upgrade/migrations, backup/restore guides, reverse proxy TLS examples, validated Stack deployment sample.",
