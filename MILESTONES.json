@@ -529,8 +529,8 @@
         "wrong user mapping",
         "untrusted attachment"
       ],
-      "notes": "Implemented 2026-11-02 on branch m14-email-ingestion (migration 0017). Design and threat model: docs/milestones/M14-design-and-plan.md; operator guide docs/guides/inbound-mailbox.md. Verified mail is staged then filed as the sender through the web upload code (personaldocs to Email inbox in their own personal root, ingest to an administrator-designated shared folder, sender needs write access); queue with retries and dead letter; counted in-app notices with no names; administrators approve kept quarantine attachments into shared folders only; smtp.mailfrom needs @; archive limits before the library; quarantined personal-destination mail keeps metadata only. Awaiting Opus 5.5 review and CI.",
-      "status": "in_review"
+      "notes": "Implemented 2026-11-02 on branch m14-email-ingestion (migration 0017). Design and threat model: docs/milestones/M14-design-and-plan.md; operator guide docs/guides/inbound-mailbox.md. Verified mail is staged then filed as the sender through the web upload code (personaldocs to Email inbox in their own personal root, ingest to an administrator-designated shared folder, sender needs write access); queue with retries and dead letter; counted in-app notices with no names; administrators approve kept quarantine attachments into shared folders only; smtp.mailfrom needs @; archive limits before the library; quarantined personal-destination mail keeps metadata only. Merged via PR #21 (32e7b37) 2026-11-02 after one Opus 5.5 review round (2 Medium, 3 Low fixed) and sign-off, all seven CI jobs green. Follow-up: scrub subject and file names when mail arrives for an already-disabled account (today only a change after arrival is scrubbed).",
+      "status": "done"
     },
     {
       "id": "M15",
