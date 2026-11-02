@@ -135,6 +135,17 @@ class Settings(BaseSettings):
     # Cosine similarity a semantic hit needs to be shown. Models differ; tune per model.
     semantic_min_score: float = Field(default=0.3, ge=-1.0, le=1.0)
 
+    # --- Optional MCP integration (M21, docs/milestones/M21-design-and-plan.md). Off unless the
+    # operator turns it on; read-only; one personal access token per connected app.
+    mcp_enabled: bool = False
+    mcp_per_minute: int = Field(default=60, ge=1, le=10_000)  # calls per token
+    mcp_max_tokens_per_user: int = Field(default=5, ge=1, le=50)
+    mcp_token_default_days: int = Field(default=30, ge=1, le=365)
+    mcp_token_max_days: int = Field(default=365, ge=1, le=3650)
+    mcp_excerpt_chars: int = Field(default=2_000, ge=200, le=8_000)
+    mcp_max_list: int = Field(default=50, ge=1, le=200)
+    mcp_max_body_bytes: int = Field(default=16_384, ge=1024, le=1024**2)
+
     # --- Optional backups (M06c, ADR-015) ---
     # Separate mount for backups. Empty = not configured: the feature stays off and the app is
     # unaffected. Must not equal, contain or sit inside the library or app-data paths.

@@ -1101,3 +1101,24 @@ class CollectionSuggestion(Base):
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     collection_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+
+
+class McpToken(Base):
+    """A personal access token for the optional MCP interface (M21). Only the SHA-256 of the
+    random value is stored; the value is shown once. `scopes` lists what a connected app may call
+    (browse, search, text, collections, activity). The token acts as `user_id` and nothing else."""
+
+    __tablename__ = "mcp_token"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    hint: Mapped[str] = mapped_column(String(8), nullable=False)  # last characters, for the list
+    scopes: Mapped[Any] = mapped_column(Json, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
