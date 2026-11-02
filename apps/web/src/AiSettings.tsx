@@ -7,6 +7,8 @@ import {
   type AiProviderInput,
   type AiStatus,
   type AiUsage,
+  type OrganizeInstance,
+  type OrganizeSettings,
 } from "./api";
 import { Modal } from "./Dialogs";
 import { describeError } from "./format";
@@ -271,6 +273,171 @@ function ProviderForm({
   );
 }
 
+const ORGANIZE_LABELS: Record<string, string> = {
+  off: "Off",
+  review: "Suggest, and I decide",
+  auto: "Suggest, and do the safest ones automatically",
+};
+
+function OrganizeSection({ admin }: { admin: boolean }) {
+  const [mine, setMine] = useState<OrganizeSettings | null>(null);
+  const [inst, setInst] = useState<OrganizeInstance | null>(null);
+  const [bar, setBar] = useState("");
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .organizeSettings()
+      .then(setMine)
+      .catch(() => setError(describeError("UNKNOWN")));
+    if (admin)
+      api
+        .organizeInstance()
+        .then((i) => {
+          setInst(i);
+          setBar(
+            i.auto_min_per_mille === null
+              ? ""
+              : String(i.auto_min_per_mille / 10),
+          );
+        })
+        .catch(() => setError(describeError("UNKNOWN")));
+  }, [admin]);
+  useEffect(load, [load]);
+
+  async function run(fn: () => Promise<unknown>, done: string): Promise<void> {
+    setError("");
+    setMsg("");
+    try {
+      await fn();
+      setMsg(done);
+      load();
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
+
+  if (!mine) return null;
+  return (
+    <section>
+      <h3>Organization suggestions</h3>
+      <p className="muted">
+        AI can suggest clearer names and folders for your files. It can never
+        change who has access, lower a privacy label, replace a file or delete.
+        Applied changes can be undone.
+      </p>
+      <label>
+        For my personal files
+        <select
+          value={mine.mode}
+          onChange={(e) =>
+            void run(() => api.organizeSetMode(e.target.value), "Saved.")
+          }
+        >
+          {mine.modes.map((m) => (
+            <option
+              key={m}
+              value={m}
+              disabled={m === "auto" && !mine.auto_available}
+            >
+              {ORGANIZE_LABELS[m] ?? m}
+            </option>
+          ))}
+        </select>
+      </label>
+      {!mine.auto_available && (
+        <p className="muted">
+          Automatic changes are unavailable until an administrator sets a
+          confidence bar, based on how many suggestions people accepted.
+        </p>
+      )}
+      {admin && inst && (
+        <>
+          <label>
+            For the shared files
+            <select
+              value={inst.shared_mode}
+              onChange={(e) =>
+                void run(
+                  () =>
+                    api.organizeSetInstance({ shared_mode: e.target.value }),
+                  "Saved.",
+                )
+              }
+            >
+              {mine.modes.map((m) => (
+                <option key={m} value={m}>
+                  {ORGANIZE_LABELS[m] ?? m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Do things automatically only when the AI says it is at least this
+            sure (percent, {inst.min_allowed / 10} or more, empty to switch
+            automatic changes off)
+            <input
+              inputMode="decimal"
+              value={bar}
+              onChange={(e) => setBar(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() =>
+              void run(
+                () =>
+                  api.organizeSetInstance({
+                    auto_min_per_mille:
+                      bar.trim() === ""
+                        ? 0
+                        : Math.round(Number.parseFloat(bar) * 10),
+                  }),
+                "Saved.",
+              )
+            }
+          >
+            Save
+          </button>
+          <table>
+            <caption>
+              What people did with suggestions, by how sure the AI said it was
+              (counts only). Use this to choose the bar.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">AI said</th>
+                <th scope="col">Applied by hand</th>
+                <th scope="col">Done automatically</th>
+                <th scope="col">Dismissed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inst.stats.map((b) => (
+                <tr key={b.from}>
+                  <td>
+                    {b.from / 10}–{b.to / 10}%
+                  </td>
+                  <td>{b.accepted}</td>
+                  <td>{b.auto}</td>
+                  <td>{b.dismissed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {msg && <p role="status">{msg}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function AiSettings({
   admin,
   onClose,
@@ -375,6 +542,7 @@ export function AiSettings({
           />
         </section>
       )}
+      <OrganizeSection admin={admin} />
       {admin && instance && (
         <section>
           <h3>Server AI (shared files)</h3>

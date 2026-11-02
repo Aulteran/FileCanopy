@@ -222,6 +222,8 @@ class Settings(BaseSettings):
     ai_default_cap_micro: int = Field(default=3_000_000, ge=0)
     ai_breaker_failures: int = Field(default=5, ge=1, le=100)
     ai_breaker_seconds: int = Field(default=60, ge=1, le=3600)
+    # M16: how much of one file's extracted text goes into an organization request.
+    ai_organize_text_chars: int = Field(default=4000, ge=200, le=50_000)
 
     # --- Confidential PIN (M12b). The pepper keeps a database-only leak from being crackable
     # offline (a six-digit PIN has only 10^6 values). Empty = generate a 256-bit pepper file in

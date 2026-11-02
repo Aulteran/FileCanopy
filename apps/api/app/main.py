@@ -17,6 +17,7 @@ from app.api import files as file_routes
 from app.api import imports as import_routes
 from app.api import mailbox as mailbox_routes
 from app.api import nodes as storage_nodes
+from app.api import organize as organize_routes
 from app.api import previews as preview_routes
 from app.api import privacy as privacy_routes
 from app.api import reconcile as reconcile_routes
@@ -192,5 +193,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_storage.router)
     app.include_router(backup_routes.router)
     app.include_router(ai_routes.router)
+    app.include_router(organize_routes.router)
 
     return app

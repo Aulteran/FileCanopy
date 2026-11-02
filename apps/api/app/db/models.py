@@ -94,6 +94,11 @@ class User(Base):
     # What the person acknowledged about the server's cloud AI (provider row, vendor, notice
     # version); routing to a different cloud provider needs a new acknowledgement.
     ai_ack: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # M16: whether AI may propose organization changes for this person's personal tree:
+    # off | review (proposals wait in the review queue) | auto (safe ones apply, see the guide).
+    ai_organize: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="off", server_default="off"
+    )
 
 
 class StorageRoot(Base):
@@ -851,3 +856,51 @@ class AiUsage(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reserved_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     final_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+
+class AiProposal(Base):
+    """One AI organization proposal for one file (M16). Holds model-derived text (a suggested
+    name, a short reason), so it is only ever read through `app.ai.organize`, which re-decides
+    access, label and freshness per request. `snapshot` pins the file the proposal was made for:
+    if the file changed, moved or was relabelled, the proposal is stale and nothing is applied.
+    status: pending | applying | applied | dismissed | stale | failed | superseded."""
+
+    __tablename__ = "ai_proposal"
+    __table_args__ = (
+        # One open proposal per file, whoever asked: concurrent suggestions cannot duplicate.
+        Index(
+            "uq_ai_proposal_open",
+            "node_id",
+            unique=True,
+            sqlite_where=text("status IN ('pending','applying')"),
+            postgresql_where=text("status IN ('pending','applying')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(12), index=True, nullable=False)
+    # rename | move | rename_move | new_folder | warn_only
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)
+    new_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    target_parent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    new_folder_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    doc_type: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    reason: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # The model's own number: untrusted, used only to rank and as one input to auto-eligibility.
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # per mille
+    sensitive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sensitive_reasons: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    auto_blockers: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    snapshot: Mapped[Any] = mapped_column(Json, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    operation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")

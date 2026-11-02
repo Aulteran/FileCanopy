@@ -94,6 +94,12 @@ const MESSAGES: Record<string, string> = {
     "This file does not look like what its name says, so it is not shown here.",
   UNAUTHENTICATED: "Your session has ended. Sign in again.",
   NAME_CONFLICT: "An item with that name already exists here.",
+  STALE:
+    "The file changed since this was suggested, so nothing was done. Ask for a new suggestion.",
+  ACCESS_CHANGED:
+    "Who can see the file would change if this is applied, and it did not when suggested. Review it, then apply again if you agree.",
+  NOTHING_TO_APPLY: "This is a warning only; there is nothing to apply.",
+  THRESHOLD_TOO_LOW: "The confidence bar cannot be set below 50%.",
   REVISION_CONFLICT:
     "This item changed since the list was loaded. The list was refreshed; try again.",
   NODE_BUSY: "Another operation is using this item. Try again in a moment.",
@@ -162,7 +168,7 @@ const MESSAGES: Record<string, string> = {
   EMAIL_IN_USE: "That address already belongs to another account.",
   MAILBOX_NOT_CONFIGURED: "No inbound mailbox is set up on this server.",
   NOT_RETRYABLE: "This message cannot be retried.",
-  NOT_PENDING: "This message was already handled.",
+  NOT_PENDING: "This was already handled, or is being handled right now.",
   CONTENT_NOT_KEPT: "The attachment is no longer kept.",
   INVALID_SETUP_TOKEN: "The setup token is not correct.",
   SETUP_ALREADY_COMPLETE: "Setup was already completed. Sign in instead.",

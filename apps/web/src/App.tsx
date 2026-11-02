@@ -22,6 +22,7 @@ import { Viewer } from "./Viewer";
 import {
   BACKUPS_PATH,
   INBOX_PATH,
+  ORGANIZE_PATH,
   isVerifyEmailPath,
   MAILBOX_PATH,
   NOTICES_PATH,
@@ -37,6 +38,7 @@ import {
 import { SearchPage } from "./Search";
 import { SetupScreen } from "./Setup";
 import { NotificationsPage } from "./Share";
+import { OrganizePage } from "./Organize";
 import { RecentPage, TrashPage } from "./Trash";
 import { TokenPage } from "./TokenPage";
 import { UnfinishedUploads } from "./UnfinishedUploads";
@@ -194,6 +196,7 @@ function Shell({
     recent,
     notices,
     inbox,
+    organize,
     mailbox,
     search,
     go,
@@ -265,6 +268,7 @@ function Shell({
       !recent &&
       !notices &&
       !inbox &&
+      !organize &&
       !mailbox &&
       search === null
     )
@@ -279,6 +283,7 @@ function Shell({
     recent,
     notices,
     inbox,
+    organize,
     mailbox,
     search,
     go,
@@ -523,6 +528,18 @@ function Shell({
                 Email inbox
               </a>
             </li>
+            <li>
+              <a
+                href={ORGANIZE_PATH}
+                aria-current={organize ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(ORGANIZE_PATH);
+                }}
+              >
+                AI suggestions
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -542,6 +559,12 @@ function Shell({
             <p>Only administrators can manage users.</p>
           ))}
         {inbox && <InboxPage onEnded={onEnded} go={go} />}
+        {organize && (
+          <OrganizePage
+            onEnded={onEnded}
+            onChanged={() => setReload((n) => n + 1)}
+          />
+        )}
         {mailbox &&
           (admin ? (
             <MailboxAdminPage onEnded={onEnded} />

@@ -144,6 +144,59 @@ export type AiStatus = {
   cloud_kinds: string[];
   kinds: string[];
 };
+// AI organization proposals (M16)
+export type OrganizeProposal = {
+  id: string;
+  node_id: string;
+  node_name: string;
+  parent_name: string | null;
+  status: string;
+  kind: "rename" | "move" | "rename_move" | "new_folder" | "warn_only";
+  new_name: string | null;
+  target_parent_id: string | null;
+  target_name: string | null;
+  new_folder_name: string | null;
+  doc_type: string;
+  reason: string;
+  confidence: number; // per mille; the model's own claim
+  sensitive: boolean;
+  sensitive_reasons: string[];
+  needs_review: string[];
+  created_at: string;
+  outcome: string;
+  auto: boolean;
+  operation_id: string | null;
+  undoable: boolean;
+};
+export type OrganizeSettings = {
+  mode: string;
+  shared_mode: string;
+  auto_available: boolean;
+  modes: string[];
+};
+export type OrganizeBucket = {
+  from: number;
+  to: number;
+  accepted: number;
+  auto: number;
+  dismissed: number;
+  pending: number;
+  stale: number;
+};
+export type OrganizeInstance = {
+  shared_mode: string;
+  auto_min_per_mille: number | null;
+  min_allowed: number;
+  stats: OrganizeBucket[];
+};
+export type SuggestItem = {
+  node_id: string;
+  skipped?: string;
+  proposal_id?: string;
+  status?: string;
+  applied?: boolean;
+};
+
 export type AiInstance = {
   secrets_key_configured: boolean;
   notice: string;
@@ -1013,6 +1066,34 @@ export const api = {
     call<unknown>("POST", "/api/v1/ai/instance/provider/test", {
       confirm_billed,
     }),
+
+  // AI organization proposals (M16)
+  organizeSettings: () =>
+    call<OrganizeSettings>("GET", "/api/v1/ai/organize/settings"),
+  organizeSetMode: (mode: string) =>
+    call<unknown>("PUT", "/api/v1/ai/organize/me", { mode }),
+  organizeInstance: () =>
+    call<OrganizeInstance>("GET", "/api/v1/ai/organize/instance"),
+  organizeSetInstance: (body: {
+    shared_mode?: string;
+    auto_min_per_mille?: number;
+  }) => call<unknown>("PUT", "/api/v1/ai/organize/instance", body),
+  organizeSuggest: (node_ids: string[]) =>
+    call<{ items: SuggestItem[] }>("POST", "/api/v1/ai/organize/suggest", {
+      node_ids,
+    }),
+  organizeProposals: (status = "pending") =>
+    call<{ items: OrganizeProposal[] }>(
+      "GET",
+      `/api/v1/ai/organize/proposals?status=${enc(status)}`,
+    ),
+  organizeApprove: (id: string) =>
+    call<{ id: string; status: string; operation_id: string | null }>(
+      "POST",
+      `/api/v1/ai/organize/proposals/${enc(id)}/approve`,
+    ),
+  organizeDismiss: (id: string) =>
+    call<unknown>("POST", `/api/v1/ai/organize/proposals/${enc(id)}/dismiss`),
 
   // Reconciliation (M06a routes, M06b UI)
   rescan: (id: string) =>

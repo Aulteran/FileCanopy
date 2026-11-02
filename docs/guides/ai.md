@@ -3,11 +3,12 @@
 FileCanopy works fully with no AI. This guide covers turning it on. Design and threat model:
 `docs/milestones/M15-design-and-plan.md`.
 
-## What exists in M15
+## What exists
 
-Providers, who may use them, a cloud consent record, monthly dollar caps and a usage ledger. No
-user-visible AI feature yet: organisation proposals, splitting, collections, semantic search and
-chat arrive in later milestones and all call the same gateway (`app/ai/gateway.py`).
+Providers, who may use them, a cloud consent record, monthly dollar caps and a usage ledger (M15), and
+organisation suggestions for names and folders (M16, see `ai-organize.md`). Splitting, collections,
+semantic search and chat arrive in later milestones and call the same gateway
+(`app/ai/gateway.py`).
 
 ## Storing cloud API keys
 
