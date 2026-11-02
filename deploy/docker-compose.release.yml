@@ -8,31 +8,35 @@
 # <prefix>-postgres, <prefix>-api, <prefix>-web (and <prefix>-converter, <prefix>-ocr for the
 # optional profiles), all tagged with the same version.
 #
-# `pull_policy: missing` means a version you already have is never fetched again, and a release
+# Each service says `build: !reset null` itself (anchors and merge keys do not carry !reset on every
+# Compose version). `pull_policy: missing` means a version you already have is never fetched again, and a release
 # image is never rebuilt on your machine. The base images inside them are pinned by digest.
-x-release: &release
-  build: !reset null
-  pull_policy: missing
-
 services:
   postgres:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-postgres:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   migrate:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   api:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   web:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-web:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   converter:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-converter:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   ocr:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-ocr:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
   worker:
-    <<: *release
+    build: !reset null
+    pull_policy: missing
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:?set FILECANOPY_VERSION in deploy/.env to the release you run}
