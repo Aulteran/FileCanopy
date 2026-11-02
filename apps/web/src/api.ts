@@ -1119,6 +1119,8 @@ export const api = {
       `/api/v1/search?q=${enc(q)}${folder ? `&folder=${enc(folder)}` : ""}`,
     ),
   searchStatus: () => call<SearchStatus>("GET", "/api/v1/search/status"),
+  chatAsk: (body: { question: string; scope: "mine" | "shared" }) =>
+    call<ChatAnswer>("POST", "/api/v1/chat/ask", body),
   thumbnailUrl: (id: string) => `/api/v1/nodes/${enc(id)}/thumbnail`,
   archive: (id: string) =>
     call<ArchiveListing>("GET", `/api/v1/nodes/${enc(id)}/archive`),
@@ -1414,4 +1416,23 @@ export type SearchStatus = {
   indexed: number;
   waiting: number;
   semantic_active: boolean;
+};
+
+export type ChatCitation = {
+  n: number;
+  node_id: string;
+  name: string;
+  parent_id: string | null;
+  excerpt: string;
+};
+// answered: the model answered. passages_only: matching passages, nothing generated (see reason).
+// no_sources: nothing the person may use matched.
+export type ChatAnswer = {
+  status: "answered" | "passages_only" | "no_sources";
+  reason: string | null;
+  answer: string | null;
+  grounded: boolean;
+  citations: ChatCitation[];
+  withheld_protected: number;
+  provider_mode: "local" | "cloud" | null;
 };

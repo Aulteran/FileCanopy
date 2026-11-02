@@ -124,6 +124,10 @@ class Settings(BaseSettings):
     # concurrent calls, so search cannot be used to hold the model server or database sessions.
     semantic_query_timeout_seconds: int = Field(default=8, ge=1, le=60)
     semantic_query_per_minute: int = Field(default=30, ge=1, le=10_000)
+    # Document chat (M20): questions per person per minute, and what one answer may read.
+    chat_per_minute: int = Field(default=10, ge=1, le=1_000)
+    chat_max_sources: int = Field(default=6, ge=1, le=12)
+    chat_excerpt_chars: int = Field(default=1_200, ge=200, le=4_000)
     semantic_query_concurrency: int = Field(default=2, ge=1, le=64)
     # Pause after every embedding request, so the endpoint is never saturated (CPU-only hosts).
     semantic_pause_ms: int = Field(default=200, ge=0, le=60_000)

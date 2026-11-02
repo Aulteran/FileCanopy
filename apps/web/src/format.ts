@@ -27,6 +27,7 @@ export function formatDate(iso: string): string {
 // Messages never repeat a name or path from the server (an insufficient-permissions error must not
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {
+  CHAT_TOO_FAST: "You are asking quickly. Wait a moment and try again.",
   CONSENT_REQUIRED:
     "Tick the box to confirm you understand what cloud AI sends.",
   PRICES_REQUIRED:

@@ -8,11 +8,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
+from app.ai.chat import ChatLimiter
 from app.ai.gateway import AiGateway
 from app.ai.secrets import SecretBox
 from app.api import admin_storage
 from app.api import ai as ai_routes
 from app.api import backups as backup_routes
+from app.api import chat as chat_routes
 from app.api import collections as collections_routes
 from app.api import files as file_routes
 from app.api import imports as import_routes
@@ -149,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     semantic_indexer = SemanticIndexer(semantic)
     app.state.semantic = semantic
+    app.state.chat_limiter = ChatLimiter(cfg.chat_per_minute)
     app.state.semantic_indexer = semantic_indexer
 
     @app.exception_handler(RequestValidationError)
@@ -208,6 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(backup_routes.router)
     app.include_router(ai_routes.router)
     app.include_router(organize_routes.router)
+    app.include_router(chat_routes.router)
     app.include_router(pdfsplit_routes.router)
     app.include_router(collections_routes.router)
 

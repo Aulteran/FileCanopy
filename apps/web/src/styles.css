@@ -888,3 +888,34 @@ ul.results .snippet {
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
+
+.ask {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line, #ddd);
+}
+.ask form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+.ask form label:first-child {
+  flex: 1 1 18rem;
+}
+.ask form input[type="text"] {
+  width: 100%;
+}
+.ask .answer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ask .answer[data-grounded="false"] {
+  font-style: italic;
+}
+.ask ol.citations {
+  padding-left: 1.25rem;
+}
+.ask ol.citations li {
+  padding: 0.4rem 0;
+}

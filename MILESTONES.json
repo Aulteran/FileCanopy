@@ -687,8 +687,8 @@
         "empty results",
         "cost cap"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-02 on branch m20-document-chat (no migration), awaiting Opus 5.5 privacy review and merge. Design and threat model: docs/milestones/M20-design-and-plan.md; guide docs/guides/document-chat.md. Known limits: citations name the file and excerpt, not the page (the text index keeps no page offsets); stateless single-turn; totals are quoted, not computed.",
+      "status": "in_review"
     },
     {
       "id": "M21",

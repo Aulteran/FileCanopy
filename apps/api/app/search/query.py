@@ -43,14 +43,12 @@ def _like(term: str) -> str:
     return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def snippet_of(body: str, terms: list[str]) -> str:
+def snippet_of(body: str, terms: list[str], radius: int = SNIPPET_RADIUS) -> str:
     low = body.casefold()
     pos = min((p for p in (low.find(t) for t in terms) if p >= 0), default=0)
-    start = max(0, pos - SNIPPET_RADIUS)
-    chunk = re.sub(r"\s+", " ", body[start : pos + SNIPPET_RADIUS * 2]).strip()
-    return (
-        ("… " if start > 0 else "") + chunk + (" …" if pos + SNIPPET_RADIUS * 2 < len(body) else "")
-    )
+    start = max(0, pos - radius)
+    chunk = re.sub(r"\s+", " ", body[start : pos + radius * 2]).strip()
+    return ("… " if start > 0 else "") + chunk + (" …" if pos + radius * 2 < len(body) else "")
 
 
 def _scope(db: Session, actor: Actor, folder: Node | None) -> list[ColumnElement[bool]]:
@@ -77,6 +75,7 @@ def search(
     *,
     folder_id: uuid.UUID | None = None,
     limit: int = 25,
+    radius: int = SNIPPET_RADIUS,
 ) -> list[Hit]:
     terms = terms_of(q)
     if not terms:
@@ -152,10 +151,15 @@ def search(
                 continue
             if node.id in hits:
                 hits[node.id].match = "name+content"
-                hits[node.id].snippet = snippet_of(body, terms)
+                hits[node.id].snippet = snippet_of(body, terms, radius)
                 continue
             hits[node.id] = Hit(
-                node.id, node.name, node.kind, node.parent_id, "content", snippet_of(body, terms)
+                node.id,
+                node.name,
+                node.kind,
+                node.parent_id,
+                "content",
+                snippet_of(body, terms, radius),
             )
             if len(hits) >= limit:
                 break

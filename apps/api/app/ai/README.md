@@ -10,6 +10,9 @@ budgets. Must be replaceable and must never block core CRUD.
 - `secrets.py` — AES-GCM sealing with a key from `FILECANOPY_SECRETS_KEY`.
 - `organize.py` — M16: typed organization proposals, the deterministic validator, the review queue
   and the only auto-actions (rename/move through `fileops.relocate`, never ACLs, labels or delete).
+- `chat.py` — M20: document chat. Retrieval through the search layer, a second access and label
+  decision per source (cloud sees Normal only), then `AiGateway.generate`; typed answer with
+  server-mapped citations, and a passages-only fallback for every refusal or failure.
 
-Guides: `docs/guides/ai.md`, `docs/guides/ai-organize.md`. Design: `docs/milestones/M15-design-and-plan.md`,
+Guides: `docs/guides/ai.md`, `docs/guides/ai-organize.md`, `docs/guides/document-chat.md`. Design: `docs/milestones/M15-design-and-plan.md`,
 `docs/milestones/M16-design-and-plan.md`.
