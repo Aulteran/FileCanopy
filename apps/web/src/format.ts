@@ -96,6 +96,8 @@ const MESSAGES: Record<string, string> = {
   NAME_CONFLICT: "An item with that name already exists here.",
   STALE:
     "The file changed since this was suggested, so nothing was done. Ask for a new suggestion.",
+  ACCESS_CHANGED:
+    "Who can see the file would change if this is applied, and it did not when suggested. Review it, then apply again if you agree.",
   NOTHING_TO_APPLY: "This is a warning only; there is nothing to apply.",
   THRESHOLD_TOO_LOW: "The confidence bar cannot be set below 50%.",
   REVISION_CONFLICT:
