@@ -99,6 +99,12 @@ const MESSAGES: Record<string, string> = {
   ACCESS_CHANGED:
     "Who can see the file would change if this is applied, and it did not when suggested. Review it, then apply again if you agree.",
   NOTHING_TO_APPLY: "This is a warning only; there is nothing to apply.",
+  SPLIT_VERIFY_FAILED:
+    "A part did not match the original pages, so nothing was kept. The original is untouched.",
+  SPLIT_FAILED: "The PDF could not be cut. The original is untouched.",
+  BAD_RANGES: "Those page numbers do not make a valid split.",
+  NOTHING_TO_SPLIT: "Those page numbers would not split the file.",
+  ACCOUNTING: "Nothing would be left to write with those options.",
   THRESHOLD_TOO_LOW: "The confidence bar cannot be set below 50%.",
   REVISION_CONFLICT:
     "This item changed since the list was loaded. The list was refreshed; try again.",

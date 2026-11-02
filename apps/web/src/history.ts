@@ -134,6 +134,7 @@ const REASONS: Record<string, string> = {
   moved_out: "Moved to another area",
   import_undone: "Import undone",
   copy_undone: "Copy undone",
+  split_undone: "PDF split undone",
 };
 
 export function reasonText(reason: string): string {

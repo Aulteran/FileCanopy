@@ -481,7 +481,7 @@ class TrashItem(Base):
     entry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     trashed_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("app_user.id"), nullable=False)
     trashed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
-    # deleted | moved_out | import_undone | copy_undone
+    # deleted | moved_out | import_undone | copy_undone | split_undone
     reason: Mapped[str] = mapped_column(String(16), nullable=False)
     # Null only while automatic purging is off (retention 0); a later setting backfills it.
     purge_after: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -903,4 +903,46 @@ class AiProposal(Base):
     decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     operation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+
+
+class SplitProposal(Base):
+    """One PDF split proposal for one file (M17). `parts` and `title` text may be model-derived,
+    so the row is only read through `app.ai.split`, which re-decides access, label and freshness.
+    `snapshot` pins the source file. status: pending | applying | applied | dismissed | stale |
+    failed | superseded | undone. `outputs` lists the nodes the split created (for undo)."""
+
+    __tablename__ = "split_proposal"
+    __table_args__ = (
+        Index(
+            "uq_split_proposal_open",
+            "node_id",
+            unique=True,
+            sqlite_where=text("status IN ('pending','applying')"),
+            postgresql_where=text("status IN ('pending','applying')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("app_user.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(12), index=True, nullable=False)
+    source: Mapped[str] = mapped_column(String(10), nullable=False)  # heuristic | ai
+    page_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    # [{"start": 1, "end": 3, "title": "..."|null}], a partition of 1..page_count
+    parts: Mapped[Any] = mapped_column(Json, nullable=False)
+    blank_pages: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    left_out: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    warnings: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    reason: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # per mille
+    snapshot: Mapped[Any] = mapped_column(Json, nullable=False)
+    outputs: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="")

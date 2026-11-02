@@ -187,7 +187,7 @@ def test_migration_idempotent_and_serialized(stack: Stack) -> None:
     assert [p.wait(timeout=180) for p in procs] == [0, 0, 0]
     assert stack.instance_id() == before
     assert stack.sql("select count(*) from alembic_version") == "1"
-    assert stack.sql("select version_num from alembic_version") == "0019"
+    assert stack.sql("select version_num from alembic_version") == "0020"
 
 
 def test_security_posture(stack: Stack) -> None:
