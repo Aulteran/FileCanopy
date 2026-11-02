@@ -196,7 +196,7 @@ def test_stranger_gets_the_same_answer_as_for_a_missing_collection(fx: Fx) -> No
             == 404
         )
     assert carol.get("/collections").json()["items"] == []
-    assert carol.get(f"/nodes/{f}/collections").json()["items"] == []
+    assert carol.get(f"/nodes/{f}/collections").status_code == 403  # as for any node route
     assert detail(alice, col["id"])["count"] == 1  # nothing of the attempts changed anything
 
 
@@ -229,7 +229,7 @@ def test_file_access_revocation_takes_effect_on_the_next_request(fx: Fx) -> None
     assert r.status_code in (200, 204)
     d = detail(bob, col["id"])
     assert d["count"] == 0 and d["members"] == []
-    assert bob.get(f"/nodes/{f}/collections").json()["items"] == []
+    assert bob.get(f"/nodes/{f}/collections").status_code == 403
     r = bob.post(f"/collections/{col['id']}/members/remove", json={"node_ids": [str(f)]})
     assert r.status_code == 404  # removal cannot be used to probe for a file he cannot read
     assert rows(fx, CollectionMember) != []  # the stale reference is inert, not an oracle

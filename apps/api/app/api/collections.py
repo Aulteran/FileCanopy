@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 
 from app.ai import collect
 from app.ai.gateway import AiGateway
-from app.auth.deps import Principal, client_ip, ctx_of, current_principal, get_db, http_error
+from app.auth.deps import Principal, client_ip, ctx_of, get_db, http_error
 from app.db.models import Collection, Node, User
 from app.domain import collections
 from app.domain.collections import CollectionError
+from app.policy.deps import NodeContext, actor_access, read_access
 from app.policy.model import Actor
 
 router = APIRouter(prefix="/api/v1", tags=["collections"])
@@ -117,7 +118,7 @@ def _open(db: Session, principal: Principal, collection_id: uuid.UUID) -> collec
 
 @router.get("/collections")
 def list_collections(
-    principal: Principal = Depends(current_principal), db: Session = Depends(get_db)
+    principal: Principal = Depends(actor_access), db: Session = Depends(get_db)
 ) -> dict[str, Any]:
     return {"items": [_summary_out(s) for s in collections.list_for(db, _actor(principal))]}
 
@@ -126,7 +127,7 @@ def list_collections(
 def create_collection(
     body: CreateBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     actor = _actor(principal)
@@ -149,7 +150,7 @@ def create_collection(
 @router.get("/collections/{collection_id}")
 def get_collection(
     collection_id: uuid.UUID,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     return _detail(db, _actor(principal), _open(db, principal, collection_id))
@@ -160,7 +161,7 @@ def rename_collection(
     collection_id: uuid.UUID,
     body: TitleBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     acc = _open(db, principal, collection_id)
@@ -177,7 +178,7 @@ def rename_collection(
 def delete_collection(
     collection_id: uuid.UUID,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> None:
     acc = _open(db, principal, collection_id)
@@ -194,7 +195,7 @@ def add_members(
     collection_id: uuid.UUID,
     body: MembersBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     acc = _open(db, principal, collection_id)
@@ -215,7 +216,7 @@ def remove_members(
     collection_id: uuid.UUID,
     body: MembersBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     acc = _open(db, principal, collection_id)
@@ -237,7 +238,7 @@ def share(
     user_id: uuid.UUID,
     body: ShareBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     acc = _open(db, principal, collection_id)
@@ -255,7 +256,7 @@ def unshare(
     collection_id: uuid.UUID,
     user_id: uuid.UUID,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     acc = _open(db, principal, collection_id)
@@ -272,16 +273,12 @@ def unshare(
 
 @router.get("/nodes/{node_id}/collections")
 def collections_of_node(
-    node_id: uuid.UUID,
-    principal: Principal = Depends(current_principal),
+    ctx: NodeContext = Depends(read_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    """Collections the person can open that reference this file. A file the person cannot read
-    answers with an empty list, exactly like a file that is in none."""
-    node = db.get(Node, node_id)
-    items: list[Collection] = (
-        collections.collections_of(db, _actor(principal), node) if node is not None else []
-    )
+    """Collections the person can open that reference this file. The policy guard answers for a
+    file the person cannot read exactly as every other node route does."""
+    items: list[Collection] = collections.collections_of(db, _actor(ctx.principal), ctx.node)
     return {"items": [{"id": str(c.id), "title": c.title} for c in items]}
 
 
@@ -307,7 +304,7 @@ def _suggestion_out(db: Session, actor: Actor, view: collect.View) -> dict[str, 
 def suggest(
     body: SuggestBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     gateway: AiGateway = request.app.state.ai
@@ -336,7 +333,7 @@ def suggest(
 
 @router.get("/ai/collections/suggestions")
 def suggestions(
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
     status: str = Query(default="pending", pattern="^(pending|approved|dismissed|stale|all)$"),
 ) -> dict[str, Any]:
@@ -350,7 +347,7 @@ def approve(
     suggestion_id: uuid.UUID,
     body: ApproveBody,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     try:
@@ -372,7 +369,7 @@ def approve(
 def dismiss(
     suggestion_id: uuid.UUID,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     try:

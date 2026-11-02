@@ -54,7 +54,7 @@ cross-user membership, malformed model answers (10 cases), text provenance.
 
 | # | Threat | Mitigation |
 |---|---|---|
-| T1 | A collection reveals a file name or number to someone who cannot read it. | D3/D4: per-member decision before counting; no total; same 404 for missing and forbidden; `GET /nodes/{id}/collections` returns an empty list for an unreadable file. |
+| T1 | A collection reveals a file name or number to someone who cannot read it. | D3/D4: per-member decision before counting; no total; same 404 for missing and forbidden; `GET /nodes/{id}/collections` sits behind the standard read guard, so an unreadable file answers 403 like every other node route. |
 | T2 | Using add/remove as an oracle for files. | Add and remove need read; an unreadable file answers like a missing one. |
 | T3 | A share is mistaken for file access. | A share only grants the collection; every member is still decided for the viewer. |
 | T4 | Injection in a document makes the model pull other files in or create something. | The schema has no action; keys must be ones we offered; the output is a pending row; creation needs a person's approval. |
