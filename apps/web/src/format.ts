@@ -62,6 +62,8 @@ const MESSAGES: Record<string, string> = {
   EMBEDDING_UNSTABLE:
     "The model gave different vectors for the same text, so it cannot be used.",
   EMBEDDING_TOO_LARGE: "The embedding server's answer was too large.",
+  SEARCH_TOO_FAST:
+    "Too many searches in a minute. Wait a moment and try again.",
   CONFLICT: "Someone else changed this at the same time. Reload and try again.",
   INVALID_CAP: "That limit is not valid.",
   FORBIDDEN: "You do not have access to that.",

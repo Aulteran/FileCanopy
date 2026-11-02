@@ -806,3 +806,25 @@ def test_normalise_survives_huge_values_without_overflowing() -> None:
     assert abs(math.sqrt(sum(x * x for x in v)) - 1.0) < 1e-9
     with pytest.raises(embed.EmbedError):
         embed.normalise([1e-300, 0.0])
+
+
+def test_a_config_without_a_fingerprint_gets_one_on_the_next_verify(
+    fx: Fx, alice: Api, admin: Api, net: Net
+) -> None:
+    seed(fx, alice)
+    configure(fx, admin, net)
+    sem = sem_of(fx)
+    with sem.sessions() as db:
+        cfg = semantic.load_config(db)
+        assert cfg.reference
+        cfg.reference = []  # verified before fingerprints existed
+        semantic.save_config(db, cfg)
+        db.commit()
+    state = admin.post("/admin/semantic/verify").json()
+    assert state["generation"] == 1  # same model and size: no rebuild
+    with sem.sessions() as db:
+        assert semantic.load_config(db).reference
+    net.swapped = True
+    with sem.sessions() as db:
+        sem.recheck(db)
+    assert admin.get("/admin/semantic").json()["error"] == "MODEL_CHANGED"

@@ -254,6 +254,8 @@ class Semantic:
             db.execute(delete(SearchEmbed))
             cfg.verified, cfg.dim = spec.signature, dim
             cfg.reference = probes
+        if not cfg.reference:  # a config verified before the fingerprint existed
+            cfg.reference = probes
         cfg.healthy, cfg.error, cfg.checked_at = True, None, now().isoformat()
         save_config(db, cfg)
         db.commit()
