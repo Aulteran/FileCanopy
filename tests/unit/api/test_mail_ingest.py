@@ -5,6 +5,7 @@ Same fake mailbox as the M13 tests; the library is real files in the test world'
 
 import gzip
 import io
+import lzma
 import uuid
 import zipfile
 from collections.abc import Callable
@@ -502,14 +503,15 @@ def test_a_claimed_message_that_never_finishes_is_not_taken_twice(
 def test_daily_cap_per_sender(make_world: Callable[..., World]) -> None:
     fx = Fx(mail_world(make_world, **IMAP, mail_daily_messages_per_sender=2))
     run_poll(fx.w, FakeBox({i: build(attachments=[(f"{i}.pdf", b"x")]) for i in (1, 2, 3)}))
-    states = sorted((m.uid, m.processing_state, m.process_error) for m in messages(fx))
-    assert states == [(1, "filed", None), (2, "filed", None), (3, "failed", "RATE_LIMITED")]
+    # arrival times tie, so which one is last is arbitrary; two are filed and one is capped
+    states = sorted((m.processing_state or "", m.process_error or "") for m in messages(fx))
+    assert states == [("failed", "RATE_LIMITED"), ("filed", ""), ("filed", "")]
 
 
 def test_full_staging_quota_fails_verified_mail_with_a_clear_reason(
     make_world: Callable[..., World],
 ) -> None:
-    fx = Fx(mail_world(make_world, **IMAP, mail_quarantine_quota_bytes=10))
+    fx = Fx(mail_world(make_world, **IMAP, mail_staging_quota_bytes=10))
     run_poll(fx.w, FakeBox({1: build(attachments=[("big.pdf", b"x" * 100)])}))
     m = only(fx)
     assert (m.processing_state, m.process_error, m.content_state) == (
@@ -517,6 +519,66 @@ def test_full_staging_quota_fails_verified_mail_with_a_clear_reason(
         "STORAGE_FULL",
         "dropped",
     )
+
+
+def test_unrecognised_mail_cannot_starve_recognised_mail(
+    make_world: Callable[..., World],
+) -> None:
+    fx = Fx(mail_world(make_world, **IMAP, mail_quarantine_quota_bytes=50))
+    for uid in (1, 2, 3):
+        run_poll(
+            fx.w,
+            FakeBox(
+                {uid: build(frm="spam@example.com", to=INGEST, attachments=[("x.pdf", b"x" * 40)])},
+                uidvalidity=60 + uid,
+            ),
+        )
+    assert {m.content_state for m in messages(fx)} == {"stored", "dropped"}  # quarantine is full
+    run_poll(fx.w, FakeBox({9: build(attachments=[("mine.pdf", b"y" * 100)])}, uidvalidity=99))
+    assert inbox_files(fx, "alice") == ["mine.pdf"]
+
+
+def test_changed_sender_leaks_nothing_about_personal_mail_to_admins(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pause_filing(monkeypatch)
+    run_poll(
+        fx.w, FakeBox({1: build(subject="Divorce papers", attachments=[("lawyer.pdf", b"x")])})
+    )
+    with fx.w.ctx.sessions() as db:
+        alice = db.get(User, fx.uid("alice@example.com"))
+        assert alice is not None
+        alice.status = "disabled"
+        db.commit()
+    monkeypatch.undo()
+    file_now(fx)
+    admin, _ = fx.admin
+    shown = str(admin.get("/api/v1/admin/quarantine").json())
+    assert "Divorce" not in shown and "lawyer" not in shown and "alice@" not in shown
+
+
+def fail_filing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a: Any, **k: Any) -> None:
+        raise RuntimeError("no")
+
+    monkeypatch.setattr(ingest, "_file_all", boom)
+
+
+def test_bytes_are_freed_when_no_retry_is_possible(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
+    fail_filing(monkeypatch)
+    run_poll(fx.w, FakeBox({1: build()}))
+    for _ in range(5):
+        fx.w.advance(hours=2)
+        file_now(fx)
+    m = only(fx)
+    assert (m.processing_state, m.content_state) == ("failed", "stored")  # one retry is left
+    alice = Api(fx, "alice")
+    r = alice.client.post(f"/api/v1/me/inbox/{m.id}/retry", headers=alice.headers)
+    assert r.status_code == 202
+    for _ in range(5):
+        fx.w.advance(hours=2)
+        file_now(fx)
+    assert only(fx).content_state == "purged"
 
 
 # ------------------------------------------------------------------ untrusted attachments
@@ -548,6 +610,16 @@ def test_archive_limits_unit(tmp_path: Path) -> None:
     assert check(gzip.compress(b"\0" * 5_000_000)) == "ARCHIVE_RATIO"
     assert check(gzip.compress(b"fine text " * 10)) is None
     assert check(gzip.compress(zip_of({"a": b"x"}))) == "ARCHIVE_NESTED"
+    # a zip with bytes in front of it (self-extracting or polyglot) is still judged as a zip
+    assert check(b"MZ stub" + zip_of({"zeros": b"\0" * 5_000_000})) == "ARCHIVE_RATIO"
+    # an xz header asking for a huge dictionary is refused, not honoured
+    huge = lzma.compress(
+        b"x" * 100,
+        format=lzma.FORMAT_XZ,
+        filters=[{"id": lzma.FILTER_LZMA2, "dict_size": 512 * 1024 * 1024}],
+    )
+    assert check(huge) == "ARCHIVE_INVALID"
+    assert check(lzma.compress(b"fine text " * 10)) is None
     assert check(b"7z\xbc\xaf\x27\x1c" + b"\0" * 20) is None  # opaque: stored, never opened
 
 

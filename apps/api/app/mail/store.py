@@ -56,11 +56,13 @@ def archive_limits(settings: Settings) -> archives.ArchiveLimits:
     )
 
 
-def _stored_total(db: Session) -> int:
+def _stored_total(db: Session, *, verified: bool) -> int:
+    """Bytes held for recognised mail (staging) or for everything else (quarantine)."""
+    recognised = InboundMessage.status == "verified"
     total = db.scalar(
         select(func.coalesce(func.sum(InboundAttachment.size_bytes), 0))
         .join(InboundMessage, InboundMessage.id == InboundAttachment.message_id)
-        .where(InboundMessage.content_state == "stored")
+        .where(InboundMessage.content_state == "stored", recognised if verified else ~recognised)
     )
     return int(total or 0)
 
@@ -182,7 +184,13 @@ def ingest(
             row.processing_state = "pending" if parsed.attachments else "filed"
             row.process_after = clock.utcnow()
         total = sum(a.size for a in parsed.attachments)
-        if keep and _stored_total(db) + total <= settings.mail_quarantine_quota_bytes:
+        is_verified = decision.status == "verified"
+        quota = (
+            settings.mail_staging_quota_bytes
+            if is_verified
+            else settings.mail_quarantine_quota_bytes
+        )
+        if keep and _stored_total(db, verified=is_verified) + total <= quota:
             files = quarantine_dir(settings) / str(row.id)
             row.content_state = "stored"
         elif keep:

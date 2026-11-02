@@ -87,3 +87,15 @@ Compose, browser e2e, a real IMAP server.
 Open follow-ups: optional SMTP notice to administrators; a folder picker for the shared email folder;
 reprocessing held mail after its sender adds the address; the filed attachments are indexed by the
 normal indexer (no mail-specific trigger).
+
+## Review round 1 (Opus 5.5): 2 Medium, 3 Low, all fixed
+
+* M-2: a message that loses its sender after arrival and was addressed to the personal address is
+  scrubbed (subject, sender, file names) when it becomes quarantine, so an administrator cannot learn
+  about a person's mail by disabling the account.
+* M-1: recognised mail has its own staging quota (`FILECANOPY_MAIL_STAGING_QUOTA_BYTES`), so
+  unauthenticated mail to the intake address cannot starve it.
+* L-1: xz is read through a decoder with a 64 MiB memory limit. L-2: a zip with bytes in front of
+  it is judged as a zip. L-3: the claim lease is renewed before each attachment.
+* Also: staged bytes of a message that can no longer be retried are deleted at once. A known
+  trade-off: `ARCHIVE_NESTED` refuses Office files with embedded archives.

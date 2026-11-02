@@ -213,9 +213,13 @@ def _claim(db: Session, message_id: uuid.UUID) -> bool:
     return bool(won.rowcount)  # type: ignore[attr-defined]
 
 
-def _fail(db: Session, msg: InboundMessage, code: str, *, tell: bool = True) -> None:
+def _fail(
+    db: Session, settings: Settings, msg: InboundMessage, code: str, *, tell: bool = True
+) -> None:
     msg.processing_state, msg.process_error = "failed", code
     msg.processed_at, msg.process_after = clock.utcnow(), None
+    if code in FINAL_ERRORS or msg.manual_retries >= 1:  # no retry is possible: free the bytes
+        store.purge_content(db, settings, msg)
     audit(db, "mail.failed", target=msg.resolved_user_id, message=str(msg.id), reason=code)
     if tell and msg.resolved_user_id is not None:
         notices.failed(db, msg.resolved_user_id, code)
@@ -230,7 +234,15 @@ def _unrecognised(db: Session, settings: Settings, msg: InboundMessage) -> None:
     msg.status, msg.reason = "quarantined", "SENDER_CHANGED"
     msg.resolved_user_id, msg.processing_state, msg.process_after = None, None, None
     if msg.destination != "shared":
+        # A person's personal mail must not become readable to administrators through the
+        # quarantine list: keep no bytes, subject, sender or file names.
         store.purge_content(db, settings, msg)
+        msg.subject, msg.from_address = None, None
+        for att in db.scalars(
+            select(InboundAttachment).where(InboundAttachment.message_id == msg.id)
+        ):
+            att.display_name = f"attachment-{att.position}"
+
     audit(db, "mail.sender_changed", message=str(msg.id))
     notices.quarantine_arrived(db)
     db.commit()
@@ -271,6 +283,7 @@ def _file_all(db: Session, settings: Settings, msg: InboundMessage, user: User) 
     for att in atts:
         if att.outcome is not None:
             continue
+        msg.process_after = clock.utcnow() + CLAIM_LEASE  # keep the claim while work goes on
         refusal = file_attachment(ctx, folder.id, msg, att)
         if refusal is not None:
             att.outcome = refusal
@@ -336,26 +349,26 @@ def process_message(
         except Permanent as exc:
             db.rollback()
             msg = db.get(InboundMessage, message_id) or msg
-            _fail(db, msg, exc.code)
+            _fail(db, settings, msg, exc.code)
             return "failed"
         except OpError as err:
             db.rollback()
             msg = db.get(InboundMessage, message_id) or msg
             if err.status in (403, 404, 422):
-                _fail(db, msg, _http_to_code(err))
+                _fail(db, settings, msg, _http_to_code(err))
                 return "failed"
-            return _retry(db, msg, err.code)
+            return _retry(db, settings, msg, err.code)
         except Exception as exc:
             db.rollback()
             log.warning("mail filing failed: %s", type(exc).__name__)
             msg = db.get(InboundMessage, message_id) or msg
-            return _retry(db, msg, type(exc).__name__)
+            return _retry(db, settings, msg, type(exc).__name__)
 
 
-def _retry(db: Session, msg: InboundMessage, why: str) -> str:
+def _retry(db: Session, settings: Settings, msg: InboundMessage, why: str) -> str:
     if msg.process_attempts >= MAX_ATTEMPTS:
         audit(db, "mail.dead_letter", message=str(msg.id), reason=why[:40])
-        _fail(db, msg, "PROCESSING_FAILED")
+        _fail(db, settings, msg, "PROCESSING_FAILED")
         return "failed"
     delay = BACKOFF_SECONDS[min(msg.process_attempts - 1, len(BACKOFF_SECONDS) - 1)]
     msg.process_after = clock.utcnow() + timedelta(seconds=max(delay, 0))

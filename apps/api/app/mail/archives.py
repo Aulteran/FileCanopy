@@ -55,7 +55,9 @@ def _head(path: Path, n: int = 8) -> bytes:
 def kind_of(path: Path) -> str | None:
     """'zip', 'gzip', 'bzip2', 'xz', 'opaque' (another archive format) or None."""
     head = _head(path, 8)
-    if head.startswith((ZIP_MAGIC, ZIP_EMPTY)):
+    # zipfile finds the directory at the END of the file, so a zip with bytes in front of it
+    # (self-extracting or polyglot) must be judged as a zip too.
+    if head.startswith((ZIP_MAGIC, ZIP_EMPTY)) or zipfile.is_zipfile(path):
         return "zip"
     if head.startswith(GZIP_MAGIC):
         return "gzip"
@@ -115,7 +117,7 @@ def _check_zip(path: Path, limits: ArchiveLimits) -> None:
         raise ArchiveRefused("ARCHIVE_INVALID") from exc
 
 
-def _check_stream(opener: IO[bytes], compressed: int, limits: ArchiveLimits) -> None:
+def _check_stream(opener: "IO[bytes] | _XzReader", compressed: int, limits: ArchiveLimits) -> None:
     total = 0
     allowed_ratio = max(compressed, 1) * limits.max_ratio
     try:
@@ -133,6 +135,35 @@ def _check_stream(opener: IO[bytes], compressed: int, limits: ArchiveLimits) -> 
         raise ArchiveRefused("ARCHIVE_INVALID") from exc
 
 
+XZ_MEMLIMIT = 64 * 1024 * 1024
+
+
+class _XzReader:
+    """Reads an xz stream through a decoder with a memory limit: the dictionary size is declared
+    in the (attacker-written) header and `lzma.open` would honour any value."""
+
+    def __init__(self, path: Path) -> None:
+        self._fh = path.open("rb")
+        self._dec = lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=XZ_MEMLIMIT)
+
+    def read(self, n: int) -> bytes:
+        while True:
+            if self._dec.eof:
+                return b""
+            if self._dec.needs_input:
+                data = self._fh.read(CHUNK)
+                if not data:
+                    raise EOFError("truncated xz stream")
+            else:
+                data = b""
+            out = self._dec.decompress(data, max_length=n)
+            if out:
+                return out
+
+    def close(self) -> None:
+        self._fh.close()
+
+
 def check(path: Path, name: str, limits: ArchiveLimits) -> None:
     """Raises ArchiveRefused when the file is an archive that breaks a limit. Files that are not
     archives, and archive formats nothing in the app opens, pass."""
@@ -143,8 +174,13 @@ def check(path: Path, name: str, limits: ArchiveLimits) -> None:
         _check_zip(path, limits)
         return
     size = path.stat().st_size
-    opener: Callable[[Path, str], IO[bytes]] = (
-        gzip.open if kind == "gzip" else bz2.open if kind == "bzip2" else lzma.open  # type: ignore[assignment]
-    )
+    if kind == "xz":
+        reader = _XzReader(path)
+        try:
+            _check_stream(reader, size, limits)
+        finally:
+            reader.close()
+        return
+    opener: Callable[[Path, str], IO[bytes]] = gzip.open if kind == "gzip" else bz2.open  # type: ignore[assignment]
     with opener(path, "rb") as stream:
         _check_stream(stream, size, limits)
