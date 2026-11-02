@@ -1,3 +1,5 @@
+import { Icon } from "./Icon";
+import { loadDensity, saveDensity, type Density } from "./density";
 import { LabelBadge, LockCard, LockStrip, PrivacyDialog } from "./Privacy";
 import {
   useCallback,
@@ -91,6 +93,8 @@ type Props = {
 };
 
 /** A file the in-app viewer can open (the server checks again). */
+const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|svg|heic|tiff?)$/i;
+
 function canView(c: Child): boolean {
   return (
     c.kind === "file" && c.status === "active" && viewKind(c.name) !== null
@@ -112,6 +116,7 @@ function undoableId(op: Operation | null): string | null {
 }
 
 export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
+  const [density, setDensity] = useState<Density>(loadDensity);
   const [info, setInfo] = useState<NodeInfo | null>(null);
   const [crumbs, setCrumbs] = useState<NodeInfo[]>([]);
   const [items, setItems] = useState<Child[]>([]);
@@ -651,6 +656,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           title={noWrite}
           onClick={() => fileInput.current?.click()}
         >
+          <Icon name="upload" />
           Upload here
         </button>
         <input
@@ -671,6 +677,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           title={noWrite}
           onClick={() => folderInput.current?.click()}
         >
+          <Icon name="upload" />
           Upload folder
         </button>
         <button
@@ -678,6 +685,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           title={noWrite}
           onClick={() => setDialog("folder")}
         >
+          <Icon name="folder-plus" />
           New folder
         </button>
         <button
@@ -702,7 +710,24 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           privileges.length > 0 && (
             <button onClick={() => void leave()}>Stop using this share</button>
           )}
-        <button onClick={() => void rescan()}>Rescan</button>
+        <button onClick={() => void rescan()}>
+          <Icon name="refresh" />
+          Rescan
+        </button>
+        <button
+          type="button"
+          aria-pressed={density === "compact"}
+          title="Show more rows in the list"
+          onClick={() => {
+            const d: Density =
+              density === "compact" ? "comfortable" : "compact";
+            saveDensity(d);
+            setDensity(d);
+          }}
+        >
+          <Icon name="rows" />
+          Compact list
+        </button>
         {!canWrite && <span className="hint">Read-only</span>}
       </div>
 
@@ -884,12 +909,20 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     onKeyDown={(e) => onGridKey(e, ix, c)}
                   >
                     <td>
-                      <span aria-hidden="true">
-                        {c.kind === "dir"
-                          ? "📁 "
-                          : c.kind === "other"
-                            ? "⛔ "
-                            : "📄 "}
+                      <span
+                        className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
+                      >
+                        <Icon
+                          name={
+                            c.kind === "dir"
+                              ? "folder"
+                              : c.kind === "other"
+                                ? "alert"
+                                : IMAGE_NAME.test(c.name)
+                                  ? "image"
+                                  : "file"
+                          }
+                        />
                       </span>
                       {c.kind === "dir" ? (
                         <a

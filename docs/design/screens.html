@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- REFERENCE ONLY, not shipped. This mockup loads its fonts from Google Fonts, which is an external request. The app itself never does: it self-hosts the fonts (apps/web/src/fonts). Open this file offline and it falls back to system fonts. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FileCanopy Screen Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a clickable prototype. A control strip picks the screen, device and theme;
+   one framed app below re-lays itself with container queries, so phone and desktop share
+   the same markup the real app will use. Notes for each screen sit under the frame. */
+:root {
+  --bg: #f5f7f2; --surface: #ffffff; --sunken: #ebefe7; --line: #d3dbcf;
+  --text: #1c2a22; --muted: #55665b; --primary: #2f6b4f; --primary-strong: #245a41;
+  --on-primary: #ffffff; --leaf: #8cc152; --sel: #e1eedd; --sun: #f2b94b;
+  --danger: #b3261e; --warning: #8a5300; --warning-bg: #fbf1df; --info: #23629e;
+  --private: #6a4c9c; --confidential: #9b2c4a; --focus: #1f6fd6;
+  --toast-bg: #1c2a22; --toast-fg: #eef3ee; --scrim: rgb(17 23 19 / .42);
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --r-s: 6px; --r-m: 10px; --r-l: 16px;
+  --shadow: 0 1px 2px rgb(20 40 28 / .06), 0 8px 28px rgb(20 40 28 / .12);
+  --la-body: #2f6b4f; --la-leaf: #8cc152; --la-line: #ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111713; --surface: #18201b; --sunken: #1f2923; --line: #2f3b33;
+    --text: #e4ece5; --muted: #a3b2a7; --primary: #7cc59a; --primary-strong: #94d3ad;
+    --on-primary: #0d1a12; --leaf: #9fd067; --sel: #24382c; --sun: #f5c56a;
+    --danger: #ff8a80; --warning: #f0b45a; --warning-bg: #2c2414; --info: #7fb3ec;
+    --private: #b9a0e6; --confidential: #f08aa5; --focus: #8ab8ff;
+    --toast-bg: #e4ece5; --toast-fg: #14201a; --scrim: rgb(0 0 0 / .6);
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 10px 30px rgb(0 0 0 / .45);
+    --la-body: #7cc59a; --la-leaf: #9fd067; --la-line: #111713;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111713; --surface: #18201b; --sunken: #1f2923; --line: #2f3b33;
+  --text: #e4ece5; --muted: #a3b2a7; --primary: #7cc59a; --primary-strong: #94d3ad;
+  --on-primary: #0d1a12; --leaf: #9fd067; --sel: #24382c; --sun: #f5c56a;
+  --danger: #ff8a80; --warning: #f0b45a; --warning-bg: #2c2414; --info: #7fb3ec;
+  --private: #b9a0e6; --confidential: #f08aa5; --focus: #8ab8ff;
+  --toast-bg: #e4ece5; --toast-fg: #14201a; --scrim: rgb(0 0 0 / .6);
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 10px 30px rgb(0 0 0 / .45);
+  --la-body: #7cc59a; --la-leaf: #9fd067; --la-line: #111713;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 16px/1.5 var(--font-body); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+svg.i { width: 20px; height: 20px; flex: none; }
+
+/* ---------- Design-page chrome (not part of the app) ---------- */
+.studio { max-width: 1340px; margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 18px; }
+.studio-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.studio-head h1 { font-size: 30px; font-weight: 800; }
+.studio-head p { color: var(--muted); max-width: 70ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-m); padding: 3px; background: var(--surface); }
+.seg button { border: 0; background: none; color: var(--muted); padding: 5px 11px; border-radius: 7px; cursor: pointer; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--sel); color: var(--text); font-weight: 700; }
+.screens { display: flex; flex-wrap: wrap; gap: 6px; }
+.screens a { text-decoration: none; color: var(--text); font-size: 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); display: inline-flex; gap: 6px; align-items: center; }
+.screens a[aria-current="page"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 700; }
+.screens a .dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot.now { background: var(--primary); } .dot.new { background: var(--sun); } .dot.later { background: var(--private); }
+.screens a[aria-current="page"] .dot { background: var(--on-primary); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+.stage { display: flex; justify-content: center; padding: 20px; border-radius: 20px; background: repeating-linear-gradient(135deg, transparent 0 14px, rgb(127 140 130 / .06) 14px 15px), var(--sunken); }
+.frame { width: 100%; max-width: 1280px; height: 780px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--bg); display: flex; flex-direction: column; container-type: inline-size; container-name: app; position: relative; }
+.frame.phone { max-width: 390px; height: 800px; border-radius: 36px; border: 10px solid #1d2620; }
+.urlbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--sunken); border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.urlbar i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; }
+.urlbar span { margin-left: 10px; background: var(--surface); padding: 2px 12px; border-radius: 999px; border: 1px solid var(--line); }
+.frame.phone .urlbar { justify-content: center; } .frame.phone .urlbar i { display: none; }
+.screen { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+
+.notes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+.notes .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.notes h2 { font-size: 22px; }
+.notes h3 { font-size: 16px; }
+.notes ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.notes p, .notes li { max-width: 70ch; }
+.status { width: fit-content; font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+.status.now { background: var(--sel); color: var(--primary-strong); }
+.status.new { background: var(--warning-bg); color: var(--warning); }
+.status.later { background: color-mix(in srgb, var(--private) 15%, transparent); color: var(--private); }
+@media (max-width: 860px) { .notes { grid-template-columns: 1fr; } .stage { padding: 8px; } }
+
+/* ---------- App components ---------- */
+.btn { font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 14px; border-radius: var(--r-m); border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.primary:hover { background: var(--primary-strong); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--primary); }
+.btn.quiet:hover { background: var(--sel); }
+.btn.danger { color: var(--danger); border-color: currentColor; background: transparent; }
+.btn.icon { padding: 8px; min-width: 40px; }
+.btn.sm { min-height: 34px; padding: 4px 10px; font-size: 14px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; padding: 1px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.badge svg { width: 14px; height: 14px; }
+.b-ok { color: var(--primary); } .b-warn { color: var(--warning); } .b-info { color: var(--info); }
+.b-private { color: var(--private); } .b-conf { color: var(--confidential); } .b-muted { color: var(--muted); } .b-danger { color: var(--danger); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, .field .lbl { font-weight: 700; font-size: 14px; }
+.field input, .field select { min-height: 44px; padding: 8px 12px; border-radius: var(--r-m); border: 1px solid var(--line); background: var(--surface); }
+.field .hint { font-size: 13px; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.num { font-variant-numeric: tabular-nums; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.spacer { flex: 1; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.card h2 { font-size: 19px; }
+.card h3 { font-size: 16px; }
+.banner { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-m); border: 1px solid var(--line); background: var(--surface); border-left: 4px solid var(--warning); font-size: 15px; }
+.banner.info { border-left-color: var(--info); } .banner.ok { border-left-color: var(--primary); } .banner.conf { border-left-color: var(--confidential); }
+.banner > svg { color: var(--warning); margin-top: 2px; }
+.banner.info > svg { color: var(--info); } .banner.ok > svg { color: var(--primary); } .banner.conf > svg { color: var(--confidential); }
+.banner .t { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.progress { height: 6px; background: var(--sunken); border-radius: 999px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+.meter { height: 10px; background: var(--sunken); border-radius: 999px; overflow: hidden; display: flex; }
+.meter i { display: block; height: 100%; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--sel); color: var(--primary-strong); flex: none; }
+.avatar.sm { width: 26px; height: 26px; font-size: 11px; }
+.check { width: 18px; height: 18px; border: 2px solid var(--muted); border-radius: 5px; display: grid; place-items: center; flex: none; }
+.check.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.check.on svg { width: 14px; height: 14px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 14px; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+.seg.in-app button { font-size: 13px; padding: 4px 9px; }
+
+/* ---------- App shell ---------- */
+.app { height: 100%; display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: 60px minmax(0, 1fr); grid-template-areas: "top top" "side main"; }
+.app.with-details { grid-template-columns: 220px minmax(0, 1fr) 300px; grid-template-areas: "top top top" "side main details"; }
+.top { grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 8px; font: 700 19px var(--font-display); letter-spacing: -0.02em; width: 188px; }
+.brand .c { color: var(--primary); }
+.search { flex: 1; max-width: 520px; display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 40px; border-radius: 999px; background: var(--sunken); color: var(--muted); font-size: 15px; border: 1px solid transparent; }
+.top .who { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-left: auto; }
+.top .phone-title { display: none; }
+.side { grid-area: side; border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 14px; overflow: auto; background: var(--bg); }
+.side .grp { display: flex; flex-direction: column; gap: 2px; }
+.side .grp-h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 4px 10px; }
+.side a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-m); color: var(--text); text-decoration: none; font-size: 15px; }
+.side a:hover { background: var(--sunken); }
+.side a[aria-current="page"] { background: var(--sel); font-weight: 700; color: var(--primary-strong); }
+.side a .count { margin-left: auto; font-size: 12px; color: var(--muted); }
+.side .quota { margin-top: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.main { grid-area: main; overflow: auto; padding: 18px 24px 90px; display: flex; flex-direction: column; gap: 14px; position: relative; }
+.main > *, .details > * { flex-shrink: 0; }
+.details { grid-area: details; border-left: 1px solid var(--line); background: var(--surface); overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.tabs { display: none; }
+.page-h { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.page-h h1 { font-size: 26px; font-weight: 800; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; font-size: 14px; color: var(--muted); }
+.crumbs a { color: var(--primary); text-decoration: none; padding: 2px 6px; border-radius: 6px; }
+.crumbs a:hover { background: var(--sel); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 4px 2px; }
+.selbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px 6px 14px; border-radius: var(--r-m); background: var(--sel); font-size: 14px; }
+.selbar b { margin-right: 6px; }
+
+/* File list */
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); overflow: hidden; }
+.frow { display: grid; grid-template-columns: 22px 26px minmax(0, 1fr) 96px 150px 120px 36px; gap: 12px; align-items: center; padding: 0 12px 0 16px; min-height: var(--rowh, 52px); border-top: 1px solid var(--line); font-size: 15px; }
+.frow:first-child { border-top: 0; }
+.frow.head { min-height: 38px; font-size: 13px; font-weight: 700; color: var(--muted); background: var(--sunken); }
+.frow.sel { background: var(--sel); }
+.frow .name { min-width: 0; display: flex; flex-direction: column; }
+.frow .name b { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .name .inline { display: none; font-size: 13px; color: var(--muted); }
+.frow .c { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow .fi { display: grid; place-items: center; }
+.frow .fi svg { width: 22px; height: 22px; }
+.fi.folder { color: var(--primary); } .fi.doc { color: var(--info); } .fi.img { color: var(--private); } .fi.sheet { color: var(--primary-strong); }
+.frow .tag { display: inline-flex; gap: 6px; align-items: center; }
+.with-details .frow { grid-template-columns: 22px 26px minmax(0, 1fr) 80px 104px 36px; }
+.with-details .frow .by { display: none; }
+.frame[data-density="compact"] { --rowh: 36px; }
+.frame[data-density="compact"] .frow { font-size: 14px; }
+.frame[data-density="compact"] .frow .fi svg { width: 18px; height: 18px; }
+.drop-hint { border: 2px dashed var(--line); border-radius: var(--r-l); padding: 12px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* Details panel */
+.details .hero { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 14px 0 6px; }
+.details .hero .big { width: 84px; height: 84px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--info) 12%, transparent); color: var(--info); }
+.details .hero .big svg { width: 44px; height: 44px; }
+.details h2 { font-size: 18px; word-break: break-word; }
+.details h3 { font-size: 15px; }
+.details section { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.people { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.people div { display: flex; align-items: center; gap: 10px; }
+.timeline { list-style: none; margin: 0; padding: 0 0 0 4px; display: flex; flex-direction: column; gap: 0; }
+.timeline li { position: relative; padding: 0 0 14px 22px; font-size: 14px; }
+.timeline li::before { content: ""; position: absolute; left: 4px; top: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--primary); }
+.timeline li::after { content: ""; position: absolute; left: 8px; top: 18px; bottom: 0; width: 1px; background: var(--line); }
+.timeline li:last-child::after { display: none; }
+.timeline li.ext::before { background: var(--warning); }
+.timeline .when { display: block; color: var(--muted); font-size: 13px; }
+.actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Overlays */
+.toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: var(--toast-bg); color: var(--toast-fg); padding: 10px 10px 10px 16px; border-radius: var(--r-m); box-shadow: var(--shadow); border-left: 4px solid var(--sun); z-index: 5; width: max-content; max-width: calc(100% - 32px); font-size: 15px; }
+.toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.toast .x { text-decoration: none; opacity: .75; }
+.tray { position: absolute; right: 18px; bottom: 18px; width: 340px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); box-shadow: var(--shadow); z-index: 4; overflow: hidden; }
+.tray header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 16px; background: var(--sunken); font-weight: 700; font-size: 15px; }
+.tray ul { list-style: none; margin: 0; padding: 6px 0; }
+.tray li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 16px; font-size: 14px; }
+.tray li .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tray li .progress { grid-column: 2 / 4; }
+.tray li .s { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 8; display: grid; place-items: center; padding: 16px; }
+.dialog { background: var(--surface); border-radius: var(--r-l); box-shadow: var(--shadow); border: 1px solid var(--line); padding: 22px; display: flex; flex-direction: column; gap: 14px; width: min(520px, 100%); max-height: 100%; overflow: auto; }
+.dialog h2 { font-size: 21px; }
+.dialog .actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.picker { border: 1px solid var(--line); border-radius: var(--r-m); overflow: hidden; }
+.picker .ph { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--sunken); font-size: 14px; }
+.picker ul { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; }
+.picker li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 15px; }
+.picker li.on { background: var(--sel); font-weight: 700; }
+.picker li .chev { margin-left: auto; color: var(--muted); }
+.picker li.dim { color: var(--muted); }
+
+/* Generic tables */
+.tbl { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 15px; }
+.tbl-wrap { border: 1px solid var(--line); border-radius: var(--r-l); overflow: hidden; }
+.tbl th, .tbl td { text-align: left; padding: 11px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
+.tbl th { background: var(--sunken); font-size: 13px; color: var(--muted); border-top: 0; }
+.tbl td .sub { display: block; font-size: 13px; color: var(--muted); }
+.tbl .acts { text-align: right; white-space: nowrap; }
+.cell-name { display: flex; align-items: center; gap: 10px; }
+
+/* Activity/recent list */
+.feed { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); overflow: hidden; }
+.feed li { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+.feed li:first-child { border-top: 0; }
+.feed .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--sunken); color: var(--primary); }
+.feed .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.feed .t .when { font-size: 13px; color: var(--muted); }
+.feed .conflict { grid-column: 2 / 4; }
+.day { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 6px 2px 0; }
+
+/* Center pages */
+.center { height: 100%; overflow: auto; display: grid; place-items: center; padding: 24px 16px; background:
+  radial-gradient(1200px 500px at 50% -10%, color-mix(in srgb, var(--leaf) 22%, transparent), transparent 60%), var(--bg); }
+.authcard { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+.authcard .logo { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.authcard .logo b { font: 800 24px var(--font-display); letter-spacing: -0.02em; }
+.authcard .logo b .c { color: var(--primary); }
+.authcard h1 { font-size: 22px; text-align: center; }
+.authcard .foot { font-size: 14px; color: var(--muted); text-align: center; }
+.two-up { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+
+/* Setup wizard */
+.wizard { height: 100%; overflow: auto; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
+.wizard aside { background: var(--surface); border-right: 1px solid var(--line); padding: 24px 20px; display: flex; flex-direction: column; gap: 22px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.steps li { display: flex; gap: 12px; align-items: center; padding: 8px 10px; border-radius: var(--r-m); font-size: 15px; color: var(--muted); }
+.steps li .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); font-weight: 700; font-size: 13px; flex: none; }
+.steps li.done { color: var(--text); } .steps li.done .n { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.steps li.cur { background: var(--sel); color: var(--text); font-weight: 700; } .steps li.cur .n { border-color: var(--primary); color: var(--primary); }
+.wizard main { padding: 32px clamp(16px, 4cqw, 48px); display: flex; flex-direction: column; gap: 18px; max-width: 860px; }
+.wizard h1 { font-size: 28px; font-weight: 800; }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.choice { border: 2px solid var(--line); border-radius: var(--r-l); padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
+.choice.on { border-color: var(--primary); background: color-mix(in srgb, var(--sel) 55%, var(--surface)); }
+.choice .top-r { display: flex; justify-content: space-between; align-items: center; color: var(--primary); }
+.radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; }
+.on .radio { border-color: var(--primary); } .on .radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat { background: var(--sunken); border-radius: var(--r-m); padding: 10px 12px; }
+.stat b { display: block; font: 700 22px var(--font-display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+
+/* Locked folder */
+.lockcard { margin: 40px auto 0; width: min(460px, 100%); text-align: center; align-items: center; }
+.lockcard .ring { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--confidential) 14%, transparent); color: var(--confidential); }
+.lockcard .ring svg { width: 34px; height: 34px; }
+
+/* ---------- Phone layout via container queries ---------- */
+@container app (max-width: 720px) {
+  .app, .app.with-details { grid-template-columns: minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr) 64px; grid-template-areas: "top" "main" "tabs"; }
+  .side, .details { display: none; }
+  .brand { width: auto; } .brand span { display: none; }
+  .search { display: none; }
+  .top { gap: 10px; padding: 0 10px 0 14px; }
+  .top .phone-title { display: block; font: 700 18px var(--font-display); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top .who .nm { display: none; }
+  .top .who { margin-left: 0; }
+  .top .ph-only { display: inline-flex; }
+  .tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-top: 1px solid var(--line); }
+  .tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); text-decoration: none; }
+  .tabs a[aria-current="page"] { color: var(--primary); font-weight: 700; }
+  .tabs a svg { width: 22px; height: 22px; }
+  .main { padding: 12px 12px 96px; gap: 12px; }
+  .page-h h1 { font-size: 22px; }
+  .desk-only { display: none !important; }
+  .frow, .with-details .frow { grid-template-columns: 22px 26px minmax(0, 1fr) 36px; padding: 0 6px 0 12px; }
+  .frow .c { display: none; }
+  .frow .name .inline { display: block; }
+  .frow.head { display: none; }
+  .tray { left: 10px; right: 10px; width: auto; bottom: 12px; }
+  .toast { bottom: 78px; }
+  .fab { bottom: 80px !important; }
+  .tray { bottom: 76px !important; }
+  .fab { position: absolute; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 18px; background: var(--primary); color: var(--on-primary); display: grid !important; place-items: center; box-shadow: var(--shadow); z-index: 3; }
+  .fab svg { width: 26px; height: 26px; }
+  .scrim { place-items: end stretch; padding: 0; }
+  .dialog { width: 100%; border-radius: 22px 22px 0 0; max-height: 92%; padding: 20px 18px 24px; }
+  .dialog .actions { flex-direction: column-reverse; } .dialog .actions .btn { width: 100%; }
+  .dialog::before { content: ""; width: 40px; height: 4px; border-radius: 4px; background: var(--line); align-self: center; margin-top: -8px; }
+  .wizard { grid-template-columns: 1fr; }
+  .wizard aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 14px 16px; gap: 10px; }
+  .wizard aside .about { display: none; }
+  .steps { flex-direction: row; gap: 6px; }
+  .steps li { padding: 0; } .steps li .lbl { display: none; } .steps li.cur .lbl { display: inline; }
+  .wizard main { padding: 18px 16px 28px; }
+  .wizard h1 { font-size: 23px; }
+  .tbl.resp thead { display: none; }
+  .tbl.resp, .tbl.resp tbody, .tbl.resp tr, .tbl.resp td { display: block; width: 100%; }
+  .tbl.resp tr { border-top: 1px solid var(--line); padding: 10px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; }
+  .tbl.resp tr:first-child { border-top: 0; }
+  .tbl.resp td { border: 0; padding: 0; }
+  .tbl.resp td.hide-ph { display: none; }
+  .tbl.resp td.acts { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+  .feed li { grid-template-columns: 32px minmax(0,1fr); }
+  .feed li > .btn { grid-column: 2; justify-self: start; }
+  .feed .ic { width: 32px; height: 32px; }
+  .two-col { grid-template-columns: 1fr !important; }
+}
+.fab, .ph-only { display: none; }
+.two-col { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></symbol>
+    <symbol id="i-folder-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="12.2" r="1.8"/><path d="M8.8 17a3.4 3.4 0 0 1 6.4 0"/></g></symbol>
+    <symbol id="i-folder-shared" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="10" cy="12.3" r="1.6"/><circle cx="14.6" cy="12.3" r="1.6"/><path d="M7.3 17a2.8 2.8 0 0 1 5.4 0M11.9 17a2.8 2.8 0 0 1 5.4 0"/></g></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></g></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M4 9.5h16M4 15h16M10 9.5v11"/></g></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20 16l-5-5-8 8.5"/></g></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 15v3.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V15"/></g></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M4 20h16"/></g></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M18.5 8v6M15.5 11h6"/></g></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.2A5 5 0 0 1 21 19"/></g></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><path d="M9 13.5h6M12.5 11l2.5 2.5-2.5 2.5"/></g></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/></g></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5A1.6 1.6 0 0 0 8.6 21h6.8a1.6 1.6 0 0 0 1.6-1.5L18 7M10 11v6M14 11v6"/></g></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></g></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 4v4.5H8M12 8v4l3 2"/></g></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5M12 14.5v2"/></g></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2M12 14.5v2"/></g></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3 3l18 18M10.6 6.1A9.6 9.6 0 0 1 12 6c5 0 8.5 4.5 9 6-.3.8-1.2 2.3-2.7 3.6M6.2 7.8C4.4 9 3.3 10.7 3 12c.5 1.5 4 6 9 6 1.4 0 2.7-.4 3.8-.9M9.9 10a3 3 0 0 0 4.1 4.1"/></g></symbol>
+    <symbol id="i-backup" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></g></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></g></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/></g></symbol>
+    <symbol id="i-storage" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 13.5 6 5.5A1.5 1.5 0 0 1 7.4 4.5h9.2A1.5 1.5 0 0 1 18 5.5l2.5 8"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="2"/><path d="M16.5 16.8h.01M13.5 16.8h.01"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></g></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M10.3 4.3 2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0z"/><path d="M12 10v4M12 17.2h.01"/></g></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8h.01"/></g></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-folder-plus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><path d="M12 10.5v6M9 13.5h6"/></g></symbol>
+    <symbol id="i-rename" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="2.6"/></g></symbol>
+    <symbol id="i-rows" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 5h16M4 9h16M4 13h16M4 17h16M4 21h16"/></g></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></g></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></g></symbol>
+    <symbol id="i-zip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M11 3v2h2v2h-2v2h2v2h-2M11 14.5h2v3h-2z"/></g></symbol>
+    <symbol id="i-sprout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M12 21v-9"/><path d="M12 12C12 7.5 8.5 5 4 5c0 4.5 3.5 7 8 7zM12 14c0-3.5 2.8-6 7-6 0 3.5-2.8 6-7 6z"/></g></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></g></symbol>
+    <symbol id="i-device" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/></g></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 17.5h2"/></g></symbol>
+    <symbol id="logo-a" viewBox="0 0 64 64">
+      <rect x="7" y="27" width="50" height="29" rx="7" fill="var(--la-body)"/>
+      <g fill="var(--la-leaf)"><circle cx="32" cy="17" r="11"/><circle cx="19.5" cy="23.5" r="8"/><circle cx="44.5" cy="23.5" r="8"/><rect x="11.5" y="22" width="41" height="9.5" rx="4.75"/></g>
+      <path d="M22 41h20" stroke="var(--la-line)" stroke-width="3.5" stroke-linecap="round" opacity=".9"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="studio">
+  <div class="studio-head">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <h1>FileCanopy screens</h1>
+      <p>Every screen of the app, drawn with the brand and design system. Pick a screen, then switch between desktop and phone or light and dark. Buttons inside the mockups don't do anything yet. They show what each screen will look like.</p>
+    </div>
+    <div class="controls">
+      <div class="ctl"><span id="dev-l">Device</span><div class="seg" role="group" aria-labelledby="dev-l" id="dev"><button type="button" data-v="desktop" aria-pressed="true">Desktop</button><button type="button" data-v="phone" aria-pressed="false">Phone</button></div></div>
+      <div class="ctl"><span id="th-l">Theme</span><div class="seg" role="group" aria-labelledby="th-l" id="th"><button type="button" data-v="" aria-pressed="true">Device</button><button type="button" data-v="light" aria-pressed="false">Light</button><button type="button" data-v="dark" aria-pressed="false">Dark</button></div></div>
+      <div class="ctl"><span id="dn-l">List</span><div class="seg" role="group" aria-labelledby="dn-l" id="dn"><button type="button" data-v="comfortable" aria-pressed="true">Comfortable</button><button type="button" data-v="compact" aria-pressed="false">Compact</button></div></div>
+    </div>
+  </div>
+  <nav class="screens" aria-label="Screens" id="screen-nav"></nav>
+  <div class="legend"><span><i class="dot now" style="display:inline-block;width:8px;height:8px;border-radius:50%"></i>Exists today, redesigned</span><span><i class="dot new" style="display:inline-block;width:8px;height:8px;border-radius:50%"></i>Built in M07, redesigned</span><span><i class="dot later" style="display:inline-block;width:8px;height:8px;border-radius:50%"></i>Planned for a later milestone</span></div>
+  <div class="stage">
+    <div class="frame" id="frame" data-density="comfortable">
+      <div class="urlbar" aria-hidden="true"><i></i><i></i><i></i><span id="url">files.home</span></div>
+      <div class="screen" id="screen"></div>
+    </div>
+  </div>
+  <div class="notes" id="notes"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var I = function (id, cls) { return '<svg class="i' + (cls ? " " + cls : "") + '" aria-hidden="true"><use href="#i-' + id + '"/></svg>'; };
+  var LOGO = function (s) { return '<svg width="' + s + '" height="' + s + '" aria-hidden="true"><use href="#logo-a"/></svg>'; };
+
+  /* ---------- Shell ---------- */
+  function shell(o) {
+    var nav = function (key, icon, label, count) {
+      return '<a href="#' + (o.links && o.links[key] || "") + '"' + (o.nav === key ? ' aria-current="page"' : "") + ">" + I(icon) + "<span>" + label + "</span>" + (count ? '<span class="count">' + count + "</span>" : "") + "</a>";
+    };
+    var tab = function (key, icon, label) {
+      return '<a href="#"' + (o.tab === key ? ' aria-current="page"' : "") + ">" + I(icon) + label + "</a>";
+    };
+    return '<div class="app' + (o.details ? " with-details" : "") + '">' +
+      '<header class="top">' +
+        '<div class="brand">' + LOGO(30) + '<span>File<span class="c">Canopy</span></span></div>' +
+        '<div class="phone-title">' + (o.phoneTitle || "") + "</div>" +
+        '<div class="search" role="search">' + I("search") + "Search files and folders</div>" +
+        '<button class="btn icon quiet ph-only" type="button" aria-label="Search">' + I("search") + "</button>" +
+        '<div class="who"><span class="nm">Sam Rivera</span><span class="avatar" aria-label="Sam Rivera, account menu">SR</span></div>' +
+      "</header>" +
+      '<nav class="side" aria-label="Main">' +
+        '<div class="grp"><span class="grp-h">Files</span>' +
+          nav("mine", "folder-user", "My Files") + nav("shared", "folder-shared", "Shared Files") + nav("withme", "share", "Shared with me") +
+        "</div>" +
+        '<div class="grp"><span class="grp-h">History</span>' +
+          nav("recent", "activity", "Recent actions") + nav("trash", "trash", "Trash", "14") +
+        "</div>" +
+        '<div class="grp"><span class="grp-h">Admin</span>' +
+          nav("users", "users", "Users") + nav("storage", "storage", "Storage") + nav("backups", "backup", "Backups") +
+        "</div>" +
+        '<div class="grp">' + nav("settings", "settings", "Settings") + "</div>" +
+        '<div class="quota"><span>Library disk: 412 GB of 2 TB used</span><div class="meter" aria-hidden="true"><i style="width:21%;background:var(--primary)"></i></div></div>' +
+      "</nav>" +
+      '<main class="main">' + o.main + "</main>" +
+      (o.details ? '<aside class="details" aria-label="Details">' + o.details + "</aside>" : "") +
+      '<nav class="tabs" aria-label="Main">' + tab("files", "folder", "Files") + tab("recent", "activity", "Recent") + tab("trash", "trash", "Trash") + tab("more", "menu", "More") + "</nav>" +
+      (o.over || "") +
+    "</div>";
+  }
+  var LINKS = { mine: "browser", shared: "browser", withme: "browser", recent: "recent", trash: "trash", users: "users", storage: "storage", backups: "backups", settings: "account-settings" };
+
+  /* ---------- File list ---------- */
+  var FILES = [
+    { k: "folder", n: "Receipts", s: "48 items", d: "Yesterday", by: "Priya Shah" },
+    { k: "folder", n: "Letters from the bank", s: "12 items", d: "3 Oct", by: "Sam Rivera" },
+    { k: "doc", n: "Tax return 2025.pdf", s: "1.2 MB", d: "12 Oct", by: "Sam Rivera", sel: true },
+    { k: "sheet", n: "Household budget 2026.xlsx", s: "84 KB", d: "Today, 09:14", by: "Priya Shah" },
+    { k: "doc", n: "Council tax bill.pdf", s: "310 KB", d: "28 Sep", by: "Sam Rivera" },
+    { k: "img", n: "Scan of passport.jpg", s: "2.4 MB", d: "2 Sep", by: "Priya Shah", badge: '<span class="badge b-warn">' + I("alert") + "Missing, rescan needed</span>" },
+    { k: "doc", n: "Pension statement.pdf", s: "520 KB", d: "19 Aug", by: "Jonas Berg" },
+    { k: "sheet", n: "Car costs.ods", s: "22 KB", d: "1 Aug", by: "Sam Rivera" }
+  ];
+  var ICON = { folder: "folder", doc: "file", sheet: "sheet", img: "image" };
+  function list(files, showSel) {
+    var h = '<div class="list" role="grid" aria-label="Contents of Taxes">' +
+      '<div class="frow head" role="row"><span class="check" role="columnheader" aria-label="Select all"></span><span></span><span role="columnheader">Name ↑</span><span role="columnheader">Size</span><span role="columnheader">Changed</span><span role="columnheader" class="by">Changed by</span><span></span></div>';
+    files.forEach(function (f) {
+      var on = showSel && f.sel;
+      h += '<div class="frow' + (on ? " sel" : "") + '" role="row" aria-selected="' + (on ? "true" : "false") + '">' +
+        '<span class="check' + (on ? " on" : "") + '">' + (on ? I("check") : "") + "</span>" +
+        '<span class="fi ' + f.k + '">' + I(ICON[f.k]) + "</span>" +
+        '<span class="name"><b>' + f.n + "</b>" + (f.badge ? '<span class="tag">' + f.badge + "</span>" : "") + '<span class="inline">' + f.s + " · " + f.d + "</span></span>" +
+        '<span class="c">' + f.s + '</span><span class="c">' + f.d + '</span><span class="c by">' + f.by + "</span>" +
+        '<button class="btn icon quiet sm" type="button" aria-label="More actions for ' + f.n + '">' + I("more") + "</button></div>";
+    });
+    return h + "</div>";
+  }
+  function folderHead(sel) {
+    return '<nav class="crumbs" aria-label="Breadcrumb"><a href="#browser">Shared Files</a>' + I("chev") + '<a href="#browser">Family</a>' + I("chev") + '<span aria-current="page">Taxes</span></nav>' +
+      '<div class="page-h"><h1>Taxes</h1><span class="badge b-info">' + I("users") + "Shared with 3</span></div>" +
+      (sel
+        ? '<div class="selbar" role="toolbar" aria-label="Selected items"><b>1 selected</b>' +
+            '<button class="btn sm" type="button">' + I("download") + 'Download</button><button class="btn sm" type="button">' + I("rename") + '<span class="desk-only">Rename</span></button><button class="btn sm" type="button">' + I("move") + '<span class="desk-only">Move</span></button><button class="btn sm" type="button">' + I("copy") + '<span class="desk-only">Copy</span></button><button class="btn sm danger" type="button">' + I("trash") + '<span class="desk-only">Delete</span></button><span class="spacer"></span><button class="btn sm quiet" type="button">Clear</button></div>'
+        : "") +
+      '<div class="toolbar desk-only" role="toolbar" aria-label="Folder actions">' +
+        '<button class="btn primary" type="button">' + I("upload") + "Upload</button>" +
+        '<button class="btn" type="button">' + I("folder-plus") + "New folder</button>" +
+        '<button class="btn" type="button">' + I("share") + "Share</button>" +
+        '<span class="spacer"></span>' +
+        '<div class="seg in-app" role="group" aria-label="List density"><button type="button" aria-pressed="true" title="Comfortable">' + I("list") + '</button><button type="button" aria-pressed="false" title="Compact">' + I("rows") + "</button></div>" +
+      "</div>";
+  }
+  function fileDetails(withHistory) {
+    return '<div class="hero"><div class="big">' + I("file") + '</div><h2>Tax return 2025.pdf</h2><span class="muted small">PDF document · 1.2 MB</span></div>' +
+      '<div class="actions-grid"><button class="btn sm primary" type="button">' + I("download") + 'Download</button><button class="btn sm" type="button">' + I("share") + "Share</button></div>" +
+      '<section><h3>About</h3><dl class="kv"><dt>Location</dt><dd>Shared Files › Family › Taxes</dd><dt>Added</dt><dd>12 Oct 2026 by Sam Rivera</dd><dt>Changed</dt><dd>12 Oct 2026, 18:40</dd><dt>Privacy</dt><dd>Normal</dd></dl></section>' +
+      '<section><h3>Who can open this</h3><div class="people">' +
+        '<div><span class="avatar sm">SR</span>Sam Rivera<span class="spacer"></span><span class="muted small">Editor</span></div>' +
+        '<div><span class="avatar sm">PS</span>Priya Shah<span class="spacer"></span><span class="muted small">Editor</span></div>' +
+        '<div><span class="avatar sm">JB</span>Jonas Berg<span class="spacer"></span><span class="muted small">Viewer</span></div>' +
+        '<span class="muted small">Access comes from the Family folder.</span></div></section>' +
+      (withHistory === false ? "" :
+      '<section><h3>History</h3><ol class="timeline" aria-label="History, newest first">' +
+        '<li>Jonas Berg downloaded it<span class="when">Today, 08:02</span></li>' +
+        '<li>Sam Rivera moved it here from <b>Inbox</b><span class="when">14 Oct, 10:15</span></li>' +
+        '<li class="ext">Changed on the server disk, outside the app<span class="when">13 Oct, 22:47</span></li>' +
+        '<li>Sam Rivera uploaded it<span class="when">12 Oct, 18:40</span></li>' +
+      '</ol><button class="btn sm quiet" type="button" style="align-self:flex-start">Show older history</button></section>');
+  }
+
+  /* ---------- Screens ---------- */
+  var S = {};
+
+  S.signin = {
+    label: "Sign in", status: "now", url: "files.home/",
+    html: function () {
+      return '<div class="center"><form class="authcard" aria-labelledby="si-h" onsubmit="return false">' +
+        '<div class="logo">' + LOGO(56) + '<b>File<span class="c">Canopy</span></b></div>' +
+        '<h1 id="si-h">Sign in to your files</h1>' +
+        '<div class="field"><label for="si-e">Email</label><input id="si-e" type="email" value="sam@rivera.family" autocomplete="username"></div>' +
+        '<div class="field"><label for="si-p">Password</label><input id="si-p" type="password" value="••••••••••••" autocomplete="current-password"></div>' +
+        '<button class="btn primary" type="submit" style="width:100%">Sign in</button>' +
+        '<p class="foot">Forgot your password? Ask your FileCanopy administrator for a reset link.</p>' +
+      "</form></div>";
+    },
+    notes: {
+      what: "The first thing people see. It's a single calm card on a soft green glow, with the logo on top. It asks for nothing except email and password.",
+      points: ["The button reads Sign in, not Submit, so it says what happens.", "If sign-in fails, one plain message appears above the button: \"That email and password don't match.\" It never says which of the two was wrong, which keeps accounts safe.", "There's no \"email me a reset link\" yet, because email sending comes in a later milestone. Until then the hint points people to their administrator."],
+      a11y: ["Fields have visible labels, not just placeholder text.", "Password managers can fill both fields.", "The error message is announced to screen readers when it appears."]
+    }
+  };
+
+  S.setup = {
+    label: "First-run setup", status: "now", url: "files.home/setup",
+    html: function () {
+      return '<div class="wizard"><aside><div class="brand">' + LOGO(30) + '<span>File<span class="c">Canopy</span></span></div>' +
+        '<ol class="steps" aria-label="Setup steps">' +
+          '<li class="done"><span class="n">' + I("check") + '</span><span class="lbl">Your admin account</span></li>' +
+          '<li class="cur" aria-current="step"><span class="n">2</span><span class="lbl">Shared files</span></li>' +
+          '<li><span class="n">3</span><span class="lbl">Your personal folder</span></li>' +
+          '<li><span class="n">4</span><span class="lbl">Invite people</span></li>' +
+        "</ol>" +
+        '<p class="about muted small">You can change all of this later in Settings. Nothing is copied until you confirm.</p></aside>' +
+        '<main><span class="muted small">Step 2 of 4</span><h1>How should Shared Files start?</h1>' +
+        '<p class="muted">Shared Files is the folder everyone you invite can work in. You can start empty or bring in files you already have.</p>' +
+        '<div class="choices" role="radiogroup" aria-label="How to start">' +
+          '<div class="choice" role="radio" aria-checked="false"><div class="top-r">' + I("sprout") + '<span class="radio"></span></div><b>Start empty</b><span class="muted small">Begin with a clean folder and add files as you go.</span></div>' +
+          '<div class="choice on" role="radio" aria-checked="true"><div class="top-r">' + I("zip") + '<span class="radio"></span></div><b>Bring in existing files</b><span class="muted small">Copy a folder or a .zip file. Your originals stay untouched.</span></div>' +
+        "</div>" +
+        '<div class="card"><div class="row"><h2>Review before anything is copied</h2><span class="spacer"></span><span class="badge b-ok">' + I("check") + "Enough space</span></div>" +
+          '<p class="muted small">From <b>Old laptop backup.zip</b></p>' +
+          '<div class="stats"><div class="stat"><b>1,204</b><span>files</span></div><div class="stat"><b>86</b><span>folders</span></div><div class="stat"><b>3.4 GB</b><span>in total</span></div><div class="stat"><b>12</b><span>names to tidy</span></div></div>' +
+          '<div class="banner"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg><div class="t"><b>12 file names will be adjusted</b><span class="muted small">They contain characters some computers can\'t use, like a colon. You can review each one before importing.</span></div><button class="btn sm" type="button">Review</button></div>' +
+        "</div>" +
+        '<div class="row"><button class="btn quiet" type="button">Back</button><span class="spacer"></span><button class="btn" type="button">Decide later</button><button class="btn primary" type="button">Copy 1,204 files</button></div>' +
+        "</main></div>";
+    },
+    notes: {
+      what: "The setup wizard the first administrator sees. A step list on the left shows where you are. This mockup is on the step that decides how Shared Files begins, with a .zip file already chosen and checked.",
+      points: ["Both options are big cards. They don't hide in a drop-down, so the choice is obvious.", "The review box shows the numbers that matter before anything happens: how many files, how big, whether there's room, and which names need tidying.", "The main button names the exact action, \"Copy 1,204 files\". A generic Next or Import wouldn't say that.", "Decide later is kept, as it works today. Each new user gets the same empty-or-import choice for their personal folder the first time they sign in."],
+      a11y: ["The two choices are a proper radio group, so arrow keys move between them.", "On phones the step list shrinks to numbered dots, with only the current step's name shown."]
+    }
+  };
+
+  S.browser = {
+    label: "File browser", status: "now", url: "files.home/f/…",
+    html: function () {
+      return shell({ nav: "shared", tab: "files", links: LINKS, phoneTitle: "Taxes", details: fileDetails(true),
+        main: folderHead(true) + list(FILES, true),
+        over: '<button class="fab" type="button" aria-label="Add files or a folder">' + I("plus") + "</button>"
+      });
+    },
+    notes: {
+      what: "The heart of the app. A sidebar lists your places, the middle shows the current folder, and a details panel on the right describes whatever you selected, including who can open it and its history.",
+      points: ["When something is selected, a green bar appears with the actions for it: Download, Rename, Move, Copy and Delete. The folder-wide buttons (Upload, New folder, Share) stay where they always are.", "There's one filled button, Upload, because adding files is the most common job.", "File problems show inline. \"Missing, rescan needed\" means the file was removed from the disk outside the app, and it's shown without guessing who did it.", "The history in the details panel is the M07 activity log, written as plain sentences.", "The two small icons at the right of the toolbar switch between comfortable and compact rows. Try the List switch above the frame."],
+      a11y: ["The file list stays a keyboard grid, as it is today: arrow keys, Space to select, Enter to open, F2 to rename.", "On phones the details panel becomes a full screen you open by tapping a file, and a round + button opens Upload and New folder.", "A skip link lets keyboard users jump straight past the sidebar."]
+    }
+  };
+
+  S.upload = {
+    label: "Uploading", status: "now", url: "files.home/f/…",
+    html: function () {
+      var tray = '<div class="tray" role="region" aria-label="Uploads"><header>' + I("upload") + 'Uploading 3 of 5<span class="spacer"></span><button class="btn icon quiet sm" type="button" aria-label="Collapse uploads">' + I("chev") + "</button></header><ul>" +
+        '<li><span class="fi doc">' + I("check") + '</span><span class="n">Receipt Sept.pdf</span><span class="s">Done</span></li>' +
+        '<li><span class="fi doc">' + I("file") + '</span><span class="n">Bank letters 2025.zip</span><span class="s">48% · 92 of 190 MB</span><div class="progress" role="progressbar" aria-valuenow="48" aria-valuemin="0" aria-valuemax="100" aria-label="Bank letters 2025.zip"><i style="width:48%"></i></div></li>' +
+        '<li><span class="fi img">' + I("image") + '</span><span class="n">Photo of meter.jpg</span><span class="s">12%</span><div class="progress" role="progressbar" aria-valuenow="12" aria-valuemin="0" aria-valuemax="100" aria-label="Photo of meter.jpg"><i style="width:12%"></i></div></li>' +
+        '<li><span class="fi" style="color:var(--danger)">' + I("alert") + '</span><span class="n">Holiday video.mp4</span><button class="btn sm quiet" type="button">Resume</button><span class="s" style="grid-column:2/4;color:var(--danger)">The connection dropped. Resume picks up where it stopped.</span></li>' +
+        "</ul></div>";
+      return shell({ nav: "shared", tab: "files", links: LINKS, phoneTitle: "Taxes",
+        main: folderHead(false) +
+          '<div class="banner info"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><div class="t"><b>You have an unfinished upload</b><span class="muted small">"Holiday video.mp4" stopped at 61%. Choose the same file again to continue, or discard it.</span></div><button class="btn sm" type="button">Continue</button><button class="btn sm quiet" type="button">Discard</button></div>' +
+          list(FILES.slice(0, 6), false) + '<div class="drop-hint desk-only">Drop files or folders anywhere in this window to upload them to Taxes.</div>',
+        over: tray
+      });
+    },
+    notes: {
+      what: "What you see while files upload. A small tray in the corner shows each file with its own progress bar. You can keep browsing while it works.",
+      points: ["Progress shows real sizes (\"92 of 190 MB\") as well as a percentage, because big files can take a while.", "When an upload stops, the tray says why in plain words and offers Resume, as the app already supports.", "An unfinished upload from an earlier visit shows as a banner at the top of the folder, matching today's Unfinished upload screen but less in the way.", "Dropping files anywhere on the window uploads them to the folder you're in. The hint at the bottom says so."],
+      a11y: ["Each progress bar has a label with the file name, so screen readers say what's uploading.", "The tray can be collapsed, and it never covers the main Upload button.", "On phones the tray spans the bottom of the screen above the tab bar."]
+    }
+  };
+
+  S.move = {
+    label: "Move and copy", status: "now", url: "files.home/f/…",
+    html: function () {
+      var dlg = '<div class="scrim"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mv-h">' +
+        '<h2 id="mv-h">Move "Tax return 2025.pdf"</h2>' +
+        '<p class="muted small">Choose where it should go.</p>' +
+        '<div class="picker"><div class="ph"><button class="btn icon quiet sm" type="button" aria-label="Up one folder">' + I("back") + '</button><b>My Files</b><span class="spacer"></span><button class="btn sm quiet" type="button">Other areas…</button></div><ul role="listbox" aria-label="Folders in My Files">' +
+          '<li role="option" aria-selected="false">' + I("folder") + 'Documents<span class="chev">' + I("chev") + "</span></li>" +
+          '<li role="option" aria-selected="true" class="on">' + I("folder") + 'Personal admin<span class="chev">' + I("chev") + "</span></li>" +
+          '<li role="option" aria-selected="false">' + I("folder") + 'Photos<span class="chev">' + I("chev") + "</span></li>" +
+          '<li role="option" aria-selected="false" class="dim">' + I("folder") + 'School<span class="chev muted small">View only</span></li>' +
+        "</ul></div>" +
+        '<div class="banner info"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><div class="t"><b>This moves it out of Shared Files</b><span class="muted small">Priya and Jonas will no longer see it. The original goes to the Shared Files Trash, so it can be restored if needed.</span></div></div>' +
+        '<div class="actions"><button class="btn quiet" type="button">Cancel</button><button class="btn" type="button">' + I("copy") + 'Copy here instead</button><button class="btn primary" type="button">' + I("move") + "Move to Personal admin</button></div>" +
+        "</div></div>";
+      return shell({ nav: "shared", tab: "files", links: LINKS, phoneTitle: "Taxes", main: folderHead(true) + list(FILES, true), over: dlg });
+    },
+    notes: {
+      what: "The folder picker for Move and Copy. You browse folders inside the dialog, and the button tells you exactly where the item will land.",
+      points: ["Moving to a different area (here, from Shared Files to My Files) shows a clear note on who loses access and where the original goes. That's the M07 cross-area move, explained in plain words.", "Folders you can only view are greyed out and say \"View only\", rather than failing after you press Move.", "Copy is offered right there as the safe alternative, so you don't have to cancel and start over."],
+      a11y: ["Focus starts in the folder list. Escape closes the dialog and returns focus to the button that opened it.", "On phones the dialog slides up from the bottom as a sheet, with full-width buttons that are easy to reach with a thumb."]
+    }
+  };
+
+  S.share = {
+    label: "Sharing", status: "later", url: "files.home/f/…",
+    html: function () {
+      var dlg = '<div class="scrim"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="sh-h">' +
+        '<h2 id="sh-h">Share "Family"</h2>' +
+        '<div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sh-who">Add people</label><input id="sh-who" value="Alex" aria-describedby="sh-hint"></div><div class="field"><label for="sh-role">Can</label><select id="sh-role"><option>View</option><option>Edit</option></select></div></div>' +
+        '<span class="hint muted small" id="sh-hint">Only people with a FileCanopy account here can be added.</span>' +
+        '<div class="people" style="font-size:15px">' +
+          '<div><span class="avatar sm">SR</span><span>Sam Rivera <span class="muted small">(you)</span></span><span class="spacer"></span><span class="muted small">Owner</span></div>' +
+          '<div><span class="avatar sm">PS</span>Priya Shah<span class="spacer"></span><select aria-label="Priya Shah can" class="btn sm"><option>Edit</option><option>View</option></select><button class="btn icon quiet sm" type="button" aria-label="Remove Priya Shah">' + I("close") + "</button></div>" +
+          '<div><span class="avatar sm">JB</span>Jonas Berg<span class="spacer"></span><select aria-label="Jonas Berg can" class="btn sm"><option>View</option><option>Edit</option></select><button class="btn icon quiet sm" type="button" aria-label="Remove Jonas Berg">' + I("close") + "</button></div>" +
+        "</div>" +
+        '<div class="banner info"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><div class="t"><b>Everything inside is shared too</b><span class="muted small">Sharing Family also shares its 4 subfolders, including Taxes. People only see what you share, not the folders around it.</span></div></div>' +
+        '<div class="actions"><button class="btn quiet" type="button">Cancel</button><button class="btn primary" type="button">Save sharing</button></div>' +
+        "</div></div>";
+      return shell({ nav: "shared", tab: "files", links: LINKS, phoneTitle: "Family",
+        main: '<nav class="crumbs" aria-label="Breadcrumb"><a href="#browser">Shared Files</a>' + I("chev") + '<span aria-current="page">Family</span></nav><div class="page-h"><h1>Family</h1></div>' + list(FILES.slice(0, 4), false),
+        over: dlg });
+    },
+    notes: {
+      what: "Choosing who can open a folder. You add people who already have an account and pick View or Edit for each one.",
+      points: ["Only two roles, View and Edit, matching the product spec. Each one is a short plain word.", "The note explains inheritance in human terms: sharing a folder shares what's inside, and nothing around it.", "When a personal file is about to become visible to more people, a confirmation step will say exactly who gains access, as the spec requires.", "This is planned for the sharing milestone (M08). Today grants exist on the server, but there's no screen for them yet."],
+      a11y: ["Each person's role picker and remove button is labelled with their name, so a screen reader says \"Remove Jonas Berg\", not just \"Remove\"."]
+    }
+  };
+
+  S.trash = {
+    label: "Trash", status: "new", url: "files.home/trash",
+    html: function () {
+      var rows = [
+        ["doc", "Old lease agreement.pdf", "Family › Home", "Sam Rivera", "Today", "30 days", ""],
+        ["folder", "2019 receipts", "Family › Taxes", "Priya Shah", "2 Oct", "1 day", "warn"],
+        ["sheet", "Budget draft.xlsx", "Family", "Sam Rivera", "28 Sep", "26 days", ""],
+        ["img", "Scan 0042.jpg", "Inbox", "Jonas Berg", "20 Sep", "18 days", "check"]
+      ];
+      var body = rows.map(function (r) {
+        var left = r[6] === "warn" ? '<span class="badge b-warn">' + I("alert") + r[5] + " left</span>" : r[6] === "check" ? '<span class="badge b-info">' + I("info") + "Needs a check</span>" : '<span class="num">' + r[5] + " left</span>";
+        return '<tr><td><div class="cell-name"><span class="fi ' + r[0] + '">' + I(ICON[r[0]]) + "</span><div><b style=\"font-weight:400\">" + r[1] + '</b><span class="sub">From ' + r[2] + "</span></div></div></td>" +
+          '<td class="hide-ph">' + r[3] + '<span class="sub">' + r[4] + "</span></td><td>" + left + "</td>" +
+          '<td class="acts">' + (r[6] === "check" ? '<button class="btn sm" type="button">Check</button>' : '<button class="btn sm" type="button" aria-label="Restore ' + r[1] + '">' + I("restore") + '<span class="desk-only">Restore</span></button>') + ' <button class="btn icon quiet sm" type="button" aria-label="More for ' + r[1] + '">' + I("more") + "</button></td></tr>";
+      }).join("");
+      return shell({ nav: "trash", tab: "trash", links: LINKS, phoneTitle: "Trash",
+        main: '<div class="page-h"><h1>Trash</h1><span class="spacer"></span><div class="seg in-app" role="group" aria-label="Area"><button type="button" aria-pressed="false">My Files</button><button type="button" aria-pressed="true">Shared Files</button></div></div>' +
+          '<p class="muted">Deleted items wait here for 30 days, then they\'re removed for good. Restoring puts them back where they were.</p>' +
+          '<div class="row"><span class="muted small">4 items · 186 MB</span><span class="spacer"></span><button class="btn danger sm" type="button">' + I("trash") + "Empty trash</button></div>" +
+          '<div class="tbl-wrap"><table class="tbl resp"><thead><tr><th scope="col">Name</th><th scope="col">Deleted by</th><th scope="col">Time left</th><th scope="col"><span class="desk-only">Actions</span></th></tr></thead><tbody>' + body + "</tbody></table></div>" +
+          '<p class="muted small">The ⋯ menu has Restore to another folder and Delete forever.</p>',
+        over: '<div class="toast" role="status">Restored "Car insurance.pdf" to Family.<button type="button">Show</button><button type="button" class="x" aria-label="Dismiss">' + I("close") + "</button></div>"
+      });
+    },
+    notes: {
+      what: "Everything that was deleted, with where it came from, who deleted it and how long it will stay.",
+      points: ["Time left is the main column, and items with less than a week left are highlighted in amber, as ADR-017 requires.", "Restore is one tap. Restore to another folder and Delete forever sit in the ⋯ menu, so the permanent action is never the easy one.", "Empty trash is an outlined red button, and it asks for confirmation with the exact count and size.", "\"Needs a check\" is the M07 check-and-release state, shown as a calm info badge with a Check button.", "You only see items you're allowed to see. Other people's personal trash never appears."],
+      a11y: ["On phones each row becomes a stacked card, keeping the name, where it came from, the time left and Restore.", "The restored message is announced and offers Show, which jumps to the item."]
+    }
+  };
+
+  S.recent = {
+    label: "Recent actions and undo", status: "new", url: "files.home/recent",
+    html: function () {
+      var item = function (icon, text, when, btn, extra) {
+        return "<li><span class=\"ic\">" + I(icon) + '</span><div class="t"><span>' + text + '</span><span class="when">' + when + "</span></div>" + (btn || "<span></span>") + (extra || "") + "</li>";
+      };
+      return shell({ nav: "recent", tab: "recent", links: LINKS, phoneTitle: "Recent actions",
+        main: '<div class="page-h"><h1>Recent actions</h1></div><p class="muted">Things you did recently. Undo works as long as nothing has changed since.</p>' +
+          '<div class="day">Today</div><ul class="feed">' +
+            item("rename", 'Renamed <b>Budget.xlsx</b> to <b>Household budget 2026.xlsx</b>', "09:14 · Shared Files › Family", '<button class="btn sm" type="button">' + I("undo") + "Undo</button>") +
+            item("move", "Moved <b>3 files</b> to <b>Taxes</b>", "08:51 · Shared Files › Family", '<button class="btn sm" type="button">' + I("undo") + "Undo</button>",
+              '<div class="banner conflict" role="alert"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg><div class="t"><b>Couldn\'t undo this move</b><span class="muted small">"Notes.txt" was changed after it was moved, so nothing was changed. You can move the files back yourself.</span></div></div>') +
+            item("trash", "Deleted <b>Old lease agreement.pdf</b>", "08:30 · Shared Files › Family › Home", '<button class="btn sm" type="button">' + I("undo") + "Undo</button>") +
+          '</ul><div class="day">Yesterday</div><ul class="feed">' +
+            item("zip", "Imported <b>Old laptop backup.zip</b> (1,204 files)", "16:02 · My Files", '<button class="btn sm" type="button">' + I("undo") + "Undo import</button>") +
+            item("copy", "Copied <b>Recipes</b> to <b>Shared Files</b>", "11:20", '<span class="badge b-muted">Undone</span>') +
+          "</ul>",
+        over: '<div class="toast" role="status">Renamed to "Household budget 2026.xlsx".<button type="button">Undo</button><button type="button" class="x" aria-label="Dismiss">' + I("close") + "</button></div>"
+      });
+    },
+    notes: {
+      what: "Your own recent actions, each with an Undo button. It's the long-term partner of the undo bar that pops up right after you do something.",
+      points: ["Every entry is a sentence: what you did, to what, and where.", "When an undo isn't safe because something changed in the meantime, the app says so plainly, confirms nothing was touched, and suggests what to do instead. That matches the M07 undo rules.", "Undoing an import is a bigger action, so its button says \"Undo import\".", "The undo bar at the bottom is the toast that appears right after an action. It stays for 10 seconds, or longer while you hover or focus it."],
+      a11y: ["The undo bar is announced politely, so it doesn't interrupt what the screen reader is saying.", "Each Undo button is labelled with the action it undoes."]
+    }
+  };
+
+  S.locked = {
+    label: "Locked folder", status: "later", url: "files.home/f/…",
+    html: function () {
+      return shell({ nav: "mine", tab: "files", links: LINKS, phoneTitle: "Medical",
+        main: '<nav class="crumbs" aria-label="Breadcrumb"><a href="#browser">My Files</a>' + I("chev") + '<span aria-current="page">Medical</span></nav>' +
+          '<div class="page-h"><h1>Medical</h1><span class="badge b-conf">' + I("lock") + "Confidential</span></div>" +
+          '<form class="card lockcard" aria-labelledby="lk-h" onsubmit="return false"><span class="ring">' + I("lock") + '</span><h2 id="lk-h">This folder is locked</h2>' +
+          '<p class="muted">Enter your password to open it. It locks again after 5 minutes without activity in this folder.</p>' +
+          '<div class="field" style="width:100%;text-align:left"><label for="lk-p">Your password</label><input id="lk-p" type="password" value="" autocomplete="current-password"></div>' +
+          '<button class="btn primary" type="submit" style="width:100%">' + I("unlock") + "Unlock</button>" +
+          '<p class="muted small">This protects the folder inside FileCanopy. The files themselves aren\'t encrypted on the server disk.</p></form>' +
+          '<div class="banner conf" style="max-width:560px;margin:8px auto 0"><svg class="i" aria-hidden="true"><use href="#i-unlock"/></svg><div class="t"><b>After unlocking: "Unlocked · locks in 4:12"</b><span class="muted small">A strip like this sits above the file list with a Lock now button.</span></div></div>'
+      });
+    },
+    notes: {
+      what: "What a Confidential folder looks like before you unlock it. Nothing inside is shown, not even file names, until you enter your password again.",
+      points: ["The deep rose colour is reserved for Confidential, so the lock state is recognisable everywhere.", "The message is honest about what the lock does and doesn't do. It protects access inside the app, not encryption on disk, as the security spec asks.", "After unlocking, a countdown strip with Lock now stays visible. Background tasks never keep the folder unlocked.", "This is planned for the privacy milestone (M09). It's included so the design system already has a place for it."],
+      a11y: ["The countdown is shown as text and isn't read out every second, only at one minute left and when it locks."]
+    }
+  };
+
+  S.backups = {
+    label: "Backups", status: "now", url: "files.home/backups",
+    html: function () {
+      return shell({ nav: "backups", tab: "more", links: LINKS, phoneTitle: "Backups",
+        main: '<div class="page-h"><h1>Backups</h1><span class="badge b-ok">' + I("check") + "On, nightly at 02:00</span></div>" +
+          '<div class="two-col" style="grid-template-columns:minmax(0,1.9fr) minmax(0,1fr)"><div style="display:flex;flex-direction:column;gap:14px">' +
+          '<div class="card"><div class="row"><h2>Last backup</h2><span class="spacer"></span><span class="badge b-ok">' + I("check") + "Finished</span></div>" +
+            '<p><b>Today at 02:00</b> <span class="muted">· took 6 minutes · 1.4 GB changed</span></p>' +
+            '<div class="tbl-wrap"><table class="tbl resp"><thead><tr><th scope="col">Area</th><th scope="col">Last backup</th><th scope="col">Kept</th><th scope="col"><span class="desk-only">Restore</span></th></tr></thead><tbody>' +
+              '<tr><td><div class="cell-name">' + I("folder-shared") + '<b style="font-weight:400">Shared Files</b></div></td><td class="num">Today, 02:06</td><td class="hide-ph num">4 of 6</td><td class="acts"><button class="btn sm" type="button">Restore…</button></td></tr>' +
+              '<tr><td><div class="cell-name">' + I("folder-user") + '<b style="font-weight:400">A personal folder</b></div></td><td class="num">Today, 02:03</td><td class="hide-ph num">4 of 6</td><td class="acts"><button class="btn sm" type="button" disabled title="Only the folder\'s owner can restore it">Restore…</button></td></tr>' +
+              '<tr><td><div class="cell-name">' + I("folder-user") + '<b style="font-weight:400">A personal folder</b></div></td><td><span class="badge b-warn">' + I("alert") + 'Skipped: folder was busy</span></td><td class="hide-ph num">3 of 6</td><td class="acts"><button class="btn sm" type="button" disabled title="Only the folder\'s owner can restore it">Restore…</button></td></tr>' +
+            "</tbody></table></div>" +
+            '<p class="muted small">Personal folders are listed without names. Only their owners can open or restore them.</p></div></div>' +
+          '<div style="display:flex;flex-direction:column;gap:14px"><div class="card"><h2>Settings</h2><dl class="kv"><dt>Backup folder</dt><dd>/backups (USB disk)</dd><dt>When</dt><dd>Every night at 02:00</dd><dt>Keep</dt><dd>6 full backups</dd><dt>Space</dt><dd>212 GB used of 1 TB</dd></dl>' +
+            '<div class="meter" aria-hidden="true"><i style="width:21%;background:var(--primary)"></i></div><button class="btn sm" type="button" style="align-self:flex-start">Change settings</button></div>' +
+          '<div class="card"><div class="row"><span style="color:var(--primary)">' + I("key") + '</span><h2>Recovery key</h2></div><p class="muted small">Backups are locked with this key. Without it they can\'t be restored, even by you. It was saved on 31 Oct.</p><div class="row"><button class="btn sm" type="button">Show key</button><button class="btn sm quiet" type="button">Make a new key…</button></div></div></div></div>'
+      });
+    },
+    notes: {
+      what: "The backup dashboard for administrators. The status is at the top, the details by area in the middle, and settings and the recovery key on the side.",
+      points: ["The first thing you see is whether backups are on and when they last ran.", "Problems use the warning badge with the reason (\"Skipped: folder was busy\"), not just a red X.", "Personal folders appear as \"A personal folder\", which keeps the current privacy rule that an admin can't see whose folder it is or open it.", "The recovery key gets its own card, with a plain explanation of why it matters. Making a new key is a quiet button, because it's rare and has big consequences."],
+      a11y: ["Disabled Restore buttons explain why they're disabled when you hover over them or focus them.", "On phones the two columns stack and the table rows become cards."]
+    }
+  };
+
+  S.users = {
+    label: "Users", status: "now", url: "files.home/admin/users",
+    html: function () {
+      var u = function (ini, name, email, role, st, last) {
+        return '<tr><td><div class="cell-name"><span class="avatar">' + ini + "</span><div>" + name + '<span class="sub">' + email + '</span></div></div></td><td class="hide-ph">' + role + "</td><td>" + st + '</td><td class="hide-ph num">' + last + '</td><td class="acts"><button class="btn icon quiet sm" type="button" aria-label="Actions for ' + name + '">' + I("more") + "</button></td></tr>";
+      };
+      var dlg = '<div class="scrim"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="inv-h"><h2 id="inv-h">Invitation link for Alex Kim</h2>' +
+        '<p>Send this link to Alex yourself, by message or in person. It works once and expires in 7 days.</p>' +
+        '<div class="row" style="flex-wrap:nowrap;background:var(--sunken);border-radius:var(--r-m);padding:6px 6px 6px 12px"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:14px">https://files.home/invite#token=k3P9…x2Qa</span><button class="btn sm primary" type="button">' + I("link") + "Copy link</button></div>" +
+        '<p class="muted small">For your safety this link is shown only now. If it gets lost, make a new one from the Users list.</p>' +
+        '<div class="actions"><button class="btn primary" type="button">Done</button></div></div></div>';
+      return shell({ nav: "users", tab: "more", links: LINKS, phoneTitle: "Users",
+        main: '<div class="page-h"><h1>Users</h1><span class="spacer"></span><button class="btn primary" type="button">' + I("share") + "Invite someone</button></div>" +
+          '<p class="muted">People who can sign in to this FileCanopy. Administrators manage accounts and settings, but they can\'t open other people\'s personal folders.</p>' +
+          '<div class="tbl-wrap"><table class="tbl resp"><thead><tr><th scope="col">Person</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Last sign-in</th><th scope="col"><span class="desk-only">Actions</span></th></tr></thead><tbody>' +
+            u("SR", "Sam Rivera", "sam@rivera.family", "Administrator", '<span class="badge b-ok">' + I("check") + "Active</span>", "Now") +
+            u("PS", "Priya Shah", "priya@rivera.family", "Member", '<span class="badge b-ok">' + I("check") + "Active</span>", "Today, 07:58") +
+            u("JB", "Jonas Berg", "jonas.berg@mail.example", "Member", '<span class="badge b-ok">' + I("check") + "Active</span>", "29 Oct") +
+            u("AK", "Alex Kim", "alex.kim@mail.example", "Member", '<span class="badge b-info">' + I("link") + "Invited</span>", "Not yet") +
+            u("TM", "Tom Mills", "tom@mail.example", "Member", '<span class="badge b-muted">Turned off</span>', "2 Sep") +
+          "</tbody></table></div>",
+        over: dlg });
+    },
+    notes: {
+      what: "The admin list of accounts. Inviting someone creates a one-time link that you send yourself. This mockup shows the moment right after inviting Alex.",
+      points: ["Status uses words plus badges: Active, Invited, Turned off. \"Turned off\" is friendlier than Disabled and means the same thing.", "The ⋯ menu per person holds Make administrator, New reset link, Sign out everywhere and Turn off account.", "The invitation dialog explains what to do with the link and that it's shown only once, matching how invite and reset links already work.", "The line under the title repeats the key privacy promise: admins manage accounts but can't open personal folders."],
+      a11y: ["Copy link confirms with \"Copied\" text, not just a colour change.", "On phones each person becomes a card with name, email and status, and the ⋯ menu on the right."]
+    }
+  };
+
+  S.invite = {
+    label: "Invite and reset pages", status: "now", url: "files.home/invite",
+    html: function () {
+      return '<div class="center"><div class="two-up">' +
+        '<form class="authcard" aria-labelledby="ac-h" onsubmit="return false"><div class="logo">' + LOGO(48) + '<b>File<span class="c">Canopy</span></b></div>' +
+          '<h1 id="ac-h">Welcome! Set up your account</h1><p class="muted" style="text-align:center">Sam Rivera invited you. Choose a password to finish.</p>' +
+          '<div class="field"><label for="ac-n">Your name</label><input id="ac-n" value="Alex Kim"></div>' +
+          '<div class="field"><label for="ac-p">New password</label><input id="ac-p" type="password" value="••••••••••••••" aria-describedby="ac-ph" autocomplete="new-password"><span class="hint" id="ac-ph">At least 12 characters. A short sentence works well.</span></div>' +
+          '<div class="field"><label for="ac-p2">Type it again</label><input id="ac-p2" type="password" value="••••••••••••••" autocomplete="new-password"></div>' +
+          '<button class="btn primary" type="submit" style="width:100%">Create my account</button></form>' +
+        '<div class="authcard desk-only" aria-labelledby="dn-h"><div class="logo"><span class="ring" style="width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--sel);color:var(--primary)">' + I("check") + '</span></div>' +
+          '<h1 id="dn-h">Your password was changed</h1><p class="muted" style="text-align:center">For safety you were signed out on every device. Sign in again with your new password.</p>' +
+          '<a class="btn primary" href="#signin" style="width:100%;text-decoration:none">Go to sign in</a></div>' +
+      "</div></div>";
+    },
+    notes: {
+      what: "The pages people reach from a one-time link: accepting an invitation, and choosing a new password after a reset. On desktop the mockup shows the invitation form next to the reset-finished screen.",
+      points: ["The welcome names who sent the invite, so the link doesn't feel like spam.", "Password guidance is a friendly hint (\"A short sentence works well\"), not a list of rules that only appear after you fail.", "After a reset, the page explains why you were signed out everywhere. Today's flow does this; the wording is just warmer.", "If a link is expired or already used, the page says so and tells you to ask your administrator for a new one."],
+      a11y: ["The password hint is linked to its field, so screen readers read it with the field.", "If the two passwords don't match, the message appears under the second field and is announced."]
+    }
+  };
+
+  S.storage = {
+    label: "Storage", status: "later", url: "files.home/admin/storage",
+    html: function () {
+      return shell({ nav: "storage", tab: "more", links: LINKS, phoneTitle: "Storage",
+        main: '<div class="page-h"><h1>Storage</h1></div><p class="muted">Where FileCanopy keeps files on the server, and how much room is left.</p>' +
+          '<div class="card"><div class="row"><h2>Library disk</h2><span class="spacer"></span><span class="badge b-ok">' + I("check") + "Healthy</span></div>" +
+            '<div class="meter" role="img" aria-label="412 GB used of 2 TB: Shared Files 286 GB, personal folders 98 GB, Trash 28 GB"><i style="width:14.3%;background:var(--primary)"></i><i style="width:4.9%;background:var(--private)"></i><i style="width:1.4%;background:var(--sun)"></i></div>' +
+            '<div class="row small"><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--primary);display:block"></i>Shared Files 286 GB</span><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--private);display:block"></i>Personal folders 98 GB</span><span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:var(--sun);display:block"></i>Trash 28 GB</span><span class="spacer"></span><b class="num">1.59 TB free</b></div></div>' +
+          '<div class="two-col"><div class="card"><div class="row"><h2>Sync with the disk</h2><span class="spacer"></span><span class="badge b-ok">' + I("refresh") + "Watching</span></div>" +
+              '<p class="muted small">FileCanopy notices files added or changed directly on the server and updates the library.</p>' +
+              '<dl class="kv"><dt>Last full check</dt><dd>Today, 03:00 · 2 changes found</dd><dt>Needs attention</dt><dd>1 file missing (Scan of passport.jpg)</dd></dl>' +
+              '<div class="row"><button class="btn sm" type="button">' + I("refresh") + 'Check now</button><button class="btn sm quiet" type="button">Pause syncing</button></div></div>' +
+            '<div class="card"><h2>Trash</h2><div class="field"><label for="ret">Delete items for good after</label><div class="row" style="flex-wrap:nowrap"><input id="ret" value="30" style="width:90px" inputmode="numeric"><span>days</span></div><span class="hint">Between 7 and 3,650 days. Changing it never shortens time for items already in Trash.</span></div>' +
+              '<label class="row small"><span class="check"></span>Never delete automatically</label><button class="btn sm primary" type="button" style="align-self:flex-start">Save</button></div></div>' +
+          '<div class="tbl-wrap"><table class="tbl resp"><thead><tr><th scope="col">Area</th><th scope="col">Size</th><th scope="col">In Trash</th><th scope="col">Status</th></tr></thead><tbody>' +
+            '<tr><td><div class="cell-name">' + I("folder-shared") + 'Shared Files</div></td><td class="num">286 GB · 41,220 files</td><td class="hide-ph num">21 GB</td><td><span class="badge b-ok">' + I("check") + "OK</span></td></tr>" +
+            '<tr><td><div class="cell-name">' + I("folder-user") + 'Personal folders (4)</div></td><td class="num">98 GB</td><td class="hide-ph num">7 GB</td><td><span class="badge b-ok">' + I("check") + "OK</span></td></tr>" +
+          "</tbody></table></div>"
+      });
+    },
+    notes: {
+      what: "One admin page for disk space, syncing with the disk and the Trash retention setting. Today these exist as separate pieces (the scan banner, the admin storage API and the M07 retention setting) with no single screen.",
+      points: ["A single bar shows what's using the disk, in three colours, each labelled with words and numbers below it.", "\"Sync with the disk\" is the plain name for reconciliation. It tells you when it last checked and what needs attention.", "The Trash setting explains the rule that matters most: lowering it never cuts short items already in the Trash.", "Personal folders are shown only as a total. Admins see sizes, never contents."],
+      a11y: ["The storage bar has a full text description for screen readers.", "\"Never delete automatically\" is a real checkbox with its own label."]
+    }
+  };
+
+  S["account-settings"] = {
+    label: "Settings", status: "later", url: "files.home/settings",
+    html: function () {
+      return shell({ nav: "settings", tab: "more", links: LINKS, phoneTitle: "Settings",
+        main: '<div class="page-h"><h1>Settings</h1></div>' +
+          '<div class="two-col"><div style="display:flex;flex-direction:column;gap:14px">' +
+          '<div class="card"><h2>Appearance</h2>' +
+            '<div class="field"><span class="lbl" id="ap-t">Theme</span><div class="seg" role="group" aria-labelledby="ap-t"><button type="button" aria-pressed="true">' + I("device") + ' Match my device</button><button type="button" aria-pressed="false">Light</button><button type="button" aria-pressed="false">Dark</button></div></div>' +
+            '<div class="field"><span class="lbl" id="ap-d">File lists</span><div class="seg" role="group" aria-labelledby="ap-d"><button type="button" aria-pressed="true">Comfortable</button><button type="button" aria-pressed="false">Compact</button></div><span class="hint">Compact fits more files on screen. You can also switch from any folder.</span></div></div>' +
+          '<div class="card"><h2>Your account</h2><div class="field"><label for="st-n">Name</label><input id="st-n" value="Sam Rivera"></div><div class="field"><label for="st-e">Email</label><input id="st-e" value="sam@rivera.family"><span class="hint">You sign in with this.</span></div><div class="row"><button class="btn sm primary" type="button">Save</button><span class="spacer"></span><button class="btn sm" type="button">' + I("key") + "Change password</button></div></div></div>" +
+          '<div class="card"><h2>Where you\'re signed in</h2><div class="people" style="font-size:15px">' +
+            '<div>' + I("device") + '<div style="flex:1">Windows · Edge<span class="muted small" style="display:block">This device · active now</span></div></div>' +
+            '<div>' + I("phone") + '<div style="flex:1">iPhone · Safari<span class="muted small" style="display:block">Yesterday, 21:40</span></div><button class="btn sm quiet" type="button">Sign out</button></div>' +
+          '</div><button class="btn sm danger" type="button" style="align-self:flex-start">Sign out everywhere else</button></div></div>'
+      });
+    },
+    notes: {
+      what: "Personal settings for each person. They can pick a theme, choose list density, edit their name and email, change their password, and see where they're signed in.",
+      points: ["Theme defaults to \"Match my device\", as you chose, with Light and Dark as overrides.", "The density choice saved here is the same one the folder toolbar switches.", "\"Where you're signed in\" uses everyday device names and lets you sign out a lost phone.", "Admin-wide settings (email sending, AI, privacy features) will get their own Admin settings page when those milestones arrive."],
+      a11y: ["Every choice is a labelled group of buttons that shows its pressed state."]
+    }
+  };
+
+  var ORDER = ["signin", "setup", "browser", "upload", "move", "share", "trash", "recent", "locked", "backups", "users", "invite", "storage", "account-settings"];
+  var STATUS_TEXT = { now: "Exists today, redesigned", new: "Built in M07, redesigned", later: "Planned for a later milestone" };
+
+  /* ---------- Render ---------- */
+  var nav = document.getElementById("screen-nav");
+  nav.innerHTML = ORDER.map(function (k) { return '<a href="#' + k + '" data-k="' + k + '"><span class="dot ' + S[k].status + '"></span>' + S[k].label + "</a>"; }).join("");
+  var screen = document.getElementById("screen");
+  var notes = document.getElementById("notes");
+  var url = document.getElementById("url");
+
+  function render() {
+    var k = (location.hash || "").replace(/^#/, "");
+    if (!S[k]) k = "browser";
+    var s = S[k];
+    screen.innerHTML = s.html();
+    url.textContent = s.url;
+    nav.querySelectorAll("a").forEach(function (a) { if (a.dataset.k === k) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    notes.innerHTML = '<div class="card"><span class="status ' + s.status + '">' + STATUS_TEXT[s.status] + "</span><h2>" + s.label + "</h2><p>" + s.notes.what + "</p><h3>Design choices</h3><ul>" +
+      s.notes.points.map(function (p) { return "<li>" + p + "</li>"; }).join("") + "</ul></div>" +
+      '<div class="card"><h3>Accessibility and phone</h3><ul>' + s.notes.a11y.map(function (p) { return "<li>" + p + "</li>"; }).join("") + "</ul></div>";
+  }
+  window.addEventListener("hashchange", render);
+
+  function seg(id, fn) {
+    var g = document.getElementById(id);
+    g.querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        g.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        fn(b.dataset.v);
+      });
+    });
+  }
+  var frame = document.getElementById("frame");
+  seg("dev", function (v) { frame.classList.toggle("phone", v === "phone"); });
+  seg("th", function (v) { if (v) document.documentElement.setAttribute("data-theme", v); else document.documentElement.removeAttribute("data-theme"); });
+  seg("dn", function (v) { frame.setAttribute("data-density", v); });
+  render();
+})();
+</script>
+</body>
+</html>

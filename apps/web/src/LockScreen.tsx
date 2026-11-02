@@ -1,3 +1,4 @@
+import { Logo } from "./Icon";
 import { useState, type FormEvent } from "react";
 import { ApiError, api } from "./api";
 import { describeError } from "./format";
@@ -40,7 +41,12 @@ export function LockScreen({
 
   return (
     <main className="auth" aria-labelledby="lock-title">
-      <h1>FileCanopy</h1>
+      <h1 className="brandh">
+        <Logo size={44} />
+        <span>
+          File<span className="c">Canopy</span>
+        </span>
+      </h1>
       <form onSubmit={(e) => void submit(e)}>
         <h2 id="lock-title">Locked</h2>
         <p className="muted">{name}, enter your PIN to continue.</p>

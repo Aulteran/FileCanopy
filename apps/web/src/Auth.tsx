@@ -1,3 +1,4 @@
+import { Logo } from "./Icon";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, setCsrf, type AuthConfig, type Session } from "./api";
 import { describeError } from "./format";
@@ -87,7 +88,12 @@ export function Auth({
   if (forgot && !setupRequired) {
     return (
       <main className="auth">
-        <h1>FileCanopy</h1>
+        <h1 className="brandh">
+          <Logo size={44} />
+          <span>
+            File<span className="c">Canopy</span>
+          </span>
+        </h1>
         <form
           onSubmit={(e) => void sendReset(e)}
           aria-labelledby="forgot-title"
@@ -129,7 +135,12 @@ export function Auth({
   if (!setupRequired && config?.password_login === false) {
     return (
       <main className="auth">
-        <h1>FileCanopy</h1>
+        <h1 className="brandh">
+          <Logo size={44} />
+          <span>
+            File<span className="c">Canopy</span>
+          </span>
+        </h1>
         <section aria-labelledby="auth-title">
           <h2 id="auth-title">Sign in</h2>
           <p className="hint">
@@ -153,7 +164,12 @@ export function Auth({
 
   return (
     <main className="auth">
-      <h1>FileCanopy</h1>
+      <h1 className="brandh">
+        <Logo size={44} />
+        <span>
+          File<span className="c">Canopy</span>
+        </span>
+      </h1>
       <form onSubmit={(e) => void submit(e)} aria-labelledby="auth-title">
         <h2 id="auth-title">
           {setupRequired ? "Create the administrator" : "Sign in"}
