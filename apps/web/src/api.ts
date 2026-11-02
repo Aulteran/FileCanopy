@@ -728,6 +728,25 @@ export type MyEmails = {
   limit: number;
 };
 export type MailProof = { password?: string; reauth?: boolean };
+export type McpStatus = {
+  enabled: boolean;
+  endpoint: string | null;
+  scopes: string[];
+  default_scopes: string[];
+  max_tokens: number;
+  default_days: number;
+  max_days: number;
+};
+export type McpToken = {
+  id: string;
+  name: string;
+  hint: string;
+  scopes: string[];
+  created_at: string;
+  expires_at: string;
+  last_used_at: string | null;
+  state: "active" | "expired" | "revoked";
+};
 export type MailAttachment = {
   id: string;
   display_name: string;
@@ -936,6 +955,17 @@ export const api = {
       `/api/v1/me/emails/${enc(id)}/remove`,
       proof,
     ),
+  mcpStatus: () => call<McpStatus>("GET", "/api/v1/mcp/status"),
+  mcpTokens: () => call<McpToken[]>("GET", "/api/v1/mcp/tokens"),
+  mcpCreate: (body: {
+    name: string;
+    scopes: string[];
+    password?: string;
+    reauth?: boolean;
+    acknowledge_remote_ai: boolean;
+  }) => call<McpToken & { token: string }>("POST", "/api/v1/mcp/tokens", body),
+  mcpRevoke: (id: string) =>
+    call<{ status: string }>("DELETE", `/api/v1/mcp/tokens/${enc(id)}`),
   myInbox: () => call<MailMessage[]>("GET", "/api/v1/me/inbox?limit=100"),
   mailboxStatus: () => call<MailboxStatus>("GET", "/api/v1/admin/mailbox"),
   pollMailbox: () =>

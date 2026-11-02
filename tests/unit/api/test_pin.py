@@ -368,7 +368,7 @@ def test_a_locked_session_can_only_unlock_or_sign_out(fx: Fx) -> None:
     for r in _api_routes(fx.w.app.routes):
         if not r.path.startswith("/api/v1"):
             continue
-        if r.path.startswith(public):
+        if r.path.startswith(public) or r.path == "/api/v1/mcp":  # M21: bearer token, no cookie
             continue
         path = re.sub(r"\{[^}]+\}", str(uuid.uuid4()), r.path)
         for method in sorted(r.methods - {"HEAD", "OPTIONS"}):

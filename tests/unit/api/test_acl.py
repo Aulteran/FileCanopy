@@ -635,6 +635,10 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/smtp/test",
     "/api/v1/admin/users/{user_id}/identity",
     "/api/v1/roots",  # actor-scoped entry points; not addressed by node id
+    "/api/v1/mcp",  # M21: bearer-token endpoint; ids only, decided by the policy engine per tool
+    "/api/v1/mcp/status",  # M21: the signed-in person's view of the optional interface
+    "/api/v1/mcp/tokens",  # M21: the person's own personal access tokens
+    "/api/v1/mcp/tokens/{token_id}",
     "/api/v1/admin/users",
     "/api/v1/admin/users/{user_id}",
     "/api/v1/admin/users/{user_id}/invitation",
