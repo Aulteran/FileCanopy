@@ -1,4 +1,4 @@
-import type { CollectionSuggestResult, CollectionSummary } from "./api";
+import type { CollectionDetail, CollectionSuggestResult } from "./api";
 import { describeSkipped } from "./organizeText";
 
 // Plain-language text for collections (M18). The server decides everything; these helpers only
@@ -26,7 +26,7 @@ export function describeSuggestResult(res: CollectionSuggestResult): string {
 }
 
 /** The count line for a collection; the number only ever covers files you can open. */
-export function describeCount(c: Pick<CollectionSummary, "count">): string {
+export function describeCount(c: Pick<CollectionDetail, "count">): string {
   return c.count === 1 ? "1 file" : `${c.count} files`;
 }
 

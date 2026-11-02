@@ -176,7 +176,7 @@ const MESSAGES: Record<string, string> = {
   NOT_RETRYABLE: "This message cannot be retried.",
   BAD_TITLE: "Give the collection a name with at least one letter or digit.",
   TITLE_TAKEN: "You already have a collection with that name.",
-  COLLECTION_FULL: "This collection has reached its limit of files.",
+  COLLECTION_FULL: "You have added the most files you can to this collection.",
   TOO_MANY_COLLECTIONS: "You have reached the limit of collections.",
   TOO_MANY_SHARES: "This collection is shared with as many people as allowed.",
   BAD_SHARE: "That person cannot be added.",

@@ -228,9 +228,7 @@ export type CollectionSummary = {
   id: string;
   title: string;
   role: "owner" | "editor" | "viewer";
-  count: number; // files you can open; others are never counted
   owner_name: string | null;
-  updated_at: string;
   from_suggestion: boolean;
 };
 export type CollectionFile = {
@@ -247,7 +245,7 @@ export type CollectionDetail = {
   role: "owner" | "editor" | "viewer";
   owner_name: string | null;
   count: number;
-  updated_at: string;
+  updated_at: string | null; // owner only
   members: CollectionFile[];
   shares: { user_id: string; name: string; level: "viewer" | "editor" }[];
 };

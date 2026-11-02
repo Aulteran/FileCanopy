@@ -81,9 +81,7 @@ def _summary_out(s: collections.Summary) -> dict[str, Any]:
         "id": str(c.id),
         "title": c.title,
         "role": s.role,
-        "count": s.count,  # readable members only
         "owner_name": s.owner_name,
-        "updated_at": c.updated_at,
         "from_suggestion": c.suggestion_id is not None,
     }
 
@@ -100,7 +98,8 @@ def _detail(db: Session, actor: Actor, acc: collections.Access) -> dict[str, Any
         "role": acc.role,
         "owner_name": owner,
         "count": len(members),
-        "updated_at": acc.collection.updated_at,
+        # Only the owner sees it: for anyone else it would show activity on hidden members.
+        "updated_at": acc.collection.updated_at if acc.role == "owner" else None,
         "members": [_member_out(db, actor, n) for n in members],
         "shares": [
             {"user_id": str(s.user_id), "name": s.name, "level": s.level}

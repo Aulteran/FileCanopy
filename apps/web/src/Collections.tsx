@@ -145,9 +145,7 @@ function CollectionList({
             >
               {c.title}
             </a>{" "}
-            <span className="muted">
-              {describeCount(c)} · {roleText(c.role, c.owner_name)}
-            </span>
+            <span className="muted">{roleText(c.role, c.owner_name)}</span>
           </li>
         ))}
       </ul>

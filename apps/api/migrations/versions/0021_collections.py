@@ -23,11 +23,16 @@ def upgrade() -> None:
     have = set(sa.inspect(bind).get_table_names())
     if "collection" in have:
         return
-    uid = sa.ForeignKey("app_user.id", ondelete="CASCADE")
     op.create_table(
         "collection",
         sa.Column("id", sa.Uuid, primary_key=True),
-        sa.Column("owner_user_id", sa.Uuid, uid, nullable=False, index=True),
+        sa.Column(
+            "owner_user_id",
+            sa.Uuid,
+            sa.ForeignKey("app_user.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("title", sa.String(80), nullable=False),
         sa.Column("title_key", sa.String(80), nullable=False),
         sa.Column("created_at", TS, nullable=False),
@@ -74,7 +79,13 @@ def upgrade() -> None:
     op.create_table(
         "collection_suggestion",
         sa.Column("id", sa.Uuid, primary_key=True),
-        sa.Column("owner_user_id", sa.Uuid, uid, nullable=False, index=True),
+        sa.Column(
+            "owner_user_id",
+            sa.Uuid,
+            sa.ForeignKey("app_user.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("status", sa.String(10), nullable=False, index=True),
         sa.Column("title", sa.String(80), nullable=False),
         sa.Column("reason", sa.String(200), nullable=False, server_default=""),

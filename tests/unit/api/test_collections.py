@@ -37,6 +37,7 @@ from app.db.models import (
     FileEvent,
     Node,
 )
+from app.domain import collections as dom
 
 APP = Path(__file__).resolve().parents[3] / "apps" / "api" / "app"
 
@@ -213,7 +214,8 @@ def test_shared_collection_shows_only_members_the_viewer_can_read(fx: Fx) -> Non
     d = detail(bob, col["id"])
     assert names(d) == ["open.txt"] and d["count"] == 1
     assert "hidden-name" not in json.dumps(d) and d["shares"] == []
-    assert [c["count"] for c in bob.get("/collections").json()["items"]] == [1]
+    listed = bob.get("/collections").json()["items"]
+    assert [c["title"] for c in listed] == ["Mixed"] and "count" not in listed[0]
     assert detail(alice, col["id"])["count"] == 2  # the owner still sees both
 
 
@@ -687,3 +689,102 @@ def test_model_schema_has_only_the_grouping_fields() -> None:
     assert set(ModelGroup.model_fields) == {"title", "keys", "reason", "confidence"}
     assert ModelGroup.model_config.get("extra") == "forbid"
     assert ModelGroups.model_config.get("extra") == "forbid"
+
+
+# --- review round 1 ----------------------------------------------------------------------------
+def test_list_examines_no_members(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
+    """M1: the list costs the same however many files the collections hold (no per-member
+    decision), so many shared collections cannot overload the person they were shared with."""
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    f = file_in(alice, fx.alice_root, "f.txt")
+    for i in range(6):
+        col = mk(alice, f"Shared {i}", f)
+        assert share(alice, col["id"], bob, "viewer").status_code == 200
+
+    def boom(*a: Any, **k: Any) -> Any:
+        raise AssertionError("the list must not decide members")
+
+    monkeypatch.setattr(dom, "can_read", boom)
+    monkeypatch.setattr(dom, "readable_members", boom)
+    for api in (alice, bob):
+        r = api.get("/collections")
+        assert r.status_code == 200 and len(r.json()["items"]) == 6
+        assert all("count" not in i and "updated_at" not in i for i in r.json()["items"])
+
+
+def test_cap_counts_only_what_the_person_added(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
+    """L2: COLLECTION_FULL never reflects files the editor cannot see."""
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    monkeypatch.setattr(dom, "MAX_PER_ADDER", 2)
+    pub = fx.folder(fx.alice_root, "Pub")
+    files = [file_in(alice, pub, f"p{i}.txt") for i in range(4)]
+    hidden = [file_in(alice, fx.private, f"h{i}.txt") for i in range(3)]
+    grant(alice, pub, bob, "viewer")
+    col = mk(alice, "Cap", *hidden[:2])  # alice's two hidden files fill her own allowance
+    assert share(alice, col["id"], bob, "editor").status_code == 200
+    ok = bob.post(
+        f"/collections/{col['id']}/members", json={"node_ids": [str(f) for f in files[:2]]}
+    )
+    assert ok.status_code == 200 and ok.json()["count"] == 2
+    full = bob.post(f"/collections/{col['id']}/members", json={"node_ids": [str(files[2])]})
+    assert full.status_code == 409 and code(full) == "COLLECTION_FULL"  # his own allowance
+    # the owner's allowance is separate and unaffected by what bob added
+    assert (
+        alice.post(
+            f"/collections/{col['id']}/members", json={"node_ids": [str(hidden[2])]}
+        ).status_code
+        == 409
+    )
+
+
+def test_updated_at_is_for_the_owner_only(fx: Fx) -> None:
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    f = file_in(alice, fx.alice_root, "f.txt")
+    col = mk(alice, "Quiet", f)
+    share(alice, col["id"], bob, "viewer")
+    assert detail(alice, col["id"])["updated_at"] is not None
+    assert detail(bob, col["id"])["updated_at"] is None
+
+
+def test_reason_text_loses_format_characters(fx: Fx, net: Net) -> None:
+    alice, _ = setup(fx)
+    a, b = doc(fx, alice, "a.txt", "aa"), doc(fx, alice, "b.txt", "bb")
+    net.text = groups(group("Pair", ["d1", "d2"], reason="ok‮​evil text"))
+    ask(alice, a, b)
+    [item] = pending(alice)
+    assert item["reason"] == "okevil text"
+
+
+def test_same_title_created_at_once_is_a_409_not_a_500(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alice = Api(fx, "alice")
+    mk(alice, "Race")
+    calls = {"n": 0}
+    real = dom.title_key
+
+    def blind_first(title: str) -> str:
+        calls["n"] += 1
+        return "no-such-title" if calls["n"] == 1 else real(title)  # the pre-check misses it
+
+    monkeypatch.setattr(dom, "title_key", blind_first)
+    r = alice.post("/collections", json={"title": "Race"})
+    assert r.status_code == 409 and code(r) == "TITLE_TAKEN"
+    monkeypatch.setattr(dom, "title_key", real)
+    assert [c["title"] for c in alice.get("/collections").json()["items"]] == ["Race"]
+
+
+def test_audit_reports_what_really_happened(fx: Fx) -> None:
+    alice, bob = Api(fx, "alice"), Api(fx, "bob")
+    f = file_in(alice, fx.alice_root, "f.txt")
+    col = mk(alice, "Audit", f, f)  # the same file twice is one member
+    created = [a for a in rows(fx, AuthAudit) if a.action == "collection.created"]
+    assert created[-1].details["members"] == 1
+    r = alice.client.delete(
+        f"/api/v1/collections/{col['id']}/shares/{bob.uid}", headers=alice.headers
+    )
+    assert r.status_code == 200  # nothing to remove
+    assert not [a for a in rows(fx, AuthAudit) if a.action == "collection.unshared"]
+    share(alice, col["id"], bob, "viewer")
+    alice.client.delete(f"/api/v1/collections/{col['id']}/shares/{bob.uid}", headers=alice.headers)
+    assert len([a for a in rows(fx, AuthAudit) if a.action == "collection.unshared"]) == 1

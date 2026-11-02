@@ -241,7 +241,7 @@ def suggest(
             owner_user_id=user.id,
             status="pending",
             title=title,
-            reason=" ".join(group.reason.split())[:200],
+            reason=collections.clean_text(group.reason, 200),
             confidence=round(group.confidence * 1000),
             node_ids=ids,
             created_at=clock.utcnow(),

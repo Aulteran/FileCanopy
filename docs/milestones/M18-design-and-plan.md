@@ -89,3 +89,20 @@ AI adding files to an existing collection; telling the owner that some reference
 without a number; collection-aware search filters; per-collection activity; bulk "add selected";
 MCP `list_collections` once the MCP milestone lands; a faster path for the collection list when a
 person has many large collections (counts are computed per collection, bounded by the caps).
+
+## Review round 1 (Opus: 0 High, 1 Medium, 6 Low, all fixed, plus a CI-found migration bug)
+
+M1 the collection list no longer examines any member (titles and roles only); the count and the
+member names are in the single-collection view, so the cost of the list does not depend on how
+much other people shared. L2 the member cap (400) counts only what the adding person added, so
+`COLLECTION_FULL` never reflects files they cannot see; the view still examines at most 2000
+members, which only matters if many editors fill a collection (the owner chooses the editors).
+L3 `updated_at` is shown to the owner only. L4 model `reason` text goes through the same cleaning
+as titles (no format or control characters). L5 a concurrent create or rename with the same title
+answers 409 `TITLE_TAKEN` instead of 500. L6 `collection.created` logs the real member count,
+`collection.unshared` is written only when a share was removed. Sharing with an unknown or
+disabled user id still answers 422 `BAD_SHARE` (the same answer as sharing with oneself): ids are
+random UUIDs the owner can only get from the people picker, which already lists active accounts,
+so this reveals nothing the picker does not. CI: migration 0021 reused one `ForeignKey` object for
+two tables, which PostgreSQL migrations reject (`InvalidRequestError`); fixed and run against
+PostgreSQL 17.

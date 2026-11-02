@@ -27,7 +27,8 @@ from app.policy import engine
 from app.policy.model import Actor, Privilege
 
 MAX_COLLECTIONS = 200  # owned per person
-MAX_MEMBERS = 2000  # per collection
+MAX_MEMBERS = 2000  # members examined per collection view
+MAX_PER_ADDER = 400  # files one person may add to a collection
 MAX_SHARES = 50
 MAX_ADD = 200  # files per request
 MAX_TITLE = 80
@@ -58,6 +59,18 @@ def clean_title(raw: str | None) -> str | None:
     if not text or len(text) > MAX_TITLE or not any(c.isalnum() for c in text):
         return None
     return text
+
+
+def clean_text(raw: str, limit: int) -> str:
+    """Model-derived free text: NFC, no format characters (bidi overrides, zero-width marks), no
+    control characters, whitespace collapsed."""
+    text = unicodedata.normalize("NFC", raw)
+    text = "".join(
+        " " if unicodedata.category(c) in ("Cc", "Zl", "Zp") else c
+        for c in text
+        if unicodedata.category(c) != "Cf"
+    )
+    return " ".join(text.split())[:limit]
 
 
 def title_key(title: str) -> str:
@@ -116,11 +129,12 @@ def parent_of(db: Session, actor: Actor, node: Node) -> Node | None:
 class Summary:
     collection: Collection
     role: str
-    count: int  # readable members only
     owner_name: str | None  # for a collection shared with the person
 
 
 def list_for(db: Session, actor: Actor) -> list[Summary]:
+    """Titles and roles only. No member is examined here, so the cost does not grow with the size
+    or number of collections other people shared with this person (the count is in `detail`)."""
     user = db.get(User, actor.user_id)
     if user is None or user.status != "active":
         return []
@@ -143,7 +157,6 @@ def list_for(db: Session, actor: Actor) -> list[Summary]:
             Summary(
                 coll,
                 "owner" if owner else str(level),
-                len(readable_members(db, actor, coll.id)),
                 owner_row.name if owner_row is not None else None,
             )
         )
@@ -187,16 +200,21 @@ def create(
         suggestion_id=suggestion_id,
     )
     db.add(coll)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:  # the same title created at the same moment
+        db.rollback()
+        raise CollectionError(409, "TITLE_TAKEN") from None
+    added = 0
     if node_ids:
-        add_members(db, actor or Actor(owner_id), coll, node_ids, ip, quiet=True)
+        added = add_members(db, actor or Actor(owner_id), coll, node_ids, ip, quiet=True)
     audit(
         db,
         "collection.created",
         actor=owner_id,
         ip=ip,
         collection_id=str(coll.id),
-        members=len(node_ids or []),
+        members=added,
         suggestion_id=str(suggestion_id) if suggestion_id else None,
     )
     return coll
@@ -220,6 +238,11 @@ def rename(db: Session, acc: Access, title: str, ip: str | None) -> None:
     acc.collection.title = clean
     acc.collection.title_key = title_key(clean)
     acc.collection.updated_at = clock.utcnow()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise CollectionError(409, "TITLE_TAKEN") from None
     audit(
         db,
         "collection.renamed",
@@ -262,16 +285,22 @@ def add_members(
         nodes.append(node)
     have = set(
         db.scalars(
-            select(CollectionMember.node_id).where(CollectionMember.collection_id == coll.id)
+            select(CollectionMember.node_id).where(
+                CollectionMember.collection_id == coll.id, CollectionMember.node_id.in_(ids)
+            )
         )
     )
-    total = db.scalar(
+    # The cap counts what this person added, never the whole collection: a total would tell an
+    # editor how many files they cannot see.
+    mine = db.scalar(
         select(func.count())
         .select_from(CollectionMember)
-        .where(CollectionMember.collection_id == coll.id)
+        .where(
+            CollectionMember.collection_id == coll.id, CollectionMember.added_by == actor.user_id
+        )
     )
     fresh = [n for n in nodes if n.id not in have]
-    if (total or 0) + len(fresh) > MAX_MEMBERS:
+    if (mine or 0) + len(fresh) > MAX_PER_ADDER:
         raise CollectionError(409, "COLLECTION_FULL")
     now = clock.utcnow()
     for node in fresh:
@@ -389,11 +418,13 @@ def remove_share(
     """The owner removes a person, or a person leaves a collection shared with them (`by`)."""
     if acc.role != "owner" and user_id != by:
         raise CollectionError(403, "FORBIDDEN")
-    db.execute(
+    gone: CursorResult[Any] = db.execute(  # type: ignore[assignment]
         delete(CollectionShare).where(
             CollectionShare.collection_id == acc.collection.id, CollectionShare.user_id == user_id
         )
     )
+    if not gone.rowcount:
+        return
     audit(
         db,
         "collection.unshared",
