@@ -582,8 +582,8 @@
         "sensitive warning",
         "review race"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-02 (migration 0019). Design and threat model: docs/milestones/M16-design-and-plan.md; guide docs/guides/ai-organize.md. Merged via PR #23 (8da25c6) 2026-11-02 after one Opus 5.5 review round (1 High, 2 Medium, 5 Low fixed) and sign-off, all seven CI jobs green. Follow-ups: background suggestions after upload/email intake; Private files with local AI (review only); clear model text at label change; audit and scrub when reclaiming stuck approvals; empty folder left by an undone new-folder proposal.",
+      "status": "done"
     },
     {
       "id": "M17",
