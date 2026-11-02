@@ -24,6 +24,7 @@ from app.api import previews as preview_routes
 from app.api import privacy as privacy_routes
 from app.api import reconcile as reconcile_routes
 from app.api import search as search_routes
+from app.api import semantic as semantic_routes
 from app.api import sharing as sharing_routes
 from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
@@ -51,6 +52,7 @@ from app.notifications.mail import Mailer
 from app.preview.hardening import make_undumpable
 from app.preview.service import PreviewService
 from app.search.indexer import Indexer
+from app.search.semantic import Semantic, SemanticIndexer
 from app.storage.roots import ensure_roots
 from app.storage.service import ReconcilerService
 
@@ -98,9 +100,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         trash_service.start()
         previews.start()
         indexer.start()
+        semantic_indexer.start()  # idle until an administrator verifies a local endpoint
         mailbox.start()  # does nothing without a configured mailbox
         yield
         mailbox.stop()
+        semantic_indexer.stop()
         indexer.stop()
         previews.stop()
         trash_service.stop()
@@ -116,6 +120,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     trash_service = TrashService(sessions, cfg)
     previews = PreviewService(cfg, sessions)
     indexer = Indexer(cfg, sessions, previews)
+    # Defined after the AI gateway below (it shares its address check); see `semantic`.
     mailbox = MailboxPoller(cfg, sessions)
     app = FastAPI(title="FileCanopy API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
@@ -139,6 +144,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.mailbox = mailbox
     app.state.ai_box = SecretBox.from_setting(cfg.secrets_key.get_secret_value())
     app.state.ai = AiGateway(cfg, sessions, app.state.ai_box)
+    semantic = Semantic(
+        cfg, sessions, resolver=app.state.ai.resolver, allow_hosts=app.state.ai.allow_hosts
+    )
+    semantic_indexer = SemanticIndexer(semantic)
+    app.state.semantic = semantic
+    app.state.semantic_indexer = semantic_indexer
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -189,6 +200,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(file_routes.router)
     app.include_router(preview_routes.router)
     app.include_router(search_routes.router)
+    app.include_router(semantic_routes.router)
     app.include_router(trash_routes.router)
     app.include_router(reconcile_routes.router)
     app.include_router(import_routes.router)

@@ -2,7 +2,8 @@
 
 Docker Compose files and the optional Docker Stack variant. Compose is primary. Stack support is not claimed until it is integration-tested (M22).
 
-- `docker-compose.yml`: core stack (`postgres`, `migrate`, `api`, `web`) plus the optional `workers` profile (`redis`, `worker`). No AI services.
+- `docker-compose.yml`: core stack (`postgres`, `migrate`, `api`, `web`) plus the optional `workers` profile (`redis`, `worker`). No AI services; the embedding server for optional semantic search is yours to run.
+- `postgres` is built from `postgres/Dockerfile`: PostgreSQL 17 on Alpine (as before) plus the pgvector extension for the optional local semantic search (M19, `docs/guides/semantic-search.md`).
 - `converter` profile (in `docker-compose.yml`): optional sealed LibreOffice container for Office previews (M10, `converter/README.md`). Off by default; see `.env.example`.
 - `ocr` profile: optional sealed Tesseract container that makes scanned PDFs and pictures searchable (M11, `ocr/README.md`). Off by default; see `.env.example`.
 - `docker-compose.backup.yml`: optional override that mounts a separate backup directory at `/backups` (M06c, ADR-015). Add it with a second `-f`; without it the feature stays off.

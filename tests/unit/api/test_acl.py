@@ -658,6 +658,10 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/preferences/local-processing",  # own account only; no node addressed
     "/api/v1/search",  # filtered by the policy engine per result (app.search.query)
     "/api/v1/search/status",  # counts for the caller's own folder only
+    "/api/v1/search/semantic/me",  # M19: own switch and own counts only; no node addressed
+    "/api/v1/admin/semantic",  # M19: administrators; totals only, no node addressed
+    "/api/v1/admin/semantic/verify",
+    "/api/v1/admin/semantic/enabled",
     "/api/v1/me/emails",  # M13: own addresses only; no node addressed
     "/api/v1/me/emails/verify",
     "/api/v1/me/emails/{alias_id}/remove",

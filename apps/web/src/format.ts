@@ -45,6 +45,25 @@ const MESSAGES: Record<string, string> = {
   PROVIDER_RATE_LIMIT: "The provider is limiting requests. Try again later.",
   ENDPOINT_NOT_LOCAL:
     "That address is not on a private network, or could not be looked up.",
+  INVALID_ENDPOINT: "That address or model name is not valid.",
+  PGVECTOR_MISSING:
+    "The database has no pgvector extension, so meaning-based search cannot be used.",
+  NOT_HEALTHY: "Check the connection first. It must pass before it can be on.",
+  EMBEDDING_OUTAGE: "The embedding server could not be reached.",
+  EMBEDDING_TIMEOUT: "The embedding server took too long to answer.",
+  EMBEDDING_AUTH: "The embedding server refused the request.",
+  EMBEDDING_BAD_RESPONSE: "The embedding server gave an unexpected answer.",
+  EMBEDDING_BAD_VECTOR: "The embedding server returned unusable numbers.",
+  EMBEDDING_DIMENSION_UNSUPPORTED:
+    "That model's vectors have a size that is not supported (8 to 2000).",
+  EMBEDDING_DIMENSION_MISMATCH: "The embedding server's answers vary in size.",
+  EMBEDDING_DEGENERATE:
+    "The model gave the same vector for different texts, so it cannot be used.",
+  EMBEDDING_UNSTABLE:
+    "The model gave different vectors for the same text, so it cannot be used.",
+  EMBEDDING_TOO_LARGE: "The embedding server's answer was too large.",
+  SEARCH_TOO_FAST:
+    "Too many searches in a minute. Wait a moment and try again.",
   CONFLICT: "Someone else changed this at the same time. Reload and try again.",
   INVALID_CAP: "That limit is not valid.",
   FORBIDDEN: "You do not have access to that.",

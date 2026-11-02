@@ -108,6 +108,29 @@ class Settings(BaseSettings):
     ocr_max_pages: int = Field(default=50, ge=1, le=500)
     ocr_max_bytes: int = Field(default=50 * 1024**2, ge=1)
 
+    # --- Optional local semantic search (M19). Off until an administrator verifies a local
+    # embedding endpoint; these only tune the background work (CPU-friendly defaults).
+    semantic_scan_seconds: int = Field(default=30, ge=1)
+    semantic_batch: int = Field(default=200, ge=1, le=5000)
+    semantic_max_attempts: int = Field(default=5, ge=1, le=20)
+    semantic_lease_seconds: int = Field(default=600, ge=10)
+    semantic_chunk_chars: int = Field(default=1200, ge=200, le=8000)
+    semantic_chunk_overlap: int = Field(default=200, ge=0, le=2000)
+    semantic_max_chunks: int = Field(default=100, ge=1, le=2000)  # per file
+    semantic_embed_batch: int = Field(default=8, ge=1, le=64)  # texts per request
+    semantic_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    semantic_max_response_bytes: int = Field(default=16 * 1024**2, ge=1024)
+    # Query-time embedding: its own short timeout, a per-person rate limit and a global cap on
+    # concurrent calls, so search cannot be used to hold the model server or database sessions.
+    semantic_query_timeout_seconds: int = Field(default=8, ge=1, le=60)
+    semantic_query_per_minute: int = Field(default=30, ge=1, le=10_000)
+    semantic_query_concurrency: int = Field(default=2, ge=1, le=64)
+    # Pause after every embedding request, so the endpoint is never saturated (CPU-only hosts).
+    semantic_pause_ms: int = Field(default=200, ge=0, le=60_000)
+    semantic_health_seconds: int = Field(default=300, ge=10)
+    # Cosine similarity a semantic hit needs to be shown. Models differ; tune per model.
+    semantic_min_score: float = Field(default=0.3, ge=-1.0, le=1.0)
+
     # --- Optional backups (M06c, ADR-015) ---
     # Separate mount for backups. Empty = not configured: the feature stays off and the app is
     # unaffected. Must not equal, contain or sit inside the library or app-data paths.

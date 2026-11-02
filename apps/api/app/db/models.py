@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 from app.storage.names import name_key
 
@@ -50,6 +50,39 @@ class UTCDateTime(TypeDecorator[datetime]):
         if value is not None and value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value
+
+
+class PgVector(UserDefinedType[Any]):
+    """PostgreSQL pgvector `vector` without a fixed dimension (one model generation is active)."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: Any) -> str:
+        return "vector"
+
+
+class Embedding(TypeDecorator[list[float]]):
+    """A chunk's vector as a list of floats: pgvector on PostgreSQL, JSON text on SQLite (unit
+    tests only; the cosine search then runs in Python). Bound as the text form "[1,2,3]", which
+    PostgreSQL reads as a vector literal."""
+
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> Any:
+        return dialect.type_descriptor(PgVector() if dialect.name == "postgresql" else Text())
+
+    def process_bind_param(self, value: list[float] | None, dialect: Dialect) -> str | None:
+        if value is None:
+            return None
+        return "[" + ",".join(repr(float(x)) for x in value) + "]"
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> list[float] | None:
+        if value is None:
+            return None
+        if isinstance(value, list | tuple):
+            return [float(x) for x in value]
+        return [float(x) for x in str(value).strip("[]").split(",") if x.strip()]
 
 
 class Base(DeclarativeBase):
@@ -84,6 +117,10 @@ class User(Base):
     # M10: the person lets this server open Private and Confidential files for previews, text
     # extraction and thumbnails. Off by default; never involves a cloud service.
     local_processing_opt_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    # M19: this person's files are not embedded for semantic search (separate from the AI choice).
+    semantic_opt_out: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
     # M15: how this person's personal tree uses AI: off | instance_default |
@@ -656,6 +693,52 @@ class SearchJob(Base):
     run_after: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     error: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class SearchEmbed(Base):
+    """Semantic indexing state of one file (M19): which model generation and file version its
+    chunks belong to, and the job lease/retry bookkeeping. One row per file."""
+
+    __tablename__ = "search_embed"
+
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), primary_key=True
+    )
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    state: Mapped[str] = mapped_column(
+        String(8), index=True, nullable=False
+    )  # queued|running|done|failed
+    chunks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    run_after: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class SearchChunk(Base):
+    """One vector for one stretch of a file's extracted text (M19). Sensitive derived data (a vector
+    can encode meaning): it is only read through `app.search.semantic`, which re-decides access per
+    person. No text is stored here; offsets point into `search_doc.body`."""
+
+    __tablename__ = "search_chunk"
+    __table_args__ = (UniqueConstraint("node_id", "ordinal", name="uq_search_chunk_node_ord"),)
+
+    id: Mapped[int] = mapped_column(BigPK, primary_key=True, autoincrement=True)
+    node_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("node.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    root_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True, nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    start: Mapped[int] = mapped_column(Integer, nullable=False)
+    end: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Embedding, nullable=True)
 
 
 class UserEmailAlias(Base):

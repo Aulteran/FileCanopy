@@ -1103,8 +1103,18 @@ export const api = {
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
   viewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/view`,
   previewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/preview`,
+  semanticAdmin: () => call<SemanticAdmin>("GET", "/api/v1/admin/semantic"),
+  semanticSave: (body: SemanticInput) =>
+    call<SemanticAdmin>("PUT", "/api/v1/admin/semantic", body),
+  semanticVerify: () =>
+    call<SemanticAdmin>("POST", "/api/v1/admin/semantic/verify"),
+  semanticEnable: (enabled: boolean) =>
+    call<SemanticAdmin>("PUT", "/api/v1/admin/semantic/enabled", { enabled }),
+  semanticMe: () => call<SemanticMe>("GET", "/api/v1/search/semantic/me"),
+  semanticSetMe: (opt_out: boolean) =>
+    call<SemanticMe>("PUT", "/api/v1/search/semantic/me", { opt_out }),
   search: (q: string, folder?: string) =>
-    call<{ hits: SearchHit[] }>(
+    call<{ hits: SearchHit[]; mode: string }>(
       "GET",
       `/api/v1/search?q=${enc(q)}${folder ? `&folder=${enc(folder)}` : ""}`,
     ),
@@ -1361,8 +1371,41 @@ export type SearchHit = {
   name: string;
   kind: string;
   parent_id: string | null;
-  match: "name" | "content";
+  match: "name" | "content" | "semantic";
   snippet: string | null;
+};
+
+export type SemanticInput = {
+  kind: string;
+  endpoint: string;
+  model: string;
+  doc_prefix: string;
+  query_prefix: string;
+};
+export type SemanticAdmin = SemanticInput & {
+  state: string;
+  active: boolean;
+  pgvector: boolean;
+  kinds: string[];
+  dimension: number | null;
+  generation: number;
+  enabled: boolean;
+  healthy: boolean;
+  error: string | null;
+  checked_at: string | null;
+  edited_since_verify: boolean;
+  totals: {
+    texts: number;
+    embedded_files: number;
+    chunks: number;
+    waiting: number;
+  };
+};
+export type SemanticMe = {
+  available: boolean;
+  opt_out: boolean;
+  indexed_files: number;
+  waiting_files: number;
 };
 
 export type SearchStatus = {
@@ -1370,4 +1413,5 @@ export type SearchStatus = {
   ocr_available: boolean;
   indexed: number;
   waiting: number;
+  semantic_active: boolean;
 };

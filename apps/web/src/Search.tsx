@@ -20,8 +20,15 @@ export function indexNote(s: SearchStatus | null): string | null {
   return null;
 }
 
+export function matchLabel(match: SearchHit["match"]): string {
+  if (match === "name") return "Name";
+  if (match === "semantic") return "Similar meaning";
+  return "Text";
+}
+
 export function SearchPage({ q, go, onEnded }: Props) {
   const [hits, setHits] = useState<SearchHit[]>([]);
+  const [mode, setMode] = useState("fulltext");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [status, setStatus] = useState<SearchStatus | null>(null);
@@ -37,6 +44,7 @@ export function SearchPage({ q, go, onEnded }: Props) {
         ]);
         if (!live) return;
         setHits(res.hits);
+        setMode(res.mode);
         setStatus(st);
         setState("ready");
       } catch (err) {
@@ -82,9 +90,7 @@ export function SearchPage({ q, go, onEnded }: Props) {
               >
                 {h.name}
               </a>
-              <span className="tag">
-                {h.match === "name" ? "Name" : "Text"}
-              </span>
+              <span className="tag">{matchLabel(h.match)}</span>
               {h.snippet && <p className="snippet">{h.snippet}</p>}
               {h.parent_id && (
                 <a
@@ -101,6 +107,12 @@ export function SearchPage({ q, go, onEnded }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {state === "ready" && mode !== "fulltext" && (
+        <p className="hint">
+          Results include files whose meaning is close to your words. This runs
+          on a model on your own network.
+        </p>
       )}
       {state === "ready" && note && <p className="hint">{note}</p>}
     </section>
