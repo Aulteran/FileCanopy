@@ -1,6 +1,6 @@
 # M23 — Security, reliability, accessibility and performance hardening: acceptance plan
 
-- **Status:** in progress 2026-11-03 (branch `m23-hardening`, cut from `main` at dce002c). No migration planned.
+- **Status:** in review, PR #31, 2026-11-03 (branch `m23-hardening`, cut from `main` at dce002c). No migration.
 - **Depends on:** M20, M21, M22 (all done and merged). **Spec:** 03 (mandatory adversarial tests), 09 (ACL matrix, exit criteria).
 - **Review:** a separate Opus security review runs after the PR opens. This branch is not merged by its author.
 
@@ -146,9 +146,37 @@ Not done, and why:
 - **`filter_visible` optimisation.** Measured linear (about 0.5 ms per id); see
   `docs/perf/M23-benchmarks.md`. Left for a change with its own review.
 - **Idle auto-lock of the whole session, multi-worker rate limits** (listed under Scope).
-- **Accessibility and concurrency tests could not be run locally** (the e2e harness fails here on
-  `main` too: the first-run token is not found in the Compose logs on this Windows host). They run
-  in CI; results are in the PR.
+- **Benchmark scope differs from the original plan:** the recorded runs use SQLite in the pinned
+  API dev image, opt-in, rather than a PostgreSQL benchmark CI job. Real PostgreSQL concurrency is
+  covered separately by the Compose tests. No PostgreSQL performance claim is made.
+- **Accessibility smoke differs from the original plan:** the new suite uses structural and
+  keyboard checks, rather than running axe on every screen. It is not a full WCAG audit.
+
+### PR #31 CI repair and local verification
+
+The first CI run exposed four failures. Fixed without weakening the assertions:
+
+- Native modal Tab navigation could reach browser chrome. `Modal` now wraps Tab and Shift+Tab
+  at the first and last enabled, visible control. The existing keyboard e2e checks containment,
+  Escape and restoration to the opener.
+- Accessibility tests initialized the shared stack before the first-run browser test. Bootstrap
+  now gets its own fresh instance; file-operation tests still share the regular stack.
+- The new concurrent-rename test omitted required `expected_revision`. Each contender now uses
+  the same captured revision, with exactly one success per file and five clean conflicts. Worker
+  exceptions are propagated to the test instead of being lost in threads.
+- The OIDC callback redirects to HTML. The log canary now uses the raw-response helper, asserts
+  the SPA response and failed-login status, and requires both request paths in the captured logs.
+
+Local Windows verification also found the reason earlier runs could not find a setup token:
+Compose loaded the operator's `deploy/.env`, including its fixed token. Test stacks now select
+an empty env file and exclude inherited FileCanopy/Compose settings. Backup tests reuse the same
+runner. No real deployment settings are changed. Claude worktrees are excluded from formatting
+and Docker build contexts.
+
+Evidence at this checkpoint: `npm run check` passes (6 Node tests and clean secret scan),
+`npm run check:web` passes (73 tests), the accessibility/browser modules pass together (13 tests,
+accessibility collected first), and the M23 Compose module passes (2 tests). Full API checks and
+the new CI run are pending. Independent security review remains outstanding; M23 is not done.
 
 ## Mapping: mandatory adversarial tests (03) → covering test
 

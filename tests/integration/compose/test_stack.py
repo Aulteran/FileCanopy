@@ -42,8 +42,13 @@ class Stack:
         self.port = free_port()
         self.name = name
         self.files = [COMPOSE_FILE]  # a suite may add override files (e.g. an outer proxy)
+        # Never load the operator's deploy/.env (setup token, real mail/AI settings, profiles).
+        self.env_file = tmp / "test.env"
+        self.env_file.write_text("", encoding="utf-8")
         self.env = {
-            **os.environ,
+            **{
+                k: v for k, v in os.environ.items() if not k.startswith(("FILECANOPY_", "COMPOSE_"))
+            },
             "POSTGRES_PASSWORD": self.password,
             "FILECANOPY_LIBRARY_PATH": str(self.library),
             "FILECANOPY_APP_DATA_PATH": str(self.app_data),
@@ -59,7 +64,16 @@ class Stack:
         self, *args: str, check: bool = True, env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
         files = [arg for f in self.files for arg in ("-f", str(f))]
-        cmd = ["docker", "compose", "-p", self.name, *files, *args]
+        cmd = [
+            "docker",
+            "compose",
+            "--env-file",
+            str(self.env_file),
+            "-p",
+            self.name,
+            *files,
+            *args,
+        ]
         r = subprocess.run(  # noqa: S603
             cmd, env=env or self.env, capture_output=True, text=True, timeout=600, check=False
         )
@@ -170,6 +184,8 @@ def test_migration_idempotent_and_serialized(stack: Stack) -> None:
             [
                 "docker",
                 "compose",
+                "--env-file",
+                str(stack.env_file),
                 "-p",
                 stack.name,
                 "-f",

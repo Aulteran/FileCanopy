@@ -16,8 +16,9 @@ import {
 } from "./api";
 import { describeError } from "./format";
 
-// Native <dialog>: focus is trapped and Escape closes it. The parent unmounts it on close, which
-// is too early for the browser to restore focus, so the opener is remembered and refocused here.
+// Native <dialog> makes the background inert and handles Escape. Cycle Tab at the boundaries
+// so focus stays in the dialog instead of moving to browser chrome. Remember the opener because
+// the parent unmounts the dialog on close, before the browser can restore focus itself.
 export function Modal({
   title,
   onClose,
@@ -43,6 +44,32 @@ export function Modal({
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab" || event.defaultPrevented) return;
+        const dialog = event.currentTarget;
+        const controls = Array.from(
+          dialog.querySelectorAll<HTMLElement>(
+            'a[href], button, input, select, textarea, [tabindex], [contenteditable="true"]',
+          ),
+        ).filter(
+          (el) =>
+            el.tabIndex >= 0 &&
+            !el.matches(":disabled") &&
+            !el.closest("[inert]") &&
+            el.getClientRects().length > 0 &&
+            getComputedStyle(el).visibility !== "hidden",
+        );
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (
+          !first ||
+          (event.shiftKey && document.activeElement === first) ||
+          (!event.shiftKey && document.activeElement === last)
+        ) {
+          event.preventDefault();
+          (event.shiftKey ? last : first)?.focus();
+        }
+      }}
     >
       <h2 id={titleId}>{title}</h2>
       {children}

@@ -5,6 +5,7 @@ MILESTONES.json
 # Approved design mockups are reference-only and kept as delivered.
 docs/design/
 node_modules/
+.claude/worktrees/
 coverage/
 package-lock.json
 .venv/
