@@ -116,16 +116,14 @@ server {{
 
         # Nginx Proxy Manager ships these lines at http level: it believes X-Real-IP from any
         # private address. The outer nginx has them too, so the test can show the effect.
-        npm_defaults = "set_real_ip_from 10.0.0.0/8;\nreal_ip_header X-Real-IP;\nreal_ip_recursive on;\n"
+        npm_defaults = (
+            "set_real_ip_from 10.0.0.0/8;\nreal_ip_header X-Real-IP;\nreal_ip_recursive on;\n"
+        )
         (d / "nginx.conf").write_text(
             npm_defaults
-            + server(
-                8443, "include /npm-advanced.conf;", "proxy_set_header Host $http_host;"
-            )
+            + server(8443, "include /npm-advanced.conf;", "proxy_set_header Host $http_host;")
             + server(8444, "include /npm-advanced.conf;", "")  # Host becomes web:8080
-            + server(
-                8445, "", "proxy_set_header Host $http_host;"
-            )  # stock: 1 MB body limit
+            + server(8445, "", "proxy_set_header Host $http_host;")  # stock: 1 MB body limit
         )
         (d / "Caddyfile").write_text(
             "{\n auto_https off\n admin off\n}\n"
@@ -221,9 +219,7 @@ networks:
         req = urllib.request.Request(  # noqa: S310
             origin + path, data=body, method=method, headers=hdrs
         )
-        opener = urllib.request.build_opener(
-            urllib.request.HTTPSHandler(context=self.ssl)
-        )
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=self.ssl))
         try:
             with opener.open(req, timeout=180) as r:
                 return r.status, r.read(), r.headers
@@ -257,9 +253,7 @@ networks:
         )
 
     def direct(self, path: str, **headers: str) -> tuple[int, Any]:
-        req = urllib.request.Request(
-            f"http://127.0.0.1:{self.port}{path}", headers=headers
-        )  # noqa: S310
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", headers=headers)  # noqa: S310
         with urllib.request.urlopen(req, timeout=10) as r:  # noqa: S310
             return r.status, r.headers
 
@@ -319,9 +313,7 @@ def test_without_trusted_proxies_a_forwarded_header_is_never_believed(
 
 
 def test_trusted_proxy_gives_the_real_client_address(ps: ProxyStack) -> None:
-    ps.reconfigure(
-        FILECANOPY_TRUSTED_PROXIES=",".join(f"{ps.ip(p)}/32" for p in PROXIES)
-    )
+    ps.reconfigure(FILECANOPY_TRUSTED_PROXIES=",".join(f"{ps.ip(p)}/32" for p in PROXIES))
     assert ps.failed_login("nginx") == 401
     client = ps.client_address_seen_by_proxy()
     assert client not in {ps.ip(p) for p in PROXIES}
@@ -339,9 +331,7 @@ def test_trusted_proxy_gives_the_real_client_address(ps: ProxyStack) -> None:
     # Straight to the bundled nginx (not a trusted proxy): the header is ignored as well.
     req = urllib.request.Request(  # noqa: S310
         f"http://127.0.0.1:{ps.port}/api/v1/auth/login",
-        data=json.dumps(
-            {"email": "nobody@example.com", "password": "wrong password"}
-        ).encode(),
+        data=json.dumps({"email": "nobody@example.com", "password": "wrong password"}).encode(),
         headers={"Content-Type": "application/json", "X-Forwarded-For": SPOOF},
     )
     with pytest.raises(urllib.error.HTTPError) as err:
@@ -364,9 +354,7 @@ def test_chain_of_proxies_and_throttle_isolation(ps: ProxyStack) -> None:
     assert ps.failed_login("nginx", **{"X-Forwarded-For": "203.0.113.8"}) == 401
     assert ps.failed_login("nginx", **{"X-Forwarded-For": "203.0.113.9"}) == 401
     # leave a conservative setting for the following tests
-    ps.reconfigure(
-        FILECANOPY_TRUSTED_PROXIES=",".join(f"{ps.ip(p)}/32" for p in PROXIES)
-    )
+    ps.reconfigure(FILECANOPY_TRUSTED_PROXIES=",".join(f"{ps.ip(p)}/32" for p in PROXIES))
 
 
 def test_bad_trusted_proxy_values_stop_the_web_container(ps: ProxyStack) -> None:
@@ -461,9 +449,7 @@ def test_large_upload_and_download_through_every_proxy(ps: ProxyStack) -> None:
         "select n.id from node n join storage_root r on r.id = n.root_id "
         f"where n.parent_id is null and r.relative_dir = 'personal/{uid}'"
     )
-    payload = b"".join(
-        os.urandom(1024 * 1024) for _ in range(40)
-    )  # 40 MiB, far above 1 MB
+    payload = b"".join(os.urandom(1024 * 1024) for _ in range(40))  # 40 MiB, far above 1 MB
     digest = hashlib.sha256(payload).hexdigest()
     for proxy in PROXIES:
         status, out, _ = ps.https(
@@ -477,13 +463,9 @@ def test_large_upload_and_download_through_every_proxy(ps: ProxyStack) -> None:
         )
         assert status == 201, (proxy, out[:200])
         node = json.loads(out)["node"]["id"]
-        status, got, _ = ps.https(
-            proxy, "GET", f"/api/v1/nodes/{node}/content", cookie=cookie
-        )
+        status, got, _ = ps.https(proxy, "GET", f"/api/v1/nodes/{node}/content", cookie=cookie)
         assert status == 200 and hashlib.sha256(got).hexdigest() == digest, proxy
-        assert (
-            ps.library / "personal" / uid / f"big-{proxy}.bin"
-        ).read_bytes() == payload
+        assert (ps.library / "personal" / uid / f"big-{proxy}.bin").read_bytes() == payload
     # A stock nginx (no client_max_body_size) refuses the same upload. That is why
     # deploy/proxy/npm-advanced.conf exists and why the README tells owners to set it.
     status, _, _ = ps.https(

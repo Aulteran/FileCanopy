@@ -74,9 +74,7 @@ def test_hostile_names_never_escape_or_corrupt_the_tree(fx: Fx, tmp_path: Path) 
         calls = (
             alice.mkdir(target, name),
             alice.upload(target, name, b"data"),
-            alice.post(
-                f"/nodes/{seed_id}/copy", json={"parent_id": str(target), "name": name}
-            ),
+            alice.post(f"/nodes/{seed_id}/copy", json={"parent_id": str(target), "name": name}),
             alice.post(f"/nodes/{seed_id}/rename", json={"name": name}),
         )
         for r in calls:
@@ -145,8 +143,4 @@ def test_a_symlink_planted_in_a_root_is_not_followed(fx: Fx, tmp_path: Path) -> 
     assert "TOPSECRET" not in listing.text
     up = alice.upload(fx.alice_root, "planted.txt", b"overwrite attempt")
     assert outside.read_text() == "TOPSECRET-OUTSIDE", up.text
-    assert (
-        os.path.islink(link)
-        or not link.exists()
-        or link.read_text() != "TOPSECRET-OUTSIDE"
-    )
+    assert os.path.islink(link) or not link.exists() or link.read_text() != "TOPSECRET-OUTSIDE"

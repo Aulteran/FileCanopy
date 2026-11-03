@@ -33,9 +33,7 @@ def test_changing_the_password_ends_the_persons_api_tokens(
     )
     assert r.status_code == 200, r.text
     assert Client(fx, a_token).rpc("ping").status_code == 401
-    assert (
-        Client(fx, b_token).rpc("ping").status_code == 200
-    )  # someone else's token is untouched
+    assert Client(fx, b_token).rpc("ping").status_code == 200  # someone else's token is untouched
     assert alive(fx) == 1
 
 
@@ -47,9 +45,7 @@ def test_forced_sign_out_and_disabling_end_the_persons_api_tokens(
     a_token, _ = mint(alice)
     b_token, _ = mint(bob)
     c, h = fx.admin
-    r = c.post(
-        f"/api/v1/admin/users/{fx.uid('alice@example.com')}/revoke-sessions", headers=h
-    )
+    r = c.post(f"/api/v1/admin/users/{fx.uid('alice@example.com')}/revoke-sessions", headers=h)
     assert r.status_code == 200, r.text
     assert Client(fx, a_token).rpc("ping").status_code == 401
     r = c.patch(
@@ -69,9 +65,7 @@ def test_a_completed_password_reset_ends_the_persons_api_tokens(
     alice = Api(fx, "alice")
     value, _ = mint(alice)
     c, h = fx.admin
-    r = c.post(
-        f"/api/v1/admin/users/{fx.uid('alice@example.com')}/password-reset", headers=h
-    )
+    r = c.post(f"/api/v1/admin/users/{fx.uid('alice@example.com')}/password-reset", headers=h)
     assert r.status_code in (200, 201), r.text
     token = r.json()["token"]
     done = fx.w.browser().post(
@@ -93,18 +87,13 @@ def test_bad_tokens_from_one_address_do_not_lock_out_a_good_one(
     assert Client(fx, good).rpc("ping").status_code == 200
 
 
-def test_search_is_rate_limited_per_person(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_search_is_rate_limited_per_person(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fx = Fx(World(tmp_path, monkeypatch, search_per_minute=3))
     alice, bob = Api(fx, "alice"), Api(fx, "bob")
-    codes = [
-        alice.get("/search", params={"q": "invoice"}).status_code for _ in range(5)
-    ]
+    codes = [alice.get("/search", params={"q": "invoice"}).status_code for _ in range(5)]
     assert codes == [200, 200, 200, 429, 429]
     assert (
-        alice.get("/search", params={"q": "invoice"}).json()["detail"]["code"]
-        == "SEARCH_TOO_FAST"
+        alice.get("/search", params={"q": "invoice"}).json()["detail"]["code"] == "SEARCH_TOO_FAST"
     )
     assert bob.get("/search", params={"q": "invoice"}).status_code == 200  # own window
 

@@ -49,11 +49,7 @@ def test_database_url_is_not_leaked_by_repr(tmp_path: Path) -> None:
 
 def test_ai_settings_are_all_optional() -> None:
     """The app starts with no AI configured: every AI setting has a default (M15)."""
-    ai = [
-        n
-        for n, f in Settings.model_fields.items()
-        if "ai" in n.split("_") or n == "secrets_key"
-    ]
+    ai = [n for n, f in Settings.model_fields.items() if "ai" in n.split("_") or n == "secrets_key"]
     assert ai
     assert not [n for n in ai if Settings.model_fields[n].is_required()]
     assert Settings.model_fields["secrets_key"].default.get_secret_value() == ""

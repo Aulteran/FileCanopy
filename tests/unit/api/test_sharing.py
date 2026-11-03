@@ -47,15 +47,8 @@ def test_viewer_cannot_write_through_any_route(fx: Fx) -> None:
     assert bob.upload(fx.taxes, "b.txt", b"no").status_code == 403
     assert bob.rename(uuid.UUID(f), "z.txt", 1).status_code == 403
     assert bob.move(uuid.UUID(f), fx.other, 1).status_code == 403
-    assert (
-        bob.post(
-            f"/nodes/{f}/copy", json={"target_parent_id": str(fx.other)}
-        ).status_code
-        == 403
-    )
-    assert (
-        bob.client.delete(f"/api/v1/nodes/{f}", headers=bob.headers).status_code == 403
-    )
+    assert bob.post(f"/nodes/{f}/copy", json={"target_parent_id": str(fx.other)}).status_code == 403
+    assert bob.client.delete(f"/api/v1/nodes/{f}", headers=bob.headers).status_code == 403
     assert bob.client.get(f"/api/v1/nodes/{fx.taxes}/grants").status_code == 403
     assert put(bob, fx.taxes, fx.uid("carol@example.com"), "viewer").status_code == 403
     # An upgrade to editor makes the same calls succeed, a downgrade stops them at once.
@@ -79,9 +72,7 @@ def test_viewer_cannot_write_through_any_route(fx: Fx) -> None:
         ("bob", "shared_sub", False),
     ],
 )
-def test_who_may_share_combinatorics(
-    fx: Fx, caller: str, target: str, ok: bool
-) -> None:
+def test_who_may_share_combinatorics(fx: Fx, caller: str, target: str, ok: bool) -> None:
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     nodes = {
@@ -114,9 +105,7 @@ def test_share_changes_are_in_the_folder_history_for_the_owner_only(fx: Fx) -> N
     put(alice, fx.taxes, carol.uid, "viewer")
     put(alice, fx.taxes, bob.uid, "viewer")  # unchanged: no new event
     put(alice, fx.taxes, bob.uid, "editor")
-    alice.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants/{bob.uid}", headers=alice.headers
-    )
+    alice.client.delete(f"/api/v1/nodes/{fx.taxes}/grants/{bob.uid}", headers=alice.headers)
     mine = alice.get(f"/nodes/{fx.taxes}/activity").json()["items"]
     actions = [
         e["action"]
@@ -124,20 +113,14 @@ def test_share_changes_are_in_the_folder_history_for_the_owner_only(fx: Fx) -> N
         if e["action"].startswith("share") or e["action"] in ("shared", "unshared")
     ]
     assert actions == ["unshared", "share_changed", "shared", "shared"]
-    assert {
-        e["details"].get("grantee_name") for e in mine if "grantee_name" in e["details"]
-    }
+    assert {e["details"].get("grantee_name") for e in mine if "grantee_name" in e["details"]}
     with fx.w.ctx.sessions() as db:
-        assert db.scalars(
-            select(FileEvent.action).where(FileEvent.node_id == fx.taxes)
-        ).all()
+        assert db.scalars(select(FileEvent.action).where(FileEvent.node_id == fx.taxes)).all()
         audits = db.scalars(select(AuthAudit.action)).all()
     assert "grant.set" in audits and "grant.revoked" in audits
     # A reader (carol, viewer) sees the folder's history but not who else has access.
     seen = carol.get(f"/nodes/{fx.taxes}/activity").json()["items"]
-    assert not [
-        e for e in seen if e["action"] in ("shared", "share_changed", "unshared")
-    ]
+    assert not [e for e in seen if e["action"] in ("shared", "share_changed", "unshared")]
     assert "bob" not in str(seen).lower()
 
 
@@ -157,9 +140,7 @@ def test_notifications_name_the_sharer_and_never_leak_after_revocation(fx: Fx) -
     assert bob.post(f"/notifications/{n['id']}/read").status_code == 200
     assert bob.get("/notifications").json()["unread"] == 0
     # After revocation the old notice no longer names the folder; the new one names nothing.
-    alice.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants/{bob.uid}", headers=alice.headers
-    )
+    alice.client.delete(f"/api/v1/nodes/{fx.taxes}/grants/{bob.uid}", headers=alice.headers)
     items = bob.get("/notifications").json()["items"]
     assert {i["kind"] for i in items} == {"shared", "unshared"}
     assert all(i["node_name"] is None and i["node_id"] is None for i in items)
@@ -194,31 +175,21 @@ def test_people_picker_lists_names_only(fx: Fx) -> None:
 def test_leaving_a_share(fx: Fx) -> None:
     alice, bob = Api(fx, "alice"), Api(fx, "bob")
     put(alice, fx.taxes, bob.uid, "viewer")
-    leave = bob.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=bob.headers
-    )
+    leave = bob.client.delete(f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=bob.headers)
     assert leave.status_code == 200
     assert bob.get(f"/nodes/{fx.taxes}").status_code == 403
     kinds = [i["kind"] for i in alice.get("/notifications").json()["items"]]
     assert kinds == ["share_left"]
-    acts = [
-        e["action"] for e in alice.get(f"/nodes/{fx.taxes}/activity").json()["items"]
-    ]
+    acts = [e["action"] for e in alice.get(f"/nodes/{fx.taxes}/activity").json()["items"]]
     assert "share_left" in acts
     # Not a share you hold, the owner's own folder and the shared tree cannot be "left".
     assert (
-        bob.client.delete(
-            f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=bob.headers
-        ).status_code
+        bob.client.delete(f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=bob.headers).status_code
         == 403
     )
-    r = alice.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=alice.headers
-    )
+    r = alice.client.delete(f"/api/v1/nodes/{fx.taxes}/grants-mine", headers=alice.headers)
     assert r.status_code == 422
-    r = bob.client.delete(
-        f"/api/v1/nodes/{fx.shared_sub}/grants-mine", headers=bob.headers
-    )
+    r = bob.client.delete(f"/api/v1/nodes/{fx.shared_sub}/grants-mine", headers=bob.headers)
     assert r.status_code == 422
 
 
@@ -238,10 +209,7 @@ def test_reference_filter_never_reveals_more_than_the_node_policy(fx: Fx) -> Non
     with fx.w.ctx.sessions() as db:
         bob = Actor(fx.uid("bob@example.com"))
         assert engine.filter_visible(db, bob, refs) == [fx.y2026]
-        assert (
-            engine.filter_visible(db, Actor(fx.uid("alice@example.com")), refs)
-            == refs[:4]
-        )
+        assert engine.filter_visible(db, Actor(fx.uid("alice@example.com")), refs) == refs[:4]
         assert engine.filter_visible(db, Actor(fx.uid("admin@example.com")), refs) == []
 
 

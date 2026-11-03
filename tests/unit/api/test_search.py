@@ -112,16 +112,10 @@ def docs(fx: Fx) -> dict[uuid.UUID, SearchDoc]:
 # ---------------------------------------------------------------- basics, no AI
 
 
-def test_search_finds_names_and_text_with_every_ai_feature_off(
-    fx: Fx, alice: Api
-) -> None:
-    alice.upload(
-        fx.alice_root, "notes.txt", b"The quarterly budget needs review.\nSecond line."
-    )
+def test_search_finds_names_and_text_with_every_ai_feature_off(fx: Fx, alice: Api) -> None:
+    alice.upload(fx.alice_root, "notes.txt", b"The quarterly budget needs review.\nSecond line.")
     alice.upload(fx.alice_root, "refund.pdf", make_pdf("Tax refund 2026"))
-    alice.upload(
-        fx.alice_root, "memo.docx", make_docx(["Meeting about the roof repair"])
-    )
+    alice.upload(fx.alice_root, "memo.docx", make_docx(["Meeting about the roof repair"]))
     alice.upload(fx.alice_root, "holiday.jpg", b"\xff\xd8\xff not really")
     assert run_index(fx) >= 3
     assert names(find(alice, "budget")) == ["notes.txt"]
@@ -133,13 +127,9 @@ def test_search_finds_names_and_text_with_every_ai_feature_off(
     assert find(alice, "holiday")[0]["match"] == "name"
     assert names(find(alice, "Taxes")) == ["Taxes"]  # folders by name
     assert find(alice, "zzzznothing") == []
-    assert names(find(alice, "quarterly review")) == [
-        "notes.txt"
-    ]  # every word must match
+    assert names(find(alice, "quarterly review")) == ["notes.txt"]  # every word must match
     assert find(alice, "quarterly zzzz") == []
-    assert (
-        find(alice, "100%") == [] and find(alice, "a_b") == []
-    )  # wildcards are plain text
+    assert find(alice, "100%") == [] and find(alice, "a_b") == []  # wildcards are plain text
     status = alice.get("/search/status").json()
     assert status["enabled"] and not status["ocr_available"] and status["indexed"] >= 3
 
@@ -157,17 +147,13 @@ def test_search_can_be_limited_to_a_folder(fx: Fx, alice: Api) -> None:
     assert names(find(alice, "needle")) == ["deep.txt", "top.txt"]
     assert names(find(alice, "needle", folder=str(fx.taxes))) == ["deep.txt"]
     bob = Api(fx, "bob")
-    assert (
-        find(bob, "needle", folder=str(fx.taxes)) == []
-    )  # not his folder: same as empty
+    assert find(bob, "needle", folder=str(fx.taxes)) == []  # not his folder: same as empty
 
 
 # ---------------------------------------------------------------- access
 
 
-def test_results_follow_the_acl_and_a_revoked_share_vanishes_at_once(
-    fx: Fx, alice: Api
-) -> None:
+def test_results_follow_the_acl_and_a_revoked_share_vanishes_at_once(fx: Fx, alice: Api) -> None:
     alice.upload(fx.taxes, "secret-plan.txt", b"launch codes are swordfish")
     run_index(fx)
     bob, carol = Api(fx, "bob"), Api(fx, "carol")
@@ -177,8 +163,7 @@ def test_results_follow_the_acl_and_a_revoked_share_vanishes_at_once(
     assert names(find(bob, "swordfish")) == ["secret-plan.txt"]
     assert find(carol, "swordfish") == []
     r = alice.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}",
-        headers=alice.headers,
+        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}", headers=alice.headers
     )
     assert r.status_code in (200, 204)
     # no re-index happened: the query decides again every time
@@ -230,25 +215,19 @@ def test_confidential_is_hidden_while_locked_and_its_text_is_never_indexed(
     run_index(fx)
     assert n not in docs(fx)  # background work has no unlock
     assert find(alice, "kumquat") == []  # so no text matches, even unlocked
-    assert names(find(alice, "vault")) == [
-        "vault.txt"
-    ]  # the name is findable while unlocked
+    assert names(find(alice, "vault")) == ["vault.txt"]  # the name is findable while unlocked
     fx.w.advance(minutes=5, seconds=1)
     assert find(alice, "vault") == []  # locked: not even the name
 
 
-def test_private_text_needs_the_opt_in_at_index_time_and_at_query_time(
-    fx: Fx, alice: Api
-) -> None:
+def test_private_text_needs_the_opt_in_at_index_time_and_at_query_time(fx: Fx, alice: Api) -> None:
     label(alice, fx.private, "private")
     n = nid(alice.upload(fx.private, "diary.txt", b"dear diary: persimmon"))
     run_index(fx)
     assert n not in docs(fx)
     job = fx.w.db_rows(SearchJob)[0]
     assert job.state == "failed" and job.error == "LOCAL_PROCESSING_OPT_IN_REQUIRED"
-    assert find(alice, "persimmon") == [] and names(find(alice, "diary")) == [
-        "diary.txt"
-    ]
+    assert find(alice, "persimmon") == [] and names(find(alice, "diary")) == ["diary.txt"]
     put_optin(alice, True)
     run_index(fx)  # a deferred job waits an hour before the scanner looks again
     assert n not in docs(fx)
@@ -257,9 +236,7 @@ def test_private_text_needs_the_opt_in_at_index_time_and_at_query_time(
     assert n in docs(fx)
     assert names(find(alice, "persimmon")) == ["diary.txt"]
     put_optin(alice, False)  # withdrawing consent hides it before the sweeper runs
-    assert find(alice, "persimmon") == [] and names(find(alice, "diary")) == [
-        "diary.txt"
-    ]
+    assert find(alice, "persimmon") == [] and names(find(alice, "diary")) == ["diary.txt"]
     with fx.w.ctx.sessions() as db:
         indexer_for(fx).sweep(db)
     assert n not in docs(fx)
@@ -303,13 +280,9 @@ def test_a_changed_file_is_hidden_until_it_is_indexed_again(fx: Fx, alice: Api) 
     run_index(fx)
     assert names(find(alice, "apricot")) == ["draft.txt"]
     rewrite_on_disk(fx, n, b"second version: blueberry")
-    assert (
-        find(alice, "apricot") == [] and find(alice, "blueberry") == []
-    )  # stale row hidden
+    assert find(alice, "apricot") == [] and find(alice, "blueberry") == []  # stale row hidden
     run_index(fx)
-    assert find(alice, "apricot") == [] and names(find(alice, "blueberry")) == [
-        "draft.txt"
-    ]
+    assert find(alice, "apricot") == [] and names(find(alice, "blueberry")) == ["draft.txt"]
 
 
 def test_a_rename_keeps_the_text_and_changes_the_name_hit(fx: Fx, alice: Api) -> None:
@@ -363,25 +336,17 @@ def test_transient_errors_back_off_and_give_up_after_the_cap(
         ix.tick()
         job = only_job(fx)
         if attempt < cap:
-            assert (
-                job.state == "queued"
-                and job.attempts == attempt
-                and job.error == "TIMEOUT"
-            )
+            assert job.state == "queued" and job.attempts == attempt and job.error == "TIMEOUT"
     job = only_job(fx)
     assert job.state == "failed" and job.error == "GAVE_UP"
     monkeypatch.undo()
     fx.w.advance(days=2)  # it is tried again daily, and now succeeds
     ix.tick()
-    assert names(find(Api(fx, "alice"), "flaky")) == [
-        "flaky.pdf"
-    ]  # a new login: days have passed
+    assert names(find(Api(fx, "alice"), "flaky")) == ["flaky.pdf"]  # a new login: days have passed
     assert fx.w.db_rows(SearchJob) == []
 
 
-def test_permanent_errors_are_not_retried_until_the_file_changes(
-    fx: Fx, alice: Api
-) -> None:
+def test_permanent_errors_are_not_retried_until_the_file_changes(fx: Fx, alice: Api) -> None:
     n = nid(alice.upload(fx.alice_root, "locked.pdf", encrypted_pdf()))
     ix = indexer_for(fx)
     ix.tick()
@@ -396,9 +361,7 @@ def test_permanent_errors_are_not_retried_until_the_file_changes(
     assert names(find(Api(fx, "alice"), "papaya")) == ["locked.pdf"]
 
 
-def test_a_file_that_changes_while_queued_is_indexed_in_its_new_version(
-    fx: Fx, alice: Api
-) -> None:
+def test_a_file_that_changes_while_queued_is_indexed_in_its_new_version(fx: Fx, alice: Api) -> None:
     n = nid(alice.upload(fx.alice_root, "race.txt", b"old words: durian"))
     ix = indexer_for(fx)
     with fx.w.ctx.sessions() as db:
@@ -408,14 +371,10 @@ def test_a_file_that_changes_while_queued_is_indexed_in_its_new_version(
     rewrite_on_disk(fx, n, b"new words: jackfruit")
     assert ix.run_job(n) == "stale"  # the job was for a version that no longer exists
     ix.tick()
-    assert (
-        names(find(alice, "jackfruit")) == ["race.txt"] and find(alice, "durian") == []
-    )
+    assert names(find(alice, "jackfruit")) == ["race.txt"] and find(alice, "durian") == []
 
 
-def test_search_can_be_switched_off_without_touching_names(
-    make_fx: Callable[..., Fx],
-) -> None:
+def test_search_can_be_switched_off_without_touching_names(make_fx: Callable[..., Fx]) -> None:
     fx = make_fx(search_enabled=False)
     alice = Api(fx, "alice")
     alice.upload(fx.alice_root, "named.txt", b"words")
@@ -438,16 +397,12 @@ def test_scanned_pdfs_and_pictures_become_searchable_with_ocr(
 
     alice.upload(fx.alice_root, "scan.pdf", blank_pdf(1))  # a PDF with no text layer
     alice.upload(fx.alice_root, "receipt.png", make_png())
-    alice.upload(
-        fx.alice_root, "typed.pdf", make_pdf("A long enough typed sentence here")
-    )
+    alice.upload(fx.alice_root, "typed.pdf", make_pdf("A long enough typed sentence here"))
     run_index(fx)
     assert fake_ocr.hits == 2  # the PDF that has text never goes to OCR
     assert sorted(names(find(alice, "4711"))) == ["receipt.png", "scan.pdf"]
     assert names(find(alice, "müller")) == ["receipt.png", "scan.pdf"]
-    assert {d.source for d in docs(fx).values() if d.body.startswith("scanned")} == {
-        "ocr"
-    }
+    assert {d.source for d in docs(fx).values() if d.body.startswith("scanned")} == {"ocr"}
     assert names(find(alice, "typed sentence")) == ["typed.pdf"]
     assert alice.get("/search/status").json()["ocr_available"] is True
 
@@ -470,9 +425,7 @@ def test_private_pictures_are_not_sent_to_ocr_without_the_opt_in(
     assert fake_ocr.hits == 0
 
 
-def test_ocr_failures_are_classified(
-    make_fx: Callable[..., Fx], fake_ocr: FakeOcr
-) -> None:
+def test_ocr_failures_are_classified(make_fx: Callable[..., Fx], fake_ocr: FakeOcr) -> None:
     fx = make_fx(ocr_url=fake_ocr.url)
     alice = Api(fx, "alice")
     alice.upload(fx.alice_root, "bad.png", make_png())
@@ -485,25 +438,14 @@ def call_ocr(url: str) -> str:
     import io
 
     return ocr.ocr_text(
-        url,
-        io.BytesIO(b"\x89PNG\r\n\x1a\nxx"),
-        10,
-        "png",
-        timeout=5,
-        max_pages=1,
-        max_chars=100,
+        url, io.BytesIO(b"\x89PNG\r\n\x1a\nxx"), 10, "png", timeout=5, max_pages=1, max_chars=100
     )
 
 
 def test_ocr_replies_are_treated_as_untrusted(fake_ocr: FakeOcr) -> None:
     fake_ocr.reply = json.dumps({"text": "ok\x00\x1b[31mred\x07" + "x" * 500}).encode()
     text = call_ocr(fake_ocr.url)
-    assert (
-        len(text) == 100
-        and "\x00" not in text
-        and "\x1b" not in text
-        and "\x07" not in text
-    )
+    assert len(text) == 100 and "\x00" not in text and "\x1b" not in text and "\x07" not in text
     fake_ocr.reply = b"not json"
     with pytest.raises(PreviewError) as e1:
         call_ocr(fake_ocr.url)
@@ -532,12 +474,7 @@ def test_snippets_and_terms() -> None:
     assert len(query.terms_of("a " * 20)) == query.MAX_TERMS
     body = "x" * 300 + " needle " + "y" * 300
     snip = query.snippet_of(body, ["needle"])
-    assert (
-        "needle" in snip
-        and snip.startswith("… ")
-        and snip.endswith(" …")
-        and len(snip) < 400
-    )
+    assert "needle" in snip and snip.startswith("… ") and snip.endswith(" …") and len(snip) < 400
     assert query.snippet_of("short text", ["zzz"]) == "short text"
 
 
@@ -554,20 +491,14 @@ def test_status_counts_only_the_callers_own_folder(fx: Fx, alice: Api) -> None:
 # ---------------------------------------------------------------- review B1 / B2
 
 
-def test_a_name_hit_never_carries_text_the_person_may_not_see(
-    fx: Fx, alice: Api
-) -> None:
+def test_a_name_hit_never_carries_text_the_person_may_not_see(fx: Fx, alice: Api) -> None:
     label(alice, fx.private, "private")
     put_optin(alice, True)
     n = nid(alice.upload(fx.private, "persimmon.txt", b"secret: persimmon recipe"))
     run_index(fx)
     hit = find(alice, "persimmon")
-    assert [h["name"] for h in hit] == ["persimmon.txt"] and "recipe" in (
-        hit[0]["snippet"] or ""
-    )
-    put_optin(
-        alice, False
-    )  # consent withdrawn: the stale row must not leak through the name hit
+    assert [h["name"] for h in hit] == ["persimmon.txt"] and "recipe" in (hit[0]["snippet"] or "")
+    put_optin(alice, False)  # consent withdrawn: the stale row must not leak through the name hit
     hit = find(alice, "persimmon")
     assert [h["name"] for h in hit] == ["persimmon.txt"]
     assert hit[0]["snippet"] is None and hit[0]["match"] == "name"
@@ -587,9 +518,7 @@ def test_text_indexed_as_normal_is_not_shown_once_the_file_is_confidential(
     assert n in docs(fx)
     assert find(alice, "guava") == []  # no text hit
     by_name = find(alice, "plain")
-    assert [h["name"] for h in by_name] == ["plain.txt"] and by_name[0][
-        "snippet"
-    ] is None
+    assert [h["name"] for h in by_name] == ["plain.txt"] and by_name[0]["snippet"] is None
     # moved into the Confidential folder while unlocked: same
     assert alice.move(m, fx.y2026, 1).status_code in (200, 201)
     assert find(alice, "kumquat") == []

@@ -20,9 +20,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
-def ocr_modules(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[tuple[object, object]]:
+def ocr_modules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[object, object]]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _script(
@@ -57,16 +55,9 @@ def serve(server: object) -> tuple[HTTPServer, int]:
     return httpd, httpd.server_port
 
 
-def post(
-    port: int, ext: str, body: bytes, pages: int = 50
-) -> tuple[int, dict[str, str]]:
+def post(port: int, ext: str, body: bytes, pages: int = 50) -> tuple[int, dict[str, str]]:
     c = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
-    c.request(
-        "POST",
-        f"/ocr?ext={ext}&max_pages={pages}",
-        body,
-        {"Content-Length": str(len(body))},
-    )
+    c.request("POST", f"/ocr?ext={ext}&max_pages={pages}", body, {"Content-Length": str(len(body))})
     r = c.getresponse()
     return r.status, json.loads(r.read())
 
@@ -78,9 +69,7 @@ def test_pictures_and_pdfs_become_text(ocr_modules: tuple[object, object]) -> No
         status, out = post(port, "png", b"\x89PNGxx")
         assert status == 200 and out["text"].startswith("recognized text from")
         status, out = post(port, "pdf", b"%PDF-1.4 fake")
-        assert (
-            status == 200 and out["text"].count("recognized text") == 3
-        )  # three pages
+        assert status == 200 and out["text"].count("recognized text") == 3  # three pages
         status, out = post(port, "pdf", b"%PDF-1.4 fake", pages=2)
         assert status == 200
         c = http.client.HTTPConnection("127.0.0.1", port)
@@ -90,9 +79,7 @@ def test_pictures_and_pdfs_become_text(ocr_modules: tuple[object, object]) -> No
         httpd.shutdown()
 
 
-def test_refusals_are_coded_and_never_name_the_file(
-    ocr_modules: tuple[object, object],
-) -> None:
+def test_refusals_are_coded_and_never_name_the_file(ocr_modules: tuple[object, object]) -> None:
     _, server = ocr_modules
     httpd, port = serve(server)
     try:
@@ -163,13 +150,7 @@ def test_compose_ocr_service_is_sealed() -> None:
     assert api_mounts["/run/ocr"] == "ocr-socket"
     for other in ("web", "postgres", "migrate", "converter"):
         if other in cfg["services"]:
-            assert "ocr-socket" not in json.dumps(
-                cfg["services"][other].get("volumes", [])
-            )
+            assert "ocr-socket" not in json.dumps(cfg["services"][other].get("volumes", []))
     assert svc["read_only"] is True and svc["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in svc["security_opt"]
-    assert (
-        svc["user"] == "10003:10003"
-        and int(svc["mem_limit"]) > 0
-        and svc["pids_limit"] > 0
-    )
+    assert svc["user"] == "10003:10003" and int(svc["mem_limit"]) > 0 and svc["pids_limit"] > 0

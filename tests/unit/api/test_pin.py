@@ -83,18 +83,14 @@ def test_pin_is_hashed_with_a_pepper_that_is_not_in_the_database(fx: Fx) -> None
         fx.uid("bob@example.com"), PIN
     )
     pepper = fx.w.settings.app_data_path / "pin-pepper"
-    assert (
-        pepper.stat().st_mode & 0o777 == 0o600 and len(pepper.read_text().strip()) == 64
-    )
+    assert pepper.stat().st_mode & 0o777 == 0o600 and len(pepper.read_text().strip()) == 64
     # the pepper is not stored in the database
     with fx.w.ctx.sessions() as db:
         dump = json.dumps([str(r) for r in db.scalars(select(UserPin))])
     assert pepper.read_text().strip() not in dump
 
 
-def test_configured_pepper_must_be_long(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_configured_pepper_must_be_long(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
     w = World(tmp_path / "a", monkeypatch, pin_pepper="short")
@@ -152,9 +148,7 @@ def test_removing_the_pin_needs_a_proof_and_brings_back_the_password(fx: Fx) -> 
     node = conf(fx, alice)
     r = alice.post("/auth/pin/remove", json={})
     assert r.status_code == 422
-    assert (
-        alice.post("/auth/pin/remove", json={"password": PASSWORD}).status_code == 200
-    )
+    assert alice.post("/auth/pin/remove", json={"password": PASSWORD}).status_code == 200
     assert unlock(alice, node, password=PASSWORD).status_code == 200
 
 
@@ -179,13 +173,9 @@ def test_lowering_confidential_takes_the_pin(fx: Fx) -> None:
     node = conf(fx, alice)
     unlock(alice, node, pin=PIN)
     url = f"/api/v1/nodes/{node}/privacy"
-    r = alice.client.put(
-        url, json={"label": "normal", "password": PASSWORD}, headers=alice.headers
-    )
+    r = alice.client.put(url, json={"label": "normal", "password": PASSWORD}, headers=alice.headers)
     assert r.status_code == 403 and code(r) == "PIN_REQUIRED"
-    r = alice.client.put(
-        url, json={"label": "normal", "pin": PIN}, headers=alice.headers
-    )
+    r = alice.client.put(url, json={"label": "normal", "pin": PIN}, headers=alice.headers)
     assert r.status_code == 200
 
 
@@ -219,9 +209,7 @@ def test_waiting_starts_at_the_third_failure_and_blocked_attempts_do_not_compare
     assert wrong(alice, node).status_code == 403  # third: the next one waits
     compared: list[str] = []
     real = fx.w.ctx.passwords.verify
-    monkeypatch.setattr(
-        fx.w.ctx.passwords, "verify", lambda s, p: compared.append(p) or real(s, p)
-    )
+    monkeypatch.setattr(fx.w.ctx.passwords, "verify", lambda s, p: compared.append(p) or real(s, p))
     r = unlock(alice, node, pin=PIN)  # even the right PIN is refused while waiting
     assert r.status_code == 429 and code(r) == "PIN_BLOCKED"
     assert 1 <= int(r.headers["Retry-After"]) <= 31
@@ -276,9 +264,7 @@ def test_five_failures_end_the_session_and_the_counter_survives_new_sessions(
     again = relogin(fx)
     assert row(fx).failures == 5
     fx.w.advance(seconds=1000)
-    assert (
-        unlock(again, node, pin=PIN).status_code == 200
-    )  # the right PIN still works at 5
+    assert unlock(again, node, pin=PIN).status_code == 200  # the right PIN still works at 5
     assert row(fx).failures == 0
 
 
@@ -382,9 +368,7 @@ def test_a_locked_session_can_only_unlock_or_sign_out(fx: Fx) -> None:
     for r in _api_routes(fx.w.app.routes):
         if not r.path.startswith("/api/v1"):
             continue
-        if (
-            r.path.startswith(public) or r.path == "/api/v1/mcp"
-        ):  # M21: bearer token, no cookie
+        if r.path.startswith(public) or r.path == "/api/v1/mcp":  # M21: bearer token, no cookie
             continue
         path = re.sub(r"\{[^}]+\}", str(uuid.uuid4()), r.path)
         for method in sorted(r.methods - {"HEAD", "OPTIONS"}):
@@ -402,10 +386,7 @@ def test_unlocking_the_screen_is_throttled_like_any_pin_check(fx: Fx) -> None:
     set_pin(alice)
     alice.post("/auth/lock-screen")
     for _ in range(3):
-        assert (
-            alice.post("/auth/lock-screen/unlock", json={"pin": "000001"}).status_code
-            == 403
-        )
+        assert alice.post("/auth/lock-screen/unlock", json={"pin": "000001"}).status_code == 403
     r = alice.post("/auth/lock-screen/unlock", json={"pin": PIN})
     assert r.status_code == 429
 
@@ -450,12 +431,7 @@ def test_emailed_link_resets_the_pin_once_and_only_in_the_same_signed_in_session
     assert set_pin(bob, OTHER_PIN, email_token=token).status_code == 400
     # a request without any session cannot either
     anon = fx.w.browser()
-    assert (
-        anon.put(
-            "/api/v1/auth/pin", json={"pin": PIN, "email_token": token}
-        ).status_code
-        == 401
-    )
+    assert anon.put("/api/v1/auth/pin", json={"pin": PIN, "email_token": token}).status_code == 401
     assert set_pin(alice, OTHER_PIN, email_token=token).status_code == 200
     assert set_pin(alice, PIN, email_token=token).status_code == 400  # one time
     node = conf(fx, alice)
@@ -470,9 +446,7 @@ def test_email_reset_needs_mail(fx: Fx) -> None:
     assert alice.get("/auth/pin").json()["email_reset_available"] is False
 
 
-def test_an_expired_link_does_not_work(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_an_expired_link_does_not_work(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fx = mail_fx(tmp_path, monkeypatch)
     alice = Api(fx, "alice")
     set_pin(alice)

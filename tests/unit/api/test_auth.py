@@ -27,9 +27,7 @@ START = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 class World:
-    def __init__(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **overrides: Any
-    ) -> None:
+    def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **overrides: Any) -> None:
         lib, data = tmp_path / "library", tmp_path / "app-data"
         lib.mkdir()
         data.mkdir()
@@ -39,9 +37,7 @@ class World:
         Base.metadata.create_all(self.engine)
         with self.engine.begin() as conn:
             conn.execute(text("CREATE TABLE alembic_version (version_num TEXT)"))
-            conn.execute(
-                text("INSERT INTO alembic_version VALUES (:v)"), {"v": head_revision()}
-            )
+            conn.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": head_revision()})
         monkeypatch.setattr(main_module, "make_engine", lambda _: self.engine)
         self.offset = timedelta(0)
         monkeypatch.setattr(clock, "utcnow", lambda: START + self.offset)
@@ -58,9 +54,7 @@ class World:
         self.settings = Settings(**values)
         self.app = main_module.create_app(self.settings)
         self.ctx = self.app.state.auth
-        self.setup_token = (
-            bootstrap.ensure_token(self.ctx.sessions, self.settings) or ""
-        )
+        self.setup_token = bootstrap.ensure_token(self.ctx.sessions, self.settings) or ""
 
     def browser(self, **kw: Any) -> TestClient:
         return TestClient(self.app, **kw)
@@ -102,15 +96,11 @@ def world(make_world: Callable[..., World]) -> World:
 
 def login(c: TestClient, email: str, password: str = PASSWORD, **headers: str) -> Any:
     return c.post(
-        "/api/v1/auth/login",
-        json={"email": email, "password": password},
-        headers=headers,
+        "/api/v1/auth/login", json={"email": email, "password": password}, headers=headers
     )
 
 
-def signed_in(
-    w: World, email: str = "admin@example.com"
-) -> tuple[TestClient, dict[str, str]]:
+def signed_in(w: World, email: str = "admin@example.com") -> tuple[TestClient, dict[str, str]]:
     c = w.browser()
     r = login(c, email)
     assert r.status_code == 200, r.text
@@ -126,11 +116,7 @@ def invite(
     w: World, admin: tuple[TestClient, dict[str, str]], email: str, role: str = "member"
 ) -> str:
     c, h = admin
-    r = c.post(
-        "/api/v1/admin/users",
-        json={"email": email, "name": "New", "role": role},
-        headers=h,
-    )
+    r = c.post("/api/v1/admin/users", json={"email": email, "name": "New", "role": role}, headers=h)
     assert r.status_code == 201, r.text
     return str(r.json()["token"]["token"])
 
@@ -154,15 +140,8 @@ def test_no_default_credentials_or_open_registration(world: World) -> None:
     for email in ("admin", "admin@example.com", "admin@localhost"):
         for pw in ("admin", "password", PASSWORD, ""):
             assert login(c, email, pw).status_code == 401
-    for path in (
-        "/api/v1/auth/register",
-        "/api/v1/register",
-        "/api/v1/users",
-        "/api/v1/signup",
-    ):
-        assert c.post(
-            path, json={"email": "x@example.com", "password": PASSWORD}
-        ).status_code in (
+    for path in ("/api/v1/auth/register", "/api/v1/register", "/api/v1/users", "/api/v1/signup"):
+        assert c.post(path, json={"email": "x@example.com", "password": PASSWORD}).status_code in (
             404,
             405,
         )
@@ -202,9 +181,7 @@ def test_setup_token_is_stored_hashed_and_logged_once(
     assert bootstrap.TOKEN_KEY not in stored  # discarded once setup completes
 
 
-def test_configured_setup_token_and_minimum_length(
-    make_world: Callable[..., World],
-) -> None:
+def test_configured_setup_token_and_minimum_length(make_world: Callable[..., World]) -> None:
     with pytest.raises(ValueError, match="at least 32"):
         make_world(setup_token="short")
 
@@ -215,12 +192,7 @@ def test_configured_setup_token_works(make_world: Callable[..., World]) -> None:
     assert w.setup_token == ""  # nothing generated or logged
     r = w.browser().post(
         "/api/v1/setup/admin",
-        json={
-            "setup_token": secret,
-            "email": "a@example.com",
-            "name": "A",
-            "password": PASSWORD,
-        },
+        json={"setup_token": secret, "email": "a@example.com", "name": "A", "password": PASSWORD},
     )
     assert r.status_code == 201
 
@@ -230,9 +202,7 @@ def test_setup_token_guessing_is_throttled(make_world: Callable[..., World]) -> 
     c = w.browser()
     body = {"email": "a@example.com", "name": "A", "password": PASSWORD}
     codes = [
-        c.post(
-            "/api/v1/setup/admin", json={**body, "setup_token": f"guess{i}"}
-        ).status_code
+        c.post("/api/v1/setup/admin", json={**body, "setup_token": f"guess{i}"}).status_code
         for i in range(5)
     ]
     assert codes == [403, 403, 403, 429, 429]
@@ -245,14 +215,11 @@ def test_setup_rejects_weak_password_and_bad_email(world: World) -> None:
     c = world.browser()
     base = {"setup_token": world.setup_token, "name": "A"}
     weak = c.post(
-        "/api/v1/setup/admin",
-        json={**base, "email": "a@example.com", "password": "short"},
+        "/api/v1/setup/admin", json={**base, "email": "a@example.com", "password": "short"}
     )
     assert weak.status_code == 422
     assert weak.json()["detail"]["code"] == "PASSWORD_TOO_SHORT"
-    bad = c.post(
-        "/api/v1/setup/admin", json={**base, "email": "nope", "password": PASSWORD}
-    )
+    bad = c.post("/api/v1/setup/admin", json={**base, "email": "nope", "password": PASSWORD})
     assert bad.json()["detail"]["code"] == "INVALID_EMAIL"
     assert world.db_rows(User) == []
 
@@ -289,12 +256,7 @@ def test_session_cookie_attributes(make_world: Callable[..., World]) -> None:
     cookie = r.headers["set-cookie"]
     assert cookie.startswith("__Host-fc_session=")
     low = cookie.lower()
-    assert (
-        "httponly" in low
-        and "secure" in low
-        and "samesite=strict" in low
-        and "path=/" in low
-    )
+    assert "httponly" in low and "secure" in low and "samesite=strict" in low and "path=/" in low
     assert "domain" not in low
     assert r.headers["cache-control"] == "no-store"
     # Only a hash of the cookie value is stored.
@@ -325,8 +287,7 @@ def test_validation_errors_do_not_echo_secrets(world: World) -> None:
     assert r.status_code == 422
     assert "12345" not in r.text
     r = world.browser().post(
-        "/api/v1/auth/login",
-        json={"email": "a@example.com", "password": PASSWORD, "admin": True},
+        "/api/v1/auth/login", json={"email": "a@example.com", "password": PASSWORD, "admin": True}
     )
     assert r.status_code == 422 and PASSWORD not in r.text
 
@@ -347,10 +308,7 @@ def test_login_rehashes_when_cost_parameters_change(world: World) -> None:
 def test_brute_force_is_throttled_per_account_and_ip(world: World) -> None:
     world.create_admin()
     c = world.browser()
-    codes = [
-        login(c, "admin@example.com", f"guess number {i}!").status_code
-        for i in range(5)
-    ]
+    codes = [login(c, "admin@example.com", f"guess number {i}!").status_code for i in range(5)]
     assert codes == [401] * 5
     blocked = login(c, "admin@example.com", "guess number 6!")
     assert blocked.status_code == 429
@@ -361,41 +319,28 @@ def test_brute_force_is_throttled_per_account_and_ip(world: World) -> None:
     assert login(c, "admin@example.com").status_code == 200
 
 
-def test_distributed_guessing_hits_the_account_limit(
-    make_world: Callable[..., World],
-) -> None:
+def test_distributed_guessing_hits_the_account_limit(make_world: Callable[..., World]) -> None:
     w = make_world(trusted_proxy_hops=1, throttle_max_per_account=6)
     w.create_admin()
     c = w.browser()
     codes = [
         login(
-            c,
-            "admin@example.com",
-            f"guess number {i}!",
-            **{"X-Forwarded-For": f"10.0.0.{i}"},
+            c, "admin@example.com", f"guess number {i}!", **{"X-Forwarded-For": f"10.0.0.{i}"}
         ).status_code
         for i in range(8)
     ]
     assert codes[:6] == [401] * 6 and codes[6:] == [429, 429]
-    assert (
-        login(c, "admin@example.com", **{"X-Forwarded-For": "10.9.9.9"}).status_code
-        == 429
-    )
+    assert login(c, "admin@example.com", **{"X-Forwarded-For": "10.9.9.9"}).status_code == 429
 
 
 def test_spraying_accounts_hits_the_ip_limit_and_forwarded_header_is_ignored(
     make_world: Callable[..., World],
 ) -> None:
-    w = make_world(
-        throttle_max_per_ip=5
-    )  # trusted_proxy_hops=0: X-Forwarded-For is untrusted
+    w = make_world(throttle_max_per_ip=5)  # trusted_proxy_hops=0: X-Forwarded-For is untrusted
     c = w.browser()
     codes = [
         login(
-            c,
-            f"user{i}@example.com",
-            "guess number!",
-            **{"X-Forwarded-For": f"10.0.0.{i}"},
+            c, f"user{i}@example.com", "guess number!", **{"X-Forwarded-For": f"10.0.0.{i}"}
         ).status_code
         for i in range(7)
     ]
@@ -423,10 +368,7 @@ def test_throttle_applies_to_password_change_verification(world: World) -> None:
     codes = [
         c.post(
             "/api/v1/auth/password",
-            json={
-                "current_password": f"nope nope nope {i}",
-                "new_password": OTHER_PASSWORD,
-            },
+            json={"current_password": f"nope nope nope {i}", "new_password": OTHER_PASSWORD},
             headers=h,
         ).status_code
         for i in range(7)
@@ -450,9 +392,7 @@ def test_session_required_and_logout_revokes_server_side(world: World) -> None:
     assert replay.get("/api/v1/auth/session").status_code == 401
 
 
-def test_login_always_issues_a_new_session_and_retires_the_presented_one(
-    world: World,
-) -> None:
+def test_login_always_issues_a_new_session_and_retires_the_presented_one(world: World) -> None:
     world.create_admin()
     c, _ = signed_in(world)
     first = c.cookies.get("fc_session")
@@ -467,9 +407,7 @@ def test_idle_and_absolute_expiry(world: World) -> None:
     world.create_admin()
     c, _ = signed_in(world)
     world.advance(seconds=world.settings.session_idle_seconds - 60)
-    assert (
-        c.get("/api/v1/auth/session").status_code == 200
-    )  # activity renews the idle window
+    assert c.get("/api/v1/auth/session").status_code == 200  # activity renews the idle window
     world.advance(seconds=world.settings.session_idle_seconds + 1)
     assert c.get("/api/v1/auth/session").status_code == 401
 
@@ -480,14 +418,12 @@ def test_idle_and_absolute_expiry(world: World) -> None:
             break
     else:
         pytest.fail("absolute lifetime never enforced")
-    assert world.offset >= timedelta(
-        seconds=world.settings.session_absolute_seconds
-    ) - timedelta(days=1)
+    assert world.offset >= timedelta(seconds=world.settings.session_absolute_seconds) - timedelta(
+        days=1
+    )
 
 
-def test_password_change_revokes_other_sessions_and_rotates_current(
-    world: World,
-) -> None:
+def test_password_change_revokes_other_sessions_and_rotates_current(world: World) -> None:
     world.create_admin()
     a, ha = signed_in(world)
     b, _ = signed_in(world)
@@ -502,9 +438,7 @@ def test_password_change_revokes_other_sessions_and_rotates_current(
     assert a.get("/api/v1/auth/session").status_code == 200
     assert b.get("/api/v1/auth/session").status_code == 401
     assert login(world.browser(), "admin@example.com", PASSWORD).status_code == 401
-    assert (
-        login(world.browser(), "admin@example.com", OTHER_PASSWORD).status_code == 200
-    )
+    assert login(world.browser(), "admin@example.com", OTHER_PASSWORD).status_code == 200
 
 
 def test_admin_can_revoke_sessions_and_disable_account(world: World) -> None:
@@ -513,28 +447,19 @@ def test_admin_can_revoke_sessions_and_disable_account(world: World) -> None:
     member, _ = signed_in(world, "m@example.com")
     uid = next(u.id for u in world.db_rows(User) if u.email == "m@example.com")
     ac, ah = admin
-    assert (
-        ac.post(f"/api/v1/admin/users/{uid}/revoke-sessions", headers=ah).status_code
-        == 200
-    )
+    assert ac.post(f"/api/v1/admin/users/{uid}/revoke-sessions", headers=ah).status_code == 200
     assert member.get("/api/v1/auth/session").status_code == 401
 
     member, _ = signed_in(world, "m@example.com")
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=ah
-        ).status_code
+        ac.patch(f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=ah).status_code
         == 200
     )
     assert member.get("/api/v1/auth/session").status_code == 401
-    assert (
-        login(world.browser(), "m@example.com").status_code == 401
-    )  # correct password, disabled
+    assert login(world.browser(), "m@example.com").status_code == 401  # correct password, disabled
 
 
-def test_disabling_blocks_open_session_immediately_even_without_revocation(
-    world: World,
-) -> None:
+def test_disabling_blocks_open_session_immediately_even_without_revocation(world: World) -> None:
     admin = admin_session(world)
     onboard(world, admin, "m@example.com")
     member, _ = signed_in(world, "m@example.com")
@@ -561,9 +486,7 @@ def test_csrf_protection_on_state_changing_requests(world: World) -> None:
     assert c.post(url, headers=oh).status_code == 403
     # A cross-origin page cannot ride the cookie even with a token.
     assert (
-        c.post(url, headers={**h, "Origin": "https://evil.example"}).json()["detail"][
-            "code"
-        ]
+        c.post(url, headers={**h, "Origin": "https://evil.example"}).json()["detail"]["code"]
         == "ORIGIN_NOT_ALLOWED"
     )
     assert c.post(url, headers={**h, "Sec-Fetch-Site": "cross-site"}).status_code == 403
@@ -589,9 +512,7 @@ def test_configured_origin_is_allowed(make_world: Callable[..., World]) -> None:
     w = make_world(allowed_origins="https://files.example.org")
     w.create_admin()
     assert (
-        login(
-            w.browser(), "admin@example.com", Origin="https://files.example.org"
-        ).status_code
+        login(w.browser(), "admin@example.com", Origin="https://files.example.org").status_code
         == 200
     )
 
@@ -608,11 +529,7 @@ def test_public_url_is_an_allowed_origin(make_world: Callable[..., World]) -> No
 
 @pytest.mark.parametrize(
     "configured",
-    [
-        "https://Files.Example.org",
-        "https://files.example.org:443/",
-        "HTTPS://files.example.org",
-    ],
+    ["https://Files.Example.org", "https://files.example.org:443/", "HTTPS://files.example.org"],
 )
 def test_public_url_is_normalized_like_a_browser_origin(configured: str) -> None:
     s = Settings(database_url="sqlite://", public_url=configured)  # type: ignore[arg-type]
@@ -623,12 +540,7 @@ def test_public_url_is_normalized_like_a_browser_origin(configured: str) -> None
 
 @pytest.mark.parametrize(
     "bad",
-    [
-        "files.example.org",
-        "ftp://files.example.org",
-        "https://x.org/app",
-        "https://x.org?a=1",
-    ],
+    ["files.example.org", "ftp://files.example.org", "https://x.org/app", "https://x.org?a=1"],
 )
 def test_public_url_must_be_a_plain_origin(bad: str) -> None:
     with pytest.raises(ValueError, match="PUBLIC_URL"):
@@ -647,12 +559,8 @@ def test_invitation_is_single_use(world: World) -> None:
     accept = {"token": token, "password": PASSWORD}
     c = world.browser()
     assert c.post("/api/v1/auth/invitations/accept", json=accept).status_code == 200
-    replay = c.post(
-        "/api/v1/auth/invitations/accept", json={**accept, "password": OTHER_PASSWORD}
-    )
-    assert (
-        replay.status_code == 400 and replay.json()["detail"]["code"] == "INVALID_TOKEN"
-    )
+    replay = c.post("/api/v1/auth/invitations/accept", json={**accept, "password": OTHER_PASSWORD})
+    assert replay.status_code == 400 and replay.json()["detail"]["code"] == "INVALID_TOKEN"
     assert login(world.browser(), "m@example.com", PASSWORD).status_code == 200
     assert login(world.browser(), "m@example.com", OTHER_PASSWORD).status_code == 401
 
@@ -675,9 +583,7 @@ def test_tokens_are_hashed_at_rest_and_unguessable_shapes_fail(world: World) -> 
     assert len(token) >= 43  # 256 bits
     c = world.browser()
     for bad in ("", "x", token[:-1], token + "A", row.token_hash):
-        r = c.post(
-            "/api/v1/auth/invitations/accept", json={"token": bad, "password": PASSWORD}
-        )
+        r = c.post("/api/v1/auth/invitations/accept", json={"token": bad, "password": PASSWORD})
         assert r.status_code in (400, 422)
 
 
@@ -686,22 +592,18 @@ def test_reissue_invalidates_previous_invitation(world: World) -> None:
     first = invite(world, admin, "m@example.com")
     uid = world.db_rows(User)[-1].id
     ac, ah = admin
-    second = ac.post(f"/api/v1/admin/users/{uid}/invitation", headers=ah).json()[
-        "token"
-    ]
+    second = ac.post(f"/api/v1/admin/users/{uid}/invitation", headers=ah).json()["token"]
     assert second != first
     c = world.browser()
     assert (
         c.post(
-            "/api/v1/auth/invitations/accept",
-            json={"token": first, "password": PASSWORD},
+            "/api/v1/auth/invitations/accept", json={"token": first, "password": PASSWORD}
         ).status_code
         == 400
     )
     assert (
         c.post(
-            "/api/v1/auth/invitations/accept",
-            json={"token": second, "password": PASSWORD},
+            "/api/v1/auth/invitations/accept", json={"token": second, "password": PASSWORD}
         ).status_code
         == 200
     )
@@ -712,9 +614,7 @@ def test_token_purposes_do_not_cross(world: World) -> None:
     ac, ah = admin
     invitation = invite(world, admin, "m@example.com")
     admin_id = next(u.id for u in world.db_rows(User) if u.role == "admin")
-    reset = ac.post(
-        f"/api/v1/admin/users/{admin_id}/password-reset", headers=ah
-    ).json()["token"]
+    reset = ac.post(f"/api/v1/admin/users/{admin_id}/password-reset", headers=ah).json()["token"]
     c = world.browser()
     assert (
         c.post(
@@ -725,8 +625,7 @@ def test_token_purposes_do_not_cross(world: World) -> None:
     )
     assert (
         c.post(
-            "/api/v1/auth/invitations/accept",
-            json={"token": reset, "password": OTHER_PASSWORD},
+            "/api/v1/auth/invitations/accept", json={"token": reset, "password": OTHER_PASSWORD}
         ).status_code
         == 400
     )
@@ -748,37 +647,22 @@ def test_password_reset_single_use_expiring_and_revokes_sessions(world: World) -
     ac, ah = admin
 
     def issue() -> str:
-        return str(
-            ac.post(f"/api/v1/admin/users/{uid}/password-reset", headers=ah).json()[
-                "token"
-            ]
-        )
+        return str(ac.post(f"/api/v1/admin/users/{uid}/password-reset", headers=ah).json()["token"])
 
     stale = issue()
     world.advance(seconds=world.settings.reset_ttl_seconds + 1)
     done = "/api/v1/auth/password-reset/complete"
     c = world.browser()
-    assert (
-        c.post(done, json={"token": stale, "password": OTHER_PASSWORD}).status_code
-        == 400
-    )
+    assert c.post(done, json={"token": stale, "password": OTHER_PASSWORD}).status_code == 400
 
     token = issue()
     weak = c.post(done, json={"token": token, "password": "short"})
     assert weak.status_code == 422  # policy failure does not consume the token
     assert member.get("/api/v1/auth/session").status_code == 200
+    assert c.post(done, json={"token": token, "password": OTHER_PASSWORD}).status_code == 200
+    assert member.get("/api/v1/auth/session").status_code == 401  # old sessions are gone
     assert (
-        c.post(done, json={"token": token, "password": OTHER_PASSWORD}).status_code
-        == 200
-    )
-    assert (
-        member.get("/api/v1/auth/session").status_code == 401
-    )  # old sessions are gone
-    assert (
-        c.post(
-            done, json={"token": token, "password": "yet another phrase 7"}
-        ).status_code
-        == 400
+        c.post(done, json={"token": token, "password": "yet another phrase 7"}).status_code == 400
     )
     assert login(world.browser(), "m@example.com", OTHER_PASSWORD).status_code == 200
     assert login(world.browser(), "m@example.com", PASSWORD).status_code == 401
@@ -800,10 +684,7 @@ def test_reset_is_refused_for_invited_and_disabled_accounts(world: World) -> Non
     ac, ah = admin
     invite(world, admin, "m@example.com")
     uid = world.db_rows(User)[-1].id
-    assert (
-        ac.post(f"/api/v1/admin/users/{uid}/password-reset", headers=ah).status_code
-        == 409
-    )
+    assert ac.post(f"/api/v1/admin/users/{uid}/password-reset", headers=ah).status_code == 409
 
 
 # ---------------------------------------------------------------- admin API & authz negatives
@@ -828,10 +709,7 @@ def test_admin_endpoints_require_authentication_and_admin_role(world: World) -> 
         assert getattr(anon, method)(url, **kw).status_code == 401, url
         r = getattr(member, method)(url, headers=mh, **kw)
         assert r.status_code == 403 and r.json()["detail"]["code"] == "FORBIDDEN", url
-    assert [u.email for u in world.db_rows(User)] == [
-        "admin@example.com",
-        "m@example.com",
-    ]
+    assert [u.email for u in world.db_rows(User)] == ["admin@example.com", "m@example.com"]
 
 
 def test_member_cannot_escalate_via_self_service_endpoints(world: World) -> None:
@@ -839,15 +717,10 @@ def test_member_cannot_escalate_via_self_service_endpoints(world: World) -> None
     onboard(world, admin, "m@example.com")
     member, mh = signed_in(world, "m@example.com")
     r = member.patch(
-        f"/api/v1/admin/users/{world.db_rows(User)[1].id}",
-        json={"role": "admin"},
-        headers=mh,
+        f"/api/v1/admin/users/{world.db_rows(User)[1].id}", json={"role": "admin"}, headers=mh
     )
     assert r.status_code == 403
-    assert (
-        next(u for u in world.db_rows(User) if u.email == "m@example.com").role
-        == "member"
-    )
+    assert next(u for u in world.db_rows(User) if u.email == "m@example.com").role == "member"
 
 
 def test_admin_api_never_exposes_secrets(world: World) -> None:
@@ -861,9 +734,7 @@ def test_admin_api_never_exposes_secrets(world: World) -> None:
     }  # one-time secret by design
     texts = [
         ac.get("/api/v1/admin/users").text,
-        ac.patch(
-            f"/api/v1/admin/users/{uid}", json={"name": "Renamed"}, headers=ah
-        ).text,
+        ac.patch(f"/api/v1/admin/users/{uid}", json={"name": "Renamed"}, headers=ah).text,
         json.dumps(reset_body),
     ]
     hashes = [u.password_hash for u in world.db_rows(User) if u.password_hash]
@@ -871,15 +742,7 @@ def test_admin_api_never_exposes_secrets(world: World) -> None:
         assert "argon2" not in t and "password" not in t.lower()
         assert not any(h in t for h in hashes)
     for item in json.loads(texts[0]):
-        assert set(item) == {
-            "id",
-            "email",
-            "name",
-            "role",
-            "status",
-            "created_at",
-            "sso_linked",
-        }
+        assert set(item) == {"id", "email", "name", "role", "status", "created_at", "sso_linked"}
 
 
 def test_extra_fields_are_rejected_on_admin_writes(world: World) -> None:
@@ -887,12 +750,7 @@ def test_extra_fields_are_rejected_on_admin_writes(world: World) -> None:
     ac, ah = admin
     r = ac.post(
         "/api/v1/admin/users",
-        json={
-            "email": "m@example.com",
-            "name": "M",
-            "password": PASSWORD,
-            "status": "active",
-        },
+        json={"email": "m@example.com", "name": "M", "password": PASSWORD, "status": "active"},
         headers=ah,
     )
     assert r.status_code == 422 and PASSWORD not in r.text
@@ -902,15 +760,9 @@ def test_duplicate_email_and_invalid_input(world: World) -> None:
     admin = admin_session(world)
     ac, ah = admin
     invite(world, admin, "m@example.com")
-    dup = ac.post(
-        "/api/v1/admin/users",
-        json={"email": " M@Example.com ", "name": "M"},
-        headers=ah,
-    )
+    dup = ac.post("/api/v1/admin/users", json={"email": " M@Example.com ", "name": "M"}, headers=ah)
     assert dup.status_code == 409
-    bad = ac.post(
-        "/api/v1/admin/users", json={"email": "not-an-email", "name": "M"}, headers=ah
-    )
+    bad = ac.post("/api/v1/admin/users", json={"email": "not-an-email", "name": "M"}, headers=ah)
     assert bad.status_code == 422
 
 
@@ -924,15 +776,11 @@ def test_last_active_admin_cannot_be_demoted_or_disabled(world: World) -> None:
     onboard(world, admin, "second@example.com", role="admin")
     second = next(u.id for u in world.db_rows(User) if u.email == "second@example.com")
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{second}", json={"role": "member"}, headers=ah
-        ).status_code
+        ac.patch(f"/api/v1/admin/users/{second}", json={"role": "member"}, headers=ah).status_code
         == 200
     )
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{me}", json={"role": "member"}, headers=ah
-        ).status_code
+        ac.patch(f"/api/v1/admin/users/{me}", json={"role": "member"}, headers=ah).status_code
         == 409
     )
 
@@ -943,21 +791,19 @@ def test_reenabling_account_without_password_returns_to_invited(world: World) ->
     invite(world, admin, "m@example.com")
     uid = world.db_rows(User)[-1].id
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{uid}", json={"status": "active"}, headers=ah
-        ).status_code
+        ac.patch(f"/api/v1/admin/users/{uid}", json={"status": "active"}, headers=ah).status_code
         == 409
     )
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=ah
-        ).json()["status"]
+        ac.patch(f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=ah).json()[
+            "status"
+        ]
         == "disabled"
     )
     assert (
-        ac.patch(
-            f"/api/v1/admin/users/{uid}", json={"status": "active"}, headers=ah
-        ).json()["status"]
+        ac.patch(f"/api/v1/admin/users/{uid}", json={"status": "active"}, headers=ah).json()[
+            "status"
+        ]
         == "invited"
     )
 
@@ -966,8 +812,7 @@ def test_unknown_user_id_is_404(world: World) -> None:
     admin = admin_session(world)
     ac, ah = admin
     r = ac.post(
-        "/api/v1/admin/users/00000000-0000-0000-0000-000000000000/password-reset",
-        headers=ah,
+        "/api/v1/admin/users/00000000-0000-0000-0000-000000000000/password-reset", headers=ah
     )
     assert r.status_code == 404
 
@@ -980,16 +825,9 @@ def test_audit_trail_records_events_without_secrets(world: World) -> None:
     login(world.browser(), "admin@example.com", "wrong password here")
     token = invite(world, admin, "m@example.com")
     actions = [a.action for a in world.db_rows(AuthAudit)]
-    for expected in (
-        "setup.admin_created",
-        "login.success",
-        "login.failed",
-        "user.invited",
-    ):
+    for expected in ("setup.admin_created", "login.success", "login.failed", "user.invited"):
         assert expected in actions
-    dump = json.dumps(
-        [(a.action, a.details, a.ip) for a in world.db_rows(AuthAudit)], default=str
-    )
+    dump = json.dumps([(a.action, a.details, a.ip) for a in world.db_rows(AuthAudit)], default=str)
     assert token not in dump and PASSWORD not in dump and "wrong password" not in dump
     assert "@example.com" not in dump  # no plaintext emails in audit details
 

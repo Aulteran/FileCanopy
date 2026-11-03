@@ -50,10 +50,7 @@ def make_pdf(text: str = "Hello FileCanopy") -> bytes:
     out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
     for off in offsets:
         out += b"%010d 00000 n \n" % off
-    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-        len(objs) + 1,
-        xref,
-    )
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
     return bytes(out)
 
 
@@ -137,11 +134,7 @@ class FakeConverter:
                 elif outer.mode == "garbage":
                     self._send(200, b"this is not a pdf", "application/pdf")
                 else:
-                    self._send(
-                        422,
-                        json.dumps({"error": outer.mode}).encode(),
-                        "application/json",
-                    )
+                    self._send(422, json.dumps({"error": outer.mode}).encode(), "application/json")
 
             def _send(self, status: int, body: bytes, ctype: str) -> None:
                 self.send_response(status)
@@ -197,9 +190,7 @@ def get(api: Api, node: uuid.UUID, what: str, **kw: Any) -> Any:
 
 def put_optin(api: Api, enabled: bool) -> Any:
     return api.client.put(
-        "/api/v1/preferences/local-processing",
-        json={"enabled": enabled},
-        headers=api.headers,
+        "/api/v1/preferences/local-processing", json={"enabled": enabled}, headers=api.headers
     )
 
 
@@ -208,9 +199,7 @@ def sha(path: Path) -> str:
 
 
 def library_hashes(root: Path) -> dict[str, str]:
-    return {
-        str(p.relative_to(root)): sha(p) for p in sorted(root.rglob("*")) if p.is_file()
-    }
+    return {str(p.relative_to(root)): sha(p) for p in sorted(root.rglob("*")) if p.is_file()}
 
 
 def previews_dir(fx: Fx) -> Path:
@@ -226,12 +215,7 @@ def processes_with(marker: str) -> list[str]:
     for entry in Path("/proc").iterdir():
         if entry.name.isdigit():
             try:
-                cmd = (
-                    (entry / "cmdline")
-                    .read_bytes()
-                    .replace(b"\0", b" ")
-                    .decode(errors="replace")
-                )
+                cmd = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
             except OSError:
                 continue
             if marker in cmd:
@@ -241,24 +225,15 @@ def processes_with(marker: str) -> list[str]:
 
 def test_extract_text_from_pdf_and_docx_and_cache_it(fx: Fx, alice: Api) -> None:
     pdf = nid(alice.upload(fx.alice_root, "report.pdf", make_pdf("Quarterly numbers")))
-    docx = nid(
-        alice.upload(fx.alice_root, "letter.docx", make_docx(["Dear Bob", "Pay up"]))
-    )
+    docx = nid(alice.upload(fx.alice_root, "letter.docx", make_docx(["Dear Bob", "Pay up"])))
     r = get(alice, pdf, "extract")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert (
-        body["kind"] == "pdf"
-        and body["pages"] == 1
-        and "Quarterly numbers" in body["text"]
-    )
+    assert body["kind"] == "pdf" and body["pages"] == 1 and "Quarterly numbers" in body["text"]
     assert body["truncated"] is False
     r = get(alice, docx, "extract")
     assert r.status_code == 200
-    assert r.json()["kind"] == "docx" and r.json()["text"].splitlines() == [
-        "Dear Bob",
-        "Pay up",
-    ]
+    assert r.json()["kind"] == "docx" and r.json()["text"].splitlines() == ["Dear Bob", "Pay up"]
     # stored outside the library, one directory per node, nothing inside the library tree
     assert any(previews_dir(fx).glob(f"{pdf}/*.json"))
     assert not list(fx.w.settings.library_path.rglob("*.json"))
@@ -277,17 +252,11 @@ def test_extract_failures_are_friendly_and_never_touch_the_original(
         "locked.pdf": encrypted_pdf(),
         "broken.docx": b"PK\x03\x04" + b"\x00" * 40,
         "doctype.docx": make_docx(
-            ["x"],
-            {"word/document.xml": b'<!DOCTYPE d [<!ENTITY a "aaa">]><w:document/>'},
+            ["x"], {"word/document.xml": b'<!DOCTYPE d [<!ENTITY a "aaa">]><w:document/>'}
         ),
-        "bomb.docx": make_docx(
-            ["x"], {"word/document.xml": b"<w:p>" + b"\x00" * (200 << 20)}
-        ),
+        "bomb.docx": make_docx(["x"], {"word/document.xml": b"<w:p>" + b"\x00" * (200 << 20)}),
     }
-    ids = {
-        name: nid(alice.upload(fx.alice_root, name, data))
-        for name, data in cases.items()
-    }
+    ids = {name: nid(alice.upload(fx.alice_root, name, data)) for name, data in cases.items()}
     before = library_hashes(lib)
     expect = {
         "truncated.pdf": "UNREADABLE",
@@ -300,24 +269,16 @@ def test_extract_failures_are_friendly_and_never_touch_the_original(
     for name, want in expect.items():
         r = get(alice, ids[name], "extract")
         assert r.status_code in (413, 422) and code(r) == want, (name, r.text)
-    assert (
-        library_hashes(lib) == before
-    )  # originals are byte-identical after every failure
+    assert library_hashes(lib) == before  # originals are byte-identical after every failure
     # a pdf that is really text, and a docx that is not a zip, are refused by the content check
     fake = nid(alice.upload(fx.alice_root, "fake.pdf", b"<html>hi</html>"))
     assert code(get(alice, fake, "extract")) == "TYPE_MISMATCH"
 
 
 def test_extract_limits_the_text_returned(fx: Fx, alice: Api) -> None:
-    big = nid(
-        alice.upload(fx.alice_root, "big.docx", make_docx(["word " * 100] * 3000))
-    )
+    big = nid(alice.upload(fx.alice_root, "big.docx", make_docx(["word " * 100] * 3000)))
     body = get(alice, big, "extract").json()
-    assert (
-        body["chars"] == 200_000
-        and body["truncated"] is True
-        and len(body["text"]) == 200_000
-    )
+    assert body["chars"] == 200_000 and body["truncated"] is True and len(body["text"]) == 200_000
 
 
 # ---------------------------------------------------------------- access
@@ -334,9 +295,7 @@ def test_derivative_routes_use_the_download_access_rules(fx: Fx, alice: Api) -> 
     c, _ = fx.admin
     for node, what in routes:
         for r in (get(dave, node, what), c.get(f"/api/v1/nodes/{node}/{what}")):
-            assert r.status_code == 403 and r.json() == {
-                "detail": {"code": "FORBIDDEN"}
-            }
+            assert r.status_code == 403 and r.json() == {"detail": {"code": "FORBIDDEN"}}
         assert fx.w.browser().get(f"/api/v1/nodes/{node}/{what}").status_code == 401
     # a viewer grant reads derivatives exactly like the file
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
@@ -351,9 +310,7 @@ def test_wrong_kind_folders_and_forged_types_are_refused(fx: Fx, alice: Api) -> 
     fake_zip = nid(alice.upload(fx.alice_root, "f.zip", b"just text"))
     assert code(get(alice, txt, "extract")) == "NOT_PREVIEWABLE"
     assert code(get(alice, txt, "thumbnail")) == "NOT_PREVIEWABLE"
-    assert (
-        code(get(alice, macro, "preview")) == "NOT_PREVIEWABLE"
-    )  # macro-enabled: refused
+    assert code(get(alice, macro, "preview")) == "NOT_PREVIEWABLE"  # macro-enabled: refused
     assert code(get(alice, fake_png, "thumbnail")) == "TYPE_MISMATCH"
     assert code(get(alice, fake_zip, "archive")) == "TYPE_MISMATCH"
     assert get(alice, fx.taxes, "extract").status_code == 415
@@ -382,11 +339,7 @@ def test_thumbnail_is_a_reencoded_jpeg_without_metadata(fx: Fx, alice: Api) -> N
 
 
 def test_thumbnail_refuses_svg_bombs_and_broken_images(fx: Fx, alice: Api) -> None:
-    svg = nid(
-        alice.upload(
-            fx.alice_root, "s.svg", b'<svg xmlns="http://www.w3.org/2000/svg"/>'
-        )
-    )
+    svg = nid(alice.upload(fx.alice_root, "s.svg", b'<svg xmlns="http://www.w3.org/2000/svg"/>'))
     assert code(get(alice, svg, "thumbnail")) == "NOT_PREVIEWABLE"  # never rasterized
     huge = io.BytesIO()
     Image.new("1", (10000, 10000)).save(huge, "PNG")  # 100 megapixels, a few KB on disk
@@ -422,9 +375,7 @@ def test_zip_listing_is_bounded_and_inert(fx: Fx, alice: Api) -> None:
     names = {e["name"]: e for e in body["entries"]}
     assert body["count"] == 7 and body["truncated"] is False
     assert names["../evil.txt"]["unsafe_name"] and names["/etc/passwd"]["unsafe_name"]
-    assert (
-        names["C:\\boot.ini"]["unsafe_name"] and not names["docs/a.txt"]["unsafe_name"]
-    )
+    assert names["C:\\boot.ini"]["unsafe_name"] and not names["docs/a.txt"]["unsafe_name"]
     assert "deep.txt" not in names  # nested archives are not opened
     assert not any("\x07" in n or "\u202e" in n for n in names)
     assert body["suspicious_ratio"] is True  # 5 MB of zeros packed to a few KB
@@ -437,11 +388,7 @@ def test_zip_listing_caps_entries(fx: Fx, alice: Api) -> None:
     many = make_zip({f"f{i}.txt": b"" for i in range(2500)})
     zid = nid(alice.upload(fx.alice_root, "many.zip", many))
     body = get(alice, zid, "archive").json()
-    assert (
-        body["count"] == 2500
-        and len(body["entries"]) == 1000
-        and body["truncated"] is True
-    )
+    assert body["count"] == 2500 and len(body["entries"]) == 1000 and body["truncated"] is True
     junk = nid(alice.upload(fx.alice_root, "junk.zip", b"PK\x03\x04" + b"\xff" * 100))
     assert code(get(alice, junk, "archive")) == "UNREADABLE"
 
@@ -454,9 +401,7 @@ def test_office_without_converter_says_download_instead(fx: Fx, alice: Api) -> N
     r = get(alice, doc, "preview")
     assert r.status_code == 503 and code(r) == "CONVERTER_UNAVAILABLE"
     assert alice.download(doc).status_code == 200  # download is untouched
-    assert (
-        get(alice, doc, "extract").status_code == 200
-    )  # extraction needs no converter
+    assert get(alice, doc, "extract").status_code == 200  # extraction needs no converter
     caps = alice.get("/preferences/local-processing").json()
     assert caps == {"enabled": False, "converter": False}
 
@@ -467,9 +412,7 @@ def test_office_preview_converts_caches_and_supports_range(
     fx = make_fx(converter_url=converter.url)
     alice = Api(fx, "alice")
     converter.pdf = make_pdf("converted")
-    sheet_xlsx = make_zip(
-        {"[Content_Types].xml": "<Types/>", "xl/workbook.xml": "<w/>"}
-    )
+    sheet_xlsx = make_zip({"[Content_Types].xml": "<Types/>", "xl/workbook.xml": "<w/>"})
     for name, data in (
         ("a.docx", make_docx(["hello"])),
         ("b.xlsx", sheet_xlsx),
@@ -480,10 +423,7 @@ def test_office_preview_converts_caches_and_supports_range(
         node = nid(alice.upload(fx.alice_root, name, data))
         r = get(alice, node, "preview")
         assert r.status_code == 200, (name, r.text)
-        assert (
-            r.headers["content-type"] == "application/pdf"
-            and r.content == converter.pdf
-        )
+        assert r.headers["content-type"] == "application/pdf" and r.content == converter.pdf
         assert r.headers["x-content-type-options"] == "nosniff"
         assert "sandbox" in r.headers["content-security-policy"]
         assert r.headers["content-disposition"].startswith("inline")
@@ -514,31 +454,23 @@ def test_office_preview_is_refreshed_when_the_file_changes(
     os.utime(path, ns=(1_900_000_000_000_000_000, 1_900_000_000_000_000_000))
     assert get(alice, node, "preview").status_code == 200
     assert converter.hits == 2  # a new key, so a new conversion
-    assert (
-        len(list(previews_dir(fx).glob(f"{node}/*.pdf"))) == 1
-    )  # the old version is gone
+    assert len(list(previews_dir(fx).glob(f"{node}/*.pdf"))) == 1  # the old version is gone
 
 
 def test_office_refusals(make_fx: Callable[..., Fx], converter: FakeConverter) -> None:
-    fx = make_fx(
-        converter_url=converter.url, preview_office_max_bytes=2000, preview_max_pages=2
-    )
+    fx = make_fx(converter_url=converter.url, preview_office_max_bytes=2000, preview_max_pages=2)
     alice = Api(fx, "alice")
     small = nid(alice.upload(fx.alice_root, "s.docx", make_docx(["x"])))
     bigger = nid(
         alice.upload(
-            fx.alice_root,
-            "big.docx",
-            make_docx(["x"], {"word/media/photo.bin": os.urandom(5000)}),
+            fx.alice_root, "big.docx", make_docx(["x"], {"word/media/photo.bin": os.urandom(5000)})
         )
     )
     bomb = nid(
         alice.upload(
             fx.alice_root,
             "bomb.xlsx",
-            make_zip(
-                {"[Content_Types].xml": "<T/>", "xl/sheet.xml": b"\x00" * (8 << 20)}
-            ),
+            make_zip({"[Content_Types].xml": "<T/>", "xl/sheet.xml": b"\x00" * (8 << 20)}),
         )
     )
     forged = nid(alice.upload(fx.alice_root, "forged.docx", b"MZ not an office file"))
@@ -546,24 +478,18 @@ def test_office_refusals(make_fx: Callable[..., Fx], converter: FakeConverter) -
         alice.upload(
             fx.alice_root,
             "renamed.docx",  # really macro-enabled: the extension says nothing
-            make_zip(
-                {"[Content_Types].xml": "<T/>", "word/vbaProject.bin": b"\x00" * 64}
-            ),
+            make_zip({"[Content_Types].xml": "<T/>", "word/vbaProject.bin": b"\x00" * 64}),
         )
     )
     basic_odt = nid(
         alice.upload(
             fx.alice_root,
             "basic.odt",
-            make_zip(
-                {"mimetype": "x", "Basic/Standard/Module1.xml": "Sub Main\nEnd Sub"}
-            ),
+            make_zip({"mimetype": "x", "Basic/Standard/Module1.xml": "Sub Main\nEnd Sub"}),
         )
     )
     assert code(get(alice, bigger, "preview")) == "TOO_LARGE"
-    assert (
-        code(get(alice, bomb, "preview")) == "TOO_LARGE"
-    )  # zip bomb: refused before conversion
+    assert code(get(alice, bomb, "preview")) == "TOO_LARGE"  # zip bomb: refused before conversion
     assert code(get(alice, forged, "preview")) == "TYPE_MISMATCH"
     assert code(get(alice, renamed_docm, "preview")) == "HAS_MACROS"
     assert code(get(alice, basic_odt, "preview")) == "HAS_MACROS"
@@ -582,14 +508,10 @@ def test_office_refusals(make_fx: Callable[..., Fx], converter: FakeConverter) -
     converter.mode = "garbage"  # a converter that answers rubbish is not trusted
     assert code(get(alice, small, "preview")) == "CONVERT_FAILED"
     assert not list(previews_dir(fx).glob(f"{small}/*.pdf"))  # nothing bad was cached
-    assert not list(
-        (previews_dir(fx) / ".tmp").glob("*")
-    )  # and no temp file was left behind
+    assert not list((previews_dir(fx) / ".tmp").glob("*"))  # and no temp file was left behind
 
 
-def test_converter_that_is_down_is_a_friendly_refusal(
-    make_fx: Callable[..., Fx],
-) -> None:
+def test_converter_that_is_down_is_a_friendly_refusal(make_fx: Callable[..., Fx]) -> None:
     fx = make_fx(converter_url="http://127.0.0.1:9")  # nothing listens here
     alice = Api(fx, "alice")
     doc = nid(alice.upload(fx.alice_root, "a.docx", make_docx(["hi"])))
@@ -629,9 +551,7 @@ def test_private_files_need_the_optin_for_every_server_side_derivative(
     routes = [(pdf, "extract"), (png, "thumbnail"), (zp, "archive"), (doc, "preview")]
     for node, what in routes:
         r = get(alice, node, what)
-        assert r.status_code == 403 and code(r) == "LOCAL_PROCESSING_OPT_IN_REQUIRED", (
-            what
-        )
+        assert r.status_code == 403 and code(r) == "LOCAL_PROCESSING_OPT_IN_REQUIRED", what
     assert converter.hits == 0  # nothing left the API
     # showing the PDF the browser renders itself needs no server-side processing (ADR-019 §6)
     assert get(alice, pdf, "view").status_code == 200
@@ -691,27 +611,17 @@ def test_derivatives_go_with_the_file(fx: Fx, alice: Api) -> None:
     inner = nid(alice.upload(folder, "i.pdf", make_pdf("inner")))
     get(alice, pdf, "extract")
     get(alice, inner, "extract")
-    assert (previews_dir(fx) / str(pdf)).is_dir() and (
-        previews_dir(fx) / str(inner)
-    ).is_dir()
+    assert (previews_dir(fx) / str(pdf)).is_dir() and (previews_dir(fx) / str(inner)).is_dir()
     assert alice.client.delete(
         f"/api/v1/nodes/{pdf}", params={"expected_revision": 1}, headers=alice.headers
     ).status_code in (200, 204)
-    assert not (
-        previews_dir(fx) / str(pdf)
-    ).exists()  # trashed: derivatives removed at once
+    assert not (previews_dir(fx) / str(pdf)).exists()  # trashed: derivatives removed at once
     r = alice.client.delete(
-        f"/api/v1/nodes/{folder}",
-        params={"expected_revision": 1},
-        headers=alice.headers,
+        f"/api/v1/nodes/{folder}", params={"expected_revision": 1}, headers=alice.headers
     )
     assert r.status_code in (200, 204)
-    assert not (
-        previews_dir(fx) / str(inner)
-    ).exists()  # a folder takes its files' previews along
-    assert (
-        get(alice, pdf, "extract").status_code == 403
-    )  # and the node itself is out of reach
+    assert not (previews_dir(fx) / str(inner)).exists()  # a folder takes its files' previews along
+    assert get(alice, pdf, "extract").status_code == 403  # and the node itself is out of reach
 
 
 def test_sweep_removes_orphans_stale_versions_and_trims(fx: Fx, alice: Api) -> None:
@@ -730,9 +640,7 @@ def test_sweep_removes_orphans_stale_versions_and_trims(fx: Fx, alice: Api) -> N
     os.utime(old_tmp, (1, 1))
     out = cache.sweep(fx.w.ctx.sessions)
     assert out["nodes"] == 1 and not (cache.base / str(orphan)).exists()
-    assert (
-        not stale.exists() and len(list((cache.base / str(keep)).glob("*.json"))) == 1
-    )
+    assert not stale.exists() and len(list((cache.base / str(keep)).glob("*.json"))) == 1
     assert not (cache.base / "not-a-uuid").exists() and not old_tmp.exists()
     # trimming to a size cap removes the least recently used file first
     tiny = PreviewCache(fx.w.settings.app_data_path, 1)
@@ -788,11 +696,7 @@ def test_sandbox_child_has_no_secrets_in_its_environment(
 ) -> None:
     monkeypatch.setenv("FILECANOPY_DATABASE_URL", "postgresql://user:hunter2@db/x")
     monkeypatch.setenv("FILECANOPY_SETUP_TOKEN", "t" * 40)
-    argv = [
-        sys.executable,
-        "-c",
-        "import os,json;print(json.dumps(sorted(os.environ)))",
-    ]
+    argv = [sys.executable, "-c", "import os,json;print(json.dumps(sorted(os.environ)))"]
     status, out = run_child(argv, None, LIMITS)
     names = json.loads(out)
     assert status == 0 and not [n for n in names if n.startswith("FILECANOPY")]
@@ -807,9 +711,5 @@ def test_worker_survives_hostile_input_as_a_coded_error(fx: Fx, alice: Api) -> N
     )
     node = nid(alice.upload(fx.alice_root, "loop.pdf", loop))
     r = get(alice, node, "extract")
-    assert r.status_code in (422, 504) and code(r) in (
-        "UNREADABLE",
-        "PREVIEW_FAILED",
-        "TIMEOUT",
-    )
+    assert r.status_code in (422, 504) and code(r) in ("UNREADABLE", "PREVIEW_FAILED", "TIMEOUT")
     assert alice.download(node).content == loop  # and the API is still serving

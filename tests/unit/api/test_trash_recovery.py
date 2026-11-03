@@ -45,10 +45,7 @@ def journal(
     fx: Fx, action: str, node: uuid.UUID | None, detail: dict[str, Any], who: str
 ) -> uuid.UUID:
     with fx.w.ctx.sessions() as db:
-        now = (
-            fx.w.ctx.sessions
-            and __import__("app.auth.clock", fromlist=["utcnow"]).utcnow()
-        )
+        now = fx.w.ctx.sessions and __import__("app.auth.clock", fromlist=["utcnow"]).utcnow()
         op = FileOperation(
             actor_user_id=fx.uid(who),
             action=action,
@@ -82,9 +79,7 @@ def item_dir(fx: Fx, node: uuid.UUID, trash_id: uuid.UUID) -> Any:
     return trash_dir(fx) / str(node_row(fx, node).root_id) / str(trash_id)
 
 
-def trash_detail(
-    fx: Fx, node: uuid.UUID, name: str, trash_id: uuid.UUID
-) -> dict[str, Any]:
+def trash_detail(fx: Fx, node: uuid.UUID, name: str, trash_id: uuid.UUID) -> dict[str, Any]:
     return {
         "src_parent": str(fx.alice_root),
         "src_name": name,
@@ -128,11 +123,7 @@ def test_trash_crash_after_the_rename_rolls_forward(fx: Fx) -> None:
     assert [i["id"] for i in listed] == [str(tid)] and listed[0]["name"] == "a.txt"
     assert op_row(fx, op).status == "committed"
     assert me.restore(str(tid)).status_code == 200 and disk(fx, f).read_bytes() == b"x"
-    events = [
-        e.details.get("recovered")
-        for e in fx.w.db_rows(FileEvent)
-        if e.action == "trashed"
-    ]
+    events = [e.details.get("recovered") for e in fx.w.db_rows(FileEvent) if e.action == "trashed"]
     assert events == [True]
 
 
@@ -161,11 +152,7 @@ def trashed(fx: Fx, name: str = "a.txt") -> tuple[uuid.UUID, str]:
 
 def mark_item_busy(fx: Fx, item: str) -> None:
     with fx.w.ctx.sessions() as db:
-        db.execute(
-            update(TrashItem)
-            .where(TrashItem.id == uuid.UUID(item))
-            .values(status="busy")
-        )
+        db.execute(update(TrashItem).where(TrashItem.id == uuid.UUID(item)).values(status="busy"))
         db.commit()
 
 
@@ -237,9 +224,7 @@ def check_events(fx: Fx, node: uuid.UUID) -> list[FileEvent]:
     with fx.w.ctx.sessions() as db:
         return list(
             db.scalars(
-                select(FileEvent).where(
-                    FileEvent.node_id == node, FileEvent.action == "checked"
-                )
+                select(FileEvent).where(FileEvent.node_id == node, FileEvent.action == "checked")
             )
         )
 
@@ -303,9 +288,7 @@ def test_check_only_for_flagged_items_and_only_for_people_who_can_see_them(
     assert me.post(f"/trash/{item}/check").status_code == 409  # not flagged
     flag_item(fx, item)
     assert P(fx, "bob").post(f"/trash/{item}/check").status_code == 403
-    assert (
-        P(fx, "admin2").post(f"/trash/{item}/check").status_code == 403
-    )  # no admin bypass
+    assert P(fx, "admin2").post(f"/trash/{item}/check").status_code == 403  # no admin bypass
     assert check_events(fx, f) == []
 
 
@@ -323,9 +306,7 @@ def test_a_root_manager_checks_every_flagged_item_of_the_root(fx: Fx) -> None:
     assert r.json() == {"checked": 2, "released": 1, "still_flagged": 1}
     assert me.restore(item1).status_code == 200
     assert P(fx, "bob").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
-    assert (
-        P(fx, "admin2").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
-    )
+    assert P(fx, "admin2").post(f"/roots/{fx.alice_root}/trash/check").status_code == 403
 
 
 def test_check_does_not_overwrite_a_delete_forever_that_claimed_the_item(
@@ -375,9 +356,7 @@ def test_check_looks_inside_a_folder(fx: Fx) -> None:
     assert me.post(f"/trash/{item}/check").json()["reason"] == "entry_changed"
 
 
-def test_bytes_left_in_the_trash_by_an_interrupted_move_get_a_trash_entry(
-    fx: Fx,
-) -> None:
+def test_bytes_left_in_the_trash_by_an_interrupted_move_get_a_trash_entry(fx: Fx) -> None:
     me = P(fx, "alice")
     f = nid(me.upload(fx.alice_root, "m.txt", b"payload"))
     tid = uuid.uuid4()
@@ -467,11 +446,7 @@ def test_purge_crash_states(fx: Fx) -> None:
     assert recover(fx)["reconcile_needed"] == 1 and folder.exists()
     # deletion finished and only the database step was lost: roll forward
     with fx.w.ctx.sessions() as db:
-        db.execute(
-            update(TrashItem)
-            .where(TrashItem.id == uuid.UUID(item))
-            .values(status="busy")
-        )
+        db.execute(update(TrashItem).where(TrashItem.id == uuid.UUID(item)).values(status="busy"))
         db.commit()
     (folder / "a.txt").unlink()
     folder.rmdir()
@@ -484,9 +459,9 @@ def test_purge_crash_states(fx: Fx) -> None:
     )
     assert recover(fx)["committed"] == 1
     assert node_row(fx, f).status == "purged"
-    assert [
-        e.details["how"] for e in fx.w.db_rows(FileEvent) if e.action == "purged"
-    ] == ["recovered"]
+    assert [e.details["how"] for e in fx.w.db_rows(FileEvent) if e.action == "purged"] == [
+        "recovered"
+    ]
 
 
 def test_a_failed_delete_forever_flags_the_item_instead_of_pretending(
@@ -514,9 +489,7 @@ def test_a_failed_delete_forever_flags_the_item_instead_of_pretending(
 # ------------------------------------------------------------------ cross-root move
 
 
-def xmove_detail(
-    fx: Fx, node: uuid.UUID, tid: uuid.UUID, dst_name: str
-) -> dict[str, Any]:
+def xmove_detail(fx: Fx, node: uuid.UUID, tid: uuid.UUID, dst_name: str) -> dict[str, Any]:
     return {
         "src_parent": str(fx.alice_root),
         "src_name": "m.txt",
@@ -532,9 +505,7 @@ def test_cross_root_crash_after_the_copy_leaves_both_and_flags_it(fx: Fx) -> Non
     f = nid(P(fx, "alice").upload(fx.alice_root, "m.txt", b"payload"))
     detail = xmove_detail(fx, f, uuid.uuid4(), "m.txt")
     copy_at = disk(fx, fx.shared_sub) / "m.txt"
-    copy_at.write_bytes(
-        b"payload"
-    )  # the verified copy landed; the source was not touched yet
+    copy_at.write_bytes(b"payload")  # the verified copy landed; the source was not touched yet
     set_status(fx, f, "busy")
     op = journal(fx, "xmove", f, detail, "alice@example.com")
     assert recover(fx)["reconcile_needed"] == 1
@@ -554,18 +525,13 @@ def test_cross_root_crash_after_the_source_reached_the_trash_puts_it_back(
     trash.ensure_trash_base(fx.w.settings.library_path)
     target = item_dir(fx, f, tid)
     target.mkdir(parents=True)
-    disk(fx, f).rename(
-        target / "m.txt"
-    )  # source is in the trash, database not committed
+    disk(fx, f).rename(target / "m.txt")  # source is in the trash, database not committed
     set_status(fx, f, "busy")
     op = journal(fx, "xmove", f, detail, "alice@example.com")
     assert recover(fx)["reconcile_needed"] == 1
     back = disk(fx, fx.alice_root) / "m.txt"
     assert back.read_bytes() == b"payload" and copy_at.read_bytes() == b"payload"
-    assert (
-        node_row(fx, f).status == "active"
-        and op_row(fx, op).status == "reconcile_needed"
-    )
+    assert node_row(fx, f).status == "active" and op_row(fx, op).status == "reconcile_needed"
 
 
 def test_cross_root_crash_before_anything_was_written_rolls_back(fx: Fx) -> None:
@@ -624,9 +590,7 @@ def test_an_unrecoverable_failure_after_the_trash_rename_says_reconcile_needed(
     ops = [o for o in fx.w.db_rows(FileOperation) if o.action == "trash"]
     assert [o.status for o in ops] == ["reconcile_needed"]
     moved = list(trash_dir(fx).rglob("a.txt"))
-    assert (
-        len(moved) == 1 and moved[0].read_bytes() == b"x"
-    )  # the bytes are safe in the trash
+    assert len(moved) == 1 and moved[0].read_bytes() == b"x"  # the bytes are safe in the trash
 
 
 def test_a_database_failure_in_a_cross_root_move_leaves_the_source_in_place(
@@ -642,15 +606,11 @@ def test_a_database_failure_in_a_cross_root_move_leaves_the_source_in_place(
     assert me.move(f, fx.shared_sub, 1).status_code == 500
     monkeypatch.undo()
     assert disk(fx, f).read_bytes() == b"payload" and node_row(fx, f).status == "active"
-    assert not (
-        disk(fx, fx.shared_sub) / "m.txt"
-    ).exists()  # the copy was removed again
+    assert not (disk(fx, fx.shared_sub) / "m.txt").exists()  # the copy was removed again
     ops = [o for o in fx.w.db_rows(FileOperation) if o.action == "xmove"]
     assert [o.status for o in ops] == ["rolled_back"]
     with fx.w.ctx.sessions() as db:
-        assert db.scalars(
-            select(Node).where(Node.name == "m.txt", Node.status == "active")
-        ).all()
+        assert db.scalars(select(Node).where(Node.name == "m.txt", Node.status == "active")).all()
 
 
 # ------------------------------------------------------------------ review fixes (Opus, M07a)
@@ -678,15 +638,11 @@ def test_a_file_added_to_the_source_during_a_cross_root_move_stops_it(
     assert (disk(fx, sub) / "late.txt").read_bytes() == b"late"
     assert (disk(fx, sub) / "a.txt").read_bytes() == b"a"
     assert node_row(fx, sub).status == "active"
-    assert not (
-        disk(fx, fx.shared_sub) / "Box"
-    ).exists()  # the partial copy was removed
+    assert not (disk(fx, fx.shared_sub) / "Box").exists()  # the partial copy was removed
     assert me.items() == []
 
 
-def test_a_source_that_cannot_be_put_back_keeps_the_copy(
-    fx: Fx, monkeypatch: Any
-) -> None:
+def test_a_source_that_cannot_be_put_back_keeps_the_copy(fx: Fx, monkeypatch: Any) -> None:
     """The source changed after it reached the trash and its name was taken before it could go
     back: both copies stay and the move says reconcile_needed, never a lost file."""
     me = P(fx, "alice")
@@ -706,9 +662,7 @@ def test_a_source_that_cannot_be_put_back_keeps_the_copy(
     r = me.move(f, fx.shared_sub, 1)
     assert r.status_code == 409, r.text
     monkeypatch.undo()
-    assert (
-        disk(fx, fx.shared_sub) / "m.txt"
-    ).read_bytes() == b"payload"  # the copy stays
+    assert (disk(fx, fx.shared_sub) / "m.txt").read_bytes() == b"payload"  # the copy stays
     in_trash = list(trash_dir(fx).rglob("m.txt"))
     assert len(in_trash) == 1 and in_trash[0].read_bytes() == b"payload"
     assert node_row(fx, f).status == "reconcile_needed"

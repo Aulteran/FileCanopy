@@ -32,9 +32,7 @@ def engine_with_version(version: str | None):  # type: ignore[no-untyped-def]
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE alembic_version (version_num TEXT)"))
         if version:
-            conn.execute(
-                text("INSERT INTO alembic_version VALUES (:v)"), {"v": version}
-            )
+            conn.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": version})
     return engine
 
 
@@ -97,9 +95,7 @@ def test_optional_not_configured_is_not_a_failure() -> None:
 
 
 def test_redis_down_reason_has_no_exception_text() -> None:
-    redis_c, worker_c = health.check_optional(
-        "redis://x", lambda _: FakeRedis(down=True)
-    )  # type: ignore[arg-type,return-value]
+    redis_c, worker_c = health.check_optional("redis://x", lambda _: FakeRedis(down=True))  # type: ignore[arg-type,return-value]
     assert redis_c == worker_c == Component("unavailable", "redis_unreachable")
     assert "secret-host" not in str(redis_c.as_dict())
 

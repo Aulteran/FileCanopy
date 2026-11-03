@@ -36,14 +36,10 @@ def from_lines(path: Path) -> list[tuple[str, str | None]]:
 @pytest.mark.parametrize("dockerfile", DOCKERFILES, ids=lambda p: p.parent.name)
 def test_every_base_image_is_pinned_by_digest(dockerfile: Path) -> None:
     stages = {alias.lower() for _, alias in from_lines(dockerfile) if alias}
-    external = [
-        image for image, _ in from_lines(dockerfile) if image.lower() not in stages
-    ]
+    external = [image for image, _ in from_lines(dockerfile) if image.lower() not in stages]
     assert external, dockerfile
     for image in external:
-        assert DIGEST.search(image), (
-            f"{dockerfile.relative_to(REPO)}: {image} is not pinned"
-        )
+        assert DIGEST.search(image), f"{dockerfile.relative_to(REPO)}: {image} is not pinned"
         assert ":latest" not in image
 
 
@@ -78,12 +74,8 @@ def test_release_override_covers_every_service_built_from_source() -> None:
     release = (DEPLOY / "docker-compose.release.yml").read_text()
     assert ours >= {"postgres", "migrate", "api", "web", "converter", "ocr", "worker"}
     for service in ours:
-        assert re.search(rf"^  {service}:\s*$", release, re.MULTILINE), (
-            f"{service} missing"
-        )
-    assert "${FILECANOPY_VERSION:?" in release, (
-        "the version must be required, never defaulted"
-    )
+        assert re.search(rf"^  {service}:\s*$", release, re.MULTILINE), f"{service} missing"
+    assert "${FILECANOPY_VERSION:?" in release, "the version must be required, never defaulted"
     lines = [line for line in release.splitlines() if not line.lstrip().startswith("#")]
     code = "\n".join(lines)
     assert "latest" not in code
@@ -91,9 +83,7 @@ def test_release_override_covers_every_service_built_from_source() -> None:
 
 def test_stack_file_uses_published_images_and_opens_no_ports() -> None:
     stack = (DEPLOY / "stack/docker-stack.yml").read_text()
-    code = "\n".join(
-        line for line in stack.splitlines() if not line.lstrip().startswith("#")
-    )
+    code = "\n".join(line for line in stack.splitlines() if not line.lstrip().startswith("#"))
     assert not re.search(r"^\s+build:", code, re.MULTILINE)
     assert not re.search(r"^\s+ports:", code, re.MULTILINE)
     assert "FILECANOPY_VERSION:?" in code and ":latest" not in code
@@ -153,13 +143,10 @@ def test_scripts_use_the_release_override_when_a_version_is_set(tmp_path: Path) 
     core = run_probe(stage_scripts(tmp_path / "a"), 'echo "$COMPOSE_FILE"')
     assert core.endswith("deploy/docker-compose.yml")
     from_env = run_probe(
-        stage_scripts(tmp_path / "b"),
-        'echo "$COMPOSE_FILE"',
-        FILECANOPY_VERSION="1.2.3",
+        stage_scripts(tmp_path / "b"), 'echo "$COMPOSE_FILE"', FILECANOPY_VERSION="1.2.3"
     )
     from_dotenv = run_probe(
-        stage_scripts(tmp_path / "c", "FILECANOPY_VERSION=1.2.3\n"),
-        'echo "$COMPOSE_FILE"',
+        stage_scripts(tmp_path / "c", "FILECANOPY_VERSION=1.2.3\n"), 'echo "$COMPOSE_FILE"'
     )
     for chosen in (from_env, from_dotenv):
         files = chosen.split(":")
@@ -188,14 +175,7 @@ def test_dotenv_values_are_read_like_compose(tmp_path: Path) -> None:
         deploy,
         'for k in A B C D E F; do echo "$k=$(env_value $k none)"; done',
     ).splitlines()
-    assert out == [
-        "A=spaced",
-        "B=quoted # kept",
-        "C=single",
-        "D=plain",
-        "E=none",
-        "F=last",
-    ]
+    assert out == ["A=spaced", "B=quoted # kept", "C=single", "D=plain", "E=none", "F=last"]
 
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
@@ -206,9 +186,7 @@ def test_a_failing_database_query_is_not_hidden(tmp_path: Path) -> None:
     (stub / "docker").write_text("#!/bin/sh\nexit 3\n")
     (stub / "docker").chmod(0o755)
     probe = deploy / "scripts" / "probe.sh"
-    probe.write_text(
-        '. "$(dirname -- "$0")/lib.sh"\nset -e\npsql_value "select 1"\necho reached\n'
-    )
+    probe.write_text('. "$(dirname -- "$0")/lib.sh"\nset -e\npsql_value "select 1"\necho reached\n')
     r = subprocess.run(  # noqa: S603
         ["sh", str(probe)],  # noqa: S607
         env={"PATH": f"{stub}:/usr/bin:/bin", "HOME": str(tmp_path)},
@@ -222,15 +200,9 @@ def test_a_failing_database_query_is_not_hidden(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
 @pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGINT, signal.SIGHUP])
-def test_an_interrupted_backup_starts_the_app_again(
-    tmp_path: Path, sig: signal.Signals
-) -> None:
+def test_an_interrupted_backup_starts_the_app_again(tmp_path: Path, sig: signal.Signals) -> None:
     deploy = stage_scripts(tmp_path)
-    library, app_data, dest = (
-        tmp_path / "library",
-        tmp_path / "app-data",
-        tmp_path / "dest",
-    )
+    library, app_data, dest = tmp_path / "library", tmp_path / "app-data", tmp_path / "dest"
     for d in (library, app_data, dest):
         d.mkdir()
     stub = tmp_path / "bin"
@@ -336,11 +308,7 @@ def test_a_failed_restore_says_how_to_start_over(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
 def test_restore_into_a_live_database_gives_no_delete_advice(tmp_path: Path) -> None:
-    r = run_restore(
-        tmp_path, tmp_path / "app-data", 'case "$*" in *psql*) echo 12 ;; esac'
-    )
+    r = run_restore(tmp_path, tmp_path / "app-data", 'case "$*" in *psql*) echo 12 ;; esac')
     assert r.returncode != 0
     assert "already has tables" in r.stderr and "DELETES" in r.stderr
-    assert "The restore did not finish" not in r.stderr, (
-        "nothing was written, so no cleanup advice"
-    )
+    assert "The restore did not finish" not in r.stderr, "nothing was written, so no cleanup advice"

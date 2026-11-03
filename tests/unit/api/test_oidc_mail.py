@@ -74,9 +74,7 @@ def smtp_down() -> Any:
     raise ConnectionRefusedError("relay down")
 
 
-def mail_world(
-    make_world: Callable[..., World], down: bool = False, **kw: Any
-) -> World:
+def mail_world(make_world: Callable[..., World], down: bool = False, **kw: Any) -> World:
     w = make_world(**{**SMTP, **kw})
     FakeSMTP.sent = []
     w.ctx.mailer = Mailer(w.settings, smtp_down if down else FakeSMTP)  # type: ignore[arg-type]
@@ -146,10 +144,7 @@ class Idp:
             if req.headers.get("authorization") != f"Basic {basic}":
                 return httpx.Response(401, json={"error": "invalid_client"})
             entry = self.codes.pop(form.get("code", ""), None)  # a code works once
-            if (
-                entry is None
-                or form.get("redirect_uri") != f"{PUBLIC}/api/v1/auth/oidc/callback"
-            ):
+            if entry is None or form.get("redirect_uri") != f"{PUBLIC}/api/v1/auth/oidc/callback":
                 return httpx.Response(400, json={"error": "invalid_grant"})
             verifier = form.get("code_verifier", "")
             challenge = b64(hashlib.sha256(verifier.encode()).digest())
@@ -228,9 +223,7 @@ def oidc_world(make_world: Callable[..., World], idp: Idp, **kw: Any) -> World:
     return w
 
 
-def callback(
-    c: TestClient, idp: Idp, code: str, state: str | None = None
-) -> httpx.Response:
+def callback(c: TestClient, idp: Idp, code: str, state: str | None = None) -> httpx.Response:
     r: httpx.Response = c.get(
         "/api/v1/auth/oidc/callback",
         params={"code": code, "state": state or idp.last_state},
@@ -244,9 +237,7 @@ def outcome(r: httpx.Response) -> str:
     return r.headers["location"].removeprefix("/?sso=")
 
 
-def start(
-    c: TestClient, path: str, headers: dict[str, str] | None = None, **body: Any
-) -> str:
+def start(c: TestClient, path: str, headers: dict[str, str] | None = None, **body: Any) -> str:
     r = c.post(f"/api/v1/auth/oidc/{path}/start", json=body, headers=headers or {})
     assert r.status_code == 200, r.text
     return str(r.json()["authorization_url"])
@@ -260,12 +251,7 @@ def sso_login(w: World, idp: Idp, sub: str, **kw: Any) -> tuple[TestClient, str]
 
 
 def link(
-    w: World,
-    idp: Idp,
-    c: TestClient,
-    h: dict[str, str],
-    sub: str = "sub-ada",
-    **kw: Any,
+    w: World, idp: Idp, c: TestClient, h: dict[str, str], sub: str = "sub-ada", **kw: Any
 ) -> str:
     url = start(c, "link", h, password=PASSWORD)
     return outcome(callback(c, idp, idp.authorize(url, sub, **kw)))
@@ -287,9 +273,7 @@ def audit_text(w: World) -> str:
 # ------------------------------------------------------------ configuration
 
 
-def test_smtp_and_oidc_are_off_by_default_and_validated(
-    make_world: Callable[..., World],
-) -> None:
+def test_smtp_and_oidc_are_off_by_default_and_validated(make_world: Callable[..., World]) -> None:
     w = make_world()
     assert not w.settings.smtp_configured and not w.settings.oidc_enabled
     base: dict[str, Any] = {"database_url": "postgresql+psycopg://u:p@h/db"}
@@ -304,9 +288,7 @@ def test_smtp_and_oidc_are_off_by_default_and_validated(
         Settings(**base, oidc_issuer=ISSUER, oidc_client_id=CLIENT_ID)
     with pytest.raises(ValueError):  # http issuer on the network
         Settings(**base, **{**OIDC, "oidc_issuer": "http://idp.lan"})
-    Settings(
-        **base, **{**OIDC, "oidc_issuer": "http://idp.lan", "oidc_allow_http": True}
-    )
+    Settings(**base, **{**OIDC, "oidc_issuer": "http://idp.lan", "oidc_allow_http": True})
     with pytest.raises(ValueError):
         Settings(**base, **OIDC, oidc_scopes="email")
 
@@ -338,16 +320,12 @@ def test_public_config_shows_only_what_the_sign_in_page_needs(
 def test_manual_invitation_link_still_works(make_world: Callable[..., World]) -> None:
     w = make_world()
     c, h = admin_session(w)
-    r = c.post(
-        "/api/v1/admin/users", json={"email": "m@example.com", "name": "M"}, headers=h
-    )
+    r = c.post("/api/v1/admin/users", json={"email": "m@example.com", "name": "M"}, headers=h)
     assert r.status_code == 201
     assert r.json()["token"]["delivery"] == "manual" and r.json()["token"]["token"]
 
 
-def test_email_requested_without_smtp_is_refused(
-    make_world: Callable[..., World],
-) -> None:
+def test_email_requested_without_smtp_is_refused(make_world: Callable[..., World]) -> None:
     w = make_world()
     c, h = admin_session(w)
     r = c.post(
@@ -356,9 +334,7 @@ def test_email_requested_without_smtp_is_refused(
         headers=h,
     )
     assert r.status_code == 409 and r.json()["detail"]["code"] == "EMAIL_NOT_CONFIGURED"
-    assert not [
-        u for u in w.db_rows(User) if u.email == "m@example.com"
-    ]  # nothing was created
+    assert not [u for u in w.db_rows(User) if u.email == "m@example.com"]  # nothing was created
 
 
 def test_invitation_by_email_hides_the_link_from_the_admin(
@@ -372,21 +348,16 @@ def test_invitation_by_email_hides_the_link_from_the_admin(
         headers=h,
     )
     assert r.status_code == 201
-    assert (
-        r.json()["token"]["delivery"] == "email_sent"
-        and r.json()["token"]["token"] is None
-    )
+    assert r.json()["token"]["delivery"] == "email_sent" and r.json()["token"]["token"] is None
     (msg,) = FakeSMTP.sent
     assert msg["To"] == "m@example.com" and msg["From"] == "files@example.org"
     assert link_of(msg).startswith(f"{PUBLIC}/invite#token=")
     ok = w.browser().post(
-        "/api/v1/auth/invitations/accept",
-        json={"token": token_of(msg), "password": PASSWORD},
+        "/api/v1/auth/invitations/accept", json={"token": token_of(msg), "password": PASSWORD}
     )
     assert ok.status_code == 200
     replay = w.browser().post(
-        "/api/v1/auth/invitations/accept",
-        json={"token": token_of(msg), "password": PASSWORD},
+        "/api/v1/auth/invitations/accept", json={"token": token_of(msg), "password": PASSWORD}
     )
     assert replay.status_code == 400
     assert token_of(msg) not in audit_text(w)
@@ -404,8 +375,7 @@ def test_smtp_down_never_blocks_an_invitation(make_world: Callable[..., World]) 
     body = r.json()["token"]
     assert body["delivery"] == "email_failed" and body["token"]  # manual fallback
     ok = w.browser().post(
-        "/api/v1/auth/invitations/accept",
-        json={"token": body["token"], "password": PASSWORD},
+        "/api/v1/auth/invitations/accept", json={"token": body["token"], "password": PASSWORD}
     )
     assert ok.status_code == 200
     again = c.post(
@@ -416,36 +386,24 @@ def test_smtp_down_never_blocks_an_invitation(make_world: Callable[..., World]) 
     assert again.status_code == 409  # already active: nothing to re-send
 
 
-def test_reset_by_email_hides_token_and_is_one_time(
-    make_world: Callable[..., World],
-) -> None:
+def test_reset_by_email_hides_token_and_is_one_time(make_world: Callable[..., World]) -> None:
     w = mail_world(make_world)
     c, h = admin_session(w)
     uid = [u for u in w.db_rows(User)][0].id
-    r = c.post(
-        f"/api/v1/admin/users/{uid}/password-reset",
-        json={"send_email": True},
-        headers=h,
-    )
+    r = c.post(f"/api/v1/admin/users/{uid}/password-reset", json={"send_email": True}, headers=h)
     assert r.status_code == 200
     assert r.json()["delivery"] == "email_sent" and r.json()["token"] is None
     token = token_of(FakeSMTP.sent[-1])
     new = "a brand new passphrase 77"
     assert (
         w.browser()
-        .post(
-            "/api/v1/auth/password-reset/complete",
-            json={"token": token, "password": new},
-        )
+        .post("/api/v1/auth/password-reset/complete", json={"token": token, "password": new})
         .status_code
         == 200
     )
     assert (
         w.browser()
-        .post(
-            "/api/v1/auth/password-reset/complete",
-            json={"token": token, "password": new},
-        )
+        .post("/api/v1/auth/password-reset/complete", json={"token": token, "password": new})
         .status_code
         == 400
     )
@@ -462,9 +420,7 @@ def test_admin_reset_without_email_still_returns_the_manual_link(
     c, h = admin_session(w)
     uid = w.db_rows(User)[0].id
     r = c.post(f"/api/v1/admin/users/{uid}/password-reset", headers=h)
-    assert (
-        r.status_code == 200 and r.json()["delivery"] == "manual" and r.json()["token"]
-    )
+    assert r.status_code == 200 and r.json()["delivery"] == "manual" and r.json()["token"]
 
 
 # ----------------------------------------------------------- forgot password
@@ -479,17 +435,13 @@ def test_forgot_password_needs_mail(make_world: Callable[..., World]) -> None:
     assert forgot(w.browser(), "a@example.com").status_code == 409
 
 
-def test_forgot_password_answers_alike_for_everyone(
-    make_world: Callable[..., World],
-) -> None:
+def test_forgot_password_answers_alike_for_everyone(make_world: Callable[..., World]) -> None:
     w = mail_world(make_world)
     c, h = admin_session(w)
     onboard_token = invite(w, (c, h), "pending@example.com")  # invited, never activated
     assert onboard_token
     mia = invite(w, (c, h), "mia@example.com")
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": mia, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": mia, "password": PASSWORD})
     mia_id = next(u.id for u in w.db_rows(User) if u.email == "mia@example.com")
     c.patch(f"/api/v1/admin/users/{mia_id}", json={"status": "disabled"}, headers=h)
     FakeSMTP.sent = []
@@ -504,9 +456,7 @@ def test_forgot_password_answers_alike_for_everyone(
         )
     }
     assert len({json.dumps(a) for a in answers.values()}) == 1
-    assert [m["To"] for m in FakeSMTP.sent] == [
-        "admin@example.com"
-    ]  # only the active account
+    assert [m["To"] for m in FakeSMTP.sent] == ["admin@example.com"]  # only the active account
     token = token_of(FakeSMTP.sent[0])
     r = anon.post(
         "/api/v1/auth/password-reset/complete",
@@ -531,9 +481,7 @@ def test_forgot_password_is_limited_and_does_not_replace_a_fresh_link(
     assert r.status_code == 429 and "retry-after" in r.headers
 
 
-def test_smtp_test_message_goes_to_the_admin_only(
-    make_world: Callable[..., World],
-) -> None:
+def test_smtp_test_message_goes_to_the_admin_only(make_world: Callable[..., World]) -> None:
     w = mail_world(make_world)
     c, h = admin_session(w)
     assert c.post("/api/v1/admin/smtp/test", headers=h).status_code == 200
@@ -565,15 +513,10 @@ def test_oidc_endpoints_are_absent_when_disabled_and_local_login_works(
     c, h = admin_session(w)
     r = c.post("/api/v1/auth/oidc/login/start", json={})
     assert r.status_code == 404
-    r = c.post(
-        "/api/v1/auth/oidc/invitation/start",
-        json={"token": "x" * 43, "password": PASSWORD},
-    )
+    r = c.post("/api/v1/auth/oidc/invitation/start", json={"token": "x" * 43, "password": PASSWORD})
     assert r.status_code == 404
     assert (
-        c.post(
-            "/api/v1/auth/oidc/link/start", json={"password": PASSWORD}, headers=h
-        ).status_code
+        c.post("/api/v1/auth/oidc/link/start", json={"password": PASSWORD}, headers=h).status_code
         == 404
     )
     assert (
@@ -606,37 +549,24 @@ def test_discovery_with_a_different_issuer_is_refused(
 # --------------------------------------------------------- linking and login
 
 
-def test_link_then_sign_in_with_the_provider(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_link_then_sign_in_with_the_provider(make_world: Callable[..., World], idp: Idp) -> None:
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
-    bad = c.post(
-        "/api/v1/auth/oidc/link/start", json={"password": "wrong password!!"}, headers=h
-    )
+    bad = c.post("/api/v1/auth/oidc/link/start", json={"password": "wrong password!!"}, headers=h)
     assert bad.status_code == 403
     assert link(w, idp, c, h) == "linked"
-    assert c.get("/api/v1/auth/oidc/identity").json() == {
-        "linked": True,
-        "label": "Single sign-on",
-    }
+    assert c.get("/api/v1/auth/oidc/identity").json() == {"linked": True, "label": "Single sign-on"}
     (ident,) = w.db_rows(UserIdentity)
     assert (ident.issuer, ident.subject) == (ISSUER, "sub-ada")
     row = w.db_rows(OidcLogin)[0]
-    assert (
-        row.used_at is not None and row.code_verifier
-    )  # PKCE verifier was kept server-side
+    assert row.used_at is not None and row.code_verifier  # PKCE verifier was kept server-side
     other, result = sso_login(w, idp, "sub-ada", email=None)
     assert result == "signed_in" and sessions_ok(other)
-    assert (
-        other.get("/api/v1/auth/session").json()["user"]["email"] == "admin@example.com"
-    )
+    assert other.get("/api/v1/auth/session").json()["user"]["email"] == "admin@example.com"
     assert "login.success" in audit_text(w) and "sub-ada" not in audit_text(w)
 
 
-def test_spent_round_trips_keep_no_secret(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_spent_round_trips_keep_no_secret(make_world: Callable[..., World], idp: Idp) -> None:
     """M23: once a round trip is used, the next start blanks its verifier and nonce."""
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
@@ -671,19 +601,13 @@ def test_a_second_identity_with_the_same_email_cannot_take_over(
     assert result == "OIDC_NOT_LINKED"
     # nor can the lookalike link itself onto another account
     m = invite(w, (c, h), "m@example.com")
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD})
     mc, mh = signed_in(w, "m@example.com")
-    assert (
-        link(w, idp, mc, mh, "sub-real", email="ada@example.com") == "IDENTITY_IN_USE"
-    )
+    assert link(w, idp, mc, mh, "sub-real", email="ada@example.com") == "IDENTITY_IN_USE"
     assert len(w.db_rows(UserIdentity)) == 1
 
 
-def test_one_identity_per_issuer_per_account(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_one_identity_per_issuer_per_account(make_world: Callable[..., World], idp: Idp) -> None:
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
     assert link(w, idp, c, h, "one") == "linked"
@@ -728,9 +652,7 @@ def test_state_expires(make_world: Callable[..., World], idp: Idp) -> None:
     assert outcome(callback(lc, idp, code)) == "OIDC_STATE_INVALID"
 
 
-def test_authorization_error_from_the_provider(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_authorization_error_from_the_provider(make_world: Callable[..., World], idp: Idp) -> None:
     w = oidc_world(make_world, idp)
     c = w.browser()
     start(c, "login")
@@ -812,11 +734,7 @@ def test_invalid_id_tokens_never_sign_anyone_in(
     elif case == "azp_mismatch":
         kw = {"aud": [CLIENT_ID, "other"], "azp": "other"}
     elif case == "no_subject":
-        kw = {
-            "raw_token": lambda claims: idp.sign(
-                {k: v for k, v in claims.items() if k != "sub"}
-            )
-        }
+        kw = {"raw_token": lambda claims: idp.sign({k: v for k, v in claims.items() if k != "sub"})}
     elif case == "other_azp_single_aud":
         kw = {"azp": "other"}
     lc = w.browser()
@@ -858,16 +776,12 @@ def test_disabled_account_cannot_use_the_provider(
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
     m = invite(w, (c, h), "m@example.com")
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD})
     mc, mh = signed_in(w, "m@example.com")
     assert link(w, idp, mc, mh, "sub-m", email="m@example.com") == "linked"
     uid = next(u.id for u in w.db_rows(User) if u.email == "m@example.com")
     assert (
-        c.patch(
-            f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=h
-        ).status_code
+        c.patch(f"/api/v1/admin/users/{uid}", json={"status": "disabled"}, headers=h).status_code
         == 200
     )
     assert not sessions_ok(mc)
@@ -875,9 +789,7 @@ def test_disabled_account_cannot_use_the_provider(
     assert result == "OIDC_NOT_LINKED"
 
 
-def test_link_callback_dies_with_the_session(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_link_callback_dies_with_the_session(make_world: Callable[..., World], idp: Idp) -> None:
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
     url = start(c, "link", h, password=PASSWORD)
@@ -901,9 +813,7 @@ def test_unlink_needs_the_password_and_keeps_local_login(
     )
     assert w.db_rows(UserIdentity)
     assert (
-        c.post(
-            "/api/v1/auth/oidc/unlink", json={"password": PASSWORD}, headers=h
-        ).status_code
+        c.post("/api/v1/auth/oidc/unlink", json={"password": PASSWORD}, headers=h).status_code
         == 200
     )
     assert not w.db_rows(UserIdentity)
@@ -918,16 +828,11 @@ def test_admin_can_unlink_a_person_and_ends_their_sessions(
     w = oidc_world(make_world, idp)
     c, h = admin_session(w)
     m = invite(w, (c, h), "m@example.com")
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": m, "password": PASSWORD})
     mc, mh = signed_in(w, "m@example.com")
     link(w, idp, mc, mh, "sub-m", email="m@example.com")
     users = {u["email"]: u for u in c.get("/api/v1/admin/users").json()}
-    assert (
-        users["m@example.com"]["sso_linked"]
-        and not users["admin@example.com"]["sso_linked"]
-    )
+    assert users["m@example.com"]["sso_linked"] and not users["admin@example.com"]["sso_linked"]
     uid = users["m@example.com"]["id"]
     assert c.delete(f"/api/v1/admin/users/{uid}/identity", headers=h).status_code == 200
     assert not sessions_ok(mc)
@@ -966,10 +871,7 @@ def test_accept_an_invitation_through_the_provider(
     assert login(w.browser(), "nina@example.com").status_code == 200
     assert (
         w.browser()
-        .post(
-            "/api/v1/auth/invitations/accept",
-            json={"token": token, "password": PASSWORD},
-        )
+        .post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
         .status_code
         == 400
     )
@@ -1011,11 +913,7 @@ def test_email_can_come_from_the_userinfo_endpoint(
     w = oidc_world(make_world, idp)
     adm = admin_session(w)
     token = invite(w, adm, "nina@example.com")
-    idp.userinfo = {
-        "sub": "sub-new",
-        "email": "Nina@Example.com",
-        "email_verified": True,
-    }
+    idp.userinfo = {"sub": "sub-new", "email": "Nina@Example.com", "email_verified": True}
     c, result = sso_invite(w, idp, token, email=None)
     assert result == "welcome" and sessions_ok(c)
 
@@ -1026,11 +924,7 @@ def test_userinfo_for_a_different_subject_is_rejected(
     w = oidc_world(make_world, idp)
     adm = admin_session(w)
     token = invite(w, adm, "nina@example.com")
-    idp.userinfo = {
-        "sub": "someone-else",
-        "email": "nina@example.com",
-        "email_verified": True,
-    }
+    idp.userinfo = {"sub": "someone-else", "email": "nina@example.com", "email_verified": True}
     _, result = sso_invite(w, idp, token, email=None)
     assert result == "ID_TOKEN_INVALID"
     assert not w.db_rows(UserIdentity)
@@ -1059,13 +953,10 @@ def test_invitation_start_checks_token_and_password_before_leaving(
     token = invite(w, adm, "nina@example.com")
     c = w.browser()
     bad = c.post(
-        "/api/v1/auth/oidc/invitation/start",
-        json={"token": "x" * 43, "password": PASSWORD},
+        "/api/v1/auth/oidc/invitation/start", json={"token": "x" * 43, "password": PASSWORD}
     )
     assert bad.status_code == 400 and bad.json()["detail"]["code"] == "INVALID_TOKEN"
-    weak = c.post(
-        "/api/v1/auth/oidc/invitation/start", json={"token": token, "password": "short"}
-    )
+    weak = c.post("/api/v1/auth/oidc/invitation/start", json={"token": token, "password": "short"})
     assert weak.status_code == 422
     assert w.db_rows(AuthToken)[0].used_at is None  # starting does not consume anything
 
@@ -1080,9 +971,7 @@ def test_invitation_token_replay_after_provider_acceptance(
     url = start(c, "invitation", token=token, password=PASSWORD)
     code = idp.authorize(url, "sub-new", email="nina@example.com")
     # meanwhile the link is used the ordinary way
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
     assert outcome(callback(c, idp, code)) == "INVALID_TOKEN"
     assert not w.db_rows(UserIdentity)
 
@@ -1106,9 +995,7 @@ def test_starts_are_throttled_even_when_the_provider_is_down(
     w = oidc_world(make_world, idp)
     idp.down = True
     c = w.browser()
-    codes = [
-        c.post("/api/v1/auth/oidc/login/start", json={}).status_code for _ in range(42)
-    ]
+    codes = [c.post("/api/v1/auth/oidc/login/start", json={}).status_code for _ in range(42)]
     assert codes[:40] == [503] * 40
     assert codes[40] == 429 and codes[41] == 429
 
@@ -1129,8 +1016,5 @@ def test_a_dead_provider_is_not_contacted_on_every_request(
     )
     idp.down = True
     for _ in range(5):
-        assert (
-            w.browser().post("/api/v1/auth/oidc/login/start", json={}).status_code
-            == 503
-        )
+        assert w.browser().post("/api/v1/auth/oidc/login/start", json={}).status_code == 503
     assert calls["n"] == 1  # the failure is remembered for a short while

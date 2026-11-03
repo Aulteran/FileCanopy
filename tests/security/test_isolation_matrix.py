@@ -146,9 +146,7 @@ def test_every_node_surface_agrees_with_the_policy(mx: Matrix, persona: str) -> 
 
 
 @pytest.mark.parametrize("persona", PERSONAS)
-def test_nothing_unreadable_appears_in_any_list_search_or_count(
-    mx: Matrix, persona: str
-) -> None:
+def test_nothing_unreadable_appears_in_any_list_search_or_count(mx: Matrix, persona: str) -> None:
     text = mx.all_text(persona)
     for key, (name, word) in FILES.items():
         stem = name.removesuffix(".txt")
@@ -220,16 +218,12 @@ def test_revoking_a_grant_closes_every_surface_for_an_open_session(mx: Matrix) -
     bob, alice = mx.api["bob"], mx.api["alice"]
     assert surfaces_of(bob, mx.node["open"])["content"] == 200
     assert "openname" in bob.get("/search", params={"q": "openname"}).text
-    r = alice.client.delete(
-        f"/api/v1/nodes/{mx.fx.taxes}/grants/{bob.uid}", headers=alice.headers
-    )
+    r = alice.client.delete(f"/api/v1/nodes/{mx.fx.taxes}/grants/{bob.uid}", headers=alice.headers)
     assert r.status_code == 200, r.text
     after = surfaces_of(bob, mx.node["open"])
     assert all(s in (403, 404) for s in after.values()), after
     assert "openname" not in bob.get("/search", params={"q": "openname"}).text
-    assert "openname" not in json.dumps(
-        mx.mcp["bob"].call("search_files", query="openname")
-    )
+    assert "openname" not in json.dumps(mx.mcp["bob"].call("search_files", query="openname"))
     assert "openname" not in bob.get(f"/collections/{mx.collection}").text
 
 
@@ -238,10 +232,7 @@ def test_raising_a_label_keeps_access_but_closes_the_machine_surfaces(
 ) -> None:
     """Private changes who a machine may show the file to, not who may open it (03 label table)."""
     alice, bob = mx.api["alice"], mx.api["bob"]
-    assert (
-        mx.mcp["bob"].call("get_file_metadata", node_id=str(mx.node["open"]))["isError"]
-        is False
-    )
+    assert mx.mcp["bob"].call("get_file_metadata", node_id=str(mx.node["open"]))["isError"] is False
     label(alice, mx.dirs["open"], "private")
     assert surfaces_of(bob, mx.node["open"])["content"] == 200  # access follows the ACL
     for who in ("alice", "bob"):
@@ -249,6 +240,4 @@ def test_raising_a_label_keeps_access_but_closes_the_machine_surfaces(
         for tool in ("get_file_metadata", "get_text_excerpt"):
             res = client.call(tool, node_id=str(mx.node["open"]))
             assert res["isError"] is True, (who, tool)
-        assert "openname" not in json.dumps(
-            client.call("search_files", query="openname")
-        )
+        assert "openname" not in json.dumps(client.call("search_files", query="openname"))

@@ -20,14 +20,7 @@ from test_auth import World
 from test_files import Api, code, disk
 
 from app.ai import split
-from app.db.models import (
-    AuthAudit,
-    FileEvent,
-    Node,
-    SearchDoc,
-    SplitProposal,
-    TrashItem,
-)
+from app.db.models import AuthAudit, FileEvent, Node, SearchDoc, SplitProposal, TrashItem
 from app.preview import pdfsplit
 from app.preview.extract import Refuse
 from app.preview.sandbox import PreviewError
@@ -52,16 +45,10 @@ def net(fx: Fx) -> Net:
 def pdf(pages: list[str | None], rotate: dict[int, int] | None = None) -> bytes:
     """A real PDF: one page per entry (None = a blank page), optional /Rotate by 1-based page."""
     rotate = rotate or {}
-    objs: list[bytes] = [
-        b"",
-        b"",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    ]
+    objs: list[bytes] = [b"", b"", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     kids: list[str] = []
     for i, text in enumerate(pages, start=1):
-        stream = (
-            b"" if text is None else f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode()
-        )
+        stream = b"" if text is None else f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode()
         page_no, content_no = 4 + 2 * (i - 1), 5 + 2 * (i - 1)
         kids.append(f"{page_no} 0 R")
         rot = f" /Rotate {rotate[i]}" if i in rotate else ""
@@ -69,13 +56,9 @@ def pdf(pages: list[str | None], rotate: dict[int, int] | None = None) -> bytes:
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents {content_no} 0 R{rot} "
             f"/Resources << /Font << /F1 3 0 R >> >> >>".encode()
         )
-        objs.append(
-            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream"
-        )
+        objs.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
     objs[0] = b"<< /Type /Catalog /Pages 2 0 R >>"
-    objs[1] = (
-        f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(pages)} >>".encode()
-    )
+    objs[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(pages)} >>".encode()
     out = bytearray(b"%PDF-1.4\n")
     offsets = []
     for i, body in enumerate(objs, 1):
@@ -85,10 +68,7 @@ def pdf(pages: list[str | None], rotate: dict[int, int] | None = None) -> bytes:
     out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
     for off in offsets:
         out += b"%010d 00000 n \n" % off
-    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-        len(objs) + 1,
-        xref,
-    )
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
     return bytes(out)
 
 
@@ -112,13 +92,9 @@ def vault(fx: Fx, api: Api, name: str = "Vault") -> uuid.UUID:
     return folder
 
 
-def sp(
-    api: Api, path: str, body: dict[str, Any] | None = None, method: str = "post"
-) -> Any:
+def sp(api: Api, path: str, body: dict[str, Any] | None = None, method: str = "post") -> Any:
     return getattr(api.client, method)(
-        f"/api/v1/ai/split{path}",
-        json=body,
-        headers={**api.headers, "Idempotency-Key": "k" + path},
+        f"/api/v1/ai/split{path}", json=body, headers={**api.headers, "Idempotency-Key": "k" + path}
     )
 
 
@@ -163,9 +139,7 @@ def answer(*parts: tuple[int, int, str | None], **kw: Any) -> str:
 
 
 # --- pure functions --------------------------------------------------------------------
-def d(
-    n: int, *, blank: bool = False, marker: list[int] | None = None
-) -> dict[str, Any]:
+def d(n: int, *, blank: bool = False, marker: list[int] | None = None) -> dict[str, Any]:
     return {"n": n, "blank": blank, "marker": marker, "chars": 0 if blank else 10}
 
 
@@ -173,10 +147,7 @@ def test_heuristic_cuts_on_restart_and_blank_separator() -> None:
     desc = [d(1, marker=[1, 2]), d(2, marker=[2, 2]), d(3, marker=[1, 1])]
     assert split.heuristic_cuts(desc) == [1, 3]
     desc = [d(1), d(2), d(3, blank=True), d(4), d(5, blank=True)]
-    assert split.heuristic_cuts(desc) == [
-        1,
-        4,
-    ]  # a blank page stays with the part it follows
+    assert split.heuristic_cuts(desc) == [1, 4]  # a blank page stays with the part it follows
     assert split.heuristic_cuts([d(1, blank=True), d(2), d(3)]) == [
         1
     ]  # leading blank: no empty part
@@ -196,13 +167,9 @@ def test_heuristic_cuts_on_restart_and_blank_separator() -> None:
         [(1, 0), (1, 5)],
     ],
 )
-def test_validate_parts_rejects_anything_but_a_partition(
-    parts: list[tuple[int, int]],
-) -> None:
+def test_validate_parts_rejects_anything_but_a_partition(parts: list[tuple[int, int]]) -> None:
     with pytest.raises(split.Rejected):
-        split.validate_parts(
-            [{"start": a, "end": b, "title": None} for a, b in parts], 5
-        )
+        split.validate_parts([{"start": a, "end": b, "title": None} for a, b in parts], 5)
 
 
 def test_every_partition_accounts_for_every_page() -> None:
@@ -215,13 +182,9 @@ def test_every_partition_accounts_for_every_page() -> None:
                     try:
                         kept, left = split.plan_pages(parts, blank, n, drop)
                     except split.Rejected:
-                        assert drop and blank >= set(
-                            range(1, n + 1)
-                        )  # nothing left to write
+                        assert drop and blank >= set(range(1, n + 1))  # nothing left to write
                         continue
-                    assert sorted([p for k in kept for p in k] + left) == list(
-                        range(1, n + 1)
-                    )
+                    assert sorted([p for k in kept for p in k] + left) == list(range(1, n + 1))
 
 
 def test_titles_become_safe_distinct_names() -> None:
@@ -255,51 +218,33 @@ def test_two_doc_sample_splits_and_keeps_the_source(fx: Fx, net: Net) -> None:
     item = pending(alice)[0]
     assert [(p["start"], p["end"]) for p in item["parts"]] == [(1, 2), (3, 3)]
     assert item["source"] == "heuristic" and item["page_count"] == 3
-    assert "scan - part 1.pdf" not in kids(
-        alice, fx.alice_root
-    )  # nothing written before approval
+    assert "scan - part 1.pdf" not in kids(alice, fx.alice_root)  # nothing written before approval
 
     r = sp(alice, f"/proposals/{got['proposal_id']}/approve", {})
     assert r.status_code == 200, r.text
     names = kids(alice, fx.alice_root)
-    assert (
-        sha(disk(fx, f)) == before and "scan.pdf" in names
-    )  # source preserved byte for byte
+    assert sha(disk(fx, f)) == before and "scan.pdf" in names  # source preserved byte for byte
     one, two = names["scan - part 1.pdf"], names["scan - part 2.pdf"]
     texts = [
         [p.extract_text().strip() for p in pages_of(disk(fx, uuid.UUID(x["id"]))).pages]
         for x in (one, two)
     ]
-    assert texts == [
-        [TWO_DOCS[0], TWO_DOCS[1]],
-        [TWO_DOCS[2]],
-    ]  # all pages, in order, once each
+    assert texts == [[TWO_DOCS[0], TWO_DOCS[1]], [TWO_DOCS[2]]]  # all pages, in order, once each
     row = fx.w.db_rows(SplitProposal)[0]
     assert row.status == "applied" and len(row.outputs) == 2 and row.left_out == []
-    assert {"ai.split_proposed", "ai.split_approved"} <= {
-        a.action for a in fx.w.db_rows(AuthAudit)
-    }
+    assert {"ai.split_proposed", "ai.split_approved"} <= {a.action for a in fx.w.db_rows(AuthAudit)}
     ev = [e for e in fx.w.db_rows(FileEvent) if e.node_id == f and e.action == "split"]
     assert (
-        len(ev) == 1
-        and ev[0].actor_kind == "ai_agent"
-        and ev[0].on_behalf_of_user_id == alice.uid
+        len(ev) == 1 and ev[0].actor_kind == "ai_agent" and ev[0].on_behalf_of_user_id == alice.uid
     )
     # a second approval is refused and creates nothing
-    assert (
-        code(sp(alice, f"/proposals/{got['proposal_id']}/approve", {})) == "NOT_PENDING"
-    )
+    assert code(sp(alice, f"/proposals/{got['proposal_id']}/approve", {})) == "NOT_PENDING"
     assert len(kids(alice, fx.alice_root)) == len(names)
 
 
 def test_blank_separator_pages_and_leaving_them_out(fx: Fx) -> None:
     alice = Api(fx, "alice")
-    f = up(
-        alice,
-        fx.alice_root,
-        "mix.pdf",
-        pdf(["Doc A", "Doc A more", None, "Doc B", None]),
-    )
+    f = up(alice, fx.alice_root, "mix.pdf", pdf(["Doc A", "Doc A more", None, "Doc B", None]))
     pid = suggest(alice, f)["proposal_id"]
     item = pending(alice)[0]
     assert [(p["start"], p["end"]) for p in item["parts"]] == [(1, 3), (4, 5)]
@@ -347,9 +292,7 @@ def test_one_page_empty_and_single_document_pdfs_are_not_split(fx: Fx) -> None:
     assert suggest(alice, one)["skipped"] == "too_short"
     blank = up(alice, fx.alice_root, "empty.pdf", pdf([None, None, None]))
     assert suggest(alice, blank)["skipped"] == "nothing_to_split"
-    single = up(
-        alice, fx.alice_root, "single.pdf", pdf(["Report p1", "Report p2", "Report p3"])
-    )
+    single = up(alice, fx.alice_root, "single.pdf", pdf(["Report p1", "Report p2", "Report p3"]))
     assert suggest(alice, single)["skipped"] == "nothing_to_split"
     assert pending(alice) == []
 
@@ -370,9 +313,7 @@ def test_name_collision_never_overwrites(fx: Fx) -> None:
     assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 200
     assert disk(fx, taken).read_bytes() == b"precious"
     names = kids(alice, fx.alice_root)
-    assert (
-        len([n for n in names if n.startswith("scan - part 1")]) == 2
-    )  # the new one got a suffix
+    assert len([n for n in names if n.startswith("scan - part 1")]) == 2  # the new one got a suffix
     assert len([n for n in names if n.endswith(".pdf")]) == 4
 
 
@@ -423,14 +364,9 @@ def test_ai_proposal_uses_only_this_files_text(fx: Fx, net: Net) -> None:
     assert "SECRET-SIBLING-BODY" not in sent and "sibling.txt" not in sent
     item = pending(alice)[0]
     assert item["source"] == "ai" and item["confidence"] == 900
-    assert [p["name"] for p in item["parts"]] == [
-        "Invoice 100.pdf",
-        "Everything else.pdf",
-    ]
+    assert [p["name"] for p in item["parts"]] == ["Invoice 100.pdf", "Everything else.pdf"]
     assert sp(alice, f"/proposals/{got['proposal_id']}/approve", {}).status_code == 200
-    assert {"Invoice 100.pdf", "Everything else.pdf", "scan.pdf"} <= set(
-        kids(alice, fx.alice_root)
-    )
+    assert {"Invoice 100.pdf", "Everything else.pdf", "scan.pdf"} <= set(kids(alice, fx.alice_root))
 
 
 @pytest.mark.parametrize(
@@ -446,9 +382,7 @@ def test_ai_proposal_uses_only_this_files_text(fx: Fx, net: Net) -> None:
         '{"parts": "all of them"}',
     ],
 )
-def test_malformed_model_answers_fall_back_to_the_heuristic(
-    fx: Fx, net: Net, text: str
-) -> None:
+def test_malformed_model_answers_fall_back_to_the_heuristic(fx: Fx, net: Net, text: str) -> None:
     alice = alice_setup(fx)
     f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
     net.text = text
@@ -464,9 +398,7 @@ def test_no_provider_still_gives_a_heuristic_proposal(fx: Fx, net: Net) -> None:
     f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
     suggest(alice, f, use_ai=True)
     item = pending(alice)[0]
-    assert item["source"] == "heuristic" and any(
-        w.startswith("ai") for w in item["warnings"]
-    )
+    assert item["source"] == "heuristic" and any(w.startswith("ai") for w in item["warnings"])
     assert net.requests == []
 
 
@@ -533,9 +465,7 @@ def test_a_second_open_proposal_for_the_same_file_is_replaced_not_duplicated(
     second = suggest(alice, f, use_ai=True)["proposal_id"]
     assert second != first
     rows = {r.id: r.status for r in fx.w.db_rows(SplitProposal)}
-    assert (
-        rows[uuid.UUID(first)] == "superseded" and rows[uuid.UUID(second)] == "pending"
-    )
+    assert rows[uuid.UUID(first)] == "superseded" and rows[uuid.UUID(second)] == "pending"
 
 
 def test_failure_half_way_leaves_no_partial_set_and_the_source_alone(
@@ -558,9 +488,7 @@ def test_failure_half_way_leaves_no_partial_set_and_the_source_alone(
     r = sp(alice, f"/proposals/{pid}/approve", {})
     assert r.status_code == 422 and code(r) == "SPLIT_VERIFY_FAILED"
     assert sha(disk(fx, f)) == before
-    assert [
-        n for n in kids(alice, fx.alice_root) if "part" in n
-    ] == []  # the first part was undone
+    assert [n for n in kids(alice, fx.alice_root) if "part" in n] == []  # the first part was undone
     assert len(fx.w.db_rows(TrashItem)) == 1  # ... into the trash, so nothing is lost
     assert fx.w.db_rows(SplitProposal)[0].status == "failed"
 
@@ -572,18 +500,13 @@ def test_undo_moves_parts_to_trash_and_keeps_changed_ones(fx: Fx) -> None:
     assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 200
     names = kids(alice, fx.alice_root)
     assert (
-        alice.rename(
-            uuid.UUID(names["scan - part 2.pdf"]["id"]), "kept.pdf", 1
-        ).status_code
-        == 200
+        alice.rename(uuid.UUID(names["scan - part 2.pdf"]["id"]), "kept.pdf", 1).status_code == 200
     )
     r = sp(alice, f"/proposals/{pid}/undo")
     assert r.status_code == 200, r.text
     assert r.json()["trashed"] == 1 and len(r.json()["left_in_place"]) == 1
     after = kids(alice, fx.alice_root)
-    assert (
-        "scan.pdf" in after and "scan - part 1.pdf" not in after and "kept.pdf" in after
-    )
+    assert "scan.pdf" in after and "scan - part 1.pdf" not in after and "kept.pdf" in after
     item = alice.client.get("/api/v1/ai/split/proposals?status=undone").json()["items"]
     assert len(item) == 1
     trash = fx.w.db_rows(TrashItem)
@@ -605,22 +528,10 @@ def imports_of(path: Path) -> set[str]:
 
 def test_split_module_cannot_change_permissions_labels_or_delete() -> None:
     found = imports_of(APP / "ai" / "split.py")
-    banned = (
-        "app.domain.grants",
-        "app.domain.trash",
-        "app.policy.privacy.set",
-        "shutil",
-    )
+    banned = ("app.domain.grants", "app.domain.trash", "app.policy.privacy.set", "shutil")
     assert not [i for i in found if i in banned or i.startswith("app.domain.grants")]
     src = (APP / "ai" / "split.py").read_text()
-    for word in (
-        "os.remove",
-        "os.unlink",
-        "shutil",
-        ".rmtree",
-        "NodeGrant(",
-        "privacy_label =",
-    ):
+    for word in ("os.remove", "os.unlink", "shutil", ".rmtree", "NodeGrant(", "privacy_label ="):
         assert word not in src, word
     model = split.ModelSplit.model_json_schema()
     assert set(model["properties"]) == {"parts", "confidence", "reason"}
@@ -628,9 +539,7 @@ def test_split_module_cannot_change_permissions_labels_or_delete() -> None:
 
 def test_duplicates_module_is_read_only() -> None:
     found = imports_of(APP / "search" / "duplicates.py")
-    assert not [
-        i for i in found if i.startswith(("app.domain", "app.storage", "shutil", "os"))
-    ]
+    assert not [i for i in found if i.startswith(("app.domain", "app.storage", "shutil", "os"))]
     src = (APP / "search" / "duplicates.py").read_text()
     for word in ("delete(", ".delete", "unlink", "commit()", "db.add", "update("):
         assert word not in src, word
@@ -655,11 +564,7 @@ def test_exact_duplicates_are_reported_and_nothing_is_removed(fx: Fx) -> None:
     b = up(alice, fx.taxes, "copy of a.bin", b"same bytes " * 20)
     up(alice, fx.alice_root, "other.bin", b"different " * 20)
     groups = dup_groups(alice, near=False)
-    assert (
-        len(groups) == 1
-        and groups[0]["kind"] == "exact"
-        and groups[0]["similarity"] == 1000
-    )
+    assert len(groups) == 1 and groups[0]["kind"] == "exact" and groups[0]["similarity"] == 1000
     assert {m["node_id"] for m in groups[0]["members"]} == {str(a), str(b)}
     assert {m["parent_name"] for m in groups[0]["members"]} >= {"Taxes"}
     with fx.w.ctx.sessions() as db:
@@ -678,9 +583,7 @@ def test_unreadable_copies_do_not_leak(fx: Fx) -> None:
     alice, bob = Api(fx, "alice"), Api(fx, "bob")
     up(alice, fx.alice_root, "mine.bin", b"payload " * 50)
     up(bob, fx.root_of("bob@example.com"), "bobs.bin", b"payload " * 50)
-    assert (
-        dup_groups(alice) == [] and dup_groups(bob) == []
-    )  # each only sees their own copy
+    assert dup_groups(alice) == [] and dup_groups(bob) == []  # each only sees their own copy
     up(bob, fx.root_of("bob@example.com"), "bobs2.bin", b"payload " * 50)
     groups = dup_groups(bob)
     assert len(groups) == 1 and {m["name"] for m in groups[0]["members"]} == {
@@ -688,9 +591,7 @@ def test_unreadable_copies_do_not_leak(fx: Fx) -> None:
         "bobs2.bin",
     }
     assert dup_groups(alice) == []
-    other = alice.client.get(
-        f"/api/v1/duplicates?folder_id={fx.root_of('bob@example.com')}"
-    )
+    other = alice.client.get(f"/api/v1/duplicates?folder_id={fx.root_of('bob@example.com')}")
     assert other.status_code == 200 and other.json() == {"groups": []}
 
 
@@ -725,11 +626,7 @@ def test_near_duplicates_by_text_and_unrelated_files_are_not_grouped(fx: Fx) -> 
     index_text(fx, b, LONG.replace("word200", "changed") + " extra closing line")
     index_text(fx, c, " ".join(f"other{i}" for i in range(400)))
     groups = dup_groups(alice)
-    assert (
-        len(groups) == 1
-        and groups[0]["kind"] == "near"
-        and groups[0]["similarity"] >= 850
-    )
+    assert len(groups) == 1 and groups[0]["kind"] == "near" and groups[0]["similarity"] >= 850
     assert {m["node_id"] for m in groups[0]["members"]} == {str(a), str(b)}
     assert dup_groups(alice, near=False) == []
 
@@ -747,10 +644,7 @@ def test_sketch_similarity_behaves() -> None:
     a = duplicates.sketch_of(LONG)
     assert duplicates.similarity(a, a) == 1000
     assert (
-        duplicates.similarity(
-            a, duplicates.sketch_of(" ".join(f"z{i}" for i in range(400)))
-        )
-        == 0
+        duplicates.similarity(a, duplicates.sketch_of(" ".join(f"z{i}" for i in range(400)))) == 0
     )
     assert duplicates.similarity([], a) == 0
 
@@ -761,10 +655,7 @@ def test_node_rows_exist_after_listing(fx: Fx) -> None:
     up(alice, fx.alice_root, "b.bin", b"same " * 40)
     dup_groups(alice)
     rows = fx.w.db_rows(Node)
-    assert (
-        len([n for n in rows if n.name in ("a.bin", "b.bin") and n.status == "active"])
-        == 2
-    )
+    assert len([n for n in rows if n.name in ("a.bin", "b.bin") and n.status == "active"]) == 2
 
 
 # --- OCR assist ----------------------------------------------------------------------------------
@@ -790,21 +681,13 @@ def test_ocr_fills_scanned_pages_without_text_and_survives_failures(
     scan = {"blank": False, "chars": 0, "has_image": True, "head": "", "marker": None}
     desc = [
         {**scan, "n": 1},
-        {
-            **scan,
-            "n": 2,
-            "chars": 5,
-            "head": "text",
-        },  # has a text layer: not sent to OCR
+        {**scan, "n": 2, "chars": 5, "head": "text"},  # has a text layer: not sent to OCR
         {**scan, "n": 3},  # OCR fails: stays without text
         {**scan, "n": 4, "has_image": False},  # nothing to read
     ]
     done = split._fill_ocr(settings, FakePreviews(), None, 10, desc)  # type: ignore[arg-type]
     assert done == 1 and seen == [[1], [3]]
-    assert desc[0]["head"] == "Scanned letter Page 1 of 1" and desc[0]["marker"] == [
-        1,
-        1,
-    ]
+    assert desc[0]["head"] == "Scanned letter Page 1 of 1" and desc[0]["marker"] == [1, 1]
     assert desc[2]["head"] == "" and desc[3]["head"] == ""
 
 
@@ -827,10 +710,7 @@ def raw_pdf(page: bytes, extra_objs: list[bytes], content: bytes) -> bytes:
     out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
     for off in offsets:
         out += b"%010d 00000 n \n" % off
-    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-        len(objs) + 1,
-        xref,
-    )
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
     return bytes(out)
 
 
@@ -846,9 +726,7 @@ def test_pages_with_only_forms_or_annotations_are_not_blank() -> None:
         b"<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Length 12 >>\n"
         b"stream\n0 0 50 50 re f\nendstream"
     )
-    only_form = raw_pdf(
-        PAGE + b"/Resources << /XObject << /Fm0 5 0 R >> >> >>", [form], b"/Fm0 Do"
-    )
+    only_form = raw_pdf(PAGE + b"/Resources << /XObject << /Fm0 5 0 R >> >> >>", [form], b"/Fm0 Do")
     assert descriptor_of(only_form)["blank"] is False
     stamp = raw_pdf(
         PAGE + b"/Annots [5 0 R] >>",
@@ -856,9 +734,7 @@ def test_pages_with_only_forms_or_annotations_are_not_blank() -> None:
         b"",
     )
     assert descriptor_of(stamp)["blank"] is False
-    inline = raw_pdf(
-        PAGE + b">>", [], b"q 10 0 0 10 0 0 cm BI /W 1 /H 1 /CS /G /BPC 8 ID 0 EI Q"
-    )
+    inline = raw_pdf(PAGE + b">>", [], b"q 10 0 0 10 0 0 cm BI /W 1 /H 1 /CS /G /BPC 8 ID 0 EI Q")
     assert descriptor_of(inline)["blank"] is False
     assert descriptor_of(raw_pdf(PAGE + b">>", [], b""))["blank"] is True
 
@@ -888,22 +764,16 @@ def test_file_name_is_inside_the_fence() -> None:
     assert start < name_line < end
 
 
-def test_lost_claim_stops_the_split_and_cleans_up(
-    fx: Fx, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lost_claim_stops_the_split_and_cleans_up(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
     alice = Api(fx, "alice")
     f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
     pid = suggest(alice, f)["proposal_id"]
     real = PreviewService.pdf_part
     calls = {"n": 0}
 
-    def reclaimed_meanwhile(
-        self: PreviewService, file: Any, size: int, pages: list[int]
-    ) -> bytes:
+    def reclaimed_meanwhile(self: PreviewService, file: Any, size: int, pages: list[int]) -> bytes:
         calls["n"] += 1
-        if (
-            calls["n"] == 2
-        ):  # another request reclaimed the row while the first part was written
+        if calls["n"] == 2:  # another request reclaimed the row while the first part was written
             with fx.w.ctx.sessions() as db:
                 row = db.get(SplitProposal, uuid.UUID(pid))
                 assert row is not None
@@ -914,25 +784,17 @@ def test_lost_claim_stops_the_split_and_cleans_up(
     monkeypatch.setattr(PreviewService, "pdf_part", reclaimed_meanwhile)
     r = sp(alice, f"/proposals/{pid}/approve", {})
     assert r.status_code == 409 and code(r) == "CLAIM_LOST"
-    assert [
-        n for n in kids(alice, fx.alice_root) if "part" in n
-    ] == []  # no second, orphan set
-    assert (
-        fx.w.db_rows(SplitProposal)[0].status == "failed"
-    )  # never overwritten with "applied"
+    assert [n for n in kids(alice, fx.alice_root) if "part" in n] == []  # no second, orphan set
+    assert fx.w.db_rows(SplitProposal)[0].status == "failed"  # never overwritten with "applied"
     assert "ai.split_failed" in {a.action for a in fx.w.db_rows(AuthAudit)}
 
 
-def test_failed_row_with_parts_can_be_undone_and_stuck_rows_are_reclaimed(
-    fx: Fx,
-) -> None:
+def test_failed_row_with_parts_can_be_undone_and_stuck_rows_are_reclaimed(fx: Fx) -> None:
     alice = Api(fx, "alice")
     f = up(alice, fx.alice_root, "scan.pdf", pdf(TWO_DOCS))
     pid = suggest(alice, f)["proposal_id"]
     assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 200
-    with (
-        fx.w.ctx.sessions() as db
-    ):  # pretend the run died after writing: failed, parts remain
+    with fx.w.ctx.sessions() as db:  # pretend the run died after writing: failed, parts remain
         row = db.get(SplitProposal, uuid.UUID(pid))
         assert row is not None
         row.status = "failed"
@@ -966,9 +828,7 @@ def test_failed_requests_leave_audit_rows(fx: Fx) -> None:
     assert alice.rename(f, "renamed.pdf", 1).status_code == 200
     assert sp(alice, f"/proposals/{pid}/approve", {}).status_code == 409
     codes = [
-        a.details.get("code")
-        for a in fx.w.db_rows(AuthAudit)
-        if a.action == "ai.split_failed"
+        a.details.get("code") for a in fx.w.db_rows(AuthAudit) if a.action == "ai.split_failed"
     ]
     assert "bad_ranges" in codes and "changed" in codes
 
@@ -980,9 +840,7 @@ def test_same_size_rewrite_with_kept_mtime_is_caught_by_the_digest(fx: Fx) -> No
     path = disk(fx, f)
     pid = suggest(alice, f)["proposal_id"]
     stat = path.stat()
-    path.write_bytes(
-        data.replace(b"Invoice 100", b"Invoice 999")
-    )  # same size, other content
+    path.write_bytes(data.replace(b"Invoice 100", b"Invoice 999"))  # same size, other content
     os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
     r = sp(alice, f"/proposals/{pid}/approve", {})
     assert r.status_code == 409 and code(r) == "SOURCE_CHANGED"

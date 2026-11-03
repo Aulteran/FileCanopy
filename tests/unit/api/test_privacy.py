@@ -25,9 +25,7 @@ def fx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Fx:
 
 def label(api: Api, node: uuid.UUID, value: str, **extra: Any) -> Any:
     return api.client.put(
-        f"/api/v1/nodes/{node}/privacy",
-        json={"label": value, **extra},
-        headers=api.headers,
+        f"/api/v1/nodes/{node}/privacy", json={"label": value, **extra}, headers=api.headers
     )
 
 
@@ -41,9 +39,7 @@ def kids(api: Api, node: uuid.UUID) -> Any:
 
 def grant(api: Api, node: uuid.UUID, who: uuid.UUID) -> Any:
     return api.client.put(
-        f"/api/v1/nodes/{node}/grants/{who}",
-        json={"level": "viewer"},
-        headers=api.headers,
+        f"/api/v1/nodes/{node}/grants/{who}", json={"level": "viewer"}, headers=api.headers
     )
 
 
@@ -104,15 +100,11 @@ def test_other_session_and_jobs_are_locked(fx: Fx) -> None:
     unlock(alice, fx.y2026)
     second = Api(fx, "alice")  # another browser, same account
     assert second.download(fid).status_code == 403
-    assert (
-        alice.download(fid).status_code == 200
-    )  # a second tab shares the session cookie
+    assert alice.download(fid).status_code == 200  # a second tab shares the session cookie
     with fx.w.ctx.sessions() as db:
         node = db.get(Node, fid)
         assert node is not None
-        assert not engine.effective(
-            db, Actor(alice.uid), node
-        )  # no session: never unlocked
+        assert not engine.effective(db, Actor(alice.uid), node)  # no session: never unlocked
 
 
 def test_sharing_or_moving_a_parent_needs_the_unlock(fx: Fx) -> None:
@@ -135,16 +127,12 @@ def test_copy_keeps_labels_and_activity_hides_locked_names(fx: Fx) -> None:
     log = alice.get(f"/nodes/{fx.taxes}/activity").json()["items"]
     assert "secret-name" not in str(log)
     unlock(alice, fx.y2026)
-    assert "secret-name" in str(
-        alice.get(f"/nodes/{fx.taxes}/activity").json()["items"]
-    )
+    assert "secret-name" in str(alice.get(f"/nodes/{fx.taxes}/activity").json()["items"])
     dest = uuid.UUID(alice.mkdir(fx.alice_root, "Copy").json()["node"]["id"])
     r = alice.copy(fx.taxes, dest)
     assert r.status_code in (200, 201), r.text
     with fx.w.ctx.sessions() as db:
-        copies = db.scalars(
-            select(Node).where(Node.name == "2026", Node.id != fx.y2026)
-        ).all()
+        copies = db.scalars(select(Node).where(Node.name == "2026", Node.id != fx.y2026)).all()
         assert [c.privacy_label for c in copies] == ["confidential"]
 
 
@@ -189,14 +177,8 @@ def test_switching_the_feature_off_never_relabels(fx: Fx) -> None:
     admin, hdr = fx.admin
     off = {"labels_enabled": False}
     assert admin.put("/api/v1/admin/privacy", json=off, headers=hdr).status_code == 409
-    r = admin.put(
-        "/api/v1/admin/privacy", json={**off, "confirm_labels_stay": True}, headers=hdr
-    )
-    assert r.json() == {
-        "labels_enabled": False,
-        "private_folders": 0,
-        "confidential_folders": 1,
-    }
+    r = admin.put("/api/v1/admin/privacy", json={**off, "confirm_labels_stay": True}, headers=hdr)
+    assert r.json() == {"labels_enabled": False, "private_folders": 0, "confidential_folders": 1}
     assert alice.get(f"/nodes/{fx.y2026}").json()["locked"]  # still enforced
     assert code(label(alice, fx.taxes, "private")) == "PRIVACY_LABELS_DISABLED"
 
@@ -221,15 +203,11 @@ def test_ai_routing_matrix() -> None:
     allowed = privacy.ai_route_allowed
     assert allowed("normal", "cloud").allowed
     for lab in ("private", "confidential"):
-        assert not allowed(
-            lab, "cloud", local_opt_in=True, unlocked_by_person=True
-        ).allowed
+        assert not allowed(lab, "cloud", local_opt_in=True, unlocked_by_person=True).allowed
         assert not allowed(lab, "local").allowed
     assert allowed("private", "local", local_opt_in=True).allowed
     assert not allowed("confidential", "local", local_opt_in=True).allowed
-    assert allowed(
-        "confidential", "local", local_opt_in=True, unlocked_by_person=True
-    ).allowed
+    assert allowed("confidential", "local", local_opt_in=True, unlocked_by_person=True).allowed
     assert not allowed("weird", "local", local_opt_in=True).allowed
 
 
@@ -240,12 +218,8 @@ def test_restore_gets_the_strictest_label(fx: Fx) -> None:
     alice = Api(fx, "alice")
     label(alice, fx.y2026, "private")
     with fx.w.ctx.sessions() as db:
-        root = db.scalars(
-            select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)
-        ).one()
-        assert (
-            restore_mod.required_label(db, root) == "private"
-        )  # pre-M09 backup: root decides
+        root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
+        assert restore_mod.required_label(db, root) == "private"  # pre-M09 backup: root decides
         assert restore_mod.required_label(db, root, "confidential") == "confidential"
 
 
@@ -324,9 +298,7 @@ def test_a_grantee_inside_the_scope_unlocks_without_seeing_the_parent(fx: Fx) ->
     assert "unlock_node_id" not in str(r.json()) and str(fx.y2026) not in r.text
     assert unlock(bob, inner).status_code == 200
     assert bob.get(f"/nodes/{inner}").status_code == 200
-    assert (
-        bob.get(f"/nodes/{fx.y2026}").status_code == 403
-    )  # the parent stays out of sight
+    assert bob.get(f"/nodes/{fx.y2026}").status_code == 403  # the parent stays out of sight
 
 
 def test_ai_agent_actors_are_never_unlocked(fx: Fx) -> None:
@@ -346,9 +318,7 @@ def test_ai_agent_actors_are_never_unlocked(fx: Fx) -> None:
 def test_lowering_in_the_shared_tree_needs_an_unlock(fx: Fx) -> None:
     admin, hdr = fx.admin
     r = admin.put(
-        f"/api/v1/nodes/{fx.shared_sub}/privacy",
-        json={"label": "confidential"},
-        headers=hdr,
+        f"/api/v1/nodes/{fx.shared_sub}/privacy", json={"label": "confidential"}, headers=hdr
     )
     assert r.status_code == 200, r.text  # an administrator may raise a label there
     r = admin.put(
@@ -373,18 +343,10 @@ def test_restore_that_fails_leaves_no_unregistered_folder(
 
     monkeypatch.setattr(restore_mod, "_register_folder", boom)
     with fx.w.ctx.sessions() as db:
-        root = db.scalars(
-            select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)
-        ).one()
+        root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
         with pytest.raises(OSError):
             restore_mod._publish(
-                db,
-                fx.w.settings,
-                root,
-                "nonexistent-work",
-                set(),
-                "2026-11-01 0000",
-                "private",
+                db, fx.w.settings, root, "nonexistent-work", set(), "2026-11-01 0000", "private"
             )
     lib = fx.w.settings.library_path / root.relative_dir
     assert not any(p.name.startswith("Restored from backup") for p in lib.iterdir())

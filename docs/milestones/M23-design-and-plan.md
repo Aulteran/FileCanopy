@@ -115,6 +115,58 @@ provider, in-memory rate limiter across several API workers.
 3. Fixes found by the audits are made here when small and local; anything larger is listed as a
    follow-up with its evidence instead of expanding the milestone.
 
+## Outcome (what was built, what was found)
+
+Found and fixed while building the tests:
+
+1. **Query strings in container logs.** uvicorn and nginx both printed the full request line, so the
+   OIDC `code`/`state` and search terms were logged. Now path-only (API: route template, no ids).
+2. **Two public POSTs skipped the origin check** (`invitations/accept`, `password-reset/complete`):
+   token-authenticated, so not a session-riding hole, but inconsistent with every other write.
+3. **API tokens outlived a password change, reset, disable or forced sign-out.** Now revoked with
+   the sessions.
+4. **A valid MCP token could be locked out by bad tokens from the same address.** The address
+   throttle now counts and blocks failures only.
+5. **`/search` had no limit.** 120 per person per minute by default.
+6. **Reconciler counts doubled when a failed batch was retried item by item** (the rolled-back
+   batch's counts were kept). Found by the new poisoned-item scale test; fixed.
+7. **Spent `oidc_login` rows kept the PKCE verifier, nonce and an invited person's password
+   hash** until the hourly delete. Blanked at the next start (no migration; columns are NOT NULL).
+8. **AI proposal model text survived a label raise** until the owner next opened the queue. Now
+   cleared in the same transaction.
+
+The matrix, route-inventory and red-team suites found **no** isolation leak: every surface already
+agreed with the policy engine. That is recorded as evidence, not assumed.
+
+Not done, and why:
+
+- **Parser child `kill`/`tkill`/`prlimit64` restricted to its own pid.** The seccomp filter is a
+  hand-assembled deny-list; argument filtering on a pid needs new BPF load/compare ops and a
+  Linux-only test I cannot run on this machine. Still DoS-only, still open (M10 follow-up).
+- **`filter_visible` optimisation.** Measured linear (about 0.5 ms per id); see
+  `docs/perf/M23-benchmarks.md`. Left for a change with its own review.
+- **Idle auto-lock of the whole session, multi-worker rate limits** (listed under Scope).
+- **Accessibility and concurrency tests could not be run locally** (the e2e harness fails here on
+  `main` too: the first-run token is not found in the Compose logs on this Windows host). They run
+  in CI; results are in the PR.
+
 ## Mapping: mandatory adversarial tests (03) → covering test
 
-Filled in at the end of the milestone (see PROJECT_STATUS.md).
+| # | 03 test | Covered by |
+|---|---|---|
+| 1 | Admin cannot reach personal files, thumbnail, audit, search | `test_isolation_matrix::test_the_administrator_without_a_grant...`, `test_acl::test_admin_personal_403...` |
+| 2 | Viewer cannot infer private siblings, counts, collections | `test_isolation_matrix` (names, ids, counts, shared collection), `test_acl::test_private_sibling_non_disclosure` |
+| 3 | Personal to Shared needs authorization and disclosure | `test_trash` cross-root move tests, `test_sharing` impact warning |
+| 4 | Confidential inaccessible after idle expiry | `test_privacy`, `test_pin`, matrix (locked vault: every surface refuses) |
+| 5 | Local-only cannot fall back to cloud | `test_semantic::test_there_is_no_cloud_kind...`, `test_ai` routing tests |
+| 6 | AI cannot move to inaccessible paths, overwrite, delete, change grants | `test_ai_organize` (including the import-surface test), `test_pdf_split` |
+| 7 | Search and MCP cannot bypass ACLs or the unlock | `test_isolation_matrix` (search, MCP tools), `test_search`, `test_mcp` |
+| 8 | Forged `From:` is quarantined | `test_mail`, `test_mail_ingest` |
+| 9 | Symlink, `..`, separators, ZIP slip, bombs, hostile PDF/HTML, move race | `test_redteam`, `test_storage_resolver`, `test_previews`, `test_hardening` (sandbox), `test_mail_ingest` (archive limits), `test_files_stack` (race) |
+| 10 | Revocation stops queued work and open sessions | `test_isolation_matrix::test_revoking_a_grant...`, `test_sharing_revocation`, `test_acl::test_revocation_applies_to_the_existing_session` |
+
+Background-failure recovery, cited rather than duplicated: reconciler (`test_reconcile`: crash,
+restart, mass disappearance, and the new poisoned-item scale test), indexer
+(`test_search::test_a_crashed_worker...`), semantic (`test_semantic` retry and lease reclaim), mail
+(`test_mail`, `test_mail_ingest` retry then dead-letter), backup (`test_backup` failed/interrupted
+runs), trash (`test_trash_recovery`), import (`test_imports` resume).

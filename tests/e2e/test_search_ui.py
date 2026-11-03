@@ -12,9 +12,7 @@ pytestmark = pytest.mark.e2e
 
 def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
     page = sign_in(browser, world, world.alice_mail)
-    upload(
-        page, "garden-plan.txt", b"Plant the rhubarb beside the compost heap in spring."
-    )
+    upload(page, "garden-plan.txt", b"Plant the rhubarb beside the compost heap in spring.")
     expect(page.get_by_role("row").filter(has_text="garden-plan.txt")).to_be_visible()
 
     box = page.get_by_role("searchbox", name="Search files")
@@ -38,12 +36,8 @@ def test_search_by_name_and_by_text(world: World, browser: Browser) -> None:
         page.reload()  # the same address would not search again by itself
     if not found:  # say what the server knows, so a failure explains itself
         docs = world.stack.sql("select count(*) from search_doc")
-        jobs = world.stack.sql(
-            "select state || ':' || coalesce(error, '-') from search_job"
-        )
-        api = page.request.get(
-            page.url.split("/search")[0] + "/api/v1/search?q=rhubarb"
-        )
+        jobs = world.stack.sql("select state || ':' || coalesce(error, '-') from search_job")
+        api = page.request.get(page.url.split("/search")[0] + "/api/v1/search?q=rhubarb")
         body = world.stack.sql("select left(body, 80) || '|' || source from search_doc")
         raise AssertionError(
             f"text never found; rows={docs}; jobs={jobs!r}; doc={body!r}; "

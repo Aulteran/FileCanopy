@@ -68,28 +68,20 @@ def test_delete_goes_to_trash_and_restores(browser: Browser, world: World) -> No
     expect(item).to_contain_text("days left")
     expect(item).to_contain_text("from T7a")
     item.get_by_role("button", name="Restore gone.txt", exact=True).click()
-    expect(
-        page.get_by_role("status").filter(has_text="Restored gone.txt.")
-    ).to_be_visible()
+    expect(page.get_by_role("status").filter(has_text="Restored gone.txt.")).to_be_visible()
     expect(trash_row(page, "gone.txt")).to_have_count(0)
     assert (disk / "T7a" / "gone.txt").read_bytes() == data
 
     # delete forever asks first, and then really removes it
-    page.get_by_role("navigation", name="Locations").get_by_role(
-        "link", name="My files"
-    ).click()
+    page.get_by_role("navigation", name="Locations").get_by_role("link", name="My files").click()
     open_folder(page, "T7a")
     delete_selected(page, "gone.txt")
     open_trash(page)
-    trash_row(page, "gone.txt").get_by_role(
-        "button", name="Delete gone.txt forever"
-    ).click()
+    trash_row(page, "gone.txt").get_by_role("button", name="Delete gone.txt forever").click()
     dialog = page.get_by_role("dialog", name="Delete forever?")
     dialog.get_by_role("button", name="Cancel").click()
     expect(trash_row(page, "gone.txt")).to_be_visible()
-    trash_row(page, "gone.txt").get_by_role(
-        "button", name="Delete gone.txt forever"
-    ).click()
+    trash_row(page, "gone.txt").get_by_role("button", name="Delete gone.txt forever").click()
     page.get_by_role("dialog", name="Delete forever?").get_by_role(
         "button", name="Delete forever"
     ).click()
@@ -97,9 +89,7 @@ def test_delete_goes_to_trash_and_restores(browser: Browser, world: World) -> No
     page.close()
 
 
-def test_undo_rename_and_the_refusal_after_a_host_edit(
-    browser: Browser, world: World
-) -> None:
+def test_undo_rename_and_the_refusal_after_a_host_edit(browser: Browser, world: World) -> None:
     w, disk = world, world.alice_disk
     page = sign_in(browser, w, w.alice_mail)
     new_folder(page, "T7b")
@@ -130,9 +120,7 @@ def test_undo_rename_and_the_refusal_after_a_host_edit(
     now = time.time() + 5
     os.utime(edited, (now, now))
     toast(page).get_by_role("button", name="Undo").click()
-    expect(
-        page.get_by_role("alert").filter(has_text="Nothing was changed")
-    ).to_be_visible()
+    expect(page.get_by_role("alert").filter(has_text="Nothing was changed")).to_be_visible()
     assert edited.read_bytes() == b"edited on the host, now longer"
     assert not (disk / "T7b" / "first.txt").exists()
     page.close()
@@ -145,15 +133,11 @@ def test_history_panel_lists_what_happened(browser: Browser, world: World) -> No
     page.get_by_role("button", name="Show history").click()
     timeline = page.get_by_role("list", name=re.compile("^History"))
     expect(timeline).to_be_visible()
-    expect(
-        timeline.get_by_role("listitem").filter(has_text="Renamed")
-    ).not_to_have_count(0)
+    expect(timeline.get_by_role("listitem").filter(has_text="Renamed")).not_to_have_count(0)
     page.close()
 
 
-def test_an_interrupted_item_can_be_checked_and_released(
-    browser: Browser, world: World
-) -> None:
+def test_an_interrupted_item_can_be_checked_and_released(browser: Browser, world: World) -> None:
     w, disk = world, world.alice_disk
     page = sign_in(browser, w, w.alice_mail)
     new_folder(page, "T7d")
@@ -165,30 +149,20 @@ def test_an_interrupted_item_can_be_checked_and_released(
         "where n.name = 'flagged.txt' and t.status = 'in_trash' "
         f"and t.trashed_by = '{user_id(w.stack, w.alice_mail)}'"
     )
-    w.stack.sql(
-        f"update trash_item set status = 'reconcile_needed' where id = '{item_id}'"
-    )
+    w.stack.sql(f"update trash_item set status = 'reconcile_needed' where id = '{item_id}'")
     open_trash(page)
     item = trash_row(page, "flagged.txt")
     expect(item).to_contain_text("interrupted")
-    expect(
-        item.get_by_role("button", name="Restore flagged.txt", exact=True)
-    ).to_have_count(0)
+    expect(item.get_by_role("button", name="Restore flagged.txt", exact=True)).to_have_count(0)
     item.get_by_role("button", name="Check and release flagged.txt").click()
-    expect(
-        page.get_by_role("status").filter(has_text="back in the Trash")
-    ).to_be_visible()
+    expect(page.get_by_role("status").filter(has_text="back in the Trash")).to_be_visible()
     item.get_by_role("button", name="Restore flagged.txt", exact=True).click()
-    expect(
-        page.get_by_role("status").filter(has_text="Restored flagged.txt.")
-    ).to_be_visible()
+    expect(page.get_by_role("status").filter(has_text="Restored flagged.txt.")).to_be_visible()
     assert (disk / "T7d" / "flagged.txt").read_bytes() == b"keep me"
     page.close()
 
 
-def test_move_to_another_area_and_the_owner_restores(
-    browser: Browser, world: World
-) -> None:
+def test_move_to_another_area_and_the_owner_restores(browser: Browser, world: World) -> None:
     w = world
     tag = uuid.uuid4().hex[:5]
     shared = f"Bobshare{tag}"
@@ -209,9 +183,7 @@ def test_move_to_another_area_and_the_owner_restores(
     folder = next(c["id"] for c in kids if c["name"] == shared)
     alice_id = user_id(w.stack, w.alice_mail)
     assert (
-        client.call(
-            "PUT", f"/api/v1/nodes/{folder}/grants/{alice_id}", {"level": "editor"}
-        )[0]
+        client.call("PUT", f"/api/v1/nodes/{folder}/grants/{alice_id}", {"level": "editor"})[0]
         == 200
     )
 
@@ -223,12 +195,8 @@ def test_move_to_another_area_and_the_owner_restores(
     alice.get_by_role("button", name="Move…").click()
     dialog = alice.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name=re.compile("Other areas")).click()
-    dialog.get_by_role("list", name="Areas").get_by_role(
-        "button", name="My files"
-    ).click()
-    expect(
-        dialog.get_by_text("goes to the Trash of the area it came from")
-    ).to_be_visible()
+    dialog.get_by_role("list", name="Areas").get_by_role("button", name="My files").click()
+    expect(dialog.get_by_text("goes to the Trash of the area it came from")).to_be_visible()
     expect(alice.get_by_text("use Copy instead")).to_have_count(0)
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog).to_be_hidden()
@@ -244,16 +212,12 @@ def test_move_to_another_area_and_the_owner_restores(
     expect(item).to_be_visible()
     expect(item).to_contain_text("Moved to another area")
     item.get_by_role("button", name="Restore across.bin", exact=True).click()
-    expect(
-        bob.get_by_role("status").filter(has_text="Restored across.bin.")
-    ).to_be_visible()
+    expect(bob.get_by_role("status").filter(has_text="Restored across.bin.")).to_be_visible()
     assert (bob_disk / shared / "across.bin").read_bytes() == payload
     bob.close()
 
 
-def test_a_viewer_sees_no_trash_entries_of_others(
-    browser: Browser, world: World
-) -> None:
+def test_a_viewer_sees_no_trash_entries_of_others(browser: Browser, world: World) -> None:
     w = world
     page = sign_in(browser, w, w.alice_mail)
     new_folder(page, "T7c")
@@ -264,9 +228,7 @@ def test_a_viewer_sees_no_trash_entries_of_others(
     folder = next(c["id"] for c in kids if c["name"] == "T7c")
     bob_id = user_id(w.stack, w.bob_mail)
     assert (
-        w.alice.call(
-            "PUT", f"/api/v1/nodes/{folder}/grants/{bob_id}", {"level": "viewer"}
-        )[0]
+        w.alice.call("PUT", f"/api/v1/nodes/{folder}/grants/{bob_id}", {"level": "viewer"})[0]
         == 200
     )
     delete_selected(page, "private-note.txt")
@@ -281,9 +243,7 @@ def test_a_viewer_sees_no_trash_entries_of_others(
     assert "private-note.txt" not in status
     admin = sign_in(browser, w, "admin@example.com")
     open_trash(admin)
-    expect(trash_row(admin, "private-note.txt")).to_have_count(
-        0
-    )  # no administrator bypass
+    expect(trash_row(admin, "private-note.txt")).to_have_count(0)  # no administrator bypass
     admin.close()
     bob.close()
 
@@ -301,21 +261,15 @@ def test_viewers_cannot_delete(browser: Browser, world: World) -> None:
 
 def test_trash_on_a_phone(browser: Browser, world: World) -> None:
     w = world
-    page = sign_in(
-        browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True
-    )
+    page = sign_in(browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True)
     new_folder(page, "T7phone")
     open_folder(page, "T7phone")
     upload(page, "a-rather-long-file-name-for-a-small-screen.txt", b"x")
     delete_selected(page, "a-rather-long-file-name-for-a-small-screen.txt")
     open_trash(page)
     item = trash_row(page, "a-rather-long-file-name-for-a-small-screen.txt")
-    expect(
-        item.get_by_role("button", name=re.compile("^Restore a-rather")).first
-    ).to_be_visible()
-    expect(
-        item.get_by_role("button", name=re.compile("Delete .* forever"))
-    ).to_be_visible()
+    expect(item.get_by_role("button", name=re.compile("^Restore a-rather")).first).to_be_visible()
+    expect(item.get_by_role("button", name=re.compile("Delete .* forever"))).to_be_visible()
     width = page.evaluate("[document.documentElement.scrollWidth, window.innerWidth]")
     assert width[0] <= width[1], f"horizontal scroll on a phone: {width}"
     # CI measures phone layouts wider than a local run: keep a margin inside the viewport
@@ -323,7 +277,5 @@ def test_trash_on_a_phone(browser: Browser, world: World) -> None:
         "Math.max(...[...document.querySelectorAll('.trash *')]"
         ".map(e => e.getBoundingClientRect().right))"
     )
-    assert right <= width[1] - 8, (
-        f"trash page too close to the edge: {right} of {width[1]}"
-    )
+    assert right <= width[1] - 8, f"trash page too close to the edge: {right} of {width[1]}"
     page.close()

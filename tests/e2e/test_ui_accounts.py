@@ -34,9 +34,7 @@ def _issued_link(page: Page, what: str) -> str:
     return link
 
 
-def _set_password(
-    browser: Browser, link: str, password: str, *, name: str | None = None
-) -> Page:
+def _set_password(browser: Browser, link: str, password: str, *, name: str | None = None) -> Page:
     page = browser.new_context().new_page()
     page.goto(link)
     # the secret is taken out of the address bar as soon as the page loads
@@ -68,9 +66,7 @@ def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) 
     page = _set_password(browser, link, PASSWORD, name="Carol C")
     page.get_by_label("Repeat the password").fill(PASSWORD + "x")
     page.get_by_role("button", name="Set password").click()
-    expect(page.get_by_role("alert")).to_have_text(
-        "The two passwords are not the same."
-    )
+    expect(page.get_by_role("alert")).to_have_text("The two passwords are not the same.")
     page.get_by_label("Repeat the password").fill(PASSWORD)
     page.get_by_role("button", name="Set password").click()
     expect(page.get_by_role("heading", name="Your account is ready")).to_be_visible()
@@ -95,9 +91,7 @@ def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) 
     assert "/reset#token=" in reset
     page = _set_password(browser, reset, NEW_PASSWORD)
     page.get_by_role("button", name="Change password").click()
-    expect(
-        page.get_by_role("heading", name="Your password was changed")
-    ).to_be_visible()
+    expect(page.get_by_role("heading", name="Your password was changed")).to_be_visible()
     assert api_status(carol, "GET", "/api/v1/roots") == 401
     assert Client(world.stack).login(email) == 401
     assert Client(world.stack).login(email, NEW_PASSWORD) == 200
@@ -108,9 +102,7 @@ def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) 
     assert Client(world.stack).login(email, NEW_PASSWORD) == 401
     admin.get_by_role("button", name=f"Enable {email}").click()
     expect(row(admin, email)).to_contain_text("Active")
-    expect(
-        accounts.get_by_role("button", name="Disable admin@example.com")
-    ).to_have_count(0)
+    expect(accounts.get_by_role("button", name="Disable admin@example.com")).to_have_count(0)
 
     # the one-time secrets never reached the server: nginx logs show the path only
     logs = world.stack.compose("logs", "--no-color", "web", "api").stdout
@@ -153,9 +145,7 @@ def _throttle_uploads(page: Page, bytes_per_second: int) -> None:
     )
 
 
-def test_upload_shows_bytes_and_can_be_cancelled(
-    world: World, browser: Browser
-) -> None:
+def test_upload_shows_bytes_and_can_be_cancelled(world: World, browser: Browser) -> None:
     w = world
     page = sign_in(browser, w, w.alice_mail)
     _throttle_uploads(page, 512 * 1024)
@@ -178,25 +168,16 @@ def test_upload_shows_bytes_and_can_be_cancelled(
     assert leftovers == []
 
 
-def test_picker_offers_folders_past_the_first_page(
-    world: World, browser: Browser
-) -> None:
+def test_picker_offers_folders_past_the_first_page(world: World, browser: Browser) -> None:
     stack = world.stack
     email = f"dave{uuid.uuid4().hex[:6]}@example.com"
     dave = invite_and_login(stack, setup_admin(stack), email)
     root = root_node(stack, f"personal/{user_id(stack, email)}")
-    status, many, _ = dave.call(
-        "POST", f"/api/v1/nodes/{root}/folders", {"name": "Many"}
-    )
+    status, many, _ = dave.call("POST", f"/api/v1/nodes/{root}/folders", {"name": "Many"})
     assert status == 201
     many_id = many["node"]["id"]
     for i in range(230):
-        assert (
-            dave.call("POST", f"/api/v1/nodes/{many_id}/folders", {"name": f"f{i:03}"})[
-                0
-            ]
-            == 201
-        )
+        assert dave.call("POST", f"/api/v1/nodes/{many_id}/folders", {"name": f"f{i:03}"})[0] == 201
     page = sign_in(browser, world, email)
     upload(page, "item.txt", b"move me")
     expect(row(page, "item.txt")).to_be_visible()
@@ -227,9 +208,7 @@ def test_picker_offers_folders_past_the_first_page(
     expect(row(page, "item.txt")).to_be_visible()
 
 
-def test_mail_and_single_sign_on_are_off_by_default(
-    world: World, browser: Browser
-) -> None:
+def test_mail_and_single_sign_on_are_off_by_default(world: World, browser: Browser) -> None:
     admin = sign_in(browser, world, "admin@example.com")
     admin.get_by_role("link", name="Users").click()
     panel = admin.get_by_role("region", name="Mail and single sign-on")
@@ -238,9 +217,7 @@ def test_mail_and_single_sign_on_are_off_by_default(
     # without mail there is no "email it" choice: the manual link flow is the only one
     expect(admin.get_by_label("Email the invitation link")).to_have_count(0)
     admin.get_by_role("button", name="Account").click()
-    expect(
-        admin.get_by_text("Single sign-on is not set up on this server.")
-    ).to_be_visible()
+    expect(admin.get_by_text("Single sign-on is not set up on this server.")).to_be_visible()
     # the sign-in page offers neither a provider button nor "Forgot your password?"
     page = browser.new_context().new_page()
     page.goto(world.base)

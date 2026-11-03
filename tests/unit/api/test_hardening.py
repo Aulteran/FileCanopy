@@ -105,9 +105,7 @@ def test_a_non_dumpable_api_hides_its_environment_from_children(
     finally:
         import ctypes
 
-        ctypes.CDLL(None).prctl(
-            4, 1, 0, 0, 0
-        )  # PR_SET_DUMPABLE back on for the test runner
+        ctypes.CDLL(None).prctl(4, 1, 0, 0, 0)  # PR_SET_DUMPABLE back on for the test runner
 
 
 def test_worker_refuses_to_parse_when_seccomp_cannot_be_installed(
@@ -145,9 +143,7 @@ def test_worker_status_probe_and_normal_operation(tmp_path: Path) -> None:
             with zipfile.ZipFile(zip_path, "w") as z:
                 z.writestr("a.txt", "a")
             with open(zip_path, "rb") as f:
-                listing = json.loads(
-                    run_worker("zipdir", f, LIMITS, {"max_entries": 10})
-                )
+                listing = json.loads(run_worker("zipdir", f, LIMITS, {"max_entries": 10}))
             assert listing["count"] == 1
         else:
             with pytest.raises(PreviewError) as err:

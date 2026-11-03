@@ -41,9 +41,7 @@ class Stack:
         self.password = secrets.token_urlsafe(24)
         self.port = free_port()
         self.name = name
-        self.files = [
-            COMPOSE_FILE
-        ]  # a suite may add override files (e.g. an outer proxy)
+        self.files = [COMPOSE_FILE]  # a suite may add override files (e.g. an outer proxy)
         self.env = {
             **os.environ,
             "POSTGRES_PASSWORD": self.password,
@@ -63,12 +61,7 @@ class Stack:
         files = [arg for f in self.files for arg in ("-f", str(f))]
         cmd = ["docker", "compose", "-p", self.name, *files, *args]
         r = subprocess.run(  # noqa: S603
-            cmd,
-            env=env or self.env,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
+            cmd, env=env or self.env, capture_output=True, text=True, timeout=600, check=False
         )
         if check and r.returncode != 0:
             raise AssertionError(f"{' '.join(args)} failed:\n{r.stdout}\n{r.stderr}")
@@ -80,16 +73,12 @@ class Stack:
             build = [] if os.environ.get("FILECANOPY_COMPOSE_NO_BUILD") else ["--build"]
             self.compose(*extra, "up", "-d", *build, "--wait", "--wait-timeout", "180")
         except AssertionError as exc:
-            logs = self.compose(
-                "--profile", "*", "logs", "--no-color", "--tail", "30", check=False
-            )
+            logs = self.compose("--profile", "*", "logs", "--no-color", "--tail", "30", check=False)
             raise AssertionError(f"{exc}\n--- service logs ---\n{logs.stdout}") from exc
 
     def get(self, path: str) -> tuple[int, dict[str, object]]:
         try:
-            with urllib.request.urlopen(
-                f"http://127.0.0.1:{self.port}{path}", timeout=5
-            ) as r:
+            with urllib.request.urlopen(f"http://127.0.0.1:{self.port}{path}", timeout=5) as r:
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read())
@@ -109,23 +98,12 @@ class Stack:
 
     def sql(self, query: str) -> str:
         r = self.compose(
-            "exec",
-            "-T",
-            "postgres",
-            "psql",
-            "-U",
-            "filecanopy",
-            "-d",
-            "filecanopy",
-            "-tAc",
-            query,
+            "exec", "-T", "postgres", "psql", "-U", "filecanopy", "-d", "filecanopy", "-tAc", query
         )
         return r.stdout.strip()
 
     def instance_id(self) -> str:
-        return self.sql(
-            "select value #>> '{}' from app_setting where key='instance_id'"
-        )
+        return self.sql("select value #>> '{}' from app_setting where key='instance_id'")
 
     def down(self, volumes: bool = False) -> None:
         # "*" also removes profiled services (else redis/worker leak).
@@ -135,9 +113,7 @@ class Stack:
 
 def library_listing(root: Path) -> dict[str, bytes]:
     return {
-        str(p.relative_to(root)): p.read_bytes()
-        for p in sorted(root.rglob("*"))
-        if p.is_file()
+        str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()
     }
 
 
@@ -158,23 +134,15 @@ def test_compose_requires_database_password(tmp_path: Path) -> None:
 
 
 def test_no_ai_services_defined(stack: Stack) -> None:
-    services = set(
-        stack.compose("--profile", "workers", "config", "--services").stdout.split()
-    )
+    services = set(stack.compose("--profile", "workers", "config", "--services").stdout.split())
     assert services == ALL_SERVICES
-    assert not [
-        s for s in services if any(w in s for w in ("ai", "llama", "ollama", "embed"))
-    ]
-    image_lines = stack.compose(
-        "--profile", "workers", "config", "--images"
-    ).stdout.lower()
+    assert not [s for s in services if any(w in s for w in ("ai", "llama", "ollama", "embed"))]
+    image_lines = stack.compose("--profile", "workers", "config", "--images").stdout.lower()
     assert not any(w in image_lines for w in ("llama", "ollama", "openai", "anthropic"))
 
 
 def test_fresh_install_core_starts_without_workers_or_ai(stack: Stack) -> None:
-    running = set(
-        stack.compose("ps", "--services", "--status", "running").stdout.split()
-    )
+    running = set(stack.compose("ps", "--services", "--status", "running").stdout.split())
     assert {"postgres", "api", "web"} <= running
     assert not running & {"redis", "worker"}
     status, body = stack.get("/api/v1/health")
@@ -185,9 +153,7 @@ def test_fresh_install_core_starts_without_workers_or_ai(stack: Stack) -> None:
         "redis": {"state": "not_configured"},
         "worker": {"state": "not_configured"},
     }
-    with urllib.request.urlopen(
-        f"http://127.0.0.1:{stack.port}/healthz", timeout=5
-    ) as r:
+    with urllib.request.urlopen(f"http://127.0.0.1:{stack.port}/healthz", timeout=5) as r:
         assert r.status == 200
     with urllib.request.urlopen(f"http://127.0.0.1:{stack.port}/", timeout=5) as r:
         assert b"FileCanopy" in r.read()
@@ -226,20 +192,14 @@ def test_migration_idempotent_and_serialized(stack: Stack) -> None:
 
 def test_security_posture(stack: Stack) -> None:
     ps = json.loads(
-        "["
-        + ",".join(stack.compose("ps", "--format", "json").stdout.split("\n")[:-1])
-        + "]"
+        "[" + ",".join(stack.compose("ps", "--format", "json").stdout.split("\n")[:-1]) + "]"
     )
-    publishers = {
-        p["Service"]: [x for x in p["Publishers"] if x.get("PublishedPort")] for p in ps
-    }
+    publishers = {p["Service"]: [x for x in p["Publishers"] if x.get("PublishedPort")] for p in ps}
     assert not publishers["postgres"], "postgres must not publish a host port"
     assert not publishers["api"], "api is reachable only through web"
     assert publishers["web"] and all(p["URL"] == "127.0.0.1" for p in publishers["web"])
     assert stack.compose("exec", "-T", "api", "id", "-u").stdout.strip() != "0"
-    probe = stack.compose(
-        "exec", "-T", "api", "sh", "-c", "touch /srv/filecanopy/x", check=False
-    )
+    probe = stack.compose("exec", "-T", "api", "sh", "-c", "touch /srv/filecanopy/x", check=False)
     assert probe.returncode != 0, "api root filesystem must be read-only"
     logs = stack.compose("logs", "--no-color").stdout
     status, body = stack.get("/api/v1/health")
@@ -264,9 +224,7 @@ def test_restart_persistence_and_portable_library(stack: Stack) -> None:
     stack.up()
     stack.wait_health("ok")
     assert stack.instance_id() == before_id
-    assert library_listing(stack.library) == before_files, (
-        "app must not add/alter library files"
-    )
+    assert library_listing(stack.library) == before_files, "app must not add/alter library files"
     assert not any(p.name.startswith(".health") for p in stack.library.rglob("*"))
     # Probe files live only in app-data, never in the document tree.
     assert not list(stack.app_data.glob(".health-*"))

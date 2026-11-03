@@ -46,9 +46,7 @@ def test_budget_reservations_never_pass_the_cap_on_postgres(stack: Stack) -> Non
     r = stack.compose("exec", "-T", "api", "python", "-c", SCRIPT)
     out = json.loads(r.stdout.strip().splitlines()[-1])
     assert out["wins"] == 6  # six times 150k fit in 1M; a seventh would pass the cap
-    reserved = stack.sql(
-        "select reserved_micro from ai_budget where scope_key = 'race-test'"
-    )
+    reserved = stack.sql("select reserved_micro from ai_budget where scope_key = 'race-test'")
     assert int(reserved) == 900_000
     # the database refuses a second instance provider whatever the application does
     q = (

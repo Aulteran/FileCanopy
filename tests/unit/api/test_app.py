@@ -24,14 +24,10 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE alembic_version (version_num TEXT)"))
-        conn.execute(
-            text("INSERT INTO alembic_version VALUES (:v)"), {"v": head_revision()}
-        )
+        conn.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": head_revision()})
     monkeypatch.setattr(main_module, "make_engine", lambda _: engine)
     cfg = Settings(  # type: ignore[call-arg]
-        database_url="postgresql+psycopg://u:p@h/db",
-        library_path=lib,
-        app_data_path=data,
+        database_url="postgresql+psycopg://u:p@h/db", library_path=lib, app_data_path=data
     )
     return TestClient(main_module.create_app(cfg))
 
@@ -71,9 +67,7 @@ def test_json_log_drops_exception_text() -> None:
     except RuntimeError:
         import sys
 
-        record = logging.LogRecord(
-            "t", logging.ERROR, __file__, 1, "failed", None, sys.exc_info()
-        )
+        record = logging.LogRecord("t", logging.ERROR, __file__, 1, "failed", None, sys.exc_info())
     out = JsonFormatter().format(record)
     assert "hunter2" not in out
     assert json.loads(out)["exc_type"] == "RuntimeError"

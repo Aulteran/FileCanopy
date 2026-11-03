@@ -56,9 +56,7 @@ def reauth(
 ) -> str:
     r = c.post("/api/v1/auth/oidc/reauth/start", headers=h)
     assert r.status_code == 200, r.text
-    return outcome(
-        callback(c, idp, idp.authorize(r.json()["authorization_url"], sub, **kw))
-    )
+    return outcome(callback(c, idp, idp.authorize(r.json()["authorization_url"], sub, **kw)))
 
 
 def only_world(
@@ -70,12 +68,8 @@ def only_world(
     return w, c, h
 
 
-def put_mode(
-    c: TestClient, h: dict[str, str], enabled: bool = True, **body: Any
-) -> Any:
-    return c.put(
-        "/api/v1/admin/oidc-only", json={"enabled": enabled, **body}, headers=h
-    )
+def put_mode(c: TestClient, h: dict[str, str], enabled: bool = True, **body: Any) -> Any:
+    return c.put("/api/v1/admin/oidc-only", json={"enabled": enabled, **body}, headers=h)
 
 
 def turn_on(w: World, idp: Idp, c: TestClient, h: dict[str, str], **body: Any) -> Any:
@@ -100,9 +94,7 @@ def onboard_member(w: World, c: TestClient, h: dict[str, str], email: str) -> No
 # ---------------------------------------------------------------- turning it on: guards
 
 
-def test_off_by_default_and_reported(
-    make_world: Callable[..., World], idp: Idp
-) -> None:
+def test_off_by_default_and_reported(make_world: Callable[..., World], idp: Idp) -> None:
     w, c, h = only_world(make_world, idp)
     st = c.get("/api/v1/admin/oidc-only").json()
     assert st["enabled"] is False and st["effective"] is False
@@ -180,9 +172,7 @@ def test_reauth_asks_the_provider_to_check_again(
     idp: Idp,
 ) -> None:
     w, c, h = only_world(make_world, idp)
-    url = c.post("/api/v1/auth/oidc/reauth/start", headers=h).json()[
-        "authorization_url"
-    ]
+    url = c.post("/api/v1/auth/oidc/reauth/start", headers=h).json()["authorization_url"]
     assert "max_age=0" in url and "prompt=login" in url
     plain = start(w.browser(), "login")
     assert "max_age" not in plain and "prompt" not in plain
@@ -266,18 +256,12 @@ def test_removing_the_provider_configuration_brings_passwords_back(
     w, c, h = only_world(make_world, idp)
     turn_on(w, idp, c, h)
     # same database, provider variables gone: the switch is still "on" but inert
-    values = {
-        k: v for k, v in w.settings.model_dump().items() if not k.startswith("oidc_")
-    }
-    w.ctx.settings = Settings(
-        **{**values, "database_url": "postgresql+psycopg://u:p@h/db"}
-    )
+    values = {k: v for k, v in w.settings.model_dump().items() if not k.startswith("oidc_")}
+    w.ctx.settings = Settings(**{**values, "database_url": "postgresql+psycopg://u:p@h/db"})
     w.app.state.auth.settings = w.ctx.settings
     assert login(w.browser(), "admin@example.com").status_code == 200
     st = c.get("/api/v1/admin/oidc-only").json()
-    assert (
-        st["enabled"] is True and st["effective"] is False and not st["oidc_configured"]
-    )
+    assert st["enabled"] is True and st["effective"] is False and not st["oidc_configured"]
 
 
 def test_force_local_login_overrides_the_switch(
@@ -310,9 +294,7 @@ def test_command_line_recovery(
     with w.ctx.sessions() as db:
         row = db.get(AppSetting, "auth.oidc_only")
         assert row is not None and row.value is False
-        last = [
-            a for a in db.scalars(select(AuthAudit)) if a.action == "auth.oidc_only_off"
-        ][-1]
+        last = [a for a in db.scalars(select(AuthAudit)) if a.action == "auth.oidc_only_off"][-1]
         assert last.details["via"] == "cli" and last.actor_user_id is None
     cli.run(["oidc-only", "off"], w.settings, w.ctx.sessions, lines.append)
     assert lines[-1] == "already off"
@@ -337,17 +319,13 @@ def test_the_last_administrator_who_can_sign_in_cannot_be_removed(
 ) -> None:
     w, c, h = only_world(make_world, idp)
     token = invite(w, (c, h), "admin2@example.com", "admin")
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
     c2, h2 = signed_in(w, "admin2@example.com")  # a session that predates the switch
     turn_on(w, idp, c, h, confirm_unlinked_users=1)
     ada = next(u for u in w.db_rows(User) if u.email == "admin@example.com")
     r = c2.delete(f"/api/v1/admin/users/{ada.id}/identity", headers=h2)
     assert r.status_code == 409 and code(r) == "LAST_LINKED_ADMIN"
-    r = c2.patch(
-        f"/api/v1/admin/users/{ada.id}", json={"status": "disabled"}, headers=h2
-    )
+    r = c2.patch(f"/api/v1/admin/users/{ada.id}", json={"status": "disabled"}, headers=h2)
     assert r.status_code == 409 and code(r) == "LAST_LINKED_ADMIN"
     r = c2.patch(f"/api/v1/admin/users/{ada.id}", json={"role": "member"}, headers=h2)
     assert r.status_code == 409 and code(r) == "LAST_LINKED_ADMIN"
@@ -371,9 +349,7 @@ def test_invitation_through_the_provider_needs_no_password_in_this_mode(
     )
     assert r.status_code == 422 and code(r) == "PASSWORD_NOT_ACCEPTED"
     url = start(anon, "invitation", token=token, name="Nina")
-    result = outcome(
-        callback(anon, idp, idp.authorize(url, "sub-nina", email="nina@example.com"))
-    )
+    result = outcome(callback(anon, idp, idp.authorize(url, "sub-nina", email="nina@example.com")))
     assert result == "welcome" and sessions_ok(anon)
     nina = next(u for u in w.db_rows(User) if u.email == "nina@example.com")
     assert nina.status == "active" and nina.password_hash is None
@@ -412,9 +388,9 @@ def test_a_person_without_a_password_sets_a_pin_through_the_provider(
     r = nc.put("/api/v1/auth/pin", json={**body, "reauth": True}, headers=nh)
     assert r.status_code == 403 and code(r) == "REAUTH_REQUIRED"
     fresh = int(time.time()) - 3
-    assert reauth(
-        w, idp, nc, nh, "sub-nina", email="nina@example.com", auth_time=fresh
-    ) == ("reauthed")
+    assert reauth(w, idp, nc, nh, "sub-nina", email="nina@example.com", auth_time=fresh) == (
+        "reauthed"
+    )
     r = nc.put("/api/v1/auth/pin", json={**body, "reauth": True}, headers=nh)
     assert r.status_code == 200, r.text
     # one check, one use
@@ -443,9 +419,7 @@ def test_re_enabling_a_linked_person_without_a_password_keeps_them_active(
         )
     )
     nina = next(u for u in w.db_rows(User) if u.email == "nina@example.com")
-    assert c.patch(
-        f"/api/v1/admin/users/{nina.id}", json={"status": "disabled"}, headers=h
-    )
+    assert c.patch(f"/api/v1/admin/users/{nina.id}", json={"status": "disabled"}, headers=h)
     r = c.patch(f"/api/v1/admin/users/{nina.id}", json={"status": "active"}, headers=h)
     assert r.json()["status"] == "active"
 
@@ -471,9 +445,7 @@ def test_google_issuer_spellings_are_accepted_only_for_google(
     assert link(w, idp, c, h, iss=GOOGLE) == "linked"
     _, r = sso_login(w, idp, "sub-ada", iss=GOOGLE)
     assert r == "signed_in"
-    _, r = sso_login(
-        w, idp, "sub-ada", iss="accounts.google.com"
-    )  # Google's other spelling
+    _, r = sso_login(w, idp, "sub-ada", iss="accounts.google.com")  # Google's other spelling
     assert r == "signed_in"
     _, r = sso_login(w, idp, "sub-ada", iss="https://evil.example.com")
     assert r == "ID_TOKEN_INVALID"
@@ -561,13 +533,10 @@ def test_google_hosted_domain_is_checked_on_the_token(
     assert "hd=example.com" in url  # a hint for the account chooser, not the control
     # the hint can be stripped by the person: the token decides
     assert (
-        outcome(callback(c, idp, idp.authorize(url, "s", iss=GOOGLE)))
-        == "OIDC_DOMAIN_NOT_ALLOWED"
+        outcome(callback(c, idp, idp.authorize(url, "s", iss=GOOGLE))) == "OIDC_DOMAIN_NOT_ALLOWED"
     )
     url = start(c, "link", h, password=PASSWORD)
-    r = outcome(
-        callback(c, idp, idp.authorize(url, "s", iss=GOOGLE, hd="other.example"))
-    )
+    r = outcome(callback(c, idp, idp.authorize(url, "s", iss=GOOGLE, hd="other.example")))
     assert r == "OIDC_DOMAIN_NOT_ALLOWED"
     url = start(c, "link", h, password=PASSWORD)
     r = outcome(callback(c, idp, idp.authorize(url, "s", iss=GOOGLE, hd="Example.com")))
@@ -593,14 +562,8 @@ def test_google_reauth_uses_the_account_chooser(
     w = google_world(make_world, idp)
     c, h = admin_session(w)
     assert link(w, idp, c, h, iss=GOOGLE) == "linked"
-    url = c.post("/api/v1/auth/oidc/reauth/start", headers=h).json()[
-        "authorization_url"
-    ]
-    assert (
-        "prompt=select_account" in url
-        and "max_age=0" in url
-        and "prompt=login" not in url
-    )
+    url = c.post("/api/v1/auth/oidc/reauth/start", headers=h).json()["authorization_url"]
+    assert "prompt=select_account" in url and "max_age=0" in url and "prompt=login" not in url
 
 
 def test_admin_config_view_names_google(
@@ -630,15 +593,10 @@ def test_a_link_invitation_brings_an_unlinked_person_back(
     assert r.status_code == 200, r.text
     token = r.json()["token"]
     anon = w.browser()
-    r = anon.post(
-        "/api/v1/auth/oidc/invitation/start",
-        json={"token": token, "password": PASSWORD},
-    )
+    r = anon.post("/api/v1/auth/oidc/invitation/start", json={"token": token, "password": PASSWORD})
     assert r.status_code == 422 and code(r) == "PASSWORD_NOT_ACCEPTED"
     # the password route cannot redeem it, and a wrong provider address is refused
-    bad = anon.post(
-        "/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD}
-    )
+    bad = anon.post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
     assert bad.status_code == 403
     url = start(anon, "invitation", token=token)
     mismatch = idp.authorize(url, "sub-bob", email="someone.else@example.com")
@@ -699,16 +657,10 @@ def test_wrong_passwords_on_the_pin_routes_end_the_session_at_five(
     c, h = admin_session(w)
     for i in range(4):
         r = c.put(
-            "/api/v1/auth/pin",
-            json={"pin": "482915", "password": "wrong password!!"},
-            headers=h,
+            "/api/v1/auth/pin", json={"pin": "482915", "password": "wrong password!!"}, headers=h
         )
         assert r.status_code == 403, i
         w.advance(seconds=1)
-    r = c.put(
-        "/api/v1/auth/pin",
-        json={"pin": "482915", "password": "wrong password!!"},
-        headers=h,
-    )
+    r = c.put("/api/v1/auth/pin", json={"pin": "482915", "password": "wrong password!!"}, headers=h)
     assert r.status_code == 401 and code(r) == "SESSION_ENDED_TOO_MANY_UNLOCK_FAILURES"
     assert not sessions_ok(c)

@@ -40,10 +40,7 @@ def make_pdf(pages: int, js: str | None = None) -> bytes:
     out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
     for off in offsets:
         out += b"%010d 00000 n \n" % off
-    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-        len(objs) + 1,
-        xref,
-    )
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
     return bytes(out)
 
 
@@ -73,17 +70,12 @@ def test_pdf_opens_scrolls_and_zooms_with_no_third_party_requests(
     page.on(
         "request",
         lambda r: (
-            foreign.append(r.url)
-            if not r.url.startswith((world.base, "blob:", "data:"))
-            else None
+            foreign.append(r.url) if not r.url.startswith((world.base, "blob:", "data:")) else None
         ),
     )
     bad_csp: list[str] = []
     page.on(
-        "console",
-        lambda m: (
-            bad_csp.append(m.text) if "Content Security Policy" in m.text else None
-        ),
+        "console", lambda m: bad_csp.append(m.text) if "Content Security Policy" in m.text else None
     )
 
     upload(page, "canopy.pdf", make_pdf(6))
@@ -141,20 +133,14 @@ def test_pictures_text_and_tables_never_run_or_inject_markup(
     page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
     upload(page, "dot.png", PNG_1X1)
     upload(page, "evil.svg", SCRIPTED_SVG)
-    upload(
-        page,
-        "notes.txt",
-        b"hello <img src=x onerror=alert('xss')> world\nsecond line\n",
-    )
+    upload(page, "notes.txt", b"hello <img src=x onerror=alert('xss')> world\nsecond line\n")
     upload(page, "sheet.csv", b'name,note\nAda,"<b>bold</b>"\nBob,"x, y"\n')
     expect(page.get_by_role("row").filter(has_text="sheet.csv")).to_be_visible()
 
     open_file(page, "dot.png")
     img = page.locator("img.viewer-image")
     expect(img).to_be_visible()
-    page.wait_for_function(
-        "() => document.querySelector('img.viewer-image').naturalWidth > 0"
-    )
+    page.wait_for_function("() => document.querySelector('img.viewer-image').naturalWidth > 0")
     page.go_back()
 
     open_file(page, "evil.svg")
@@ -164,9 +150,7 @@ def test_pictures_text_and_tables_never_run_or_inject_markup(
     page.go_back()
 
     open_file(page, "notes.txt")
-    expect(page.locator("pre.viewer-text")).to_contain_text(
-        "<img src=x onerror=alert('xss')>"
-    )
+    expect(page.locator("pre.viewer-text")).to_contain_text("<img src=x onerror=alert('xss')>")
     expect(page.locator("pre.viewer-text img")).to_have_count(0)
     page.go_back()
 
@@ -199,16 +183,12 @@ def test_unsupported_damaged_and_forged_files_get_a_friendly_page(
 
     page.goto(world.base + "/")
     open_file(page, "broken.pdf")
-    expect(
-        page.get_by_role("heading", name="This file cannot be shown")
-    ).to_be_visible()
+    expect(page.get_by_role("heading", name="This file cannot be shown")).to_be_visible()
     expect(page.get_by_role("link", name="Download").first).to_be_visible()
 
     page.go_back()
     open_file(page, "fake.png")
-    expect(
-        page.get_by_role("heading", name="This file cannot be shown")
-    ).to_be_visible()
+    expect(page.get_by_role("heading", name="This file cannot be shown")).to_be_visible()
 
 
 def test_viewer_headers_csp_and_other_people(world: World, browser: Browser) -> None:
@@ -222,9 +202,7 @@ def test_viewer_headers_csp_and_other_people(world: World, browser: Browser) -> 
     assert "worker-src 'self'" in csp and "default-src 'self'" in csp
     assert "unsafe-eval" not in csp and "unsafe-inline" not in csp
     assert "frame-ancestors 'none'" in csp
-    asset = page.request.get(
-        f"{world.base}/pdfjs/standard_fonts/LiberationSans-Regular.ttf"
-    )
+    asset = page.request.get(f"{world.base}/pdfjs/standard_fonts/LiberationSans-Regular.ttf")
     assert asset.status == 200 and len(asset.body()) > 10_000
     assert (
         page.request.get(f"{world.base}/pdfjs/wasm/quickjs-eval.wasm")
@@ -232,13 +210,9 @@ def test_viewer_headers_csp_and_other_people(world: World, browser: Browser) -> 
         .startswith("text/html")
     )  # the scripting sandbox is not shipped (SPA fallback page)
 
-    raw = page.request.get(
-        f"{world.base}/api/v1/nodes/{node}/view", headers={"Range": "bytes=0-7"}
-    )
+    raw = page.request.get(f"{world.base}/api/v1/nodes/{node}/view", headers={"Range": "bytes=0-7"})
     assert raw.status == 206 and raw.body() == b"%PDF-1.4"
-    assert raw.headers["content-disposition"].startswith(
-        "inline; filename*=UTF-8''h.pdf"
-    )
+    assert raw.headers["content-disposition"].startswith("inline; filename*=UTF-8''h.pdf")
 
     # someone else gets the same refusal as for a download
     bob = sign_in(browser, world, world.bob_mail)
@@ -249,25 +223,19 @@ def test_viewer_headers_csp_and_other_people(world: World, browser: Browser) -> 
 
 
 def _node_id(page: Page, world: World, name: str) -> str:
-    r = page.request.get(
-        f"{world.base}/api/v1/nodes/{world.alice_root}/children?limit=500"
-    )
+    r = page.request.get(f"{world.base}/api/v1/nodes/{world.alice_root}/children?limit=500")
     for item in r.json()["items"]:
         if item["name"] == name:
             return str(item["id"])
     raise AssertionError(f"{name} not found")
 
 
-def test_password_protected_pdf_gets_a_friendly_page(
-    world: World, browser: Browser
-) -> None:
+def test_password_protected_pdf_gets_a_friendly_page(world: World, browser: Browser) -> None:
     page = sign_in(browser, world, world.alice_mail)
     upload(page, "locked.pdf", (FIXTURES / "password-protected.pdf").read_bytes())
     expect(page.get_by_role("row").filter(has_text="locked.pdf")).to_be_visible()
     open_file(page, "locked.pdf")
-    expect(
-        page.get_by_role("heading", name="This file cannot be shown")
-    ).to_be_visible()
+    expect(page.get_by_role("heading", name="This file cannot be shown")).to_be_visible()
     expect(page.get_by_text("protected with a password")).to_be_visible()
     expect(page.get_by_role("link", name="Download").first).to_be_visible()
 
@@ -296,9 +264,7 @@ def test_scanned_pdf_with_a_jpeg2000_image_draws_under_the_strict_csp(
     page.on(
         "request",
         lambda r: (
-            foreign.append(r.url)
-            if not r.url.startswith((world.base, "blob:", "data:"))
-            else None
+            foreign.append(r.url) if not r.url.startswith((world.base, "blob:", "data:")) else None
         ),
     )
     upload(page, "scan.pdf", (FIXTURES / "scanned-jpx.pdf").read_bytes())
@@ -323,9 +289,7 @@ def test_scanned_pdf_with_a_jpeg2000_image_draws_under_the_strict_csp(
 
 
 def test_viewer_fits_a_phone_width(world: World, browser: Browser) -> None:
-    page = sign_in(
-        browser, world, world.alice_mail, viewport={"width": 375, "height": 812}
-    )
+    page = sign_in(browser, world, world.alice_mail, viewport={"width": 375, "height": 812})
     upload(page, "phone.pdf", make_pdf(2))
     upload(page, "wide.csv", ("a," * 60 + "z\n" + "1," * 60 + "2\n").encode())
     expect(page.get_by_role("row").filter(has_text="wide.csv")).to_be_visible()

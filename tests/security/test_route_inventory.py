@@ -118,7 +118,7 @@ def test_the_public_list_has_no_stale_entries(make_world: Callable[..., World]) 
 def test_public_routes_never_return_a_session_or_content_to_an_anonymous_caller(
     make_world: Callable[..., World],
 ) -> None:
-    w = make_world()
+    w = make_world(mcp_enabled=True)
     w.create_admin()
     anon = w.browser()
     body = anon.get("/api/v1/auth/session").json()
@@ -156,18 +156,12 @@ def test_every_state_changing_route_refuses_a_cross_site_browser(
         ):
             body = PUBLIC_BODIES.get(path, {})
             r = c.request(method, fill(path), json=body, headers={**h, **extra})
-            code = (
-                (r.json().get("detail") or {}).get("code")
-                if r.status_code < 500
-                else None
-            )
+            code = (r.json().get("detail") or {}).get("code") if r.status_code < 500 else None
             if r.status_code != 403 or code not in (
                 "CROSS_SITE_REQUEST",
                 "ORIGIN_NOT_ALLOWED",
             ):
-                leaked.append(
-                    f"{method} {path} {list(extra)[0]} -> {r.status_code} {code}"
-                )
+                leaked.append(f"{method} {path} {list(extra)[0]} -> {r.status_code} {code}")
     print("\n".join(leaked))
     assert leaked == []
     with w.ctx.sessions() as db:

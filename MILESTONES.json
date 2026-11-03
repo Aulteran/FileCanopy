@@ -795,8 +795,8 @@
         "accessibility audit",
         "semantics consistency"
       ],
-      "notes": "",
-      "status": "not_started"
+      "notes": "Implemented 2026-11-03 on branch m23-hardening (no migration); awaiting CI and the Opus security review, not merged. Adds tests/security (persona x surface isolation matrix, route inventory, red-team name corpus, log-leak canaries, follow-up tests), a poisoned-item reconcile scale test, tests/perf benchmarks, a PostgreSQL multiuser and log-canary compose test, and a browser accessibility and keyboard e2e. Fixes found: query strings in uvicorn and nginx logs (now path-only), origin check on invitation accept and reset complete, MCP tokens revoked on credential change, a valid MCP token no longer locked out by others' bad tokens, /search rate limit, doubled reconcile counts after a retried batch, spent OIDC round trips and AI proposal text scrubbed. Open: parser child kill/tkill own-pid restriction, filter_visible optimisation (measured linear), idle auto-lock, multi-worker rate limits. Design and test mapping: docs/milestones/M23-design-and-plan.md; guide docs/guides/hardening.md; numbers docs/perf/M23-benchmarks.md.",
+      "status": "in_review"
     },
     {
       "id": "M24",

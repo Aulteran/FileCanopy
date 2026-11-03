@@ -79,9 +79,7 @@ def mail_notes(fx: Fx, email: str) -> list[Notification]:
 def inbox_files(fx: Fx, who: str) -> list[str]:
     api = Api(fx, who)
     top = next(
-        c
-        for c in api.children(fx.root_of(f"{who}@example.com"))
-        if c["name"] == "Email inbox"
+        c for c in api.children(fx.root_of(f"{who}@example.com")) if c["name"] == "Email inbox"
     )
     return sorted(c["name"] for c in api.children(uuid.UUID(top["id"])))
 
@@ -121,21 +119,15 @@ def test_personal_mail_is_filed_like_an_upload(fx: Fx) -> None:
     (child,) = alice.children(folder)
     assert alice.download(uuid.UUID(child["id"])).content == b"%PDF-1.4 hello"
     # the same journal and history rows as a web upload, history says it came by email
-    assert [o.action for o in fx.w.db_rows(FileOperation) if o.action == "upload"] == [
-        "upload"
-    ]
+    assert [o.action for o in fx.w.db_rows(FileOperation) if o.action == "upload"] == ["upload"]
     events = [e for e in fx.w.db_rows(FileEvent) if e.action == "uploaded"]
     assert [(e.source, e.actor_user_id) for e in events] == [("email", alice.uid)]
     # nothing else in anyone else's tree
     bob = Api(fx, "bob")
-    assert all(
-        c["name"] != "Email inbox" for c in bob.children(fx.root_of("bob@example.com"))
-    )
+    assert all(c["name"] != "Email inbox" for c in bob.children(fx.root_of("bob@example.com")))
     # staged bytes are gone
     assert not (fx.w.settings.app_data_path / "mail-quarantine" / str(m.id)).exists()
-    assert all(
-        a.node_id is not None and a.outcome == "filed" for a in attachments_of(m, fx)
-    )
+    assert all(a.node_id is not None and a.outcome == "filed" for a in attachments_of(m, fx))
 
 
 def test_names_are_sanitised_and_collisions_keep_both(fx: Fx) -> None:
@@ -149,12 +141,8 @@ def test_names_are_sanitised_and_collisions_keep_both(fx: Fx) -> None:
     )
     run_poll(fx.w, FakeBox({1: raw}))
     names = inbox_files(fx, "alice")
-    assert len(names) == 4 and all(
-        "/" not in n and not n.startswith(".") for n in names
-    )
-    run_poll(
-        fx.w, FakeBox({2: build(attachments=[("a.pdf", b"other")])}, uidvalidity=8)
-    )
+    assert len(names) == 4 and all("/" not in n and not n.startswith(".") for n in names)
+    run_poll(fx.w, FakeBox({2: build(attachments=[("a.pdf", b"other")])}, uidvalidity=8))
     assert len(inbox_files(fx, "alice")) == 5  # "a (2).pdf" style, nothing overwritten
 
 
@@ -219,9 +207,7 @@ def test_replayed_mail_is_filed_once(fx: Fx) -> None:
 def test_existing_intake_name_is_reused_and_a_file_blocks_it(fx: Fx) -> None:
     alice = Api(fx, "alice")
     root = fx.root_of("alice@example.com")
-    assert (
-        alice.mkdir(root, "email INBOX").status_code == 201
-    )  # case variant is the same folder
+    assert alice.mkdir(root, "email INBOX").status_code == 201  # case variant is the same folder
     run_poll(fx.w, FakeBox({1: build()}))
     only(fx)
     names = [c["name"] for c in alice.children(root)]
@@ -229,10 +215,7 @@ def test_existing_intake_name_is_reused_and_a_file_blocks_it(fx: Fx) -> None:
 
     # a file where the folder should be
     bob = Api(fx, "bob")
-    assert (
-        bob.upload(fx.root_of("bob@example.com"), "Email inbox", b"file").status_code
-        == 201
-    )
+    assert bob.upload(fx.root_of("bob@example.com"), "Email inbox", b"file").status_code == 201
     run_poll(fx.w, FakeBox({2: build(frm="bob@example.com")}, uidvalidity=9))
     m = [r for r in messages(fx) if r.from_address == "bob@example.com"][0]
     assert (m.processing_state, m.process_error) == ("failed", "INTAKE_UNAVAILABLE")
@@ -241,9 +224,7 @@ def test_existing_intake_name_is_reused_and_a_file_blocks_it(fx: Fx) -> None:
 # ------------------------------------------------------------------ shared intake
 
 
-def set_intake(
-    fx: Fx, node: uuid.UUID | None, who: tuple[Any, Any] | None = None
-) -> Any:
+def set_intake(fx: Fx, node: uuid.UUID | None, who: tuple[Any, Any] | None = None) -> Any:
     client, h = who or fx.admin
     return client.put(
         "/api/v1/admin/mailbox/shared-intake",
@@ -264,18 +245,10 @@ def test_shared_mail_waits_for_an_intake_then_files(fx: Fx) -> None:
     assert not notes(fx, "bob@example.com")
 
     r = set_intake(fx, fx.shared_sub)
-    assert (
-        r.status_code == 200
-        and r.json()["usable"] is True
-        and r.json()["name"] == "Family"
-    )
+    assert r.status_code == 200 and r.json()["usable"] is True and r.json()["name"] == "Family"
     file_now(fx)
     m = only(fx)
-    assert (m.processing_state, m.filed_count, m.filed_node_id) == (
-        "filed",
-        1,
-        fx.shared_sub,
-    )
+    assert (m.processing_state, m.filed_count, m.filed_node_id) == ("filed", 1, fx.shared_sub)
     alice = Api(fx, "alice")
     assert [c["name"] for c in alice.children(fx.shared_sub)] == ["minutes.pdf"]
 
@@ -284,13 +257,7 @@ def test_shared_notices_go_to_uploader_and_admins_only_without_names(fx: Fx) -> 
     assert set_intake(fx, fx.shared_sub).status_code == 200
     run_poll(
         fx.w,
-        FakeBox(
-            {
-                1: build(
-                    to=INGEST, attachments=[("secret-name.pdf", b"s"), ("b.pdf", b"b")]
-                )
-            }
-        ),
+        FakeBox({1: build(to=INGEST, attachments=[("secret-name.pdf", b"s"), ("b.pdf", b"b")])}),
     )
     assert only(fx).processing_state == "filed"
     (mine,) = notes(fx, "alice@example.com", "mail_filed")
@@ -298,9 +265,7 @@ def test_shared_notices_go_to_uploader_and_admins_only_without_names(fx: Fx) -> 
     for admin in ("admin@example.com", "admin2@example.com"):
         (n,) = notes(fx, admin, "mail_shared")
         assert (n.count, n.node_id) == (2, fx.shared_sub)
-    assert not mail_notes(fx, "bob@example.com") and not mail_notes(
-        fx, "carol@example.com"
-    )
+    assert not mail_notes(fx, "bob@example.com") and not mail_notes(fx, "carol@example.com")
     blob = str([(n.kind, n.detail, n.level) for n in fx.w.db_rows(Notification)])
     assert "secret-name" not in blob and "example.com" not in blob
 
@@ -330,9 +295,7 @@ def test_sender_needs_write_access_to_the_shared_intake(fx: Fx) -> None:
     assert set_intake(fx, fx.shared_sub).status_code == 200
     with fx.w.ctx.sessions() as db:
         for g in db.scalars(
-            select(NodeGrant).where(
-                NodeGrant.grantee_user_id == fx.uid("bob@example.com")
-            )
+            select(NodeGrant).where(NodeGrant.grantee_user_id == fx.uid("bob@example.com"))
         ):
             g.level = "viewer"
         db.commit()
@@ -341,22 +304,16 @@ def test_sender_needs_write_access_to_the_shared_intake(fx: Fx) -> None:
     assert (m.processing_state, m.process_error) == ("failed", "INTAKE_FORBIDDEN")
     assert Api(fx, "bob").children(fx.shared_sub) == []
     # only the sender hears about it, and administrators learn of no failure for known mail
-    assert [n.detail for n in notes(fx, "bob@example.com", "mail_failed")] == [
-        "INTAKE_FORBIDDEN"
-    ]
+    assert [n.detail for n in notes(fx, "bob@example.com", "mail_failed")] == ["INTAKE_FORBIDDEN"]
     assert not notes(fx, "admin@example.com", "mail_failed")
 
 
 def test_only_a_writable_shared_folder_can_be_the_intake(fx: Fx) -> None:
     alice = Api(fx, "alice")
-    assert (
-        set_intake(fx, fx.shared_sub, (alice.client, alice.headers)).status_code == 403
-    )
+    assert set_intake(fx, fx.shared_sub, (alice.client, alice.headers)).status_code == 403
     assert set_intake(fx, fx.alice_root).status_code == 403  # a personal root
     assert set_intake(fx, fx.private).status_code == 403
-    assert (
-        set_intake(fx, uuid.uuid4()).status_code == 403
-    )  # same answer as for a real one
+    assert set_intake(fx, uuid.uuid4()).status_code == 403  # same answer as for a real one
     with fx.w.ctx.sessions() as db:
         db.execute(
             NodeGrant.__table__.delete().where(
@@ -364,9 +321,7 @@ def test_only_a_writable_shared_folder_can_be_the_intake(fx: Fx) -> None:
             )
         )
         db.commit()
-    assert (
-        set_intake(fx, fx.shared_sub).status_code == 403
-    )  # the admin cannot write there
+    assert set_intake(fx, fx.shared_sub).status_code == 403  # the admin cannot write there
     admin, h = fx.admin
     assert admin.get("/api/v1/admin/mailbox/shared-intake").json()["node_id"] is None
 
@@ -382,17 +337,13 @@ def test_clearing_the_intake(fx: Fx) -> None:
 # ------------------------------------------------------------------ identity at processing time
 
 
-def test_alias_removed_before_filing_stops_it(
-    fx: Fx, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_alias_removed_before_filing_stops_it(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
     alice = Api(fx, "alice")
     verify_alias(alice, "alice@work.example.net")
     pause_filing(monkeypatch)
     run_poll(
         fx.w,
-        FakeBox(
-            {1: build(frm="alice@work.example.net", auth=passing("work.example.net"))}
-        ),
+        FakeBox({1: build(frm="alice@work.example.net", auth=passing("work.example.net"))}),
     )
     assert only(fx).processing_state == "pending"
     with fx.w.ctx.sessions() as db:
@@ -420,9 +371,7 @@ def test_alias_that_moved_to_another_account_files_nowhere(
     pause_filing(monkeypatch)
     run_poll(
         fx.w,
-        FakeBox(
-            {1: build(frm="shared@work.example.net", auth=passing("work.example.net"))}
-        ),
+        FakeBox({1: build(frm="shared@work.example.net", auth=passing("work.example.net"))}),
     )
     with fx.w.ctx.sessions() as db:
         db.execute(UserEmailAlias.__table__.delete())
@@ -431,14 +380,10 @@ def test_alias_that_moved_to_another_account_files_nowhere(
     file_now(fx)
     assert only(fx).status == "quarantined"
     assert not [n for n in fx.w.db_rows(Node) if n.name == "Email inbox"]
-    assert not mail_notes(fx, "alice@example.com") and not mail_notes(
-        fx, "bob@example.com"
-    )
+    assert not mail_notes(fx, "alice@example.com") and not mail_notes(fx, "bob@example.com")
 
 
-def test_disabled_account_is_not_filed_for(
-    fx: Fx, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_disabled_account_is_not_filed_for(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
     pause_filing(monkeypatch)
     run_poll(fx.w, FakeBox({1: build()}))
     with fx.w.ctx.sessions() as db:
@@ -469,9 +414,7 @@ def test_shared_mail_of_a_changed_sender_keeps_its_bytes_for_triage(
 # ------------------------------------------------------------------ retries and dead letters
 
 
-def test_transient_failures_retry_then_dead_letter(
-    fx: Fx, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_transient_failures_retry_then_dead_letter(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[int] = []
 
     def boom(*a: Any, **k: Any) -> None:
@@ -496,9 +439,7 @@ def test_transient_failures_retry_then_dead_letter(
     assert "mail.dead_letter" in [a.action for a in fx.w.db_rows(AuthAudit)]
     fx.w.advance(hours=3)
     file_now(fx)
-    assert (
-        len(calls) == 5 and len(notes(fx, "alice@example.com", "mail_failed")) == 1
-    )  # no spam
+    assert len(calls) == 5 and len(notes(fx, "alice@example.com", "mail_failed")) == 1  # no spam
 
     # the sender may retry once; staged bytes were kept
     monkeypatch.undo()
@@ -520,12 +461,7 @@ def test_retry_is_the_senders_alone(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> 
     run_poll(fx.w, FakeBox({1: build(to=INGEST)}))  # fails: no intake yet
     m = only(fx)
     bob = Api(fx, "bob")
-    assert (
-        bob.client.post(
-            f"/api/v1/me/inbox/{m.id}/retry", headers=bob.headers
-        ).status_code
-        == 404
-    )
+    assert bob.client.post(f"/api/v1/me/inbox/{m.id}/retry", headers=bob.headers).status_code == 404
     admin, h = fx.admin
     assert admin.post(f"/api/v1/me/inbox/{m.id}/retry", headers=h).status_code == 404
 
@@ -566,13 +502,9 @@ def test_a_claimed_message_that_never_finishes_is_not_taken_twice(
 
 def test_daily_cap_per_sender(make_world: Callable[..., World]) -> None:
     fx = Fx(mail_world(make_world, **IMAP, mail_daily_messages_per_sender=2))
-    run_poll(
-        fx.w, FakeBox({i: build(attachments=[(f"{i}.pdf", b"x")]) for i in (1, 2, 3)})
-    )
+    run_poll(fx.w, FakeBox({i: build(attachments=[(f"{i}.pdf", b"x")]) for i in (1, 2, 3)}))
     # arrival times tie, so which one is last is arbitrary; two are filed and one is capped
-    states = sorted(
-        (m.processing_state or "", m.process_error or "") for m in messages(fx)
-    )
+    states = sorted((m.processing_state or "", m.process_error or "") for m in messages(fx))
     assert states == [("failed", "RATE_LIMITED"), ("filed", ""), ("filed", "")]
 
 
@@ -597,24 +529,12 @@ def test_unrecognised_mail_cannot_starve_recognised_mail(
         run_poll(
             fx.w,
             FakeBox(
-                {
-                    uid: build(
-                        frm="spam@example.com",
-                        to=INGEST,
-                        attachments=[("x.pdf", b"x" * 40)],
-                    )
-                },
+                {uid: build(frm="spam@example.com", to=INGEST, attachments=[("x.pdf", b"x" * 40)])},
                 uidvalidity=60 + uid,
             ),
         )
-    assert {m.content_state for m in messages(fx)} == {
-        "stored",
-        "dropped",
-    }  # quarantine is full
-    run_poll(
-        fx.w,
-        FakeBox({9: build(attachments=[("mine.pdf", b"y" * 100)])}, uidvalidity=99),
-    )
+    assert {m.content_state for m in messages(fx)} == {"stored", "dropped"}  # quarantine is full
+    run_poll(fx.w, FakeBox({9: build(attachments=[("mine.pdf", b"y" * 100)])}, uidvalidity=99))
     assert inbox_files(fx, "alice") == ["mine.pdf"]
 
 
@@ -623,10 +543,7 @@ def test_changed_sender_leaks_nothing_about_personal_mail_to_admins(
 ) -> None:
     pause_filing(monkeypatch)
     run_poll(
-        fx.w,
-        FakeBox(
-            {1: build(subject="Divorce papers", attachments=[("lawyer.pdf", b"x")])}
-        ),
+        fx.w, FakeBox({1: build(subject="Divorce papers", attachments=[("lawyer.pdf", b"x")])})
     )
     with fx.w.ctx.sessions() as db:
         alice = db.get(User, fx.uid("alice@example.com"))
@@ -647,19 +564,14 @@ def fail_filing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ingest, "_file_all", boom)
 
 
-def test_bytes_are_freed_when_no_retry_is_possible(
-    fx: Fx, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bytes_are_freed_when_no_retry_is_possible(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
     fail_filing(monkeypatch)
     run_poll(fx.w, FakeBox({1: build()}))
     for _ in range(5):
         fx.w.advance(hours=2)
         file_now(fx)
     m = only(fx)
-    assert (m.processing_state, m.content_state) == (
-        "failed",
-        "stored",
-    )  # one retry is left
+    assert (m.processing_state, m.content_state) == ("failed", "stored")  # one retry is left
     alice = Api(fx, "alice")
     r = alice.client.post(f"/api/v1/me/inbox/{m.id}/retry", headers=alice.headers)
     assert r.status_code == 202
@@ -673,9 +585,7 @@ def test_bytes_are_freed_when_no_retry_is_possible(
 
 
 def test_archive_limits_unit(tmp_path: Path) -> None:
-    limits = archives.ArchiveLimits(
-        max_entries=5, max_uncompressed_bytes=10_000_000, max_ratio=100
-    )
+    limits = archives.ArchiveLimits(max_entries=5, max_uncompressed_bytes=10_000_000, max_ratio=100)
 
     def check(data: bytes, name: str = "a.bin") -> str | None:
         p = tmp_path / "f"
@@ -688,15 +598,10 @@ def test_archive_limits_unit(tmp_path: Path) -> None:
 
     assert check(b"%PDF-1.4 plain") is None
     assert check(zip_of({"a.txt": b"hello", "b.txt": b"world"})) is None
-    assert (
-        check(zip_of({f"{i}.txt": b"x" for i in range(6)}))
-        == "ARCHIVE_TOO_MANY_ENTRIES"
-    )
+    assert check(zip_of({f"{i}.txt": b"x" for i in range(6)})) == "ARCHIVE_TOO_MANY_ENTRIES"
     assert check(zip_of({"zeros": b"\0" * 5_000_000})) == "ARCHIVE_RATIO"
     assert (
-        check(
-            zip_of({"a": b"\0" * 9_000_000, "b": b"\0" * 9_000_000}, zipfile.ZIP_STORED)
-        )
+        check(zip_of({"a": b"\0" * 9_000_000, "b": b"\0" * 9_000_000}, zipfile.ZIP_STORED))
         == "ARCHIVE_TOO_LARGE"
     )
     assert check(zip_of({"inner.zip": zip_of({"a": b"x"})})) == "ARCHIVE_NESTED"
@@ -715,9 +620,7 @@ def test_archive_limits_unit(tmp_path: Path) -> None:
     )
     assert check(huge) == "ARCHIVE_INVALID"
     assert check(lzma.compress(b"fine text " * 10)) is None
-    assert (
-        check(b"7z\xbc\xaf\x27\x1c" + b"\0" * 20) is None
-    )  # opaque: stored, never opened
+    assert check(b"7z\xbc\xaf\x27\x1c" + b"\0" * 20) is None  # opaque: stored, never opened
 
 
 def test_hostile_attachments_do_not_stop_the_good_ones(fx: Fx) -> None:
@@ -737,16 +640,9 @@ def test_hostile_attachments_do_not_stop_the_good_ones(fx: Fx) -> None:
     m = only(fx)
     assert (m.processing_state, m.filed_count) == ("partial", 3)
     outcomes = {a.display_name: a.outcome for a in attachments_of(m, fx)}
-    assert (
-        outcomes["bomb.zip"] == "ARCHIVE_RATIO"
-        and outcomes["nested.zip"] == "ARCHIVE_NESTED"
-    )
+    assert outcomes["bomb.zip"] == "ARCHIVE_RATIO" and outcomes["nested.zip"] == "ARCHIVE_NESTED"
     names = inbox_files(fx, "alice")
-    assert (
-        "report.docx" in names
-        and "invoice.pdf.exe" in names
-        and "bomb.zip" not in names
-    )
+    assert "report.docx" in names and "invoice.pdf.exe" in names and "bomb.zip" not in names
     assert all("/" not in n for n in names)
     (refused,) = notes(fx, "alice@example.com", "mail_refused")
     assert (refused.count, refused.detail) == (2, "ARCHIVE_RATIO")
@@ -755,19 +651,13 @@ def test_hostile_attachments_do_not_stop_the_good_ones(fx: Fx) -> None:
     api = Api(fx, "alice")
     folder = m.filed_node_id
     assert folder is not None
-    data = {
-        c["name"]: api.download(uuid.UUID(c["id"])).content
-        for c in api.children(folder)
-    }
+    data = {c["name"]: api.download(uuid.UUID(c["id"])).content for c in api.children(folder)}
     assert data["invoice.pdf.exe"] == spoof
 
 
 def test_a_message_of_only_refused_attachments_fails_once(fx: Fx) -> None:
     run_poll(
-        fx.w,
-        FakeBox(
-            {1: build(attachments=[("bomb.zip", zip_of({"z": b"\0" * 5_000_000}))])}
-        ),
+        fx.w, FakeBox({1: build(attachments=[("bomb.zip", zip_of({"z": b"\0" * 5_000_000}))])})
     )
     m = only(fx)
     assert (m.processing_state, m.process_error) == ("failed", "ATTACHMENTS_REFUSED")
@@ -784,15 +674,11 @@ def test_oversized_attachment_is_refused_by_the_upload_cap(
     fx = Fx(mail_world(make_world, **IMAP, max_upload_bytes=1000))
     run_poll(
         fx.w,
-        FakeBox(
-            {1: build(attachments=[("big.pdf", b"x" * 5000), ("ok.pdf", b"fine")])}
-        ),
+        FakeBox({1: build(attachments=[("big.pdf", b"x" * 5000), ("ok.pdf", b"fine")])}),
     )
     m = only(fx)
     assert m.processing_state == "partial"
-    assert {a.display_name: a.outcome for a in attachments_of(m, fx)}[
-        "big.pdf"
-    ] == "TOO_LARGE"
+    assert {a.display_name: a.outcome for a in attachments_of(m, fx)}["big.pdf"] == "TOO_LARGE"
 
 
 # ------------------------------------------------------------------ quarantine and approval
@@ -802,9 +688,7 @@ def quarantined(fx: Fx, to: str = INGEST, **kw: Any) -> InboundMessage:
     uid = len(messages(fx)) + 1
     run_poll(
         fx.w,
-        FakeBox(
-            {uid: build(frm="stranger@example.com", to=to, **kw)}, uidvalidity=50 + uid
-        ),
+        FakeBox({uid: build(frm="stranger@example.com", to=to, **kw)}, uidvalidity=50 + uid),
     )
     return [m for m in messages(fx) if m.uid == uid][0]
 
@@ -815,9 +699,7 @@ def test_quarantine_notice_merges_into_one_unread_count(fx: Fx) -> None:
     for admin in ("admin@example.com", "admin2@example.com"):
         (n,) = notes(fx, admin, "mail_quarantine")
         assert n.count == 3
-    assert not mail_notes(fx, "alice@example.com") and not mail_notes(
-        fx, "bob@example.com"
-    )
+    assert not mail_notes(fx, "alice@example.com") and not mail_notes(fx, "bob@example.com")
 
 
 def test_personal_destination_quarantine_keeps_metadata_only(fx: Fx) -> None:
@@ -840,9 +722,7 @@ def test_personal_destination_quarantine_keeps_metadata_only(fx: Fx) -> None:
     assert r.status_code == 409 and code(r) == "CONTENT_NOT_KEPT"
 
 
-def approve(
-    fx: Fx, m: InboundMessage, dest: uuid.UUID, who: tuple[Any, Any] | None = None
-) -> Any:
+def approve(fx: Fx, m: InboundMessage, dest: uuid.UUID, who: tuple[Any, Any] | None = None) -> Any:
     client, h = who or fx.admin
     ids = [str(a.id) for a in attachments_of(m, fx)]
     return client.post(
@@ -900,9 +780,7 @@ def test_approval_needs_an_administrator_with_write_access(fx: Fx) -> None:
             )
         )
         db.commit()
-    assert (
-        approve(fx, m, fx.shared_sub).status_code == 403
-    )  # admin role grants no folder access
+    assert approve(fx, m, fx.shared_sub).status_code == 403  # admin role grants no folder access
     assert Api(fx, "alice").children(fx.shared_sub) == []
 
 
@@ -927,18 +805,13 @@ def test_approval_applies_the_archive_limits_and_reject_still_works(fx: Fx) -> N
 
     m2 = quarantined(fx, attachments=[("x.pdf", b"x")])
     admin, h = fx.admin
-    r = admin.post(
-        f"/api/v1/admin/quarantine/{m2.id}/reject", json={"confirm": True}, headers=h
-    )
+    r = admin.post(f"/api/v1/admin/quarantine/{m2.id}/reject", json={"confirm": True}, headers=h)
     assert r.status_code == 200 and r.json()["status"] == "rejected"
     assert approve(fx, m2, fx.shared_sub).status_code == 409
 
 
 def test_admins_never_see_verified_mail_or_why_it_failed(fx: Fx) -> None:
-    run_poll(
-        fx.w,
-        FakeBox({1: build(to=INGEST, attachments=[("private-looking.pdf", b"x")])}),
-    )
+    run_poll(fx.w, FakeBox({1: build(to=INGEST, attachments=[("private-looking.pdf", b"x")])}))
     m = only(fx)
     assert m.process_error == "SHARED_INTAKE_UNSET"
     admin, h = fx.admin
@@ -947,18 +820,16 @@ def test_admins_never_see_verified_mail_or_why_it_failed(fx: Fx) -> None:
     status = admin.get("/api/v1/admin/mailbox").json()
     assert (status["waiting_for_intake"], status["failed_to_file"]) == (1, 1)
     assert "private-looking" not in str(status)
-    assert [
-        i["subject"] for i in Api(fx, "alice").client.get("/api/v1/me/inbox").json()
-    ] == ["Tax papers"]
+    assert [i["subject"] for i in Api(fx, "alice").client.get("/api/v1/me/inbox").json()] == [
+        "Tax papers"
+    ]
 
 
 def test_personal_mail_failures_stay_between_the_sender_and_the_system(fx: Fx) -> None:
     # alice's folder is gone: filing fails for her, and no administrator is told anything
     with fx.w.ctx.sessions() as db:
         root = db.scalars(
-            select(StorageRoot).where(
-                StorageRoot.owner_user_id == fx.uid("alice@example.com")
-            )
+            select(StorageRoot).where(StorageRoot.owner_user_id == fx.uid("alice@example.com"))
         ).one()
         root.status = "disabled"
         db.commit()
@@ -967,9 +838,7 @@ def test_personal_mail_failures_stay_between_the_sender_and_the_system(fx: Fx) -
     assert m.processing_state == "failed"
     assert notes(fx, "alice@example.com", "mail_failed")
     for admin in ("admin@example.com", "admin2@example.com"):
-        assert not notes(
-            fx, admin, "mail_failed", "mail_filed", "mail_shared", "mail_refused"
-        )
+        assert not notes(fx, admin, "mail_failed", "mail_filed", "mail_shared", "mail_refused")
 
 
 # ------------------------------------------------------------------ SPF follow-up

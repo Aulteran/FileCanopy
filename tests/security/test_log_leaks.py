@@ -104,9 +104,7 @@ def test_requests_with_secrets_everywhere_leave_no_trace_in_logs(
         },
     )
     # OIDC callback with provider secrets in the query (the M12 follow-up).
-    c.get(
-        f"/api/v1/auth/oidc/callback?code={seen['query-code']}&state={seen['query-state']}"
-    )
+    c.get(f"/api/v1/auth/oidc/callback?code={seen['query-code']}&state={seen['query-state']}")
     # Invitation and reset tokens in bodies.
     c.post(
         "/api/v1/auth/invitations/accept",
@@ -154,9 +152,7 @@ def test_access_log_uses_route_templates_not_ids(
     ac, ah = admin
     node = uuid.uuid4()
     ac.get(f"/api/v1/nodes/{node}", headers=ah)
-    w.browser().post(
-        "/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD}
-    )
+    w.browser().post("/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD})
     text = capture.text()
     assert str(node) not in text
     assert token not in text
@@ -174,9 +170,7 @@ def test_a_crashing_handler_is_still_logged_without_its_message(
     def boom() -> None:
         raise RuntimeError(f"database password is {secret}")
 
-    r = TestClient(w.app, raise_server_exceptions=False).get(
-        f"/api/v1/_boom?x={secret}"
-    )
+    r = TestClient(w.app, raise_server_exceptions=False).get(f"/api/v1/_boom?x={secret}")
     assert r.status_code == 500
     assert secret not in r.text
     access = capture.access()
@@ -202,9 +196,7 @@ def test_the_image_and_stack_switch_uvicorn_access_log_off() -> None:
     """uvicorn prints the full request line (with the query string) unless told not to."""
     for path in ("apps/api/Dockerfile", "deploy/stack/docker-stack.yml"):
         text = (ROOT / path).read_text(encoding="utf-8")
-        starts = [
-            ln for ln in text.splitlines() if "uvicorn" in ln and "app.main" in ln
-        ]
+        starts = [ln for ln in text.splitlines() if "uvicorn" in ln and "app.main" in ln]
         assert starts, path
         assert all("--no-access-log" in ln for ln in starts), path
 
@@ -214,12 +206,8 @@ def test_nginx_access_logs_omit_query_strings() -> None:
     formats = re.findall(r"log_format\s+(\w+)\s+([^;]+);", conf)
     assert formats
     for _name, body in formats:
-        assert not re.search(
-            r"\$(request\b|request_uri|args|query_string|http_referer)", body
-        )
+        assert not re.search(r"\$(request\b|request_uri|args|query_string|http_referer)", body)
     uses = re.findall(r"^\s*access_log\s+(?!off)(\S+)\s*(\S*);", conf, re.M)
     assert uses
-    assert all(
-        fmt for _path, fmt in uses
-    )  # an access_log without a format would use "combined"
+    assert all(fmt for _path, fmt in uses)  # an access_log without a format would use "combined"
     assert "$request " not in conf.split("server {", 1)[0]

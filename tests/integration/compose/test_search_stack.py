@@ -26,15 +26,13 @@ def test_the_search_schema_and_a_full_text_query_on_postgresql(stack: Stack) -> 
         "select count(*) from information_schema.columns "
         "where table_name = 'search_doc' and column_name = 'tsv'"
     ) == ("1")
-    assert stack.sql(
-        "select count(*) from pg_indexes where indexname = 'ix_search_doc_tsv'"
-    ) == ("1")
+    assert stack.sql("select count(*) from pg_indexes where indexname = 'ix_search_doc_tsv'") == (
+        "1"
+    )
     alice = Member(stack, "alice")
     bob = Member(stack, "bob")
     word = "zyx" + uuid.uuid4().hex[:8]
-    alice.upload(
-        alice.root, "plan.txt", f"The quarterly {word} budget and other words".encode()
-    )
+    alice.upload(alice.root, "plan.txt", f"The quarterly {word} budget and other words".encode())
     path = f"/api/v1/search?q={quote(word)}"
     deadline = time.monotonic() + 90
     hits: list[dict[str, str]] = []

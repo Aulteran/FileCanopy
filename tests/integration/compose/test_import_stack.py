@@ -42,9 +42,7 @@ class Member:
         self.root = root_node(stack, f"personal/{self.uid}")
         self.disk = stack.library / "personal" / self.uid
 
-    def call(
-        self, method: str, path: str, body: dict[str, Any] | None = None
-    ) -> tuple[int, Any]:
+    def call(self, method: str, path: str, body: dict[str, Any] | None = None) -> tuple[int, Any]:
         return js(self.client, method, f"/api/v1{path}", body)
 
     def put(self, path: str, data: bytes) -> tuple[int, Any]:
@@ -58,13 +56,8 @@ class Member:
         return status, json.loads(out or b"{}")
 
 
-def manifest(
-    files: dict[str, bytes], mtime: int = 1_700_000_000_000
-) -> list[dict[str, Any]]:
-    return [
-        {"path": p, "kind": "file", "size": len(b), "mtime": mtime}
-        for p, b in files.items()
-    ]
+def manifest(files: dict[str, bytes], mtime: int = 1_700_000_000_000) -> list[dict[str, Any]]:
+    return [{"path": p, "kind": "file", "size": len(b), "mtime": mtime} for p, b in files.items()]
 
 
 def pending(m: Member, batch: str) -> list[dict[str, Any]]:
@@ -81,9 +74,7 @@ def pending(m: Member, batch: str) -> list[dict[str, Any]]:
         after = page["next_after"]
 
 
-def wait_status(
-    m: Member, batch: str, wanted: tuple[str, ...], timeout: float = 120
-) -> Any:
+def wait_status(m: Member, batch: str, wanted: tuple[str, ...], timeout: float = 120) -> Any:
     deadline = time.monotonic() + timeout
     got: Any = {}
     while time.monotonic() < deadline:
@@ -132,16 +123,11 @@ def test_large_folder_manifest_and_parallel_entries_through_nginx(stack: Stack) 
     admin = setup_admin(stack)
     m = Member(stack, admin, "dana")
     deep = "/".join(["x" * 100, "y" * 100, "z" * 100])
-    files = {
-        f"{deep}/file-{i:05d}.txt": f"entry {i}".encode() * (1 + i % 7)
-        for i in range(3600)
-    }
+    files = {f"{deep}/file-{i:05d}.txt": f"entry {i}".encode() * (1 + i % 7) for i in range(3600)}
     files["Top Level/readme.txt"] = b"hello"
     entries = manifest(files)
     body = {"entries": entries}
-    assert (
-        len(json.dumps(body)) > 1_100_000
-    )  # far above nginx's 1m limit for ordinary JSON
+    assert len(json.dumps(body)) > 1_100_000  # far above nginx's 1m limit for ordinary JSON
 
     status, batch = m.call("POST", f"/nodes/{m.root}/setup/import", body)
     assert status == 201, batch
@@ -153,9 +139,7 @@ def test_large_folder_manifest_and_parallel_entries_through_nginx(stack: Stack) 
     assert len(work) == 3601
 
     def send(entry: dict[str, Any]) -> int:
-        return m.put(
-            f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]]
-        )[0]
+        return m.put(f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]])[0]
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         codes = list(pool.map(send, work))
@@ -180,12 +164,10 @@ def test_large_folder_manifest_and_parallel_entries_through_nginx(stack: Stack) 
         )
         == "0"
     )
-    assert stack.sql(
-        f"select setup_state from storage_root where owner_user_id = '{m.uid}'"
-    ) == ("open")  # the import itself did not close the window
-    status, closed = m.call(
-        "POST", f"/nodes/{m.root}/setup/finish", {"action": "finish"}
-    )
+    assert stack.sql(f"select setup_state from storage_root where owner_user_id = '{m.uid}'") == (
+        "open"
+    )  # the import itself did not close the window
+    status, closed = m.call("POST", f"/nodes/{m.root}/setup/finish", {"action": "finish"})
     assert status == 200 and closed["state"] == "closed"
     assert m.call("POST", f"/nodes/{m.root}/setup/import", body)[0] == 409
     assert stack.sql("select count(*) from file_event where action = 'imported'") != "0"
@@ -203,9 +185,7 @@ def test_zip_import_slip_bomb_and_authorization_on_postgres(stack: Stack) -> Non
         zf.writestr("../escape-one.txt", b"evil")
         zf.writestr("a/../../escape-two.txt", b"evil")
         zf.writestr("/abs-three.txt", b"evil")
-        zf.writestr(
-            zipfile.ZipInfo("bomb.bin"), b"\0" * (16 * 1024 * 1024), zipfile.ZIP_BZIP2
-        )
+        zf.writestr(zipfile.ZipInfo("bomb.bin"), b"\0" * (16 * 1024 * 1024), zipfile.ZIP_BZIP2)
         link = zipfile.ZipInfo("link")
         link.create_system = 3
         link.external_attr = 0o120777 << 16
@@ -245,9 +225,7 @@ def test_zip_import_slip_bomb_and_authorization_on_postgres(stack: Stack) -> Non
         )
         == "DECOMPRESSION_RATIO"
     )
-    assert (
-        list(stack.app_data.rglob("*.zip")) == []
-    )  # the staged archive is deleted at the end
+    assert list(stack.app_data.rglob("*.zip")) == []  # the staged archive is deleted at the end
 
     # the administrator may set up the shared tree, and only the administrator
     shared = root_node(stack, "shared")
@@ -308,31 +286,23 @@ def test_folder_import_resumes_by_reselecting_the_folder(stack: Stack) -> None:
     admin = setup_admin(stack)
     m = Member(stack, admin, "hugo")
     files = {f"Album/p{i:03d}.bin": os.urandom(1000 + i) for i in range(40)}
-    status, batch = m.call(
-        "POST", f"/nodes/{m.root}/setup/import", {"entries": manifest(files)}
-    )
+    status, batch = m.call("POST", f"/nodes/{m.root}/setup/import", {"entries": manifest(files)})
     assert status == 201, batch
     m.call("POST", f"/imports/{batch['id']}/start")
     todo = pending(m, batch["id"])
     for entry in todo[:15]:
         assert (
-            m.put(
-                f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]]
-            )[0]
+            m.put(f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]])[0]
             == 200
         )
     stack.compose("restart", "api")
     stack.wait_health("ok", timeout=120)
-    status, resume = m.call(
-        "POST", f"/imports/{batch['id']}/resume", {"entries": manifest(files)}
-    )
+    status, resume = m.call("POST", f"/imports/{batch['id']}/resume", {"entries": manifest(files)})
     assert status == 200, resume
     assert len(resume["pending"]) == 25 and resume["unmatched"] == 0
     for entry in resume["pending"]:
         assert (
-            m.put(
-                f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]]
-            )[0]
+            m.put(f"/imports/{batch['id']}/entries/{entry['index']}", files[entry["path"]])[0]
             == 200
         )
     assert wait_status(m, batch["id"], ("done",))["counts"]["done"] == 40
@@ -395,9 +365,7 @@ def test_folder_upload_merges_and_keeps_both_on_postgres(stack: Stack) -> None:
         {"entries": manifest({"Docs/a.txt": b"two"})},
     )[1]
     for entry in pending(m, second["id"]):
-        assert (
-            m.put(f"/imports/{second['id']}/entries/{entry['index']}", b"two")[0] == 200
-        )
+        assert m.put(f"/imports/{second['id']}/entries/{entry['index']}", b"two")[0] == 200
     assert (m.disk / "Docs" / "a.txt").read_bytes() == b"one"
     assert (m.disk / "Docs" / "a (2).txt").read_bytes() == b"two"
     assert sorted(p.name for p in m.disk.iterdir()) == ["Docs"]
@@ -406,34 +374,12 @@ def test_folder_upload_merges_and_keeps_both_on_postgres(stack: Stack) -> None:
 def lying_zip(records: int) -> bytes:
     """One stored empty file and `records` central-directory records, under an end record that
     declares one entry (the M06b review's zip bomb)."""
-    local = (
-        struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0)
-        + b"a"
-    )
+    local = struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0) + b"a"
     record = struct.pack(
-        "<4sHHHHHHIIIHHHHHII",
-        b"PK\x01\x02",
-        20,
-        20,
-        0,
-        0,
-        0,
-        0x21,
-        0,
-        0,
-        0,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        "<4sHHHHHHIIIHHHHHII", b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
     )
     directory = (record + b"a") * records
-    end = struct.pack(
-        "<4sHHHHIIH", b"PK\x05\x06", 0, 0, 1, 1, len(directory), len(local), 0
-    )
+    end = struct.pack("<4sHHHHIIH", b"PK\x05\x06", 0, 0, 1, 1, len(directory), len(local), 0)
     return local + directory + end
 
 
@@ -455,11 +401,7 @@ def test_review_fixes_through_nginx_on_postgres(stack: Stack) -> None:
 
     # a manifest is not read before the caller is signed in; above nginx's 32m it never arrives
     anon = Client(stack)
-    big = (
-        b'{"entries":['
-        + b'{"path":"a","kind":"dir"},' * 600_000
-        + b'{"path":"a","kind":"dir"}]}'
-    )
+    big = b'{"entries":[' + b'{"path":"a","kind":"dir"},' * 600_000 + b'{"path":"a","kind":"dir"}]}'
     assert 15_000_000 < len(big) < 32 * 1024 * 1024
     status, _, _ = raw(
         anon,
@@ -488,9 +430,7 @@ def test_review_fixes_through_nginx_on_postgres(stack: Stack) -> None:
     )
     assert status == 201, batch
     assert (
-        stack.sql(
-            "select count(*) from pg_indexes where indexname = 'uq_import_batch_open_setup'"
-        )
+        stack.sql("select count(*) from pg_indexes where indexname = 'uq_import_batch_open_setup'")
         == "1"
     )
     twin = stack.compose(
@@ -515,43 +455,28 @@ def test_review_fixes_through_nginx_on_postgres(stack: Stack) -> None:
     assert other.call("GET", f"/nodes/{other.root}/setup")[1]["state"] == "closed"
     assert other.call("GET", "/imports")[1] == []  # nothing unfinished
     status, unfinished = other.call(
-        "POST",
-        f"/nodes/{other.root}/folder-uploads",
-        {"entries": manifest({"b.txt": b"b"})},
+        "POST", f"/nodes/{other.root}/folder-uploads", {"entries": manifest({"b.txt": b"b"})}
     )
     assert status == 201
     listed = other.call("GET", "/imports")[1]
     assert [b["id"] for b in listed] == [unfinished["id"]]
-    assert (
-        m.call("GET", "/imports")[1] == []
-    )  # another person's batches are never listed
+    assert m.call("GET", "/imports")[1] == []  # another person's batches are never listed
     assert Client(stack).call("GET", "/api/v1/imports")[0] == 401
 
     # retention: the per-file report goes 90 days after completion, the batch row stays
     stack.sql(
         f"update import_batch set finished_at = now() - interval '91 days' where id = '{up['id']}'"
     )
-    stack.compose(
-        "restart", "api"
-    )  # the startup pass prunes with the periodic work's function
+    stack.compose("restart", "api")  # the startup pass prunes with the periodic work's function
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
-        left = stack.sql(
-            f"select count(*) from import_entry where batch_id = '{up['id']}'"
-        )
+        left = stack.sql(f"select count(*) from import_entry where batch_id = '{up['id']}'")
         if left == "0":
             break
         time.sleep(1)
+    assert stack.sql(f"select count(*) from import_entry where batch_id = '{up['id']}'") == "0"
+    assert stack.sql(f"select count(*) from import_batch where id = '{up['id']}'") == "1"
     assert (
-        stack.sql(f"select count(*) from import_entry where batch_id = '{up['id']}'")
-        == "0"
-    )
-    assert (
-        stack.sql(f"select count(*) from import_batch where id = '{up['id']}'") == "1"
-    )
-    assert (
-        stack.sql(
-            f"select entries_pruned_at is not null from import_batch where id = '{up['id']}'"
-        )
+        stack.sql(f"select entries_pruned_at is not null from import_batch where id = '{up['id']}'")
         == "t"
     )

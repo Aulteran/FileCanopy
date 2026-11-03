@@ -38,16 +38,7 @@ class BackupStack(Stack):
     def compose(
         self, *args: str, check: bool = True, env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
-        cmd = [
-            "docker",
-            "compose",
-            "-p",
-            self.name,
-            "-f",
-            str(COMPOSE_FILE),
-            "-f",
-            str(OVERRIDE),
-        ]
+        cmd = ["docker", "compose", "-p", self.name, "-f", str(COMPOSE_FILE), "-f", str(OVERRIDE)]
         r = subprocess.run(  # noqa: S603
             [*cmd, *args],
             env=env or self.env,
@@ -99,15 +90,10 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     status = admin.call("GET", "/api/v1/admin/backups")[1]
     assert status["settings"]["enabled"] is False  # off by default
     assert status["volume"]["usable"] is True
-    assert (
-        "same_device" in status["warnings"] or status["volume"]["same_device"] is False
-    )
+    assert "same_device" in status["warnings"] or status["volume"]["same_device"] is False
 
     shared = root_node(stack, "shared")
-    for name, data in (
-        ("a.txt", b"alpha " * 50),
-        ("b.bin", secrets.token_bytes(50_000)),
-    ):
+    for name, data in (("a.txt", b"alpha " * 50), ("b.bin", secrets.token_bytes(50_000))):
         code, _, _ = raw(
             admin,
             "POST",
@@ -121,9 +107,7 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     assert code == 200, body
     key = body["recovery_key"]
     assert key.startswith("fcbk1-")
-    assert (
-        admin.call("GET", "/api/v1/admin/backups")[1]["recovery_key"] is None
-    )  # shown once
+    assert admin.call("GET", "/api/v1/admin/backups")[1]["recovery_key"] is None  # shown once
     # the instance holds no private key
     assert key.removeprefix("fcbk1-") not in stack.sql(
         "select string_agg(value::text, ' ') from app_setting"
@@ -136,9 +120,7 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
 
     archives = sorted((stack.backups / "filecanopy-backups").rglob("*.tar.gz.fcb"))
     assert archives and archives[0].read_bytes()[:4] == b"FCB2"
-    assert (
-        b"alpha alpha" not in archives[0].read_bytes()
-    )  # encrypted, not just compressed
+    assert b"alpha alpha" not in archives[0].read_bytes()  # encrypted, not just compressed
     assert stack.sql("select count(*) from backup_run where status = 'ok'") != "0"
     assert stack.sql("select count(*) from backup_chain_state") != "0"
 
@@ -157,9 +139,7 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     assert code == 200, body
     restored = stack.library / "shared" / body["folder_name"]
     assert (restored / "a.txt").read_bytes() == b"alpha " * 50
-    assert (
-        stack.library / "shared" / "a.txt"
-    ).read_bytes() == b"alpha " * 50  # untouched
+    assert (stack.library / "shared" / "a.txt").read_bytes() == b"alpha " * 50  # untouched
     wrong = admin.call(
         "POST",
         f"/api/v1/nodes/{shared}/backups/restore",
@@ -170,9 +150,7 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     # a member cannot see or restore the shared tree's backups, nor change settings
     member = Client(stack)
     token = admin.call(
-        "POST",
-        "/api/v1/admin/users",
-        {"email": "mem@example.com", "name": "M", "role": "member"},
+        "POST", "/api/v1/admin/users", {"email": "mem@example.com", "name": "M", "role": "member"}
     )[1]["token"]["token"]
     member.call(
         "POST",
