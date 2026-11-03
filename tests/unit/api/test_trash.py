@@ -45,7 +45,9 @@ class P(Api):
     def delete(self, node: uuid.UUID, revision: int, key: str | None = None) -> Any:
         headers = {**self.headers, **({"Idempotency-Key": key} if key else {})}
         return self.client.delete(
-            f"/api/v1/nodes/{node}", params={"expected_revision": revision}, headers=headers
+            f"/api/v1/nodes/{node}",
+            params={"expected_revision": revision},
+            headers=headers,
         )
 
     def trash_list(self, **params: Any) -> dict[str, Any]:
@@ -96,15 +98,27 @@ def trash_it(p: P, node: uuid.UUID, revision: int = 1) -> dict[str, Any]:
 # ------------------------------------------------------------------ trash and restore
 
 
-def test_delete_moves_to_the_hidden_library_trash_and_hides_the_node(fx: Fx, me: P) -> None:
+def test_delete_moves_to_the_hidden_library_trash_and_hides_the_node(
+    fx: Fx, me: P
+) -> None:
     f = nid(me.upload(fx.alice_root, "a.txt", b"data"))
     original = disk(fx, f)
     out = trash_it(me, f)
     item = out["item"]
-    assert item["name"] == "a.txt" and item["reason"] == "deleted" and item["status"] == "in_trash"
-    assert item["purge_after"] is not None and item["days_left"] == 30 and not item["expiring"]
+    assert (
+        item["name"] == "a.txt"
+        and item["reason"] == "deleted"
+        and item["status"] == "in_trash"
+    )
+    assert (
+        item["purge_after"] is not None
+        and item["days_left"] == 30
+        and not item["expiring"]
+    )
     assert not original.exists()  # gone from the root...
-    assert item_path(fx, item["id"], "a.txt").read_bytes() == b"data"  # ...into the library trash
+    assert (
+        item_path(fx, item["id"], "a.txt").read_bytes() == b"data"
+    )  # ...into the library trash
     assert trash_dir(fx).stat().st_mode & 0o777 == 0o700
     # outside every root: the roots do not contain it and no API path or listing names it
     assert "a.txt" not in [c["name"] for c in me.children(fx.alice_root)]
@@ -117,7 +131,9 @@ def test_delete_moves_to_the_hidden_library_trash_and_hides_the_node(fx: Fx, me:
     assert [i["id"] for i in me.items()] == [item["id"]]
 
 
-def test_trashed_name_is_released_and_restore_keeps_both_or_fails(fx: Fx, me: P) -> None:
+def test_trashed_name_is_released_and_restore_keeps_both_or_fails(
+    fx: Fx, me: P
+) -> None:
     f = nid(me.upload(fx.alice_root, "a.txt", b"old"))
     item = trash_it(me, f)["item"]["id"]
     g = nid(me.upload(fx.alice_root, "a.txt", b"new"))  # the name is free again
@@ -131,7 +147,9 @@ def test_trashed_name_is_released_and_restore_keeps_both_or_fails(fx: Fx, me: P)
     assert r.json()["node"]["name"] == "a (2).txt" and r.json()["node"]["id"] == str(f)
     assert disk(fx, f).read_bytes() == b"old" and disk(fx, g).read_bytes() == b"new"
     assert me.items() == []  # restored items leave the list
-    assert not (trash_dir(fx) / str(node_row(fx, f).root_id) / item).exists()  # empty dir tidied
+    assert not (
+        trash_dir(fx) / str(node_row(fx, f).root_id) / item
+    ).exists()  # empty dir tidied
     assert node_row(fx, f).status == "active"
 
 
@@ -147,11 +165,15 @@ def test_restore_to_the_original_folder_a_chosen_folder_and_never_across_roots(
     assert me.restore(item, target_parent_id=str(b)).status_code == 200
     assert disk(fx, f).parent.name == "B" and node_row(fx, f).parent_id == b
     item2 = trash_it(me, f, 3)["item"]
-    assert item2["original_parent_id"] == str(b) and item2["original_parent_name"] == "B"
+    assert (
+        item2["original_parent_id"] == str(b) and item2["original_parent_name"] == "B"
+    )
     assert me.restore(item2["id"]).status_code == 200 and disk(fx, f).parent.name == "B"
 
 
-def test_nested_folder_roundtrip_and_an_earlier_item_stays_in_the_trash(fx: Fx, me: P) -> None:
+def test_nested_folder_roundtrip_and_an_earlier_item_stays_in_the_trash(
+    fx: Fx, me: P
+) -> None:
     top = nid(me.mkdir(fx.alice_root, "Top"))
     sub = nid(me.mkdir(top, "Sub"))
     deep = nid(me.upload(sub, "deep.txt", b"deep"))
@@ -159,16 +181,22 @@ def test_nested_folder_roundtrip_and_an_earlier_item_stays_in_the_trash(fx: Fx, 
     early = trash_it(me, deep)["item"]["id"]  # trashed on its own first
     assert node_row(fx, top).revision == 1
     folder = trash_it(me, top)["item"]
-    assert folder["entry_count"] == 3 and folder["size_bytes"] == 4  # Top, Sub, keep.txt
+    assert (
+        folder["entry_count"] == 3 and folder["size_bytes"] == 4
+    )  # Top, Sub, keep.txt
     assert {node_row(fx, n).status for n in (top, sub, keep, deep)} == {"trashed"}
     assert node_row(fx, deep).trash_item_id == uuid.UUID(early)  # still its own item
     assert node_row(fx, keep).trash_item_id == uuid.UUID(folder["id"])
     assert me.restore(folder["id"]).status_code == 200
     assert disk(fx, keep).read_bytes() == b"keep" and disk(fx, sub).is_dir()
     assert [node_row(fx, n).status for n in (top, sub, keep)] == ["active"] * 3
-    assert node_row(fx, deep).status == "trashed"  # not revived: it is not inside Sub on disk
+    assert (
+        node_row(fx, deep).status == "trashed"
+    )  # not revived: it is not inside Sub on disk
     assert not (disk(fx, sub) / "deep.txt").exists()
-    assert me.restore(early).status_code == 200  # and it restores into the restored folder
+    assert (
+        me.restore(early).status_code == 200
+    )  # and it restores into the restored folder
     assert (disk(fx, sub) / "deep.txt").read_bytes() == b"deep"
     assert node_row(fx, deep).lineage.startswith(node_row(fx, top).lineage)
 
@@ -187,7 +215,9 @@ def test_a_trashed_parent_means_choosing_another_folder(fx: Fx, me: P) -> None:
     assert disk(fx, f).parent == disk(fx, fx.alice_root)
 
 
-def test_no_symlinked_or_foreign_device_trash_and_never_a_hard_delete(fx: Fx, me: P) -> None:
+def test_no_symlinked_or_foreign_device_trash_and_never_a_hard_delete(
+    fx: Fx, me: P
+) -> None:
     f = nid(me.upload(fx.alice_root, "a.txt", b"keep me"))
     outside = fx.w.settings.library_path.parent / "elsewhere"
     outside.mkdir()
@@ -225,7 +255,9 @@ def test_a_grant_root_cannot_be_trashed_by_its_grantee(fx: Fx, me: P) -> None:
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     carol = P(fx, "carol")
     inner = nid(carol.upload(fx.taxes, "c.txt", b"c"))
-    assert carol.delete(fx.taxes, 1).status_code == 403  # write on the parent is missing
+    assert (
+        carol.delete(fx.taxes, 1).status_code == 403
+    )  # write on the parent is missing
     assert carol.delete(inner, 1).status_code == 200
 
 
@@ -249,10 +281,14 @@ def test_delete_forever_needs_the_confirmation_and_audits(fx: Fx, me: P) -> None
 
 
 def events_of(fx: Fx, node: uuid.UUID) -> list[FileEvent]:
-    return sorted((e for e in fx.w.db_rows(FileEvent) if e.node_id == node), key=lambda e: e.id)
+    return sorted(
+        (e for e in fx.w.db_rows(FileEvent) if e.node_id == node), key=lambda e: e.id
+    )
 
 
-def test_every_action_writes_one_event_with_actor_source_and_correlation(fx: Fx, me: P) -> None:
+def test_every_action_writes_one_event_with_actor_source_and_correlation(
+    fx: Fx, me: P
+) -> None:
     d = nid(me.mkdir(fx.alice_root, "D"))
     f = nid(me.upload(d, "a.txt", b"abc"))
     me.rename(f, "b.txt", 1)
@@ -283,7 +319,10 @@ def test_every_action_writes_one_event_with_actor_source_and_correlation(fx: Fx,
     assert by_action["renamed"].details["name"] == "b.txt"
     copied = events_of(fx, c)
     assert [e.action for e in copied] == ["copied"]
-    assert copied[0].details["copied_from"] == str(f) and copied[0].correlation_id == ops["copy"].id
+    assert (
+        copied[0].details["copied_from"] == str(f)
+        and copied[0].correlation_id == ops["copy"].id
+    )
     # no host path, content or email anywhere in what was stored
     blob = repr([e.details for e in fx.w.db_rows(FileEvent)])
     assert str(fx.w.settings.library_path) not in blob and "@example.com" not in blob
@@ -303,7 +342,12 @@ def test_downloads_are_logged_only_when_they_succeed(fx: Fx, me: P) -> None:
     assert ok.status_code == 200 and ok.content == b"hello"
     assert bob.download(t).content == b"tax"
     got = events_of(fx, f)[-1]
-    assert (got.action, got.actor_user_id, got.details["name"], got.details["size"]) == (
+    assert (
+        got.action,
+        got.actor_user_id,
+        got.details["name"],
+        got.details["size"],
+    ) == (
         "downloaded",
         me.uid,
         "a.txt",
@@ -331,7 +375,9 @@ def test_external_changes_name_no_user(fx: Fx, me: P) -> None:
     assert shown["actor_name"] is None and shown["actor_kind"] == "external_filesystem"
 
 
-def test_ai_agent_events_name_the_agent_and_the_user_and_obey_the_policy(fx: Fx) -> None:
+def test_ai_agent_events_name_the_agent_and_the_user_and_obey_the_policy(
+    fx: Fx,
+) -> None:
     from app.domain import fileops
     from app.domain.fileops import OpCtx, OpError
 
@@ -346,7 +392,11 @@ def test_ai_agent_events_name_the_agent_and_the_user_and_obey_the_policy(fx: Fx)
         out = fileops.create_folder(ctx, fx.alice_root, "FromAgent", None)
         node_id = out.node.id
     ev = events_of(fx, node_id)[0]
-    assert (ev.action, ev.actor_kind, ev.actor_user_id) == ("folder_created", "ai_agent", None)
+    assert (ev.action, ev.actor_kind, ev.actor_user_id) == (
+        "folder_created",
+        "ai_agent",
+        None,
+    )
     assert ev.on_behalf_of_user_id == fx.uid("alice@example.com")
     assert ev.details["proposal_id"] == "prop-1" and ev.source == "ai"
     shown = P(fx, "alice").activity(node_id).json()["items"][0]
@@ -355,7 +405,11 @@ def test_ai_agent_events_name_the_agent_and_the_user_and_obey_the_policy(fx: Fx)
     # the agent has exactly the user's rights: Bob has none in Alice's folder
     with fx.w.ctx.sessions() as db:
         ctx = OpCtx(
-            db, fx.w.settings, fx.uid("bob@example.com"), actor_kind="ai_agent", proposal_id="p"
+            db,
+            fx.w.settings,
+            fx.uid("bob@example.com"),
+            actor_kind="ai_agent",
+            proposal_id="p",
         )
         with pytest.raises(OpError) as err:
             fileops.create_folder(ctx, fx.alice_root, "Nope", None)
@@ -372,7 +426,9 @@ def test_folder_activity_lists_descendants_and_needs_read(fx: Fx, me: P) -> None
     folder = bob.activity(fx.taxes).json()["items"]
     assert {e["node_id"] for e in folder} == {str(sub), str(f)}
     assert str(secret) not in str(folder)  # a sibling tree: no counts, names or ids
-    assert bob.activity(secret).status_code == 403 and dave.activity(f).status_code == 403
+    assert (
+        bob.activity(secret).status_code == 403 and dave.activity(f).status_code == 403
+    )
     assert bob.activity(fx.private).status_code == 403
     page = me.activity(fx.taxes, limit=1).json()
     assert len(page["items"]) == 1 and page["next_before"] is not None
@@ -400,7 +456,12 @@ def test_trash_visibility_per_adr_017(fx: Fx, me: P) -> None:
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
     fx.grant(fx.alice, fx.taxes, "admin2@example.com", "editor")
-    carol, bob, dave, _admin2 = P(fx, "carol"), P(fx, "bob"), P(fx, "dave"), P(fx, "admin2")
+    carol, bob, dave, _admin2 = (
+        P(fx, "carol"),
+        P(fx, "bob"),
+        P(fx, "dave"),
+        P(fx, "admin2"),
+    )
     mine = nid(me.upload(fx.alice_root, "mine.txt", b"m"))
     shared_by_carol = nid(carol.upload(fx.taxes, "c.txt", b"c"))
     by_alice = nid(me.upload(fx.taxes, "t.txt", b"t"))
@@ -420,7 +481,9 @@ def test_trash_visibility_per_adr_017(fx: Fx, me: P) -> None:
     # who deleted it is shown by name; the restored file goes back where it was
     got = next(i for i in me.items() if i["id"] == carol_item)
     assert got["trashed_by_name"] == "New" and "@" not in str(got)
-    assert carol.restore(mine_item).status_code == 403  # Alice's own item is not Carol's to restore
+    assert (
+        carol.restore(mine_item).status_code == 403
+    )  # Alice's own item is not Carol's to restore
     assert carol.restore(carol_item).status_code == 200
     # losing write on the original folder takes the item out of sight
     fx.grant(fx.alice, fx.taxes, "admin2@example.com", "viewer")
@@ -431,7 +494,9 @@ def test_trash_visibility_per_adr_017(fx: Fx, me: P) -> None:
     # the shared tree: anyone who can still write the original folder sees the item
     sf = nid(P(fx, "alice").upload(fx.shared_sub, "s.txt", b"s"))
     s_item = trash_it(P(fx, "alice"), sf)["item"]["id"]
-    assert [i["id"] for i in P(fx, "bob").items(root_id=str(fx.shared_root))] == [s_item]
+    assert [i["id"] for i in P(fx, "bob").items(root_id=str(fx.shared_root))] == [
+        s_item
+    ]
     assert [i["id"] for i in dave.items(root_id=str(fx.shared_root))] == [s_item]
 
 
@@ -445,10 +510,18 @@ def test_empty_trash_and_the_admin_storage_page(fx: Fx, me: P) -> None:
     assert (mine["item_count"], mine["total_size"]) == (2, 8)
     # only the manager of that root can empty it, and only with the token that states it
     bob = P(fx, "bob")
-    assert bob.post(f"/roots/{fx.alice_root}/trash/empty", json={"confirm": "x"}).status_code == 403
+    assert (
+        bob.post(
+            f"/roots/{fx.alice_root}/trash/empty", json={"confirm": "x"}
+        ).status_code
+        == 403
+    )
     admin = P(fx, "admin")
     assert (
-        admin.post(f"/roots/{fx.alice_root}/trash/empty", json={"confirm": "x"}).status_code == 403
+        admin.post(
+            f"/roots/{fx.alice_root}/trash/empty", json={"confirm": "x"}
+        ).status_code
+        == 403
     )
     r = me.post(f"/roots/{fx.alice_root}/trash/empty", json={"confirm": "stale"})
     assert r.status_code == 409 and code(r) == "CONFIRMATION_REQUIRED"
@@ -457,8 +530,14 @@ def test_empty_trash_and_the_admin_storage_page(fx: Fx, me: P) -> None:
     row = next(p for p in overview["personal_roots"] if p["user_id"] == str(me.uid))
     assert (row["trash_items"], row["trash_bytes"]) == (2, 8)
     assert "a.txt" not in str(overview)
-    done = me.post(f"/roots/{fx.alice_root}/trash/empty", json={"confirm": mine["empty_token"]})
-    assert done.status_code == 200 and done.json() == {"purged": 2, "failed": 0, "bytes": 8}
+    done = me.post(
+        f"/roots/{fx.alice_root}/trash/empty", json={"confirm": mine["empty_token"]}
+    )
+    assert done.status_code == 200 and done.json() == {
+        "purged": 2,
+        "failed": 0,
+        "bytes": 8,
+    }
     assert me.items() == [] and {node_row(fx, n).status for n in (a, b)} == {"purged"}
     assert not any((trash_dir(fx) / str(node_row(fx, a).root_id)).iterdir())
 
@@ -494,9 +573,9 @@ def test_purge_at_the_deadline_and_not_before(fx: Fx, me: P) -> None:
     assert events[0].actor_user_id is None
     from app.db.models import AuthAudit
 
-    assert [a for a in fx.w.db_rows(AuthAudit) if a.action == "trash.purge_run"][0].details[
-        "purged"
-    ] == 1  # an aggregate line: counts, no names
+    assert [a for a in fx.w.db_rows(AuthAudit) if a.action == "trash.purge_run"][
+        0
+    ].details["purged"] == 1  # an aggregate line: counts, no names
     assert "a.txt" not in str([a.details for a in fx.w.db_rows(AuthAudit)])
 
 
@@ -507,26 +586,36 @@ def test_retention_changes_never_shorten_and_zero_means_never(fx: Fx, me: P) -> 
     first = me.items()[0]["purge_after"]
     assert (
         admin.client.put(
-            "/api/v1/admin/storage/trash-retention", json={"days": 7}, headers=admin.headers
+            "/api/v1/admin/storage/trash-retention",
+            json={"days": 7},
+            headers=admin.headers,
         ).status_code
         == 200
     )
-    assert me.items()[0]["purge_after"] == first  # lowering does not shorten existing items
+    assert (
+        me.items()[0]["purge_after"] == first
+    )  # lowering does not shorten existing items
     advance_days(fx, 8)
     assert purge_run(fx)["purged"] == 0
     g = nid(me.upload(fx.alice_root, "g.txt", b"y"))
     trash_it(me, g)
     advance_days(fx, 8)
-    assert purge_run(fx)["purged"] == 1  # the new item follows the new setting; the old one waits
+    assert (
+        purge_run(fx)["purged"] == 1
+    )  # the new item follows the new setting; the old one waits
     put = lambda days: admin.client.put(  # noqa: E731
-        "/api/v1/admin/storage/trash-retention", json={"days": days}, headers=admin.headers
+        "/api/v1/admin/storage/trash-retention",
+        json={"days": days},
+        headers=admin.headers,
     )
     assert put(3).status_code == 422 and put(4000).status_code == 422
     assert put(0).status_code == 200
     advance_days(fx, 400)
     assert purge_run(fx)["purged"] == 0  # 0 = never purge automatically
     assert me.items()[0]["purge_after"] is not None
-    assert put(30).status_code == 200  # turning it back on gives a fresh date, not a surprise
+    assert (
+        put(30).status_code == 200
+    )  # turning it back on gives a fresh date, not a surprise
     assert purge_run(fx)["purged"] == 0
     assert me.items()[0]["purge_after"] > "2026"
     new_item = me.trash_list()
@@ -617,7 +706,9 @@ def test_scans_and_backups_ignore_the_trash(fx: Fx, me: P) -> None:
     result = scan(fx)
     assert result.outcome == "ok" and result.counts.get("missing", 0) == 0
     assert node_row(fx, d).status == "trashed" and node_row(fx, f).status == "trashed"
-    assert not [e for e in fx.w.db_rows(FileEvent) if e.actor_kind == "external_filesystem"]
+    assert not [
+        e for e in fx.w.db_rows(FileEvent) if e.actor_kind == "external_filesystem"
+    ]
     # something new appearing at the old place is an ordinary new entry, not the trashed one
     disk(fx, fx.alice_root).joinpath("D").mkdir()
     scan(fx)

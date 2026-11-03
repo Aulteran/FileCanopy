@@ -109,11 +109,18 @@ def code(r: Any) -> str:
 
 
 def manifest(
-    files: dict[str, bytes], dirs: tuple[str, ...] = (), mtime: int | None = 1_700_000_000_000
+    files: dict[str, bytes],
+    dirs: tuple[str, ...] = (),
+    mtime: int | None = 1_700_000_000_000,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = [{"path": d, "kind": "dir"} for d in dirs]
     out += [
-        {"path": p, "kind": "file", "size": len(b), **({"mtime": mtime} if mtime else {})}
+        {
+            "path": p,
+            "kind": "file",
+            "size": len(b),
+            **({"mtime": mtime} if mtime else {}),
+        }
         for p, b in files.items()
     ]
     return out
@@ -128,7 +135,9 @@ def entries(p: Person, batch: str, **params: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     after = -1
     while True:
-        r = p.get(f"/imports/{batch}/entries", params={"after": after, "limit": 500, **params})
+        r = p.get(
+            f"/imports/{batch}/entries", params={"after": after, "limit": 500, **params}
+        )
         assert r.status_code == 200, r.text
         out += r.json()["items"]
         if r.json()["next_after"] is None:
@@ -140,7 +149,9 @@ def put(p: Person, batch: str, index: int, data: bytes) -> Any:
     return p.req("PUT", f"/imports/{batch}/entries/{index}", content=data)
 
 
-def send(p: Person, batch: str, contents: dict[str, bytes], only: set[str] | None = None) -> None:
+def send(
+    p: Person, batch: str, contents: dict[str, bytes], only: set[str] | None = None
+) -> None:
     for e in entries(p, batch, status="pending"):
         if e["kind"] == "file" and (only is None or e["path"] in only):
             r = put(p, batch, e["index"], contents[e["path"]])
@@ -159,7 +170,9 @@ def children(p: Person, node: str) -> dict[str, dict[str, Any]]:
     return {c["name"]: c for c in r.json()["items"]}
 
 
-def wait_zip(env: Env, p: Person, batch: str, final: tuple[str, ...] = ("done",)) -> dict[str, Any]:
+def wait_zip(
+    env: Env, p: Person, batch: str, final: tuple[str, ...] = ("done",)
+) -> dict[str, Any]:
     runner: imports.ImportRunner = env.w.app.state.imports
     assert runner.wait(uuid.UUID(batch), 60)
     got = p.get(f"/imports/{batch}").json()
@@ -183,15 +196,21 @@ def plan_zip(p: Person, root: str, data: bytes, **params: Any) -> Any:
 # ------------------------------------------------------------------ the setup window
 
 
-def test_setup_window_is_open_for_new_roots_and_visible_only_to_who_may_use_it(env: Env) -> None:
+def test_setup_window_is_open_for_new_roots_and_visible_only_to_who_may_use_it(
+    env: Env,
+) -> None:
     alice_root, shared = env.alice.personal_root(), env.alice.shared_root()
     assert state(env.alice, alice_root)["state"] == "open"
     roots = {r["kind"]: r for r in env.alice.get("/roots").json()}
     assert roots["personal"]["setup_open"] is True
-    assert roots["shared"]["setup_open"] is False  # a member cannot set up the shared tree
+    assert (
+        roots["shared"]["setup_open"] is False
+    )  # a member cannot set up the shared tree
     admin_roots = {r["kind"]: r for r in env.admin.get("/roots").json()}
     assert admin_roots["shared"]["setup_open"] is True
-    assert admin_roots["personal"]["setup_open"] is True  # the administrator's own folder
+    assert (
+        admin_roots["personal"]["setup_open"] is True
+    )  # the administrator's own folder
 
     info = env.alice.get(f"/nodes/{alice_root}").json()
     assert info["can_manage"] is True and info["setup_state"] == "open"
@@ -200,7 +219,9 @@ def test_setup_window_is_open_for_new_roots_and_visible_only_to_who_may_use_it(e
     assert member_view["scan_state"] is None
 
 
-def test_folder_import_copies_files_and_nothing_is_written_before_start(env: Env) -> None:
+def test_folder_import_copies_files_and_nothing_is_written_before_start(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     files = {
@@ -216,10 +237,16 @@ def test_folder_import_copies_files_and_nothing_is_written_before_start(env: Env
     assert plan["files"] == 3 and plan["bytes"] == sum(map(len, files.values()))
     assert plan["folders"] == 5  # Docs, Docs/deep, Docs/deep/er, Empty, Empty/Inside
     assert plan["fits"] is True and plan["skipped"] == {}
-    assert listing(a.personal_disk()) == []  # nothing is written before the plan is started
+    assert (
+        listing(a.personal_disk()) == []
+    )  # nothing is written before the plan is started
 
-    first_file = next(e for e in entries(a, batch["id"]) if e["kind"] == "file")["index"]
-    assert put(a, batch["id"], first_file, b"early").status_code == 409  # not running yet
+    first_file = next(e for e in entries(a, batch["id"]) if e["kind"] == "file")[
+        "index"
+    ]
+    assert (
+        put(a, batch["id"], first_file, b"early").status_code == 409
+    )  # not running yet
     started = a.post(f"/imports/{batch['id']}/start").json()
     assert started["status"] == "running"
     send(a, batch["id"], files)
@@ -231,15 +258,23 @@ def test_folder_import_copies_files_and_nothing_is_written_before_start(env: Env
     disk = a.personal_disk()
     for path, data in files.items():
         assert (disk / path).read_bytes() == data
-        assert abs((disk / path).stat().st_mtime - 1_700_000_000) < 2  # the mtime is kept
+        assert (
+            abs((disk / path).stat().st_mtime - 1_700_000_000) < 2
+        )  # the mtime is kept
     assert (disk / "Empty" / "Inside").is_dir()  # empty folders are created at the end
 
     tops = children(a, root)
     assert set(tops) == {"Docs", "Empty", "photo.bin"}
     with env.w.ctx.sessions() as db:
         photo = db.get(Node, uuid.UUID(tops["photo.bin"]["id"]))
-        assert photo is not None and photo.content_hash is not None and photo.fs_ino is not None
-        actions = {(e.action, e.source, e.actor_kind) for e in db.scalars(select(FileEvent))}
+        assert (
+            photo is not None
+            and photo.content_hash is not None
+            and photo.fs_ino is not None
+        )
+        actions = {
+            (e.action, e.source, e.actor_kind) for e in db.scalars(select(FileEvent))
+        }
         assert ("imported", "import", "user") in actions
     # the import's own content did not close the window
     assert state(a, root)["state"] == "open"
@@ -249,7 +284,10 @@ def test_folder_import_copies_files_and_nothing_is_written_before_start(env: Env
 def test_finish_and_skip_close_the_window_for_good(env: Env) -> None:
     a, b = env.alice, env.bob
     a_root, b_root = a.personal_root(), b.personal_root()
-    assert a.post(f"/nodes/{a_root}/setup/finish", json={"action": "finish"}).status_code == 200
+    assert (
+        a.post(f"/nodes/{a_root}/setup/finish", json={"action": "finish"}).status_code
+        == 200
+    )
     assert state(a, a_root)["state"] == "closed"
     assert plan_folder(a, a_root, {"x.txt": b"x"}).status_code == 409
     assert code(plan_folder(a, a_root, {"x.txt": b"x"})) == "SETUP_CLOSED"
@@ -259,7 +297,10 @@ def test_finish_and_skip_close_the_window_for_good(env: Env) -> None:
     roots = {r["kind"]: r for r in a.get("/roots").json()}
     assert roots["personal"]["setup_open"] is False
 
-    assert b.post(f"/nodes/{b_root}/setup/finish", json={"action": "skip"}).status_code == 200
+    assert (
+        b.post(f"/nodes/{b_root}/setup/finish", json={"action": "skip"}).status_code
+        == 200
+    )
     rows = [r for r in env.w.db_rows(AuthAudit) if r.action == "storage.setup_closed"]
     assert {r.details["reason"] for r in rows} == {"finish", "skip"}
     # emptying the root later does not reopen it
@@ -284,7 +325,9 @@ def test_content_created_any_other_way_closes_the_window(env: Env, how: str) -> 
         assert result.outcome == "ok"
     assert state(a, root)["state"] == "closed"
     reasons = [
-        r.details["reason"] for r in env.w.db_rows(AuthAudit) if r.action == "storage.setup_closed"
+        r.details["reason"]
+        for r in env.w.db_rows(AuthAudit)
+        if r.action == "storage.setup_closed"
     ]
     assert reasons == ["content"]
 
@@ -300,7 +343,9 @@ def test_copy_into_an_open_root_closes_it(env: Env) -> None:
     admin = env.admin
     shared = admin.shared_root()
     mine = admin.personal_root()
-    admin.post(f"/nodes/{mine}/folders", json={"name": "Src"})  # closes the personal window
+    admin.post(
+        f"/nodes/{mine}/folders", json={"name": "Src"}
+    )  # closes the personal window
     src = children(admin, mine)["Src"]["id"]
     assert state(admin, shared)["state"] == "open"
     r = admin.post(f"/nodes/{src}/copy", json={"target_parent_id": shared})
@@ -308,7 +353,9 @@ def test_copy_into_an_open_root_closes_it(env: Env) -> None:
     assert state(admin, shared)["state"] == "closed"
 
 
-def test_window_closing_mid_import_stops_the_batch_and_nothing_else_is_written(env: Env) -> None:
+def test_window_closing_mid_import_stops_the_batch_and_nothing_else_is_written(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     files = {f"f{i}.txt": f"data {i}".encode() for i in range(4)}
@@ -350,17 +397,26 @@ def test_plan_lists_skipped_unsupported_and_colliding_entries(env: Env) -> None:
         "case/A.TXT": b"2",
         "dup.txt": b"1",
     }
-    body = {"entries": manifest(files) + [{"path": "dup.txt", "kind": "file", "size": 1}]}
+    body = {
+        "entries": manifest(files) + [{"path": "dup.txt", "kind": "file", "size": 1}]
+    }
     r = a.post(f"/nodes/{root}/setup/import", json=body)
     assert r.status_code == 201, r.text
     plan = r.json()["plan"]
     assert plan["skipped"]["INVALID_PATH"] == 4  # ../, a/../.., /abs, C:/
-    assert plan["skipped"]["INVALID_NAME"] == 3  # backslash, control character, staging prefix
+    assert (
+        plan["skipped"]["INVALID_NAME"] == 3
+    )  # backslash, control character, staging prefix
     assert plan["skipped"]["SYSTEM_FILE"] == 3
     assert plan["skipped"]["TOO_DEEP"] == 1
-    assert {e["reason"] for e in plan["skipped_examples"]} >= {"INVALID_PATH", "TOO_DEEP"}
+    assert {e["reason"] for e in plan["skipped_examples"]} >= {
+        "INVALID_PATH",
+        "TOO_DEEP",
+    }
     assert plan["collisions"]["count"] == 2  # a.txt and A.TXT, dup.txt twice
-    assert plan["merged_folders"] == 0  # "Case" and "case" are implicit parents, merged silently
+    assert (
+        plan["merged_folders"] == 0
+    )  # "Case" and "case" are implicit parents, merged silently
     assert plan["files"] == 5  # ok/one, Case/a, case/A, dup.txt twice
     assert plan["fits"] is True
     assert listing(a.personal_disk()) == []
@@ -383,7 +439,9 @@ def test_plan_counts_in_import_collisions_and_keep_both_on_write(env: Env) -> No
     send(a, batch["id"], files)
     disk = a.personal_disk()
     assert (disk / "Docs" / "a.txt").read_bytes() == b"first"
-    assert (disk / "Docs" / "A (2).txt").read_bytes() == b"second"  # kept both, nothing replaced
+    assert (
+        disk / "Docs" / "A (2).txt"
+    ).read_bytes() == b"second"  # kept both, nothing replaced
     assert (disk / "Docs" / "b.txt").read_bytes() == b"third"
     assert not (disk / "docs").exists()  # the two folders merged into the first
     done = entries(a, batch["id"], status="renamed")
@@ -412,7 +470,9 @@ def test_free_space_check_blocks_start_and_folder_upload(
     assert not (a.personal_disk() / "x.txt").exists()
 
 
-def test_entry_limit_is_enforced_for_manifests(make_world: Callable[..., World]) -> None:
+def test_entry_limit_is_enforced_for_manifests(
+    make_world: Callable[..., World],
+) -> None:
     env = Env(make_world(max_import_entries=3))
     a = env.alice
     r = plan_folder(a, a.personal_root(), {f"{i}.txt": b"x" for i in range(4)})
@@ -430,9 +490,14 @@ def test_size_mismatch_fails_the_entry_and_resume_retries_it(env: Env) -> None:
     assert not (a.personal_disk() / "a.txt").exists()
     assert listing(a.personal_disk()) == []  # the temporary file is gone
     assert entries(a, batch["id"], status="failed")[0]["reason"] == "SIZE_MISMATCH"
-    chunks = (b"abcd", b"efghij")  # a body that grows past the manifest while it is read
+    chunks = (
+        b"abcd",
+        b"efghij",
+    )  # a body that grows past the manifest while it is read
     assert put(a, batch["id"], 0, chunks[0] + chunks[1]).status_code == 409
-    resume = a.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}).json()
+    resume = a.post(
+        f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}
+    ).json()
     assert [p["index"] for p in resume["pending"]] == [0]
     assert put(a, batch["id"], 0, b"abcdef").status_code == 200
     assert a.get(f"/imports/{batch['id']}").json()["status"] == "done"
@@ -441,15 +506,23 @@ def test_size_mismatch_fails_the_entry_and_resume_retries_it(env: Env) -> None:
 # ------------------------------------------------------------------ folder upload
 
 
-def test_folder_upload_merges_folders_and_keeps_both_on_file_conflicts(env: Env) -> None:
+def test_folder_upload_merges_folders_and_keeps_both_on_file_conflicts(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
-    a.post(f"/nodes/{root}/folders", json={"name": "Docs"})  # also closes the setup window
+    a.post(
+        f"/nodes/{root}/folders", json={"name": "Docs"}
+    )  # also closes the setup window
     docs = children(a, root)["Docs"]["id"]
     a.post(f"/nodes/{docs}/files", params={"name": "a.txt"}, content=b"original")
     disk = a.personal_disk()
 
-    files = {"Docs/a.txt": b"uploaded", "Docs/new/b.txt": b"b", "Docs/DOCS-sub/c.txt": b"c"}
+    files = {
+        "Docs/a.txt": b"uploaded",
+        "Docs/new/b.txt": b"b",
+        "Docs/DOCS-sub/c.txt": b"c",
+    }
     r = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)})
     assert r.status_code == 201, r.text
     batch = r.json()
@@ -466,7 +539,9 @@ def test_folder_upload_merges_folders_and_keeps_both_on_file_conflicts(env: Env)
         "new",
     ]
     # uploading the same folder again merges the folders and keeps both once more
-    again = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}).json()
+    again = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     send(a, again["id"], files)
     assert (disk / "Docs" / "a (3).txt").read_bytes() == b"uploaded"
     assert (disk / "Docs" / "new" / "b (2).txt").read_bytes() == b"b"
@@ -483,12 +558,18 @@ def test_folder_upload_of_empty_folders_and_idempotent_resend(env: Env) -> None:
     assert (a.personal_disk() / "Only" / "Empty").is_dir()
 
     files = {"one.txt": b"1"}
-    batch = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     first = put(a, batch["id"], 0, b"1")
     again = put(a, batch["id"], 0, b"1")  # a retry after a lost response
     assert first.status_code == again.status_code == 200
     assert first.json() == again.json()
-    assert sorted(p.name for p in a.personal_disk().iterdir()) == ["Only", "one.txt", "x"]
+    assert sorted(p.name for p in a.personal_disk().iterdir()) == [
+        "Only",
+        "one.txt",
+        "x",
+    ]
 
 
 def test_folder_upload_never_enters_unsupported_or_missing_names(env: Env) -> None:
@@ -499,11 +580,15 @@ def test_folder_upload_never_enters_unsupported_or_missing_names(env: Env) -> No
     outside.mkdir()
     (outside / "secret.txt").write_bytes(b"secret")
     (a.personal_disk() / "link").symlink_to(outside)  # a symlink the host admin placed
-    Reconciler(env.w.ctx.sessions, env.w.settings).run_root(_root_id(env, root), "manual")
+    Reconciler(env.w.ctx.sessions, env.w.settings).run_root(
+        _root_id(env, root), "manual"
+    )
     link = children(a, root)["link"]
     assert link["unsupported_reason"] == "symlink"
     files = {"link/pwned.txt": b"nope"}
-    batch = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     # the name "link" is taken by an unsupported node, so the folder gets a keep-both name
     send(a, batch["id"], files)
     assert not (outside / "pwned.txt").exists()
@@ -519,10 +604,14 @@ def test_folder_upload_needs_write_on_the_target(env: Env) -> None:
     assert b.post(f"/nodes/{folder}/folder-uploads", json=body).status_code == 403
     uid = lambda p: str(p.uid())  # noqa: E731
     assert (
-        a.req("PUT", f"/nodes/{folder}/grants/{uid(b)}", json={"level": "viewer"}).status_code
+        a.req(
+            "PUT", f"/nodes/{folder}/grants/{uid(b)}", json={"level": "viewer"}
+        ).status_code
         == 200
     )
-    assert b.post(f"/nodes/{folder}/folder-uploads", json=body).status_code == 403  # viewer
+    assert (
+        b.post(f"/nodes/{folder}/folder-uploads", json=body).status_code == 403
+    )  # viewer
     a.req("PUT", f"/nodes/{folder}/grants/{uid(c)}", json={"level": "editor"})
     r = c.post(f"/nodes/{folder}/folder-uploads", json=body)
     assert r.status_code == 201, r.text
@@ -531,7 +620,9 @@ def test_folder_upload_needs_write_on_the_target(env: Env) -> None:
 
     # revoking the grant mid-batch: the next entry is refused, the batch stops, nothing more lands
     files = {"g1.txt": b"1", "g2.txt": b"2"}
-    batch = c.post(f"/nodes/{folder}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{folder}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     assert put(c, batch["id"], 0, b"1").status_code == 200
     a.req("DELETE", f"/nodes/{folder}/grants/{uid(c)}")
     denied = put(c, batch["id"], 1, b"2")
@@ -545,7 +636,9 @@ def test_folder_upload_needs_write_on_the_target(env: Env) -> None:
 # ------------------------------------------------------------------ authorization
 
 
-def test_only_the_owner_may_set_up_a_personal_folder_and_an_admin_has_no_bypass(env: Env) -> None:
+def test_only_the_owner_may_set_up_a_personal_folder_and_an_admin_has_no_bypass(
+    env: Env,
+) -> None:
     a_root = env.alice.personal_root()
     body = {"entries": manifest({"x.txt": b"x"})}
     for who in (env.bob, env.admin, env.admin2):
@@ -574,13 +667,17 @@ def test_shared_tree_setup_needs_the_administrator_role(env: Env) -> None:
     assert "x.txt" in children(env.alice, shared)
 
 
-def test_demoting_the_administrator_stops_a_shared_import_at_the_next_entry(env: Env) -> None:
+def test_demoting_the_administrator_stops_a_shared_import_at_the_next_entry(
+    env: Env,
+) -> None:
     shared = env.admin2.shared_root()
     files = {"s1.txt": b"1", "s2.txt": b"2"}
     batch = plan_folder(env.admin2, shared, files).json()
     env.admin2.post(f"/imports/{batch['id']}/start")
     assert put(env.admin2, batch["id"], 0, b"1").status_code == 200
-    r = env.admin.req("PATCH", f"/admin/users/{env.admin2.uid()}", json={"role": "member"})
+    r = env.admin.req(
+        "PATCH", f"/admin/users/{env.admin2.uid()}", json={"role": "member"}
+    )
     assert r.status_code == 200, r.text
     denied = put(env.admin2, batch["id"], 1, b"2")
     assert denied.status_code == 403
@@ -597,13 +694,19 @@ def test_batches_and_reports_are_visible_to_their_actor_only(env: Env) -> None:
         assert who.get(f"/imports/{bid}/entries").status_code == 403
         assert who.post(f"/imports/{bid}/start").status_code == 403
         assert who.post(f"/imports/{bid}/cancel").status_code == 403
-        assert who.post(f"/imports/{bid}/resume", json={"entries": []}).status_code == 403
+        assert (
+            who.post(f"/imports/{bid}/resume", json={"entries": []}).status_code == 403
+        )
         assert put(who, bid, 0, b"x").status_code == 403
     assert env.alice.get(f"/imports/{bid}").status_code == 200
     unknown = uuid.uuid4()
-    assert env.alice.get(f"/imports/{unknown}").status_code == 403  # same as someone else's
+    assert (
+        env.alice.get(f"/imports/{unknown}").status_code == 403
+    )  # same as someone else's
     assert env.alice.post(f"/imports/{bid}/start").json()["status"] == "running"
-    assert env.alice.post(f"/imports/{bid}/start").status_code == 409  # not startable twice
+    assert (
+        env.alice.post(f"/imports/{bid}/start").status_code == 409
+    )  # not startable twice
 
 
 def test_only_one_unfinished_setup_import_per_root(env: Env) -> None:
@@ -620,7 +723,8 @@ def test_only_one_unfinished_setup_import_per_root(env: Env) -> None:
     # finishing setup cancels a plan that never started, and refuses while one is running
     assert a.post(f"/nodes/{root}/setup/finish", json={}).status_code == 200
     batch = env.bob.post(
-        f"/nodes/{env.bob.personal_root()}/setup/import", json={"entries": manifest({"z": b"z"})}
+        f"/nodes/{env.bob.personal_root()}/setup/import",
+        json={"entries": manifest({"z": b"z"})},
     ).json()
     env.bob.post(f"/imports/{batch['id']}/start")
     refused = env.bob.post(f"/nodes/{env.bob.personal_root()}/setup/finish", json={})
@@ -630,7 +734,9 @@ def test_only_one_unfinished_setup_import_per_root(env: Env) -> None:
 # ------------------------------------------------------------------ zip: slip, bombs, limits
 
 
-def test_zip_import_extracts_in_the_background_and_lists_before_writing(env: Env) -> None:
+def test_zip_import_extracts_in_the_background_and_lists_before_writing(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     files: dict[str, bytes | None] = {
@@ -645,7 +751,9 @@ def test_zip_import_extracts_in_the_background_and_lists_before_writing(env: Env
     assert r.status_code == 201, r.text
     batch = r.json()
     assert batch["kind"] == "setup_zip" and batch["status"] == "planned"
-    assert batch["plan"]["files"] == 3 and batch["plan"]["skipped"] == {"SYSTEM_FILE": 1}
+    assert batch["plan"]["files"] == 3 and batch["plan"]["skipped"] == {
+        "SYSTEM_FILE": 1
+    }
     assert listing(a.personal_disk()) == []  # only listed so far
     staged = list((env.w.settings.app_data_path / "staging" / "imports").iterdir())
     assert len(staged) == 1  # kept in the app's own area, never in the library
@@ -656,9 +764,13 @@ def test_zip_import_extracts_in_the_background_and_lists_before_writing(env: Env
     assert done["counts"]["done"] == 3
     disk = a.personal_disk()
     assert (disk / "Photos" / "a.jpg").read_bytes() == files["Photos/a.jpg"]
-    assert (disk / "Photos" / "2026" / "b.jpg").read_bytes() == files["Photos/2026/b.jpg"]
+    assert (disk / "Photos" / "2026" / "b.jpg").read_bytes() == files[
+        "Photos/2026/b.jpg"
+    ]
     assert (disk / "Empty").is_dir() and not (disk / "__MACOSX").exists()
-    assert not any(staged_path.exists() for staged_path in staged)  # deleted when the batch ends
+    assert not any(
+        staged_path.exists() for staged_path in staged
+    )  # deleted when the batch ends
     assert state(a, root)["state"] == "open"
 
 
@@ -683,13 +795,24 @@ def test_zip_slip_entries_are_refused_and_nothing_lands_outside(env: Env) -> Non
     assert batch["plan"]["files"] == 2
     a.post(f"/imports/{batch['id']}/start")
     wait_zip(env, a, batch["id"])
-    for name in ("evil1", "evil2", "evil3", "evil4", "evil5", "evil6", "evil7", "evil8"):
+    for name in (
+        "evil1",
+        "evil2",
+        "evil3",
+        "evil4",
+        "evil5",
+        "evil6",
+        "evil7",
+        "evil8",
+    ):
         assert not list(outside.rglob(f"*{name}*")), name
         assert not list(env.w.settings.app_data_path.rglob(f"*{name}*")), name
     disk = a.personal_disk()
     assert (disk / "fine.txt").read_bytes() == b"fine"
     assert (disk / "dir" / "nested.txt").exists()
-    written = sorted(p.name for p in env.w.settings.library_path.rglob("*") if p.is_file())
+    written = sorted(
+        p.name for p in env.w.settings.library_path.rglob("*") if p.is_file()
+    )
     assert written == ["fine.txt", "nested.txt"]
 
 
@@ -715,7 +838,11 @@ def test_zip_symlink_encrypted_and_special_entries_are_skipped(env: Env) -> None
     flags = struct.unpack_from("<H", data, header + 8)[0]
     struct.pack_into("<H", data, header + 8, flags | 1)
     batch = plan_zip(a, root, bytes(data)).json()
-    assert batch["plan"]["skipped"] == {"SYMLINK": 1, "UNSUPPORTED_TYPE": 1, "ENCRYPTED": 1}
+    assert batch["plan"]["skipped"] == {
+        "SYMLINK": 1,
+        "UNSUPPORTED_TYPE": 1,
+        "ENCRYPTED": 1,
+    }
     a.post(f"/imports/{batch['id']}/start")
     wait_zip(env, a, batch["id"])
     assert sorted(p.name for p in a.personal_disk().iterdir()) == ["plain.txt"]
@@ -727,17 +854,23 @@ def test_zip_bomb_entry_is_refused_by_ratio_and_the_rest_continues(env: Env) -> 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("before.txt", b"before")
-        zf.writestr(zipfile.ZipInfo("bomb.bin"), b"\0" * (24 * 1024 * 1024), zipfile.ZIP_BZIP2)
+        zf.writestr(
+            zipfile.ZipInfo("bomb.bin"), b"\0" * (24 * 1024 * 1024), zipfile.ZIP_BZIP2
+        )
         zf.writestr("after.txt", b"after")
     r = plan_zip(a, root, buf.getvalue())
     assert r.status_code == 201, r.text
-    assert r.json()["plan"]["bytes"] == 24 * 1024 * 1024 + 11  # the header size is not trusted
+    assert (
+        r.json()["plan"]["bytes"] == 24 * 1024 * 1024 + 11
+    )  # the header size is not trusted
     a.post(f"/imports/{r.json()['id']}/start")
     done = wait_zip(env, a, r.json()["id"])
     disk = a.personal_disk()
     assert sorted(p.name for p in disk.iterdir()) == ["after.txt", "before.txt"]
     failed = entries(a, r.json()["id"], status="failed")
-    assert [(e["path"], e["reason"]) for e in failed] == [("bomb.bin", "DECOMPRESSION_RATIO")]
+    assert [(e["path"], e["reason"]) for e in failed] == [
+        ("bomb.bin", "DECOMPRESSION_RATIO")
+    ]
     assert done["counts"]["failed"] == 1 and done["counts"]["done"] == 2
     assert not list(disk.glob(".filecanopy-tmp-*"))  # the partial file was removed
 
@@ -748,7 +881,9 @@ def test_zip_total_decompressed_limit_stops_the_batch_and_keeps_what_was_committ
     a = env.alice
     root = a.personal_root()
     one_mib = 1024 * 1024
-    items: dict[str, bytes | None] = {f"f{i}.bin": os.urandom(one_mib) for i in range(3)}
+    items: dict[str, bytes | None] = {
+        f"f{i}.bin": os.urandom(one_mib) for i in range(3)
+    }
     batch = plan_zip(a, root, make_zip(items)).json()
     # the limit is counted while streaming, so lowering it after the plan still holds
     env.w.settings.max_zip_uncompressed_bytes = int(2.5 * one_mib)
@@ -760,7 +895,11 @@ def test_zip_total_decompressed_limit_stops_the_batch_and_keeps_what_was_committ
 
 
 def test_zip_plan_limits_and_invalid_archives(make_world: Callable[..., World]) -> None:
-    env = Env(make_world(max_import_entries=4, max_zip_uncompressed_bytes=1000, max_zip_bytes=5000))
+    env = Env(
+        make_world(
+            max_import_entries=4, max_zip_uncompressed_bytes=1000, max_zip_bytes=5000
+        )
+    )
     a = env.alice
     root = a.personal_root()
     staging = env.w.settings.app_data_path / "staging" / "imports"
@@ -778,11 +917,15 @@ def test_zip_plan_limits_and_invalid_archives(make_world: Callable[..., World]) 
 
     r = plan_zip(a, root, os.urandom(6000))  # larger than the archive limit
     assert r.status_code == 413 and code(r) == "ZIP_TOO_LARGE"
-    assert not staging.exists() or list(staging.iterdir()) == []  # failed uploads leave nothing
+    assert (
+        not staging.exists() or list(staging.iterdir()) == []
+    )  # failed uploads leave nothing
     assert a.get(f"/nodes/{root}/setup").json()["batch"] is None
 
 
-def test_zip_central_directory_declarations_are_checked_without_loading_it(tmp_path: Path) -> None:
+def test_zip_central_directory_declarations_are_checked_without_loading_it(
+    tmp_path: Path,
+) -> None:
     good = tmp_path / "good.zip"
     good.write_bytes(make_zip({"a": b"1", "b": b"2"}))
     assert declared_directory(good)[0] == 2
@@ -857,12 +1000,15 @@ def test_interrupted_folder_import_resumes_without_duplicates(env: Env) -> None:
         folder = db.scalars(select(Node).where(Node.name == "Photos")).one()
         row = db.scalars(
             select(ImportEntry).where(
-                ImportEntry.batch_id == uuid.UUID(batch["id"]), ImportEntry.idx == target["index"]
+                ImportEntry.batch_id == uuid.UUID(batch["id"]),
+                ImportEntry.idx == target["index"],
             )
         ).one()
         row.status, row.dir_node_id, row.tmp_name = "writing", folder.id, tmp.name
         db.commit()
-    assert put(a, batch["id"], target["index"], files["Photos/p2.bin"]).status_code == 409  # busy
+    assert (
+        put(a, batch["id"], target["index"], files["Photos/p2.bin"]).status_code == 409
+    )  # busy
 
     counts = imports.recover_imports(env.w.ctx.sessions, env.w.settings)
     assert counts["requeued"] == 1 and not tmp.exists()
@@ -870,20 +1016,30 @@ def test_interrupted_folder_import_resumes_without_duplicates(env: Env) -> None:
     got = state(a, root)["batch"]
     assert got["id"] == batch["id"] and got["status"] == "running"
     changed = dict(files, **{"top.txt": b"top changed!"})
-    resume = a.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(changed)}).json()
+    resume = a.post(
+        f"/imports/{batch['id']}/resume", json={"entries": manifest(changed)}
+    ).json()
     assert sorted(p["path"] for p in resume["pending"]) == [
         "Photos/p2.bin",
         "Photos/p3.bin",
         "Photos/p4.bin",
     ]
-    assert resume["unmatched"] == 1  # top.txt changed since the first selection: not sent
-    resume = a.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}).json()
+    assert (
+        resume["unmatched"] == 1
+    )  # top.txt changed since the first selection: not sent
+    resume = a.post(
+        f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}
+    ).json()
     for item in resume["pending"]:
-        assert put(a, batch["id"], item["index"], files[item["path"]]).status_code == 200
+        assert (
+            put(a, batch["id"], item["index"], files[item["path"]]).status_code == 200
+        )
     assert a.get(f"/imports/{batch['id']}").json()["status"] == "done"
     for path, data in files.items():
         assert (disk / path).read_bytes() == data
-    assert sorted(p.name for p in (disk / "Photos").iterdir()) == [f"p{i}.bin" for i in range(5)]
+    assert sorted(p.name for p in (disk / "Photos").iterdir()) == [
+        f"p{i}.bin" for i in range(5)
+    ]
 
 
 def test_a_file_published_before_the_crash_is_adopted_not_duplicated(env: Env) -> None:
@@ -897,16 +1053,22 @@ def test_a_file_published_before_the_crash_is_adopted_not_duplicated(env: Env) -
     disk.mkdir(parents=True, exist_ok=True)
     (disk / "kept.bin").write_bytes(files["kept.bin"])
     with env.w.ctx.sessions() as db:
-        row = db.scalars(select(ImportEntry).where(ImportEntry.path == "kept.bin")).one()
+        row = db.scalars(
+            select(ImportEntry).where(ImportEntry.path == "kept.bin")
+        ).one()
         folder = db.scalars(
-            select(Node).where(Node.root_id == row_root(db, batch["id"]), Node.parent_id.is_(None))
+            select(Node).where(
+                Node.root_id == row_root(db, batch["id"]), Node.parent_id.is_(None)
+            )
         ).one()
         row.status, row.dir_node_id, row.dst_name = "writing", folder.id, "kept.bin"
         db.commit()
     counts = imports.recover_imports(env.w.ctx.sessions, env.w.settings)
     assert counts["adopted"] == 1
     assert children(a, root)["kept.bin"]["size"] == 900
-    resume = a.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}).json()
+    resume = a.post(
+        f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}
+    ).json()
     assert [p["path"] for p in resume["pending"]] == ["later.bin"]
     put(a, batch["id"], resume["pending"][0]["index"], b"later")
     assert sorted(p.name for p in disk.iterdir()) == ["kept.bin", "later.bin"]
@@ -955,7 +1117,9 @@ def test_interrupted_zip_import_stops_on_restart_and_resumes_from_the_staged_arc
     a.post(f"/imports/{batch['id']}/start")
     done = wait_zip(env, a, batch["id"])
     assert done["counts"]["done"] == 6
-    assert sorted(p.name for p in a.personal_disk().iterdir()) == [f"f{i}.bin" for i in range(6)]
+    assert sorted(p.name for p in a.personal_disk().iterdir()) == [
+        f"f{i}.bin" for i in range(6)
+    ]
     assert list(staging.iterdir()) == []
 
 
@@ -971,13 +1135,17 @@ def test_stale_batches_expire_and_lose_their_staged_archive(env: Env) -> None:
         row = db.get(ImportBatch, uuid.UUID(batch["id"]))
         assert row is not None and row.status == "expired"
     assert list(staging.iterdir()) == []
-    assert plan_folder(a, root, {"x.txt": b"x"}).status_code == 201  # a new plan is possible
+    assert (
+        plan_folder(a, root, {"x.txt": b"x"}).status_code == 201
+    )  # a new plan is possible
 
 
 # ------------------------------------------------------------------ the reconciler and imports
 
 
-def test_the_reconciler_leaves_a_root_alone_while_a_file_is_being_written(env: Env) -> None:
+def test_the_reconciler_leaves_a_root_alone_while_a_file_is_being_written(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     files = {"a.txt": b"a", "b.txt": b"b"}
@@ -988,8 +1156,12 @@ def test_the_reconciler_leaves_a_root_alone_while_a_file_is_being_written(env: E
     set_entry_status(env, batch["id"], 0, "writing")  # a file is in flight right now
     recon = Reconciler(env.w.ctx.sessions, env.w.settings)
     assert recon.run_root(_root_id(env, root), "manual").outcome == "skipped"
-    assert state(a, root)["state"] == "open"  # nothing was classified as outside content
-    set_entry_status(env, batch["id"], 0, "pending")  # the upload ended: the scanner is let in
+    assert (
+        state(a, root)["state"] == "open"
+    )  # nothing was classified as outside content
+    set_entry_status(
+        env, batch["id"], 0, "pending"
+    )  # the upload ended: the scanner is let in
     assert recon.run_root(_root_id(env, root), "manual").outcome == "ok"
     assert state(a, root)["state"] == "closed"
 
@@ -1005,14 +1177,18 @@ def set_entry_status(env: Env, batch_id: str, idx: int, status: str) -> None:
         db.commit()
 
 
-def test_the_import_actor_is_checked_per_entry_against_the_root_not_the_request(env: Env) -> None:
+def test_the_import_actor_is_checked_per_entry_against_the_root_not_the_request(
+    env: Env,
+) -> None:
     """The route guard passes, then the root is disabled: the entry commit re-checks and refuses."""
     a = env.alice
     root = a.personal_root()
     batch = plan_folder(a, root, {"a.txt": b"a"}).json()
     a.post(f"/imports/{batch['id']}/start")
     with env.w.ctx.sessions() as db:
-        sr = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == a.uid())).one()
+        sr = db.scalars(
+            select(StorageRoot).where(StorageRoot.owner_user_id == a.uid())
+        ).one()
         sr.status = "disabled"
         db.commit()
     r = put(a, batch["id"], 0, b"a")
@@ -1027,7 +1203,12 @@ def test_unit_level_plan_is_pure_and_deterministic() -> None:
         imports.RawEntry("a/B.txt", "file", 3, None),
         imports.RawEntry("x\x00y", "file", 1, None),
     ]
-    args = {"max_depth": 8, "max_file_bytes": 100, "include_system": False, "zip_style": True}
+    args = {
+        "max_depth": 8,
+        "max_file_bytes": 100,
+        "include_system": False,
+        "zip_style": True,
+    }
     first = imports.build_plan(raws, **args)
     second = imports.build_plan(raws, **args)
     assert [vars(e) for e in first.entries] == [vars(e) for e in second.entries]

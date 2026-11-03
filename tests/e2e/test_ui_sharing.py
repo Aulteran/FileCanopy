@@ -13,7 +13,9 @@ pytestmark = pytest.mark.e2e
 def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     # Bob gets a name of his own so the picker finds exactly him (every test account is "Alice").
     nick = "Bobby" + world.bob_mail.split("@")[0][3:]
-    world.stack.sql(f"update app_user set name = '{nick}' where email = '{world.bob_mail}'")
+    world.stack.sql(
+        f"update app_user set name = '{nick}' where email = '{world.bob_mail}'"
+    )
     alice = sign_in(browser, world, world.alice_mail)
     new_folder(alice, "Holiday plans")
     alice.get_by_role("link", name="Holiday plans").click()
@@ -39,7 +41,9 @@ def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     alice.go_back()
 
     bob = sign_in(browser, world, world.bob_mail)
-    expect(bob.get_by_role("link", name=re.compile(r"Notifications \(\d+ new\)"))).to_be_visible()
+    expect(
+        bob.get_by_role("link", name=re.compile(r"Notifications \(\d+ new\)"))
+    ).to_be_visible()
     bob.get_by_role("link", name=re.compile("Notifications")).click()
     expect(bob.get_by_text("shared the folder Holiday plans with you")).to_be_visible()
     bob.get_by_role("link", name=re.compile("Holiday plans")).first.click()
@@ -48,7 +52,9 @@ def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     expect(bob.get_by_role("button", name=re.compile("^Share"))).to_have_count(0)
     url = bob.url
     node = url.rsplit("/", 1)[1]
-    assert api_status(bob, "POST", f"/api/v1/nodes/{node}/folders", {"name": "x"}) == 403
+    assert (
+        api_status(bob, "POST", f"/api/v1/nodes/{node}/folders", {"name": "x"}) == 403
+    )
     assert api_status(bob, "GET", f"/api/v1/nodes/{node}/grants") == 403
 
     # Removing the share closes it for the open session on the very next request.

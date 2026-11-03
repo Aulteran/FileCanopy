@@ -52,7 +52,9 @@ def child_id(page: Page, world: World, parent: str, name: str) -> str:
     raise AssertionError(f"{name} not found")
 
 
-def test_word_file_without_the_converter_offers_download(world: World, browser: Browser) -> None:
+def test_word_file_without_the_converter_offers_download(
+    world: World, browser: Browser
+) -> None:
     page = sign_in(browser, world, world.alice_mail)
     upload(page, "letter.docx", b"PK\x03\x04 pretend word document")
     expect(page.get_by_role("row").filter(has_text="letter.docx")).to_be_visible()
@@ -77,11 +79,15 @@ def test_zip_opens_as_an_inert_listing(world: World, browser: Browser) -> None:
         page.locator("table tr", has_text="../escape.txt").get_by_text("not safe")
     ).to_be_visible()
     # a hostile name is text, never markup
-    expect(page.get_by_role("cell", name="<script>alert(1)</script>.txt")).to_be_visible()
+    expect(
+        page.get_by_role("cell", name="<script>alert(1)</script>.txt")
+    ).to_be_visible()
     assert page.locator("table script").count() == 0 and dialogs == []
 
 
-def test_picture_gets_a_thumbnail_in_the_details_panel(world: World, browser: Browser) -> None:
+def test_picture_gets_a_thumbnail_in_the_details_panel(
+    world: World, browser: Browser
+) -> None:
     page = sign_in(browser, world, world.alice_mail)
     upload(page, "tiny.png", PNG_1X1)
     expect(page.get_by_role("row").filter(has_text="tiny.png")).to_be_visible()
@@ -99,7 +105,10 @@ def test_private_files_need_the_opt_in_and_it_can_be_withdrawn(
     page = sign_in(browser, world, world.alice_mail)
     new_folder(page, "Secret papers")
     folder = child_id(page, world, world.alice_root, "Secret papers")
-    assert api_status(page, "PUT", f"/api/v1/nodes/{folder}/privacy", {"label": "private"}) == 200
+    assert (
+        api_status(page, "PUT", f"/api/v1/nodes/{folder}/privacy", {"label": "private"})
+        == 200
+    )
     open_folder(page, "Secret papers")
     upload(page, "inside.zip", make_zip())
     expect(page.get_by_role("row").filter(has_text="inside.zip")).to_be_visible()
@@ -111,17 +120,23 @@ def test_private_files_need_the_opt_in_and_it_can_be_withdrawn(
     expect(page.locator("img.thumb")).to_have_count(0)
 
     open_file(page, "inside.zip")
-    expect(page.get_by_role("heading", name="Allow previews of protected files?")).to_be_visible()
+    expect(
+        page.get_by_role("heading", name="Allow previews of protected files?")
+    ).to_be_visible()
     page.get_by_role("button", name="Allow on this server").click()
     expect(page.get_by_role("cell", name="docs/readme.txt")).to_be_visible()
 
     # withdraw it in Preview settings: the same file asks again
     page.get_by_role("button", name="Preview settings").click()
     dialog = page.get_by_role("dialog", name="Preview settings")
-    box = dialog.get_by_label("Let this server make previews of my Private and Confidential files")
+    box = dialog.get_by_label(
+        "Let this server make previews of my Private and Confidential files"
+    )
     expect(box).to_be_checked()
     box.click()  # the box follows the server's answer, so wait for it rather than for the click
     expect(box).not_to_be_checked()
     dialog.get_by_role("button", name="Close").click()
     page.reload()
-    expect(page.get_by_role("heading", name="Allow previews of protected files?")).to_be_visible()
+    expect(
+        page.get_by_role("heading", name="Allow previews of protected files?")
+    ).to_be_visible()

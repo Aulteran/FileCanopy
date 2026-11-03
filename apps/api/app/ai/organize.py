@@ -669,6 +669,26 @@ def _scrub(row: AiProposal) -> None:
     row.new_name, row.new_folder_name, row.reason, row.doc_type = None, None, "", ""
 
 
+def scrub_under(db: Session, folder: Node) -> int:
+    """M23: a folder was just given a stricter label. Open proposals for files inside it drop
+    their model-derived text now, not when the owner next opens the queue. Open proposals are one
+    per file and few, so each is checked by walking up from its file."""
+    count = 0
+    for row in db.scalars(
+        select(AiProposal).where(AiProposal.status.in_(("pending", "applying")))
+    ).all():
+        cursor = db.get(Node, row.node_id)
+        for _ in range(256):  # deeper than any supported tree
+            if cursor is None:
+                break
+            if cursor.id == folder.id:
+                _scrub(row)  # status stays: the next read or approve retires it as stale
+                count += 1
+                break
+            cursor = db.get(Node, cursor.parent_id) if cursor.parent_id else None
+    return count
+
+
 def _retire(db: Session, row: AiProposal, status: str, outcome: str) -> bool:
     """Atomically ends a still-pending proposal. False if someone decided it first."""
     res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
@@ -995,7 +1015,13 @@ def visible_proposals(
         if node is None or not engine.decide(db, actor, node).allows(Privilege.READ):
             continue
         if privacy.effective_label(db, node) != "normal":
-            if row.new_name or row.reason or row.doc_type or row.new_folder_name:
+            if (
+                row.status == "pending"
+                or row.new_name
+                or row.reason
+                or row.doc_type
+                or row.new_folder_name
+            ):
                 _scrub(row)  # a file that became protected keeps no model-derived text
                 if row.status == "pending":
                     row.status, row.outcome, row.decided_at = "stale", "changed", clock.utcnow()

@@ -39,11 +39,15 @@ def setup_admin(stack: Stack) -> Client:
 
 def invite_and_login(stack: Stack, admin: Client, email: str) -> Client:
     status, body, _ = admin.call(
-        "POST", "/api/v1/admin/users", {"email": email, "name": "Alice", "role": "member"}
+        "POST",
+        "/api/v1/admin/users",
+        {"email": email, "name": "Alice", "role": "member"},
     )
     assert status == 201
     accept = {"token": body["token"]["token"], "password": PASSWORD}
-    assert Client(stack).call("POST", "/api/v1/auth/invitations/accept", accept)[0] == 200
+    assert (
+        Client(stack).call("POST", "/api/v1/auth/invitations/accept", accept)[0] == 200
+    )
     user = Client(stack)
     assert user.login(email) == 200
     return user
@@ -64,8 +68,12 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     assert stack.sql("select version_num from alembic_version") == "0023"
     assert stack.sql("select count(*) from storage_root where kind = 'shared'") == "1"
     admin = setup_admin(stack)
-    users = stack.sql("select count(*) from app_user")  # the auth suite may have added accounts
-    assert stack.sql("select count(*) from storage_root where kind = 'personal'") == users
+    users = stack.sql(
+        "select count(*) from app_user"
+    )  # the auth suite may have added accounts
+    assert (
+        stack.sql("select count(*) from storage_root where kind = 'personal'") == users
+    )
     # Re-create the pre-M03 state (accounts but no storage tables) and migrate for real.
     stack.sql(
         "drop table collection_member, collection_share, collection_suggestion, collection, "
@@ -81,17 +89,22 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
     stack.compose("run", "--rm", "migrate")
     assert stack.sql("select version_num from alembic_version") == "0023"
     uid = user_id(stack, "admin@example.com")
-    assert stack.sql(f"select relative_dir from storage_root where owner_user_id = '{uid}'") == (
-        f"personal/{uid}"
-    )
+    assert stack.sql(
+        f"select relative_dir from storage_root where owner_user_id = '{uid}'"
+    ) == (f"personal/{uid}")
     roots = str(int(users) + 1)  # every personal root plus the shared root
     assert stack.sql("select count(*) from node where parent_id is null") == roots
-    assert stack.sql("select count(*) from node_grant") == users  # default editor, shared root
-    assert stack.sql("select value #>> '{}' from app_setting where key like 'shared_tree_%'") == (
-        "editor"
-    )
+    assert (
+        stack.sql("select count(*) from node_grant") == users
+    )  # default editor, shared root
+    assert stack.sql(
+        "select value #>> '{}' from app_setting where key like 'shared_tree_%'"
+    ) == ("editor")
     # 0006: every root of this fresh state is empty, so its setup window is open
-    assert stack.sql("select count(*) from storage_root where setup_state = 'open'") == roots
+    assert (
+        stack.sql("select count(*) from storage_root where setup_state = 'open'")
+        == roots
+    )
     stack.compose("run", "--rm", "migrate")  # idempotent: no duplicate roots
     assert stack.sql("select count(*) from storage_root") == roots
     assert admin.call("GET", "/api/v1/roots")[0] == 200

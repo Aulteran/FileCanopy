@@ -17,7 +17,9 @@ from types import ModuleType
 import pytest
 from pypdf import PdfReader
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "integration" / "converter"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "integration" / "converter")
+)
 
 from macrofixture import make_macro_odt  # noqa: E402
 
@@ -28,7 +30,9 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def load(name: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(f"conv_{name}", ROOT / "converter" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(
+        f"conv_{name}", ROOT / "converter" / f"{name}.py"
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules[f"conv_{name}"] = mod
@@ -62,7 +66,9 @@ def run_convert(tmp_path: Path, soffice: str, **kw: object) -> Path:
     data = tmp_path / "in.docx"
     data.write_bytes(b"PK\x03\x04 pretend")
     out = tmp_path / "out.pdf"
-    lo.convert(data, "docx", out, **{"timeout": 5, "max_pages": 10, "soffice": soffice, **kw})
+    lo.convert(
+        data, "docx", out, **{"timeout": 5, "max_pages": 10, "soffice": soffice, **kw}
+    )
     return out
 
 
@@ -72,7 +78,12 @@ def processes_with(marker: str) -> list[str]:
     for entry in Path("/proc").iterdir():
         if entry.name.isdigit():
             try:
-                cmd = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+                cmd = (
+                    (entry / "cmdline")
+                    .read_bytes()
+                    .replace(b"\0", b" ")
+                    .decode(errors="replace")
+                )
             except OSError:
                 continue
             if marker in cmd:
@@ -127,7 +138,10 @@ def test_timeout_kills_the_whole_process_group(tmp_path: Path) -> None:
     [
         ("sys.exit(1)", "CONVERT_FAILED"),
         ("sys.exit(0)", "CONVERT_FAILED"),  # no output file
-        ("open(outdir + '/input.pdf', 'wb').write(b'<html>not a pdf</html>')", "CONVERT_FAILED"),
+        (
+            "open(outdir + '/input.pdf', 'wb').write(b'<html>not a pdf</html>')",
+            "CONVERT_FAILED",
+        ),
         ("open(outdir + '/input.pdf', 'wb').write(b'')", "CONVERT_FAILED"),
     ],
 )
@@ -196,12 +210,24 @@ def test_api_client_reaches_the_converter_over_a_unix_socket(
         src.write_bytes(b"PK\x03\x04" + b"x" * 50)
         with open(src, "rb") as f:
             client.convert_to_pdf(
-                f"unix://{sock}", f, 54, "docx", tmp_path / "o.pdf", timeout=5, max_pages=5
+                f"unix://{sock}",
+                f,
+                54,
+                "docx",
+                tmp_path / "o.pdf",
+                timeout=5,
+                max_pages=5,
             )
         assert (tmp_path / "o.pdf").read_bytes() == PDF
         with open(src, "rb") as f, pytest.raises(PreviewError) as down:
             client.convert_to_pdf(
-                "unix:///nonexistent/c.sock", f, 54, "docx", tmp_path / "o2", timeout=2, max_pages=5
+                "unix:///nonexistent/c.sock",
+                f,
+                54,
+                "docx",
+                tmp_path / "o2",
+                timeout=2,
+                max_pages=5,
             )
         assert down.value.code == "CONVERTER_UNAVAILABLE"
     finally:
@@ -213,10 +239,14 @@ def test_server_refusals_map_to_api_codes(server: str, tmp_path: Path) -> None:
     src = tmp_path / "d"
     src.write_bytes(b"x" * 6000)
     with open(src, "rb") as f, pytest.raises(PreviewError) as info:
-        client.convert_to_pdf(server, f, 6000, "docx", tmp_path / "o", timeout=5, max_pages=5)
+        client.convert_to_pdf(
+            server, f, 6000, "docx", tmp_path / "o", timeout=5, max_pages=5
+        )
     assert info.value.code == "TOO_LARGE" and info.value.status == 413
     with open(src, "rb") as f, pytest.raises(PreviewError) as info:
-        client.convert_to_pdf(server, f, 100, "docm", tmp_path / "o2", timeout=5, max_pages=5)
+        client.convert_to_pdf(
+            server, f, 100, "docm", tmp_path / "o2", timeout=5, max_pages=5
+        )
     assert info.value.code == "UNSUPPORTED"
     import urllib.request
 
@@ -224,7 +254,13 @@ def test_server_refusals_map_to_api_codes(server: str, tmp_path: Path) -> None:
     with pytest.raises(PreviewError) as down:
         with open(src, "rb") as f:
             client.convert_to_pdf(
-                "http://127.0.0.1:9", f, 100, "docx", tmp_path / "o3", timeout=2, max_pages=5
+                "http://127.0.0.1:9",
+                f,
+                100,
+                "docx",
+                tmp_path / "o3",
+                timeout=2,
+                max_pages=5,
             )
     assert down.value.code == "CONVERTER_UNAVAILABLE"
     with pytest.raises(PreviewError) as bad:
@@ -232,12 +268,16 @@ def test_server_refusals_map_to_api_codes(server: str, tmp_path: Path) -> None:
             client.convert_to_pdf(
                 "https://x", f, 100, "docx", tmp_path / "o4", timeout=2, max_pages=5
             )
-    assert bad.value.code == "CONVERTER_UNAVAILABLE"  # only plain http on the internal network
+    assert (
+        bad.value.code == "CONVERTER_UNAVAILABLE"
+    )  # only plain http on the internal network
 
 
 # ------------------------------------------------------------ real LibreOffice, where installed
 
-real = pytest.mark.skipif(shutil.which("soffice") is None, reason="LibreOffice not installed")
+real = pytest.mark.skipif(
+    shutil.which("soffice") is None, reason="LibreOffice not installed"
+)
 
 
 def make_real(tmp_path: Path, name: str, content: str, to: str) -> Path:
@@ -267,16 +307,23 @@ def make_real(tmp_path: Path, name: str, content: str, to: str) -> Path:
 
 @real
 def test_real_libreoffice_converts_word_and_excel(tmp_path: Path) -> None:
-    docx = make_real(tmp_path, "letter.txt", "Hello sealed converter\nSecond line\n", "docx")
+    docx = make_real(
+        tmp_path, "letter.txt", "Hello sealed converter\nSecond line\n", "docx"
+    )
     xlsx = make_real(tmp_path, "sheet.csv", "a,b\n1,2\n", "xlsx")
-    for path, ext, needle in ((docx, "docx", "Hello sealed converter"), (xlsx, "xlsx", "a")):
+    for path, ext, needle in (
+        (docx, "docx", "Hello sealed converter"),
+        (xlsx, "xlsx", "a"),
+    ):
         out = tmp_path / f"{ext}.pdf"
         lo.convert(path, ext, out, timeout=90, max_pages=50)
         assert needle in (PdfReader(str(out)).pages[0].extract_text() or "")
 
 
 @real
-def test_real_libreoffice_converts_opendocument_with_the_pinned_profile(tmp_path: Path) -> None:
+def test_real_libreoffice_converts_opendocument_with_the_pinned_profile(
+    tmp_path: Path,
+) -> None:
     # Macro non-execution is enforced by the profile (see the registry test above). A headless
     # conversion did not fire an on-load Basic macro even with security at "low" in a control run,
     # so no end-to-end macro test is claimed here (documented in M10-design-and-plan.md).
@@ -324,10 +371,16 @@ def test_compose_converter_service_is_sealed() -> None:
     api_mounts = {v["target"]: v["source"] for v in cfg["services"]["api"]["volumes"]}
     assert api_mounts["/run/converter"] == "converter-socket"
     for other in ("web", "postgres", "migrate"):
-        assert "converter-socket" not in json.dumps(cfg["services"][other].get("volumes", []))
+        assert "converter-socket" not in json.dumps(
+            cfg["services"][other].get("volumes", [])
+        )
     assert svc["read_only"] is True and svc["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in svc["security_opt"]
-    assert svc["user"] == "10002:10002" and int(svc["mem_limit"]) > 0 and svc["pids_limit"] > 0
+    assert (
+        svc["user"] == "10002:10002"
+        and int(svc["mem_limit"]) > 0
+        and svc["pids_limit"] > 0
+    )
     assert any("noexec" in str(t) for t in svc["tmpfs"])
     assert not svc.get("privileged")
     # off by default: without the profile there is no converter service
@@ -364,5 +417,7 @@ def test_real_libreoffice_converts_a_document_with_an_autorun_macro_without_runn
     macro.write_bytes(make_macro_odt(plain.read_bytes(), str(marker)))
     out = tmp_path / "macro.pdf"
     lo.convert(macro, "odt", out, timeout=90, max_pages=5)
-    assert "document with a macro" in (PdfReader(str(out)).pages[0].extract_text() or "")
+    assert "document with a macro" in (
+        PdfReader(str(out)).pages[0].extract_text() or ""
+    )
     assert not marker.exists()

@@ -49,7 +49,9 @@ def raw(
         return e.code, e.read(), e.headers
 
 
-def js(c: Client, method: str, path: str, body: dict[str, Any] | None = None, **h: str) -> Any:
+def js(
+    c: Client, method: str, path: str, body: dict[str, Any] | None = None, **h: str
+) -> Any:
     status, out, _ = c.call(method, path, body, **h)
     return status, out
 
@@ -95,10 +97,15 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
     )
     assert status == 201, body
     file_id = json.loads(body)["node"]["id"]
-    on_disk = stack.library / "personal" / user_id(stack, alice_mail) / "Docs" / "big.bin"
+    on_disk = (
+        stack.library / "personal" / user_id(stack, alice_mail) / "Docs" / "big.bin"
+    )
     assert on_disk.read_bytes() == payload  # an ordinary file on the host bind mount
     status, got, headers = raw(alice, "GET", f"/api/v1/nodes/{file_id}/content")
-    assert status == 200 and hashlib.sha256(got).digest() == hashlib.sha256(payload).digest()
+    assert (
+        status == 200
+        and hashlib.sha256(got).digest() == hashlib.sha256(payload).digest()
+    )
     assert headers["Content-Type"] == "application/octet-stream"
     # replay of the same keyed upload creates nothing new
     status, again, _ = raw(
@@ -112,12 +119,16 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
     assert stack.sql(f"select count(*) from node where parent_id = '{docs_id}'") == "1"
 
     # conflicts never overwrite
-    status, body, _ = raw(alice, "POST", f"/api/v1/nodes/{docs_id}/files?name=big.bin", b"x")
+    status, body, _ = raw(
+        alice, "POST", f"/api/v1/nodes/{docs_id}/files?name=big.bin", b"x"
+    )
     assert status == 409 and json.loads(body)["detail"]["code"] == "NAME_CONFLICT"
     assert on_disk.read_bytes() == payload
 
     # move a folder tree: PostgreSQL rewrites descendant lineages in the same transaction
-    status, other = js(alice, "POST", f"/api/v1/nodes/{root}/folders", {"name": "Archive"})
+    status, other = js(
+        alice, "POST", f"/api/v1/nodes/{root}/folders", {"name": "Archive"}
+    )
     status, moved = js(
         alice,
         "POST",
@@ -126,9 +137,13 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
     )
     assert status == 200, moved
     lineage = stack.sql(f"select lineage from node where id = '{file_id}'")
-    arch_lineage = stack.sql(f"select lineage from node where id = '{other['node']['id']}'")
+    arch_lineage = stack.sql(
+        f"select lineage from node where id = '{other['node']['id']}'"
+    )
     assert lineage == f"{arch_lineage}{docs_id}/{file_id}/"
-    moved_file = stack.library / "personal" / user_id(stack, alice_mail) / "Archive" / "Docs"
+    moved_file = (
+        stack.library / "personal" / user_id(stack, alice_mail) / "Archive" / "Docs"
+    )
     assert (moved_file / "big.bin").read_bytes() == payload
 
     # copy gives independent real files and new ids
@@ -140,7 +155,11 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
     )
     assert status == 201, copy
     assert (
-        stack.library / "personal" / user_id(stack, alice_mail) / "Docs copy" / "big.bin"
+        stack.library
+        / "personal"
+        / user_id(stack, alice_mail)
+        / "Docs copy"
+        / "big.bin"
     ).read_bytes() == payload
 
     # authorization through nginx: bob (no grant) and the admin get the uniform 403
@@ -170,11 +189,16 @@ def test_file_operations_through_nginx_on_postgres(stack: Stack) -> None:
         t.join()
     assert sorted(results) == [200, 409, 409, 409], results
     assert stack.sql(f"select revision from node where id = '{race_id}'") == "2"
-    names = [p.name for p in (stack.library / "personal" / user_id(stack, alice_mail)).iterdir()]
+    names = [
+        p.name
+        for p in (stack.library / "personal" / user_id(stack, alice_mail)).iterdir()
+    ]
     assert sum(n.startswith("Race") for n in names) == 1
 
     # journal rows are in PostgreSQL; nothing is left half-done; no staging files remain
-    assert stack.sql("select count(*) from file_operation where status = 'planned'") == "0"
+    assert (
+        stack.sql("select count(*) from file_operation where status = 'planned'") == "0"
+    )
     # (only this test's own users: another suite may have trashed or purged nodes of its own)
     mine = f"'{user_id(stack, alice_mail)}', '{user_id(stack, bob_mail)}'"
     assert (
@@ -237,7 +261,8 @@ def test_outside_changes_are_reconciled_on_postgres(stack: Stack) -> None:
         if (
             "renamed.txt" in names
             and "from-host.txt" in names
-            and stack.sql(f"select status from node where id = '{doomed_id}'") == "missing"
+            and stack.sql(f"select status from node where id = '{doomed_id}'")
+            == "missing"
         ):
             break
         time.sleep(1)

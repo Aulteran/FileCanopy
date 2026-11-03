@@ -79,14 +79,23 @@ def stack(app_stack: Stack) -> Stack:
 
 def test_the_image_has_pgvector_and_the_column_is_a_vector(stack: Stack) -> None:
     assert stack.sql("select version_num from alembic_version") == "0023"
-    assert stack.sql("select count(*) from pg_available_extensions where name = 'vector'") == "1"
-    assert stack.sql("select extname from pg_extension where extname = 'vector'") == "vector"
+    assert (
+        stack.sql("select count(*) from pg_available_extensions where name = 'vector'")
+        == "1"
+    )
+    assert (
+        stack.sql("select extname from pg_extension where extname = 'vector'")
+        == "vector"
+    )
     assert stack.sql(
         "select udt_name from information_schema.columns "
         "where table_name = 'search_chunk' and column_name = 'embedding'"
     ) == ("vector")
     # the extension works for ordinary SQL too
-    assert stack.sql("select round(('[1,0]'::vector <=> '[0,1]'::vector)::numeric, 1)") == "1.0"
+    assert (
+        stack.sql("select round(('[1,0]'::vector <=> '[0,1]'::vector)::numeric, 1)")
+        == "1.0"
+    )
 
 
 def test_embedding_search_runs_on_pgvector_and_respects_ownership(stack: Stack) -> None:
@@ -106,7 +115,9 @@ def test_embedding_search_runs_on_pgvector_and_respects_ownership(stack: Stack) 
     out = json.loads(r.stdout.strip().splitlines()[-1])
     assert out["ready"] is True and out["ran"] >= 1
     assert out["chunks"] >= 1 and out["dims"] == 8
-    assert "trip.txt" in out["mine"]  # nearest neighbour through the real `<=>` operator
+    assert (
+        "trip.txt" in out["mine"]
+    )  # nearest neighbour through the real `<=>` operator
     assert out["theirs"] == []  # another member's query never sees it
     assert out["unrelated"] == []  # below the similarity floor
     # clean up so the shared stack is as it was (and the stored config never enabled anything)

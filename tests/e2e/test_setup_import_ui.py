@@ -48,7 +48,11 @@ def new_person(w: BaseWorld, name: str) -> Person:
     client = invite_and_login(w.stack, admin, mail)
     uid = user_id(w.stack, mail)
     return Person(
-        mail, client, uid, root_node(w.stack, f"personal/{uid}"), w.stack.library / "personal" / uid
+        mail,
+        client,
+        uid,
+        root_node(w.stack, f"personal/{uid}"),
+        w.stack.library / "personal" / uid,
     )
 
 
@@ -70,20 +74,26 @@ def on_disk(root: Path) -> dict[str, bytes]:
     }
 
 
-def wait_until(page: Page, check: Any, timeout: float = 90, reload: bool = True) -> None:
+def wait_until(
+    page: Page, check: Any, timeout: float = 90, reload: bool = True
+) -> None:
     """Polls a condition on the page (a background scan has no UI signal to wait for)."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if reload:
             page.reload()
-            page.wait_for_load_state("networkidle")  # the list is fetched after the page loads
+            page.wait_for_load_state(
+                "networkidle"
+            )  # the list is fetched after the page loads
         if check():
             return
         time.sleep(1.5)
     raise AssertionError("condition never became true")
 
 
-def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWorld) -> None:
+def test_setup_offer_start_empty_and_who_sees_it(
+    browser: Browser, world: BaseWorld
+) -> None:
     w = world
     p = new_person(w, "ola")
     page = sign_in(browser, w, p.mail, setup=True)
@@ -100,7 +110,9 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     # "Decide later" leaves the window open and goes to the browser; a reload stays in the browser
     screen.get_by_role("button", name="Decide later").click()
     expect(nav).to_be_visible()
-    expect(nav.get_by_role("button", name="Set up My files")).to_contain_text("(set up)")
+    expect(nav.get_by_role("button", name="Set up My files")).to_contain_text(
+        "(set up)"
+    )
     expect(nav.get_by_role("button", name="Set up Shared files")).to_have_count(0)
     page.reload()
     expect(nav).to_be_visible()
@@ -116,7 +128,9 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     admin = sign_in(browser, w, "admin@example.com", setup=True)
     shared_screen = admin.get_by_role("region", name="Set up Shared files")
     for _ in range(2):  # the administrator's own folder may come first
-        shared_screen.or_(admin.get_by_role("region", name="Set up My files")).first.wait_for()
+        shared_screen.or_(
+            admin.get_by_role("region", name="Set up My files")
+        ).first.wait_for()
         if shared_screen.is_visible():
             break
         admin.get_by_role("button", name="Decide later").click()
@@ -154,7 +168,9 @@ def test_administrator_has_no_route_into_a_personal_setup(
     ]:
         assert api_status(admin, method, path, payload) == 403, (method, path)
     admin.goto(f"{w.base}/f/{p.root}")
-    expect(admin.get_by_role("alert")).to_have_text("You do not have access to this folder.")
+    expect(admin.get_by_role("alert")).to_have_text(
+        "You do not have access to this folder."
+    )
     admin.close()
 
     # another member's batch is invisible to everyone else, administrator included
@@ -194,10 +210,14 @@ def test_folder_import_plan_report_and_finish(
 
     plan = panel.get_by_label("Import plan")
     expect(plan).to_be_visible()
-    expect(plan).to_contain_text("3 files in 3 folders")  # the empty folder cannot be chosen
+    expect(plan).to_contain_text(
+        "3 files in 3 folders"
+    )  # the empty folder cannot be chosen
     expect(plan).to_contain_text("system file")
     expect(plan).to_contain_text("Nothing is overwritten")
-    assert not p.disk.exists() or not any(p.disk.iterdir())  # nothing written before Start
+    assert not p.disk.exists() or not any(
+        p.disk.iterdir()
+    )  # nothing written before Start
 
     plan.get_by_role("button", name="Start import").click()
     report = panel.get_by_label("Import report")
@@ -208,7 +228,9 @@ def test_folder_import_plan_report_and_finish(
     assert got["Contracts/readme.txt"] == b"hello"
     assert got["Photos/a.jpg"] == files["Photos/a.jpg"]
     assert ".DS_Store" not in got and "MyDocuments/Contracts/readme.txt" not in got
-    assert (src / "Contracts" / "readme.txt").read_bytes() == b"hello"  # the original is untouched
+    assert (
+        src / "Contracts" / "readme.txt"
+    ).read_bytes() == b"hello"  # the original is untouched
     assert api_status(page, "GET", f"/api/v1/nodes/{p.root}/setup") == 200
 
     # the import itself did not close the window; finishing does, and the browser follows
@@ -231,7 +253,9 @@ def test_zip_import_refuses_slip_symlink_and_bomb(
         zf.writestr("Archive/one.txt", b"one")
         zf.writestr("Archive/sub/two.bin", os.urandom(50_000))
         zf.writestr("Archive/Notes.txt", b"first")
-        zf.writestr("Archive/notes.txt", b"second")  # differs only by case: both are kept
+        zf.writestr(
+            "Archive/notes.txt", b"second"
+        )  # differs only by case: both are kept
         zf.writestr("../escape.txt", b"evil")
         zf.writestr("/absolute.txt", b"evil")
         link = zipfile.ZipInfo("Archive/link")
@@ -239,7 +263,9 @@ def test_zip_import_refuses_slip_symlink_and_bomb(
         link.external_attr = 0o120777 << 16
         zf.writestr(link, "/etc/passwd")
         zf.writestr(
-            zipfile.ZipInfo("Archive/bomb.bin"), b"\0" * (16 * 1024 * 1024), zipfile.ZIP_BZIP2
+            zipfile.ZipInfo("Archive/bomb.bin"),
+            b"\0" * (16 * 1024 * 1024),
+            zipfile.ZIP_BZIP2,
         )
     archive = tmp_path / "docs.zip"
     archive.write_bytes(buf.getvalue())
@@ -268,7 +294,10 @@ def test_zip_import_refuses_slip_symlink_and_bomb(
         "Archive/one.txt",
         "Archive/sub/two.bin",
     ]
-    assert got["Archive/notes (2).txt"] == b"second" and got["Archive/Notes.txt"] == b"first"
+    assert (
+        got["Archive/notes (2).txt"] == b"second"
+        and got["Archive/Notes.txt"] == b"first"
+    )
     assert not list(w.stack.library.rglob("escape*")) and not list(
         w.stack.library.rglob("absolute*")
     )
@@ -307,7 +336,9 @@ def fake_directory_drop(page: Page, target: str) -> None:
     )
 
 
-def test_dropped_folder_in_setup_and_in_a_folder(browser: Browser, world: BaseWorld) -> None:
+def test_dropped_folder_in_setup_and_in_a_folder(
+    browser: Browser, world: BaseWorld
+) -> None:
     w = world
     p = new_person(w, "drew")
     page = sign_in(browser, w, p.mail, setup=True)
@@ -357,7 +388,9 @@ def test_folder_upload_button_merges_and_keeps_both(
 ) -> None:
     w = world
     p = new_person(w, "milo")
-    p.client.call("POST", f"/api/v1/nodes/{p.root}/folders", {"name": "Docs"})  # closes setup
+    p.client.call(
+        "POST", f"/api/v1/nodes/{p.root}/folders", {"name": "Docs"}
+    )  # closes setup
     page = sign_in(browser, w, p.mail)
     open_docs = row(page, "Docs").get_by_role("link", name="Docs")
     open_docs.click()
@@ -373,7 +406,10 @@ def test_folder_upload_button_merges_and_keeps_both(
     expect(row(page, "Reports")).to_be_visible()
     got = on_disk(p.disk)
     assert got["Docs/a.txt"] == b"original"
-    assert got["Docs/Reports/a.txt"] == b"uploaded" and got["Docs/Reports/sub/b.txt"] == b"b"
+    assert (
+        got["Docs/Reports/a.txt"] == b"uploaded"
+        and got["Docs/Reports/sub/b.txt"] == b"b"
+    )
     # uploading it again merges the folders and keeps both files
     page.get_by_test_id("folder-upload-input").set_input_files(str(src))
     expect(jobs).to_contain_text("kept next to a file with the same name")
@@ -388,13 +424,19 @@ def test_interrupted_import_is_resumed_by_selecting_the_folder_again(
     w = world
     p = new_person(w, "rhea")
     files = {f"Album/p{i:02d}.bin": os.urandom(800 + i) for i in range(8)}
-    src = make_tree(tmp_path / "Album", {k.split("/", 1)[1]: v for k, v in files.items()})
+    src = make_tree(
+        tmp_path / "Album", {k.split("/", 1)[1]: v for k, v in files.items()}
+    )
     manifest = []
     for i, (k, v) in enumerate(files.items()):
         name = k.split("/", 1)[1]
-        stamp = 1_700_000_000 + i  # whole seconds: the page and this test agree to the millisecond
+        stamp = (
+            1_700_000_000 + i
+        )  # whole seconds: the page and this test agree to the millisecond
         os.utime(src / name, (stamp, stamp))
-        manifest.append({"path": name, "kind": "file", "size": len(v), "mtime": stamp * 1000})
+        manifest.append(
+            {"path": name, "kind": "file", "size": len(v), "mtime": stamp * 1000}
+        )
     # a first session got through three files and then the connection was lost
     status, batch, _ = p.client.call(
         "POST", f"/api/v1/nodes/{p.root}/setup/import", {"entries": manifest}
@@ -425,7 +467,9 @@ def test_interrupted_import_is_resumed_by_selecting_the_folder_again(
     expect(report).to_contain_text("Import finished")
     expect(report).to_contain_text("8 files copied")
     got = on_disk(p.disk)
-    assert sorted(got) == sorted(k.split("/", 1)[1] for k in files)  # each file exactly once
+    assert sorted(got) == sorted(
+        k.split("/", 1)[1] for k in files
+    )  # each file exactly once
     for k, v in files.items():
         assert got[k.split("/", 1)[1]] == v
     page.close()
@@ -440,7 +484,9 @@ def test_missing_unsupported_collision_and_suspended_states(
     c = p.client
 
     def mkdir(parent: str, name: str) -> str:
-        status, out, _ = c.call("POST", f"/api/v1/nodes/{parent}/folders", {"name": name})
+        status, out, _ = c.call(
+            "POST", f"/api/v1/nodes/{parent}/folders", {"name": name}
+        )
         assert status == 201, out
         return str(out["node"]["id"])
 
@@ -574,9 +620,16 @@ def test_setup_panel_and_plan_fit_a_phone(
 ) -> None:
     w = world
     p = new_person(w, "tess")
-    src = make_tree(tmp_path / "Small", {"a/very/long/path/name/for/a/phone/screen/file.txt": b"x"})
+    src = make_tree(
+        tmp_path / "Small", {"a/very/long/path/name/for/a/phone/screen/file.txt": b"x"}
+    )
     page = sign_in(
-        browser, w, p.mail, setup=True, viewport={"width": 375, "height": 812}, has_touch=True
+        browser,
+        w,
+        p.mail,
+        setup=True,
+        viewport={"width": 375, "height": 812},
+        has_touch=True,
     )
     panel = page.get_by_role("region", name="Set up My files")
     expect(panel.get_by_role("button", name="Start empty")).to_be_visible()
@@ -602,17 +655,27 @@ def test_an_interrupted_folder_upload_is_offered_again_after_a_reload(
 ) -> None:
     w = world
     p = new_person(w, "uma")
-    p.client.call("POST", f"/api/v1/nodes/{p.root}/folders", {"name": "Docs"})  # closes setup
-    src = make_tree(tmp_path / "Photos", {f"p{i}.bin": os.urandom(600 + i) for i in range(4)})
+    p.client.call(
+        "POST", f"/api/v1/nodes/{p.root}/folders", {"name": "Docs"}
+    )  # closes setup
+    src = make_tree(
+        tmp_path / "Photos", {f"p{i}.bin": os.urandom(600 + i) for i in range(4)}
+    )
     page = sign_in(browser, w, p.mail)
     # the connection fails for every file: the batch stays open on the server
     page.route(ENTRY_PUT, handler)
     page.get_by_test_id("folder-upload-input").set_input_files(str(src))
     jobs = page.get_by_role("list", name="Folder uploads")
     expect(jobs).to_contain_text("Some files could not be uploaded")
-    remembered = json.loads(page.evaluate("localStorage.getItem('fc.unfinished-uploads')"))
+    remembered = json.loads(
+        page.evaluate("localStorage.getItem('fc.unfinished-uploads')")
+    )
     status, listed, _ = p.client.call("GET", "/api/v1/imports")
-    assert status == 200 and [b["id"] for b in listed] == remembered and len(remembered) == 1
+    assert (
+        status == 200
+        and [b["id"] for b in listed] == remembered
+        and len(remembered) == 1
+    )
     assert listed[0]["status"] == "running" and listed[0]["kind"] == "folder_upload"
     assert not (p.disk / "Photos").exists()
 
@@ -627,8 +690,12 @@ def test_an_interrupted_folder_upload_is_offered_again_after_a_reload(
     expect(banner).to_have_count(0)
     expect(row(page, "Photos")).to_be_visible()
     got = on_disk(p.disk)
-    assert sorted(got) == [f"Photos/p{i}.bin" for i in range(4)]  # each file exactly once
-    assert json.loads(page.evaluate("localStorage.getItem('fc.unfinished-uploads')")) == []
+    assert sorted(got) == [
+        f"Photos/p{i}.bin" for i in range(4)
+    ]  # each file exactly once
+    assert (
+        json.loads(page.evaluate("localStorage.getItem('fc.unfinished-uploads')")) == []
+    )
     assert p.client.call("GET", "/api/v1/imports")[1] == []
 
     # a second interruption can be discarded instead: nothing more is copied

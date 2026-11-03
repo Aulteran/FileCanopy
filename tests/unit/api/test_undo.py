@@ -143,7 +143,9 @@ def test_undo_a_trash_restores_and_refuses_when_unsafe(fx: Fx, me: P) -> None:
 # ------------------------------------------------------------------ copy
 
 
-def test_undo_a_copy_trashes_it_and_leaves_changed_entries_in_place(fx: Fx, me: P) -> None:
+def test_undo_a_copy_trashes_it_and_leaves_changed_entries_in_place(
+    fx: Fx, me: P
+) -> None:
     folder = nid(me.mkdir(fx.alice_root, "Folder"))
     nid(me.upload(folder, "a.txt", b"a"))
     nid(me.upload(folder, "b.txt", b"b"))
@@ -152,7 +154,9 @@ def test_undo_a_copy_trashes_it_and_leaves_changed_entries_in_place(fx: Fx, me: 
     undone = me.undo(op_of(clean))
     assert undone.status_code == 200 and undone.json()["left_in_place"] == []
     assert undone.json()["trashed"] == 3
-    assert node_row(fx, top).status == "trashed" and disk(fx, folder).is_dir()  # source untouched
+    assert (
+        node_row(fx, top).status == "trashed" and disk(fx, folder).is_dir()
+    )  # source untouched
     only = me.items()
     assert len(only) == 1 and only[0]["reason"] == "copy_undone"
     # a copy someone has worked in since: the new file and the edited one stay, the rest goes
@@ -170,7 +174,9 @@ def test_undo_a_copy_trashes_it_and_leaves_changed_entries_in_place(fx: Fx, me: 
     assert left["a.txt"] == "changed" and left["mine.txt"] == "added_later"
     assert left["Folder"] == "contains_changes"
     assert (disk(fx, top2) / "a.txt").read_bytes() == b"edited on the host, longer"
-    assert (disk(fx, top2) / "mine.txt").exists() and not (disk(fx, top2) / "b.txt").exists()
+    assert (disk(fx, top2) / "mine.txt").exists() and not (
+        disk(fx, top2) / "b.txt"
+    ).exists()
     assert node_row(fx, uuid.UUID(kids["b.txt"])).status == "trashed"
     nothing = me.copy(folder, fx.taxes, on_conflict="keep_both")
     gone = nid(nothing)
@@ -181,7 +187,9 @@ def test_undo_a_copy_trashes_it_and_leaves_changed_entries_in_place(fx: Fx, me: 
 # ------------------------------------------------------------------ cross-root move
 
 
-def test_cross_root_move_copies_then_trashes_the_source_in_the_owners_trash(fx: Fx, me: P) -> None:
+def test_cross_root_move_copies_then_trashes_the_source_in_the_owners_trash(
+    fx: Fx, me: P
+) -> None:
     sub = nid(me.mkdir(fx.alice_root, "Share"))
     leaf = nid(me.upload(sub, "x.txt", b"payload"))
     r = me.move(sub, fx.shared_sub, 1)
@@ -189,14 +197,28 @@ def test_cross_root_move_copies_then_trashes_the_source_in_the_owners_trash(fx: 
     new = uuid.UUID(r.json()["node"]["id"])
     assert new != sub  # a new identity in the other root
     assert (disk(fx, new) / "x.txt").read_bytes() == b"payload"
-    assert not any(p.name == "Share" for p in (fx.w.settings.library_path / "personal").rglob("*"))
+    assert not any(
+        p.name == "Share" for p in (fx.w.settings.library_path / "personal").rglob("*")
+    )
     item = me.items()[0]
     assert item["reason"] == "moved_out" and item["name"] == "Share"
-    assert node_row(fx, sub).status == "trashed" and node_row(fx, leaf).status == "trashed"
-    out = [e for e in fx.w.db_rows(FileEvent) if e.node_id == sub and e.action == "moved_out"]
-    inn = [e for e in fx.w.db_rows(FileEvent) if e.node_id == new and e.action == "moved_in"]
+    assert (
+        node_row(fx, sub).status == "trashed" and node_row(fx, leaf).status == "trashed"
+    )
+    out = [
+        e
+        for e in fx.w.db_rows(FileEvent)
+        if e.node_id == sub and e.action == "moved_out"
+    ]
+    inn = [
+        e
+        for e in fx.w.db_rows(FileEvent)
+        if e.node_id == new and e.action == "moved_in"
+    ]
     assert len(out) == len(inn) == 1
-    assert out[0].details["to_node_id"] == str(new) and inn[0].details["from_node_id"] == str(sub)
+    assert out[0].details["to_node_id"] == str(new) and inn[0].details[
+        "from_node_id"
+    ] == str(sub)
     assert out[0].correlation_id == inn[0].correlation_id
     # both histories show the step, to people who may see it
     assert "moved_out" in str(me.activity(fx.alice_root).json()["items"])
@@ -218,7 +240,9 @@ def test_an_editor_moving_out_of_someone_elses_folder_lands_in_the_owners_trash(
     owner_view = me.items()
     assert [(i["name"], i["reason"]) for i in owner_view] == [("m.txt", "moved_out")]
     assert owner_view[0]["trashed_by_name"] is not None
-    assert carol.items()[0]["id"] == owner_view[0]["id"]  # Carol still holds write there
+    assert (
+        carol.items()[0]["id"] == owner_view[0]["id"]
+    )  # Carol still holds write there
 
 
 def test_undo_a_cross_root_move_and_refuse_when_the_copy_changed(fx: Fx, me: P) -> None:
@@ -243,7 +267,9 @@ def test_undo_a_cross_root_move_and_refuse_when_the_copy_changed(fx: Fx, me: P) 
     refused(fx, me, op_of(moved3), "name_taken")
 
 
-def test_cross_root_move_needs_write_at_both_ends_and_reports_conflicts(fx: Fx, me: P) -> None:
+def test_cross_root_move_needs_write_at_both_ends_and_reports_conflicts(
+    fx: Fx, me: P
+) -> None:
     f = nid(me.upload(fx.alice_root, "f.txt", b"f"))
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
     nid(me.upload(fx.taxes, "x.txt", b"x"))
@@ -260,7 +286,9 @@ def test_cross_root_move_needs_write_at_both_ends_and_reports_conflicts(fx: Fx, 
 # ------------------------------------------------------------------ import undo
 
 
-def test_import_undo_trashes_what_it_created_and_leaves_changed_entries(fx: Fx, me: P) -> None:
+def test_import_undo_trashes_what_it_created_and_leaves_changed_entries(
+    fx: Fx, me: P
+) -> None:
     from test_imports import entries, put
 
     class Shim:
@@ -275,7 +303,9 @@ def test_import_undo_trashes_what_it_created_and_leaves_changed_entries(fx: Fx, 
     shim: Any = Shim()
     me.mkdir(fx.alice_root, "Keep")  # closes the setup window, like any content
     contents = {"Imp/a.txt": b"a", "Imp/sub/b.txt": b"b", "Imp/c.txt": b"c"}
-    r = me.post(f"/nodes/{fx.alice_root}/folder-uploads", json={"entries": manifest(contents)})
+    r = me.post(
+        f"/nodes/{fx.alice_root}/folder-uploads", json={"entries": manifest(contents)}
+    )
     assert r.status_code == 201, r.text
     batch = r.json()["id"]
     for e in entries(shim, batch, status="pending"):
@@ -292,13 +322,21 @@ def test_import_undo_trashes_what_it_created_and_leaves_changed_entries(fx: Fx, 
     left = {x["name"]: x["reason"] for x in res.json()["left_in_place"]}
     assert left == {"Imp": "contains_changes", "c.txt": "changed"}
     assert (disk(fx, imp) / "c.txt").read_bytes() == b"edited on the host, longer"
-    assert not (disk(fx, imp) / "a.txt").exists() and not (disk(fx, imp) / "sub").exists()
+    assert (
+        not (disk(fx, imp) / "a.txt").exists() and not (disk(fx, imp) / "sub").exists()
+    )
     assert {i["reason"] for i in me.items()} == {"import_undone"}
-    assert [x for x in me.get("/activity/mine").json() if x["kind"] == "import"][0]["undone"]
-    assert P(fx, "bob").post(f"/imports/{batch}/undo").status_code == 403  # the batch's actor only
+    assert [x for x in me.get("/activity/mine").json() if x["kind"] == "import"][0][
+        "undone"
+    ]
+    assert (
+        P(fx, "bob").post(f"/imports/{batch}/undo").status_code == 403
+    )  # the batch's actor only
     # a clean import goes as one item per top-level entry, and restore brings it back
     clean = {"Solo/only.txt": b"o"}
-    b2 = me.post(f"/nodes/{fx.alice_root}/folder-uploads", json={"entries": manifest(clean)})
+    b2 = me.post(
+        f"/nodes/{fx.alice_root}/folder-uploads", json={"entries": manifest(clean)}
+    )
     for e in entries(shim, b2.json()["id"], status="pending"):
         if e["kind"] == "file":
             put(shim, b2.json()["id"], e["index"], clean["Solo/only.txt"])
@@ -314,8 +352,13 @@ def test_operations_are_listed_with_what_can_be_undone(fx: Fx, me: P) -> None:
     fx.w.advance(seconds=1)
     me.delete(f, 2)
     mine = me.get("/activity/mine").json()
-    assert [(r["action"], r["reversible"]) for r in mine][:2] == [("trash", True), ("rename", True)]
+    assert [(r["action"], r["reversible"]) for r in mine][:2] == [
+        ("trash", True),
+        ("rename", True),
+    ]
     assert mine[0]["node_id"] is None  # a trashed node is not offered by id
     plain = next(r for r in mine if r["action"] == "upload")
-    assert plain["reversible"] is False  # an upload is not on the list of undoable actions
+    assert (
+        plain["reversible"] is False
+    )  # an upload is not on the list of undoable actions
     assert P(fx, "bob").get("/activity/mine").json() == []

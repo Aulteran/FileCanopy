@@ -65,27 +65,45 @@ def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
     logs = stack.compose("logs", "--no-color", "api").stdout
     tokens = re.findall(r"FIRST-RUN SETUP TOKEN[^:]*: ([\w-]+)", logs)
     assert len(tokens) == 1
-    stored = stack.sql("select value::text from app_setting where key='bootstrap_token_hash'")
+    stored = stack.sql(
+        "select value::text from app_setting where key='bootstrap_token_hash'"
+    )
     assert tokens[0] not in stored
 
     setup = {"email": "admin@example.com", "name": "Ada", "password": PASSWORD}
-    assert anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": "wrong"})[0] == 403
-    assert anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": tokens[0]})[0] == 201
-    assert anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": tokens[0]})[0] == 409
+    assert (
+        anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": "wrong"})[0]
+        == 403
+    )
+    assert (
+        anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": tokens[0]})[0]
+        == 201
+    )
+    assert (
+        anon.call("POST", "/api/v1/setup/admin", {**setup, "setup_token": tokens[0]})[0]
+        == 409
+    )
     assert stack.sql("select count(*) from app_user") == "1"
     assert stack.sql("select password_hash from app_user").startswith("$argon2id$")
 
     admin = Client(stack)
     assert admin.login("admin@example.com") == 200
     assert admin.cookie and admin.cookie.startswith("__Host-fc_session=")
-    assert admin.call("POST", "/api/v1/auth/logout", None, Origin="https://evil.example")[0] == 403
+    assert (
+        admin.call("POST", "/api/v1/auth/logout", None, Origin="https://evil.example")[
+            0
+        ]
+        == 403
+    )
 
     status, created, _ = admin.call(
         "POST", "/api/v1/admin/users", {"email": "m@example.com", "name": "M"}
     )
     assert status == 201
     invitation = created["token"]["token"]
-    assert invitation not in stack.sql("select string_agg(token_hash, ',') from auth_token")
+    assert invitation not in stack.sql(
+        "select string_agg(token_hash, ',') from auth_token"
+    )
     accept = {"token": invitation, "password": PASSWORD}
     assert anon.call("POST", "/api/v1/auth/invitations/accept", accept)[0] == 200
     assert anon.call("POST", "/api/v1/auth/invitations/accept", accept)[0] == 400
@@ -100,6 +118,8 @@ def test_auth_flow_on_real_postgres_behind_nginx(stack: Stack) -> None:
 
     # The member is locked, not the admin: the storage suite reuses this stack and the admin.
     # Throttling keys on the real client address forwarded by nginx, not nginx's own address.
-    codes = [Client(stack).login("m@example.com", f"wrong password {i}") for i in range(6)]
+    codes = [
+        Client(stack).login("m@example.com", f"wrong password {i}") for i in range(6)
+    ]
     assert codes == [401] * 5 + [429]
     assert PASSWORD not in stack.compose("logs", "--no-color").stdout

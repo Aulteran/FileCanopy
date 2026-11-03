@@ -41,7 +41,9 @@ class Member:
         self.root_id = stack.sql(f"select root_id from node where id = '{self.root}'")
 
     def folder(self, name: str) -> str:
-        status, out = js(self.client, "POST", f"/api/v1/nodes/{self.root}/folders", {"name": name})
+        status, out = js(
+            self.client, "POST", f"/api/v1/nodes/{self.root}/folders", {"name": name}
+        )
         assert status == 201, out
         return str(out["node"]["id"])
 
@@ -78,7 +80,9 @@ def test_trash_restore_and_delete_forever_on_postgres(stack: Stack) -> None:
     assert status == 200, out
     item = out["item"]["id"]
     assert not (m.disk / "Docs" / "keep.bin").exists()
-    assert (m.trash_dir(item) / "keep.bin").read_bytes() == data  # an ordinary file, same device
+    assert (
+        m.trash_dir(item) / "keep.bin"
+    ).read_bytes() == data  # an ordinary file, same device
     assert oct((stack.library / TRASH).stat().st_mode & 0o777) == "0o700"
     assert stack.sql(f"select status from node where id = '{file['id']}'") == "trashed"
 
@@ -117,7 +121,11 @@ def test_check_and_release_for_a_flagged_item(stack: Stack) -> None:
     stack.sql(f"update trash_item set status = 'reconcile_needed' where id = '{item}'")
     assert js(m.client, "POST", f"/api/v1/trash/{item}/restore", {})[0] == 409
     status, out = js(m.client, "POST", f"/api/v1/trash/{item}/check")
-    assert status == 200 and out["released"] is True and out["item"]["status"] == "in_trash"
+    assert (
+        status == 200
+        and out["released"] is True
+        and out["item"]["status"] == "in_trash"
+    )
     assert (
         stack.sql(
             f"select count(*) from file_event where node_id = '{file['id']}' and action = 'checked'"
@@ -129,7 +137,9 @@ def test_check_and_release_for_a_flagged_item(stack: Stack) -> None:
     stack.sql(f"update trash_item set status = 'reconcile_needed' where id = '{item}'")
     (m.trash_dir(item) / "flagged.bin").unlink()
     status, out = js(m.client, "POST", f"/api/v1/trash/{item}/check")
-    assert status == 200 and out["released"] is False and out["reason"] == "entry_missing"
+    assert (
+        status == 200 and out["released"] is False and out["reason"] == "entry_missing"
+    )
     assert out["item"]["status"] == "reconcile_needed"
     token = out["item"]["confirm_token"]
     assert js(m.client, "DELETE", f"/api/v1/trash/{item}?confirm={token}")[0] == 200
@@ -139,10 +149,13 @@ def test_check_and_release_for_the_whole_root(stack: Stack) -> None:
     m = Member(stack, "rhea")
     docs = m.folder("Docs")
     items = [
-        m.delete(m.upload(docs, f"w{i}.bin", b"x" * (i + 1)))[1]["item"]["id"] for i in range(2)
+        m.delete(m.upload(docs, f"w{i}.bin", b"x" * (i + 1)))[1]["item"]["id"]
+        for i in range(2)
     ]
     for item in items:
-        stack.sql(f"update trash_item set status = 'reconcile_needed' where id = '{item}'")
+        stack.sql(
+            f"update trash_item set status = 'reconcile_needed' where id = '{item}'"
+        )
     listed = js(m.client, "GET", "/api/v1/trash")[1]
     assert [r["flagged_count"] for r in listed["roots"]] == [2]
     status, out = js(m.client, "POST", f"/api/v1/roots/{m.root}/trash/check")
@@ -187,7 +200,9 @@ def test_killing_the_api_during_deletes_loses_nothing(stack: Stack) -> None:
     stack.compose("kill", "api")
     for t in threads:
         t.join(timeout=60)
-    assert 8 <= done < 60, f"{done} of 60 deletes finished: the kill interrupted nothing"
+    assert 8 <= done < 60, (
+        f"{done} of 60 deletes finished: the kill interrupted nothing"
+    )
     stack.compose("up", "-d", "--wait", "--wait-timeout", "180", "api")
     stack.wait_health("ok", timeout=120)
 
@@ -202,7 +217,10 @@ def test_killing_the_api_during_deletes_loses_nothing(stack: Stack) -> None:
     assert {**trashed, **kept} == expected
     # the database agrees: nothing stuck busy, no unfinished operation, every item has its bytes
     assert (
-        stack.sql(f"select count(*) from node where parent_id = '{box}' and status = 'busy'") == "0"
+        stack.sql(
+            f"select count(*) from node where parent_id = '{box}' and status = 'busy'"
+        )
+        == "0"
     )
     assert (
         stack.sql(
@@ -228,7 +246,8 @@ def test_killing_the_api_during_deletes_loses_nothing(stack: Stack) -> None:
     assert names >= set(trashed) - {
         n
         for n in trashed
-        if stack.sql(f"select status from node where name = '{n}'") == "reconcile_needed"
+        if stack.sql(f"select status from node where name = '{n}'")
+        == "reconcile_needed"
     }
     for item in listing["items"]:
         if item["status"] == "reconcile_needed":

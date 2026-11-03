@@ -56,13 +56,41 @@ from app.storage.ziparchive import ZipRefused, inspect_zip
 def lying_zip(path: Path, records: int, declared: int = 1) -> None:
     """One stored empty file plus `records` central-directory records, all pointing at it, under an
     end record that declares only `declared` entries (the reviewer's cdbomb.py)."""
-    local = struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0) + b"a"
+    local = (
+        struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0)
+        + b"a"
+    )
     record = struct.pack(
-        "<4sHHHHHHIIIHHHHHII", b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
+        "<4sHHHHHHIIIHHHHHII",
+        b"PK\x01\x02",
+        20,
+        20,
+        0,
+        0,
+        0,
+        0x21,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
     )
     directory = (record + b"a") * records
     end = struct.pack(
-        "<4sHHHHIIH", b"PK\x05\x06", 0, 0, declared, declared, len(directory), len(local), 0
+        "<4sHHHHIIH",
+        b"PK\x05\x06",
+        0,
+        0,
+        declared,
+        declared,
+        len(directory),
+        len(local),
+        0,
     )
     path.write_bytes(local + directory + end)
 
@@ -82,9 +110,13 @@ def test_a_zip_declaring_one_entry_but_holding_many_records_is_refused_unread(
     assert err.value.code == "TOO_MANY_ENTRIES"
 
 
-def test_records_that_do_not_match_the_declared_count_or_size_are_invalid(tmp_path: Path) -> None:
+def test_records_that_do_not_match_the_declared_count_or_size_are_invalid(
+    tmp_path: Path,
+) -> None:
     few = tmp_path / "few.zip"
-    lying_zip(few, records=5, declared=1)  # fewer than the limit, still not what it declares
+    lying_zip(
+        few, records=5, declared=1
+    )  # fewer than the limit, still not what it declares
     with pytest.raises(ZipRefused) as err:
         inspect_zip(few, max_entries=100)
     assert err.value.code == "INVALID_ZIP"
@@ -99,7 +131,9 @@ def test_records_that_do_not_match_the_declared_count_or_size_are_invalid(tmp_pa
     data = make_zip({"a": b"1", "b": b"2"})
     at = data.rfind(b"PK\x05\x06")
     cut = bytearray(data)
-    cut[at + 12 : at + 16] = struct.pack("<I", struct.unpack_from("<I", data, at + 12)[0] - 7)
+    cut[at + 12 : at + 16] = struct.pack(
+        "<I", struct.unpack_from("<I", data, at + 12)[0] - 7
+    )
     broken.write_bytes(bytes(cut))
     with pytest.raises(ZipRefused):
         inspect_zip(broken, max_entries=10)
@@ -123,13 +157,22 @@ def test_a_zip64_locator_hidden_behind_a_plain_end_record_is_walked_too(
     and locator sit right before it, inside the comment of the one record a walk of the plain end
     record would see. CPython always follows such a locator, so the walk must follow it as well."""
     records = 250_000
-    local = struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0) + b"a"
+    local = (
+        struct.pack("<4sHHHHHIIIHH", b"PK\x03\x04", 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0)
+        + b"a"
+    )
     head = "<4sHHHHHHIIIHHHHHII"
-    record = struct.pack(head, b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)
+    record = struct.pack(
+        head, b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
+    )
     directory = (record + b"a") * records
     hidden_at = len(local) + len(directory)
-    hidden = struct.pack(head, b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0)
-    reloff = hidden_at + len(hidden)  # the zip64 record starts in the hidden record's comment
+    hidden = struct.pack(
+        head, b"PK\x01\x02", 20, 20, 0, 0, 0, 0x21, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0
+    )
+    reloff = hidden_at + len(
+        hidden
+    )  # the zip64 record starts in the hidden record's comment
     count, size = records + 1, reloff - len(local)
     z64 = struct.pack(
         "<4sQHHIIQQQQ", b"PK\x06\x06", 44, 45, 45, 0, 0, count, count, size, len(local)
@@ -187,7 +230,9 @@ def peak_mib(call: Any) -> tuple[Any, float]:
 
 
 @pytest.mark.parametrize("route", ["folder-uploads", "setup/import"])
-def test_an_anonymous_manifest_is_refused_before_its_body_is_read(env: Env, route: str) -> None:
+def test_an_anonymous_manifest_is_refused_before_its_body_is_read(
+    env: Env, route: str
+) -> None:
     anon = env.w.browser()
     url = f"/api/v1/nodes/{uuid.uuid4()}/{route}"
     r, peak = peak_mib(
@@ -199,7 +244,9 @@ def test_an_anonymous_manifest_is_refused_before_its_body_is_read(env: Env, rout
     assert peak < 8, f"{peak:.1f} MiB were allocated for an unauthenticated request"
 
 
-def test_a_manifest_without_the_csrf_token_is_refused_before_its_body_is_read(env: Env) -> None:
+def test_a_manifest_without_the_csrf_token_is_refused_before_its_body_is_read(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     r, peak = peak_mib(
@@ -236,13 +283,15 @@ def test_the_entry_limit_comes_from_the_setting_and_a_bad_body_is_a_plain_422(
     a = env.alice
     root = a.personal_root()
     many = a.post(
-        f"/nodes/{root}/setup/import", json={"entries": manifest({"1": b"", "2": b"", "3": b""})}
+        f"/nodes/{root}/setup/import",
+        json={"entries": manifest({"1": b"", "2": b"", "3": b""})},
     )
     assert many.status_code == 413 and code(many) == "TOO_MANY_ENTRIES"
     bad = a.post(f"/nodes/{root}/setup/import", content=b"{not json")
     assert bad.status_code == 422 and code(bad) == "VALIDATION_ERROR"
     odd = a.post(
-        f"/nodes/{root}/folder-uploads", json={"entries": [{"path": "x", "kind": "dir"}], "x": 1}
+        f"/nodes/{root}/folder-uploads",
+        json={"entries": [{"path": "x", "kind": "dir"}], "x": 1},
     )
     assert odd.status_code == 422
 
@@ -261,7 +310,9 @@ def upload_folder(p: Person, node: str, files: dict[str, bytes]) -> dict[str, An
     return batch
 
 
-def test_a_folder_upload_into_an_open_personal_root_closes_the_setup_window(env: Env) -> None:
+def test_a_folder_upload_into_an_open_personal_root_closes_the_setup_window(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     assert state(a, root)["state"] == "open"
@@ -271,7 +322,9 @@ def test_a_folder_upload_into_an_open_personal_root_closes_the_setup_window(env:
     late = plan_folder(a, root, {"Docs/a.txt": b"x"})
     assert late.status_code == 409 and code(late) == "SETUP_CLOSED"
     reasons = [
-        r.details["reason"] for r in env.w.db_rows(AuthAudit) if r.action == "storage.setup_closed"
+        r.details["reason"]
+        for r in env.w.db_rows(AuthAudit)
+        if r.action == "storage.setup_closed"
     ]
     assert reasons == ["folder_upload"]
 
@@ -289,7 +342,8 @@ def test_empty_folders_of_an_upload_also_close_the_window(env: Env) -> None:
     a = env.alice
     root = a.personal_root()
     r = a.post(
-        f"/nodes/{root}/folder-uploads", json={"entries": manifest({}, dirs=("Only/Empty",))}
+        f"/nodes/{root}/folder-uploads",
+        json={"entries": manifest({}, dirs=("Only/Empty",))},
     )
     assert r.status_code == 201, r.text
     assert (a.personal_disk() / "Only" / "Empty").is_dir()
@@ -310,14 +364,17 @@ def test_a_recovered_folder_upload_file_closes_the_window_too(env: Env) -> None:
     a = env.alice
     root = a.personal_root()
     files = {"x.txt": b"data"}
-    batch = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     # the process died after publishing x.txt and before recording the node
     a.personal_disk().mkdir(parents=True, exist_ok=True)
     (a.personal_disk() / "x.txt").write_bytes(b"data")
     with env.w.ctx.sessions() as db:
         row = db.scalars(
             select(ImportEntry).where(
-                ImportEntry.batch_id == uuid.UUID(batch["id"]), ImportEntry.kind == "file"
+                ImportEntry.batch_id == uuid.UUID(batch["id"]),
+                ImportEntry.kind == "file",
             )
         ).one()
         root_node = db.scalars(
@@ -327,7 +384,9 @@ def test_a_recovered_folder_upload_file_closes_the_window_too(env: Env) -> None:
         from app.db.models import Node
 
         row.dir_node_id = db.scalars(
-            select(Node.id).where(Node.root_id == root_node.id, Node.parent_id.is_(None))
+            select(Node.id).where(
+                Node.root_id == root_node.id, Node.parent_id.is_(None)
+            )
         ).one()
         db.commit()
     assert imports.recover_imports(env.w.ctx.sessions, env.w.settings)["adopted"] == 1
@@ -345,7 +404,9 @@ def inbox_world(env: Env) -> tuple[str, str]:
     kids = children(a, root)
     inbox, private = kids["Inbox"]["id"], kids["Private"]["id"]
     assert (
-        a.req("PUT", f"/nodes/{inbox}/grants/{c.uid()}", json={"level": "editor"}).status_code
+        a.req(
+            "PUT", f"/nodes/{inbox}/grants/{c.uid()}", json={"level": "editor"}
+        ).status_code
         == 200
     )
     return inbox, private
@@ -357,7 +418,9 @@ def test_entries_are_not_written_after_the_folder_moved_out_of_the_uploaders_rea
     a, c = env.alice, env.carol
     inbox, private = inbox_world(env)
     files = {"Batch/one.txt": b"1", "Batch/sub/two.txt": b"2", "Batch/three.txt": b"3"}
-    batch = c.post(f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     idx = {e["path"]: e["index"] for e in entries(c, batch["id"])}
     assert put(c, batch["id"], idx["Batch/one.txt"], b"1").status_code == 200
 
@@ -367,17 +430,31 @@ def test_entries_are_not_written_after_the_folder_moved_out_of_the_uploaders_rea
         json={"target_parent_id": private, "expected_revision": moved["revision"]},
     )
     assert r.status_code in (200, 201), r.text
-    assert c.get(f"/nodes/{private}/children").status_code == 403  # carol has nothing on Private
+    assert (
+        c.get(f"/nodes/{private}/children").status_code == 403
+    )  # carol has nothing on Private
 
-    for path in ("Batch/three.txt", "Batch/sub/two.txt"):  # one existing folder, one new subfolder
+    for path in (
+        "Batch/three.txt",
+        "Batch/sub/two.txt",
+    ):  # one existing folder, one new subfolder
         w = put(c, batch["id"], idx[path], files[path])
         assert w.status_code == 409 and code(w) == "PARENT_CHANGED", w.text
         for secret in ("Private", str(private), moved["id"]):
             assert secret not in w.text
     landed = a.personal_disk() / "Private" / "Batch"
-    assert sorted(p.name for p in landed.iterdir()) == ["one.txt"]  # nothing new, no subfolder
-    failed = {e["path"]: e["reason"] for e in entries(c, batch["id"]) if e["status"] == "failed"}
-    assert failed == {"Batch/three.txt": "PARENT_CHANGED", "Batch/sub/two.txt": "PARENT_CHANGED"}
+    assert sorted(p.name for p in landed.iterdir()) == [
+        "one.txt"
+    ]  # nothing new, no subfolder
+    failed = {
+        e["path"]: e["reason"]
+        for e in entries(c, batch["id"])
+        if e["status"] == "failed"
+    }
+    assert failed == {
+        "Batch/three.txt": "PARENT_CHANGED",
+        "Batch/sub/two.txt": "PARENT_CHANGED",
+    }
 
 
 def test_a_folder_that_stays_under_the_target_is_still_written_into(env: Env) -> None:
@@ -386,7 +463,9 @@ def test_a_folder_that_stays_under_the_target_is_still_written_into(env: Env) ->
     a.post(f"/nodes/{inbox}/folders", json={"name": "Deeper"})
     deeper = children(a, inbox)["Deeper"]["id"]
     files = {"Batch/one.txt": b"1", "Batch/two.txt": b"2"}
-    batch = c.post(f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     idx = {e["path"]: e["index"] for e in entries(c, batch["id"])}
     assert put(c, batch["id"], idx["Batch/one.txt"], b"1").status_code == 200
     moved = children(a, inbox)["Batch"]
@@ -394,7 +473,9 @@ def test_a_folder_that_stays_under_the_target_is_still_written_into(env: Env) ->
         f"/nodes/{moved['id']}/move",
         json={"target_parent_id": deeper, "expected_revision": moved["revision"]},
     )
-    assert put(c, batch["id"], idx["Batch/two.txt"], b"2").status_code == 200  # editor via Inbox
+    assert (
+        put(c, batch["id"], idx["Batch/two.txt"], b"2").status_code == 200
+    )  # editor via Inbox
 
 
 def test_a_folder_the_uploader_can_no_longer_write_to_is_refused_even_under_the_target(
@@ -403,12 +484,16 @@ def test_a_folder_the_uploader_can_no_longer_write_to_is_refused_even_under_the_
     a, c = env.alice, env.carol
     inbox, _ = inbox_world(env)
     files = {"Batch/one.txt": b"1", "Batch/two.txt": b"2"}
-    batch = c.post(f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     idx = {e["path"]: e["index"] for e in entries(c, batch["id"])}
     assert put(c, batch["id"], idx["Batch/one.txt"], b"1").status_code == 200
     # the grant is narrowed to read-only on the batch's own folder (a viewer grant replaces it)
     assert (
-        a.req("PUT", f"/nodes/{inbox}/grants/{c.uid()}", json={"level": "viewer"}).status_code
+        a.req(
+            "PUT", f"/nodes/{inbox}/grants/{c.uid()}", json={"level": "viewer"}
+        ).status_code
         == 200
     )
     w = put(c, batch["id"], idx["Batch/two.txt"], b"2")
@@ -421,7 +506,9 @@ def test_the_final_check_before_publishing_also_notices_a_move(env: Env) -> None
     a, c = env.alice, env.carol
     inbox, private = inbox_world(env)
     files = {"Batch/one.txt": b"1", "Batch/two.txt": b"2"}
-    batch = c.post(f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{inbox}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     idx = {e["path"]: e["index"] for e in entries(c, batch["id"])}
     assert put(c, batch["id"], idx["Batch/one.txt"], b"1").status_code == 200
     ctx = imports.OpCtx(env.w.ctx.sessions(), env.w.settings, c.uid())
@@ -437,9 +524,9 @@ def test_the_final_check_before_publishing_also_notices_a_move(env: Env) -> None
         upload.finish()
     assert err.value.code == "PARENT_CHANGED"
     upload.abort(err.value.code)
-    assert sorted(p.name for p in (a.personal_disk() / "Private" / "Batch").iterdir()) == [
-        "one.txt"
-    ]
+    assert sorted(
+        p.name for p in (a.personal_disk() / "Private" / "Batch").iterdir()
+    ) == ["one.txt"]
 
 
 # ---------------------------------------------------------------- 5. the pause is bounded
@@ -451,22 +538,30 @@ def start_batch(env: Env, p: Person, root: str, files: dict[str, bytes]) -> str:
     return str(batch["id"])
 
 
-def test_resuming_or_touching_a_batch_does_not_hold_the_reconciler_off(env: Env) -> None:
+def test_resuming_or_touching_a_batch_does_not_hold_the_reconciler_off(
+    env: Env,
+) -> None:
     a, c = env.alice, env.carol
     root = a.personal_root()
     a.post(f"/nodes/{root}/folders", json={"name": "Drop"})
     drop = children(a, root)["Drop"]["id"]
     a.req("PUT", f"/nodes/{drop}/grants/{c.uid()}", json={"level": "editor"})
     files = {"never.txt": b"zz"}
-    batch = c.post(f"/nodes/{drop}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = c.post(
+        f"/nodes/{drop}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     c.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(files)})
     (a.personal_disk() / "outside.txt").write_bytes(b"from host")
-    result = Reconciler(env.w.ctx.sessions, env.w.settings).run_root(_root_id(env, root), "manual")
+    result = Reconciler(env.w.ctx.sessions, env.w.settings).run_root(
+        _root_id(env, root), "manual"
+    )
     assert result.outcome == "ok"
     assert "outside.txt" in children(a, root)
 
 
-def test_the_pause_is_bounded_and_the_root_then_reports_a_delayed_scan(env: Env) -> None:
+def test_the_pause_is_bounded_and_the_root_then_reports_a_delayed_scan(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     bid = start_batch(env, a, root, {"a.txt": b"a", "b.txt": b"b"})
@@ -479,15 +574,23 @@ def test_the_pause_is_bounded_and_the_root_then_reports_a_delayed_scan(env: Env)
     assert recon.run_root(rid, "periodic").outcome == "skipped"
     assert a.get(f"/nodes/{root}").json()["scan_delayed"] is True
     env.w.advance(seconds=ceiling - 60)
-    assert recon.run_root(rid, "periodic").outcome == "skipped"  # still inside the ceiling
+    assert (
+        recon.run_root(rid, "periodic").outcome == "skipped"
+    )  # still inside the ceiling
     env.w.advance(seconds=120)
     a = Person(env.w, "alice@example.com")  # the earlier session is long gone
-    assert recon.run_root(rid, "periodic").outcome == "ok"  # the ceiling passed: the scan proceeds
+    assert (
+        recon.run_root(rid, "periodic").outcome == "ok"
+    )  # the ceiling passed: the scan proceeds
     assert state(a, root)["state"] == "closed"  # it saw the outside file
-    assert a.get(f"/nodes/{root}").json()["scan_delayed"] is True  # the root says it was delayed
+    assert (
+        a.get(f"/nodes/{root}").json()["scan_delayed"] is True
+    )  # the root says it was delayed
     set_entry_status(env, bid, 0, "pending")
     assert recon.run_root(rid, "periodic").outcome == "ok"
-    assert a.get(f"/nodes/{root}").json()["scan_delayed"] is False  # cleared once nothing writes
+    assert (
+        a.get(f"/nodes/{root}").json()["scan_delayed"] is False
+    )  # cleared once nothing writes
     assert 30 * 60 == ceiling  # the default is thirty minutes
 
 
@@ -499,14 +602,20 @@ def test_a_mount_over_the_root_is_noticed_even_while_an_import_is_writing(
     bid = start_batch(env, a, root, {"a.txt": b"a"})
     set_entry_status(env, bid, 0, "writing")
     monkeypatch.setattr(Reconciler, "_left_library_device", lambda self, r: True)
-    result = Reconciler(env.w.ctx.sessions, env.w.settings).run_root(_root_id(env, root), "manual")
+    result = Reconciler(env.w.ctx.sessions, env.w.settings).run_root(
+        _root_id(env, root), "manual"
+    )
     assert result.outcome == "skipped"
     with env.w.ctx.sessions() as db:
-        row = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == a.uid())).one()
+        row = db.scalars(
+            select(StorageRoot).where(StorageRoot.owner_user_id == a.uid())
+        ).one()
         assert row.status == "unsupported_mount"
 
 
-def test_a_running_batch_with_no_file_in_flight_does_not_pause_scanning(env: Env) -> None:
+def test_a_running_batch_with_no_file_in_flight_does_not_pause_scanning(
+    env: Env,
+) -> None:
     a = env.alice
     root = a.personal_root()
     start_batch(env, a, root, {"a.txt": b"a"})
@@ -530,7 +639,9 @@ def test_one_open_setup_batch_per_root_is_a_database_guarantee(
     second = plan_folder(a, root, {"b.txt": b"b"})
     assert second.status_code == 409 and code(second) == "IMPORT_IN_PROGRESS"
     with env.w.ctx.sessions() as db:
-        rows = list(db.scalars(select(ImportBatch).where(ImportBatch.kind == "setup_folder")))
+        rows = list(
+            db.scalars(select(ImportBatch).where(ImportBatch.kind == "setup_folder"))
+        )
         assert len(rows) == 1
         twin = ImportBatch(
             id=uuid.uuid4(),
@@ -568,9 +679,13 @@ def test_resume_and_expiry_are_audited(env: Env) -> None:
     a.post(f"/nodes/{root}/folders", json={"name": "F"})
     folder = children(a, root)["F"]["id"]
     files = {"x.txt": b"x", "y.txt": b"y"}
-    batch = a.post(f"/nodes/{folder}/folder-uploads", json={"entries": manifest(files)}).json()
+    batch = a.post(
+        f"/nodes/{folder}/folder-uploads", json={"entries": manifest(files)}
+    ).json()
     assert (
-        a.post(f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}).status_code
+        a.post(
+            f"/imports/{batch['id']}/resume", json={"entries": manifest(files)}
+        ).status_code
         == 200
     )
     assert "import.resumed" in env.audit_actions()
@@ -613,15 +728,24 @@ def test_only_one_zip_upload_is_in_flight_per_root_and_per_person(env: Env) -> N
         assert busy.status_code == 409 and code(busy) == "IMPORT_IN_PROGRESS"
         with pytest.raises(OpError) as same_person:
             imports.zip_slots.acquire(shared_id, a.uid())
-        assert same_person.value.status == 429 and same_person.value.code == "UPLOAD_IN_PROGRESS"
-        imports.zip_slots.acquire(shared_id, env.bob.uid())  # someone else is not limited
+        assert (
+            same_person.value.status == 429
+            and same_person.value.code == "UPLOAD_IN_PROGRESS"
+        )
+        imports.zip_slots.acquire(
+            shared_id, env.bob.uid()
+        )  # someone else is not limited
         imports.zip_slots.release(shared_id, env.bob.uid())
     finally:
         imports.zip_slots.release(root_id, a.uid())
-    assert plan_zip(a, root, make_zip({"a.txt": b"a"})).status_code == 201  # the slot was freed
+    assert (
+        plan_zip(a, root, make_zip({"a.txt": b"a"})).status_code == 201
+    )  # the slot was freed
 
 
-def test_the_number_of_open_folder_uploads_per_person_is_limited(make_world: Any) -> None:
+def test_the_number_of_open_folder_uploads_per_person_is_limited(
+    make_world: Any,
+) -> None:
     env = Env(make_world(max_open_folder_uploads=2))
     a = env.alice
     root = a.personal_root()
@@ -630,11 +754,14 @@ def test_the_number_of_open_folder_uploads_per_person_is_limited(make_world: Any
     ids = []
     for i in range(2):
         r = a.post(
-            f"/nodes/{folder}/folder-uploads", json={"entries": manifest({f"f{i}.txt": b"x"})}
+            f"/nodes/{folder}/folder-uploads",
+            json={"entries": manifest({f"f{i}.txt": b"x"})},
         )
         assert r.status_code == 201
         ids.append(r.json()["id"])
-    third = a.post(f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"f3.txt": b"x"})})
+    third = a.post(
+        f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"f3.txt": b"x"})}
+    )
     assert third.status_code == 429 and code(third) == "TOO_MANY_OPEN_UPLOADS"
     assert (
         env.bob.post(
@@ -643,7 +770,9 @@ def test_the_number_of_open_folder_uploads_per_person_is_limited(make_world: Any
         == 201
     )
     a.post(f"/imports/{ids[0]}/cancel")  # discarding one frees a slot
-    again = a.post(f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"f3.txt": b"x"})})
+    again = a.post(
+        f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"f3.txt": b"x"})}
+    )
     assert again.status_code == 201
 
 
@@ -664,7 +793,9 @@ def test_the_open_upload_count_and_the_insert_are_serialized_per_person(
         return real(*args, **kw)
 
     monkeypatch.setattr(imports, "build_plan", watching)
-    r = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest({"f.txt": b"x"})})
+    r = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest({"f.txt": b"x"})}
+    )
     assert r.status_code == 201 and held == [True]
 
 
@@ -677,27 +808,37 @@ def test_an_entry_claimed_by_another_request_meanwhile_is_not_claimed_twice(
     env = Env(make_world())
     a = env.alice
     root = a.personal_root()
-    r = a.post(f"/nodes/{root}/folder-uploads", json={"entries": manifest({"f.txt": b"x"})})
+    r = a.post(
+        f"/nodes/{root}/folder-uploads", json={"entries": manifest({"f.txt": b"x"})}
+    )
     batch = r.json()["id"]
     (entry,) = [e for e in entries(a, batch) if e["kind"] == "file"]
     real = imports._touch
 
     def raced(db: Any, batch_id: uuid.UUID) -> None:
         real(db, batch_id)
-        set_entry_status(env, batch, entry["index"], "writing")  # the other request claims it
+        set_entry_status(
+            env, batch, entry["index"], "writing"
+        )  # the other request claims it
 
     monkeypatch.setattr(imports, "_touch", raced)
     busy = put(a, batch, entry["index"], b"x")
     assert busy.status_code == 409 and code(busy) == "ENTRY_BUSY"
-    assert [e["status"] for e in entries(a, batch) if e["kind"] == "file"] == ["writing"]
+    assert [e["status"] for e in entries(a, batch) if e["kind"] == "file"] == [
+        "writing"
+    ]
     assert "f.txt" not in children(a, root)
 
 
 # ------------------------------------------------------------------ C. retention and recovery
 
 
-def finished_batch(env: Env, p: Person, folder: str, name: str, files: dict[str, bytes]) -> str:
-    return str(upload_folder(p, folder, {f"{name}/{k}": v for k, v in files.items()})["id"])
+def finished_batch(
+    env: Env, p: Person, folder: str, name: str, files: dict[str, bytes]
+) -> str:
+    return str(
+        upload_folder(p, folder, {f"{name}/{k}": v for k, v in files.items()})["id"]
+    )
 
 
 def test_import_entries_are_pruned_ninety_days_after_completion_and_batches_are_kept(
@@ -709,9 +850,12 @@ def test_import_entries_are_pruned_ninety_days_after_completion_and_batches_are_
     folder = children(a, root)["F"]["id"]
     old = finished_batch(env, a, folder, "old", {"1.txt": b"1", "2.txt": b"2"})
     failing = a.post(
-        f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"bad.txt": b"abc"})}
+        f"/nodes/{folder}/folder-uploads",
+        json={"entries": manifest({"bad.txt": b"abc"})},
     ).json()
-    assert put(a, failing["id"], 0, b"x").status_code == 409  # SIZE_MISMATCH: an unresolved failure
+    assert (
+        put(a, failing["id"], 0, b"x").status_code == 409
+    )  # SIZE_MISMATCH: an unresolved failure
     stopped = a.post(
         f"/nodes/{folder}/folder-uploads", json={"entries": manifest({"s.txt": b"s"})}
     ).json()
@@ -736,7 +880,13 @@ def test_import_entries_are_pruned_ninety_days_after_completion_and_batches_are_
         assert imports.prune_import_reports(db, env.w.settings) == 0  # idempotent
         counts = {
             bid: len(
-                list(db.scalars(select(ImportEntry).where(ImportEntry.batch_id == uuid.UUID(bid))))
+                list(
+                    db.scalars(
+                        select(ImportEntry).where(
+                            ImportEntry.batch_id == uuid.UUID(bid)
+                        )
+                    )
+                )
             )
             for bid in (old, recent, failing["id"], stopped["id"])
         }
@@ -750,11 +900,17 @@ def test_import_entries_are_pruned_ninety_days_after_completion_and_batches_are_
 
     a = Person(env.w, "alice@example.com")
     got = a.get(f"/imports/{old}").json()
-    assert got["entries_pruned"] is True and got["status"] == "done" and got["plan"]["files"] == 2
+    assert (
+        got["entries_pruned"] is True
+        and got["status"] == "done"
+        and got["plan"]["files"] == 2
+    )
     assert entries(a, old) == []
 
 
-def test_pruning_runs_with_the_periodic_work_and_the_period_is_a_setting(make_world: Any) -> None:
+def test_pruning_runs_with_the_periodic_work_and_the_period_is_a_setting(
+    make_world: Any,
+) -> None:
     env = Env(make_world(import_entry_retention_days=1))
     a = env.alice
     root = a.personal_root()
@@ -766,7 +922,9 @@ def test_pruning_runs_with_the_periodic_work_and_the_period_is_a_setting(make_wo
     service._prune_reports()
     with env.w.ctx.sessions() as db:
         assert not list(
-            db.scalars(select(ImportEntry).where(ImportEntry.batch_id == uuid.UUID(bid)))
+            db.scalars(
+                select(ImportEntry).where(ImportEntry.batch_id == uuid.UUID(bid))
+            )
         )
         assert db.get(ImportBatch, uuid.UUID(bid)) is not None
 
@@ -793,6 +951,7 @@ def test_unfinished_batches_are_listed_for_their_own_actor_only(env: Env) -> Non
     assert anon.status_code == 401
     # the listed batch can be resumed with the folder selected again; the server skips what is done
     resumed = a.post(
-        f"/imports/{open_upload['id']}/resume", json={"entries": manifest({"x.txt": b"x"})}
+        f"/imports/{open_upload['id']}/resume",
+        json={"entries": manifest({"x.txt": b"x"})},
     )
     assert [p["path"] for p in resumed.json()["pending"]] == ["x.txt"]

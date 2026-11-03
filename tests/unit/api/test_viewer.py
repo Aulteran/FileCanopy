@@ -31,7 +31,9 @@ def view(api: Api, node: uuid.UUID, **headers: str) -> Any:
     return api.get(f"/nodes/{node}/view", headers=headers)
 
 
-def test_view_serves_inline_with_a_server_chosen_type_and_safe_headers(fx: Fx, alice: Api) -> None:
+def test_view_serves_inline_with_a_server_chosen_type_and_safe_headers(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.alice_root, "doc.PDF", PDF))
     r = view(alice, f)
     assert r.status_code == 200 and r.content == PDF
@@ -47,7 +49,9 @@ def test_view_serves_inline_with_a_server_chosen_type_and_safe_headers(fx: Fx, a
     assert d.headers["content-type"] == "application/octet-stream"
 
 
-def test_view_denied_for_other_users_and_for_the_administrator(fx: Fx, alice: Api) -> None:
+def test_view_denied_for_other_users_and_for_the_administrator(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.alice_root, "p.txt", b"private"))
     dave = Api(fx, "dave")
     for r in (view(dave, f), view(dave, uuid.uuid4())):
@@ -62,14 +66,18 @@ def test_view_denied_for_other_users_and_for_the_administrator(fx: Fx, alice: Ap
     assert view(Api(fx, "bob"), g).content == b"taxes"
 
 
-def test_unlisted_and_mismatched_types_and_folders_are_refused(fx: Fx, alice: Api) -> None:
+def test_unlisted_and_mismatched_types_and_folders_are_refused(
+    fx: Fx, alice: Api
+) -> None:
     exe = nid(alice.upload(fx.alice_root, "tool.exe", b"MZ"))
     html = nid(alice.upload(fx.alice_root, "page.html", b"<script>alert(1)</script>"))
     none = nid(alice.upload(fx.alice_root, "README", b"hello"))
     for n in (exe, html, none):
         r = view(alice, n)
         assert r.status_code == 415 and code(r) == "NOT_VIEWABLE"
-    fake_pdf = nid(alice.upload(fx.alice_root, "a.pdf", b"<html><script>x</script></html>"))
+    fake_pdf = nid(
+        alice.upload(fx.alice_root, "a.pdf", b"<html><script>x</script></html>")
+    )
     fake_png = nid(alice.upload(fx.alice_root, "a.png", PDF))
     binary_txt = nid(alice.upload(fx.alice_root, "a.txt", b"abc\x00\x01\x02"))
     bad_utf8 = nid(alice.upload(fx.alice_root, "b.txt", b"\xff\xfe\xfa" * 40))
@@ -87,7 +95,9 @@ def test_scripted_svg_and_html_like_text_are_served_inert(fx: Fx, alice: Api) ->
     r = view(alice, s)
     assert r.status_code == 200 and r.headers["content-type"] == "image/svg+xml"
     csp = r.headers["content-security-policy"]
-    assert "sandbox" in csp and "default-src 'none'" in csp  # scripts cannot run even if opened
+    assert (
+        "sandbox" in csp and "default-src 'none'" in csp
+    )  # scripts cannot run even if opened
     t = nid(alice.upload(fx.alice_root, "n.md", b"<script>alert(1)</script>"))
     r = view(alice, t)
     assert r.headers["content-type"].startswith("text/plain")  # never text/html
@@ -102,7 +112,10 @@ def test_range_edge_cases(fx: Fx, alice: Api) -> None:
 
     r = ranged("bytes=0-9")
     assert r.status_code == 206 and r.content == body[:10]
-    assert r.headers["content-range"] == "bytes 0-9/100" and r.headers["content-length"] == "10"
+    assert (
+        r.headers["content-range"] == "bytes 0-9/100"
+        and r.headers["content-length"] == "10"
+    )
     r = ranged("bytes=90-")
     assert r.status_code == 206 and r.content == body[90:]
     r = ranged("bytes=-5")
@@ -114,7 +127,14 @@ def test_range_edge_cases(fx: Fx, alice: Api) -> None:
     for bad in ("bytes=100-", "bytes=500-600", "bytes=-0"):
         r = ranged(bad)
         assert r.status_code == 416 and r.headers["content-range"] == "bytes */100", bad
-    for ignored in ("bytes=5-2", "bytes=a-b", "bytes=0-1,5-6", "items=0-1", "bytes=", "garbage"):
+    for ignored in (
+        "bytes=5-2",
+        "bytes=a-b",
+        "bytes=0-1,5-6",
+        "items=0-1",
+        "bytes=",
+        "garbage",
+    ):
         r = ranged(ignored)
         assert r.status_code == 200 and r.content == body, ignored
     etag = view(alice, f).headers["etag"]
@@ -131,7 +151,9 @@ def test_empty_file_and_range(fx: Fx, alice: Api) -> None:
     assert view(alice, f, Range="bytes=0-5").status_code == 416
 
 
-def test_viewed_is_logged_once_per_open_and_not_for_refusals(fx: Fx, alice: Api) -> None:
+def test_viewed_is_logged_once_per_open_and_not_for_refusals(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.alice_root, "v.pdf", PDF))
     view(alice, f)  # open
     view(alice, f, Range="bytes=10-20")  # later chunks of the same open: nothing new
@@ -154,7 +176,9 @@ def test_viewed_is_logged_once_per_open_and_not_for_refusals(fx: Fx, alice: Api)
     assert [e.action for e in events_of(fx, g)].count("viewed") == 2
 
 
-def test_viewed_dedupe_expires(fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_viewed_dedupe_expires(
+    fx: Fx, alice: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from datetime import timedelta
 
     from app.api import files as files_api
@@ -170,6 +194,8 @@ def test_parse_range_unit() -> None:
     assert viewable.parse_range("bytes=0-0", 1) == (0, 0)
     assert viewable.parse_range("bytes=0-", 0) == "unsatisfiable"
     assert viewable.parse_range("bytes=-3", 0) == "unsatisfiable"
-    assert viewable.parse_range("bytes=٣-5", 10) is None  # non-ASCII digits are not accepted
+    assert (
+        viewable.parse_range("bytes=٣-5", 10) is None
+    )  # non-ASCII digits are not accepted
     for odd in ("bytes=+1-5", "bytes=1 -5", "bytes=1_0-5", "bytes=-", "bytes=1--5"):
         assert viewable.parse_range(odd, 100) is None, odd

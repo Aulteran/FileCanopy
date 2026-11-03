@@ -69,7 +69,9 @@ class Client:
         self.n = 0
 
     def raw(self, body: Any, **kw: Any) -> Any:
-        return self.http.post("/api/v1/mcp", headers={**self.headers, **kw}, content=body)
+        return self.http.post(
+            "/api/v1/mcp", headers={**self.headers, **kw}, content=body
+        )
 
     def rpc(self, method: str, params: Any = None, **kw: Any) -> Any:
         self.n += 1
@@ -96,7 +98,9 @@ class Client:
         return str(res["content"][0]["text"])
 
 
-def client_for(fx: Fx, who: str = "alice", scopes: list[str] | None = None) -> tuple[Api, Client]:
+def client_for(
+    fx: Fx, who: str = "alice", scopes: list[str] | None = None
+) -> tuple[Api, Client]:
     api = Api(fx, who)
     value, _ = mint(api, scopes if scopes is not None else ALL_SCOPES)
     return api, Client(fx, value)
@@ -115,7 +119,9 @@ def doc(fx: Fx, api: Api, parent: uuid.UUID, name: str, body: str) -> uuid.UUID:
 # ------------------------------------------------------------------ off by default
 
 
-def test_off_by_default_nothing_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_off_by_default_nothing_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fx = Fx(World(tmp_path, monkeypatch))  # default configuration
     alice = Api(fx, "alice")
     assert Client(fx, "fcmcp_whatever").rpc("ping").status_code == 404
@@ -127,7 +133,9 @@ def test_off_by_default_nothing_exists(tmp_path: Path, monkeypatch: pytest.Monke
     )
     assert r.status_code == 404
     assert (
-        alice.client.delete(f"/api/v1/mcp/tokens/{uuid.uuid4()}", headers=alice.headers).status_code
+        alice.client.delete(
+            f"/api/v1/mcp/tokens/{uuid.uuid4()}", headers=alice.headers
+        ).status_code
         == 404
     )
     assert alice.client.get("/api/v1/mcp").status_code == 404
@@ -148,18 +156,21 @@ def test_status_when_enabled(fx: Fx) -> None:
 def test_creating_a_token_needs_proof_acknowledgement_and_csrf(fx: Fx) -> None:
     alice = Api(fx, "alice")
     ok = {"name": "x", "password": PASSWORD, "acknowledge_remote_ai": True}
-    assert code(alice.post("/mcp/tokens", json={**ok, "acknowledge_remote_ai": False})) == (
-        "ACKNOWLEDGEMENT_REQUIRED"
-    )
-    assert code(alice.post("/mcp/tokens", json={"name": "x", "acknowledge_remote_ai": True})) == (
-        "PROOF_REQUIRED"
-    )
+    assert code(
+        alice.post("/mcp/tokens", json={**ok, "acknowledge_remote_ai": False})
+    ) == ("ACKNOWLEDGEMENT_REQUIRED")
+    assert code(
+        alice.post("/mcp/tokens", json={"name": "x", "acknowledge_remote_ai": True})
+    ) == ("PROOF_REQUIRED")
     both = alice.post("/mcp/tokens", json={**ok, "reauth": True})
     assert code(both) == "PROOF_REQUIRED"
-    assert code(alice.post("/mcp/tokens", json={**ok, "reauth": True, "password": None})) == (
-        "REAUTH_REQUIRED"
+    assert code(
+        alice.post("/mcp/tokens", json={**ok, "reauth": True, "password": None})
+    ) == ("REAUTH_REQUIRED")
+    assert (
+        alice.post("/mcp/tokens", json={**ok, "password": "wrong password"}).status_code
+        == 403
     )
-    assert alice.post("/mcp/tokens", json={**ok, "password": "wrong password"}).status_code == 403
     no_csrf = alice.client.post("/api/v1/mcp/tokens", json=ok)
     assert no_csrf.status_code == 403 and code(no_csrf) == "CSRF_TOKEN_INVALID"
     evil = alice.client.post(
@@ -189,26 +200,40 @@ def test_token_is_shown_once_and_only_its_hash_is_stored(fx: Fx) -> None:
     assert value not in json.dumps(listed)
 
 
-def test_scope_expiry_and_count_limits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    fx = make_fx(tmp_path, monkeypatch, mcp_max_tokens_per_user=2, mcp_token_max_days=90)
+def test_scope_expiry_and_count_limits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fx = make_fx(
+        tmp_path, monkeypatch, mcp_max_tokens_per_user=2, mcp_token_max_days=90
+    )
     alice = Api(fx, "alice")
     base = {"name": "x", "password": PASSWORD, "acknowledge_remote_ai": True}
     for bad in (["write"], [], ["browse", "shell"]):
-        assert code(alice.post("/mcp/tokens", json={**base, "scopes": bad})) == "INVALID_SCOPES"
+        assert (
+            code(alice.post("/mcp/tokens", json={**base, "scopes": bad}))
+            == "INVALID_SCOPES"
+        )
     assert code(alice.post("/mcp/tokens", json={**base, "expires_in_days": 91})) == (
         "EXPIRY_TOO_LONG"
     )
-    assert alice.post("/mcp/tokens", json={**base, "expires_in_days": 0}).status_code == 422
+    assert (
+        alice.post("/mcp/tokens", json={**base, "expires_in_days": 0}).status_code
+        == 422
+    )
     r = alice.post("/mcp/tokens", json={**base, "expires_in_days": 90})
     assert r.status_code == 201
     first = alice.post("/mcp/tokens", json=base).json()
     third = alice.post("/mcp/tokens", json=base)
     assert code(third) == "TOKEN_LIMIT"
     assert (
-        alice.client.delete(f"/api/v1/mcp/tokens/{first['id']}", headers=alice.headers).status_code
+        alice.client.delete(
+            f"/api/v1/mcp/tokens/{first['id']}", headers=alice.headers
+        ).status_code
         == 200
     )
-    assert alice.post("/mcp/tokens", json=base).status_code == 201  # a revoked token frees a slot
+    assert (
+        alice.post("/mcp/tokens", json=base).status_code == 201
+    )  # a revoked token frees a slot
 
 
 def test_default_lifetime_is_thirty_days(fx: Fx) -> None:
@@ -221,17 +246,29 @@ def test_default_lifetime_is_thirty_days(fx: Fx) -> None:
 def test_revoking_is_own_tokens_only_and_audited(fx: Fx) -> None:
     alice, bob = Api(fx, "alice"), Api(fx, "bob")
     _, tid = mint(alice)
-    assert bob.client.delete(f"/api/v1/mcp/tokens/{tid}", headers=bob.headers).status_code == 404
+    assert (
+        bob.client.delete(f"/api/v1/mcp/tokens/{tid}", headers=bob.headers).status_code
+        == 404
+    )
     assert bob.get("/mcp/tokens").json() == []
     assert (
-        alice.client.delete(f"/api/v1/mcp/tokens/{tid}", headers=alice.headers).status_code == 200
+        alice.client.delete(
+            f"/api/v1/mcp/tokens/{tid}", headers=alice.headers
+        ).status_code
+        == 200
     )
     assert (
-        alice.client.delete(f"/api/v1/mcp/tokens/{tid}", headers=alice.headers).status_code == 200
+        alice.client.delete(
+            f"/api/v1/mcp/tokens/{tid}", headers=alice.headers
+        ).status_code
+        == 200
     )
     assert alice.get("/mcp/tokens").json()[0]["state"] == "revoked"
     actions = [a.action for a in fx.w.db_rows(AuthAudit)]
-    assert actions.count("mcp.token_created") == 1 and actions.count("mcp.token_revoked") == 1
+    assert (
+        actions.count("mcp.token_created") == 1
+        and actions.count("mcp.token_revoked") == 1
+    )
 
 
 # ------------------------------------------------------------------ authentication
@@ -258,7 +295,10 @@ def test_missing_invalid_expired_revoked_and_disabled_are_refused(fx: Fx) -> Non
     assert Client(fx, value).rpc("ping").status_code == 401
     fx.w.advance(days=-31)
     assert (
-        alice.client.delete(f"/api/v1/mcp/tokens/{tid}", headers=alice.headers).status_code == 200
+        alice.client.delete(
+            f"/api/v1/mcp/tokens/{tid}", headers=alice.headers
+        ).status_code
+        == 200
     )
     assert Client(fx, value).rpc("ping").status_code == 401
     value2, _ = mint(alice, ["browse"])
@@ -269,7 +309,9 @@ def test_missing_invalid_expired_revoked_and_disabled_are_refused(fx: Fx) -> Non
         db.commit()
     assert Client(fx, value2).rpc("ping").status_code == 401  # at once, token untouched
     reasons = [
-        a.details["reason"] for a in fx.w.db_rows(AuthAudit) if a.action == "mcp.auth_failed"
+        a.details["reason"]
+        for a in fx.w.db_rows(AuthAudit)
+        if a.action == "mcp.auth_failed"
     ]
     assert {"missing", "invalid", "expired", "revoked", "disabled"} <= set(reasons)
 
@@ -291,7 +333,9 @@ def test_failed_tokens_are_throttled_per_address(
     assert Client(fx, value).rpc("ping").status_code == 200
 
 
-def test_calls_are_rate_limited_per_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calls_are_rate_limited_per_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fx = make_fx(tmp_path, monkeypatch, mcp_per_minute=3)
     a, b = Api(fx, "alice"), Api(fx, "bob")
     ca, cb = Client(fx, mint(a)[0]), Client(fx, mint(b)[0])
@@ -315,16 +359,29 @@ def test_browser_origins_and_cross_site_requests_are_refused(
         cookie_secure=False,
     )
     value, _ = mint(Api(fx, "alice"))
-    assert Client(fx, value).rpc("ping").status_code == 200  # no Origin: a native client
+    assert (
+        Client(fx, value).rpc("ping").status_code == 200
+    )  # no Origin: a native client
     for origin in ("https://evil.example", "http://testserver", "null"):
         r = Client(fx, value, Origin=origin).rpc("ping")
         assert r.status_code == 403 and code(r) == "ORIGIN_NOT_ALLOWED", origin
-    assert Client(fx, value, Origin="https://app.example.org").rpc("ping").status_code == 200
-    assert Client(fx, value, Origin="https://files.example.org").rpc("ping").status_code == 200
+    assert (
+        Client(fx, value, Origin="https://app.example.org").rpc("ping").status_code
+        == 200
+    )
+    assert (
+        Client(fx, value, Origin="https://files.example.org").rpc("ping").status_code
+        == 200
+    )
     r = Client(fx, value, **{"Sec-Fetch-Site": "cross-site"}).rpc("ping")
     assert r.status_code == 403 and code(r) == "CROSS_SITE_REQUEST"
-    assert Client(fx, value, **{"Sec-Fetch-Site": "same-origin"}).rpc("ping").status_code == 200
-    assert Client(fx, "bad", Origin="https://evil.example").rpc("ping").status_code == 403
+    assert (
+        Client(fx, value, **{"Sec-Fetch-Site": "same-origin"}).rpc("ping").status_code
+        == 200
+    )
+    assert (
+        Client(fx, "bad", Origin="https://evil.example").rpc("ping").status_code == 403
+    )
 
 
 def test_transport_rules(fx: Fx) -> None:
@@ -333,9 +390,18 @@ def test_transport_rules(fx: Fx) -> None:
     assert http.get("/api/v1/mcp", headers=c.headers).status_code == 405
     assert http.delete("/api/v1/mcp", headers=c.headers).headers["allow"] == "POST"
     assert c.raw("{not json").status_code == 400
-    assert c.raw(json.dumps([{"jsonrpc": "2.0", "id": 1, "method": "ping"}])).status_code == 400
-    assert c.raw(json.dumps({"jsonrpc": "1.0", "id": 1, "method": "ping"})).status_code == 400
-    assert c.raw(json.dumps({"jsonrpc": "2.0", "id": True, "method": "ping"})).status_code == 400
+    assert (
+        c.raw(json.dumps([{"jsonrpc": "2.0", "id": 1, "method": "ping"}])).status_code
+        == 400
+    )
+    assert (
+        c.raw(json.dumps({"jsonrpc": "1.0", "id": 1, "method": "ping"})).status_code
+        == 400
+    )
+    assert (
+        c.raw(json.dumps({"jsonrpc": "2.0", "id": True, "method": "ping"})).status_code
+        == 400
+    )
     assert c.raw("x" * 20_000).status_code == 413
     assert c.raw("{}", **{"Content-Type": "text/plain"}).status_code == 415
     # notifications and client responses get no answer
@@ -345,17 +411,25 @@ def test_transport_rules(fx: Fx) -> None:
     assert resp.status_code == 202
     assert c.rpc("resources/list").json()["error"]["code"] == -32601
     assert c.rpc("prompts/list").json()["error"]["code"] == -32601
-    assert c.rpc("tools/call", ["not", "an", "object"]).json()["error"]["code"] == -32602
+    assert (
+        c.rpc("tools/call", ["not", "an", "object"]).json()["error"]["code"] == -32602
+    )
 
 
 def test_initialize_and_ping(fx: Fx) -> None:
     _, c = client_for(fx)
-    init = c.rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {}}).json()
+    init = c.rpc(
+        "initialize", {"protocolVersion": "2025-03-26", "capabilities": {}}
+    ).json()
     result = init["result"]
     assert result["protocolVersion"] == "2025-03-26" and init["id"] == 1
-    assert set(result["capabilities"]) == {"tools"}  # no resources, prompts, sampling or logging
+    assert set(result["capabilities"]) == {
+        "tools"
+    }  # no resources, prompts, sampling or logging
     assert (
-        c.rpc("initialize", {"protocolVersion": "1999-01-01"}).json()["result"]["protocolVersion"]
+        c.rpc("initialize", {"protocolVersion": "1999-01-01"}).json()["result"][
+            "protocolVersion"
+        ]
         == "2025-06-18"
     )
     assert c.rpc("ping").json()["result"] == {}
@@ -374,7 +448,9 @@ def test_the_tool_list_is_exactly_the_read_tools_with_closed_schemas(fx: Fx) -> 
         assert t["annotations"]["readOnlyHint"] is True
         assert t["annotations"]["destructiveHint"] is False
         for prop in schema["properties"]:
-            assert not any(w in prop for w in ("path", "url", "command", "sql", "file_name")), prop
+            assert not any(
+                w in prop for w in ("path", "url", "command", "sql", "file_name")
+            ), prop
     assert not [
         t["name"]
         for t in listed
@@ -428,9 +504,9 @@ def test_unknown_tools_and_bad_arguments_are_refused(fx: Fx) -> None:
     ]
     for name, args in bad:
         assert c.call(name, **args)["isError"] is True, (name, args)
-    assert c.rpc("tools/call", {"name": "list_files", "arguments": "folder"}).json()["result"][
-        "isError"
-    ]
+    assert c.rpc("tools/call", {"name": "list_files", "arguments": "folder"}).json()[
+        "result"
+    ]["isError"]
 
 
 def test_a_run_of_calls_changes_nothing(fx: Fx) -> None:
@@ -441,7 +517,9 @@ def test_a_run_of_calls_changes_nothing(fx: Fx) -> None:
         for p in fx.w.settings.library_path.rglob("*")
     )
     with fx.w.ctx.sessions() as db:
-        nodes_before = sorted((n.name, n.revision, n.status) for n in db.scalars(select(Node)))
+        nodes_before = sorted(
+            (n.name, n.revision, n.status) for n in db.scalars(select(Node))
+        )
     for name, args in [
         ("list_folders", {}),
         ("list_folders", {"folder_id": str(fx.alice_root)}),
@@ -458,9 +536,9 @@ def test_a_run_of_calls_changes_nothing(fx: Fx) -> None:
         for p in fx.w.settings.library_path.rglob("*")
     )
     with fx.w.ctx.sessions() as db:
-        assert sorted((n.name, n.revision, n.status) for n in db.scalars(select(Node))) == (
-            nodes_before
-        )
+        assert sorted(
+            (n.name, n.revision, n.status) for n in db.scalars(select(Node))
+        ) == (nodes_before)
     assert before == after
 
 
@@ -499,10 +577,17 @@ def test_paging(fx: Fx) -> None:
     for i in range(5):
         file_in(alice, fx.y2026, f"f{i}.txt")
     page1 = c.data("list_files", folder_id=str(fx.y2026), limit=2)
-    assert names(page1["items"]) == ["f0.txt", "f1.txt"] and page1["next_after"] == "f1.txt"
-    page2 = c.data("list_files", folder_id=str(fx.y2026), limit=2, after=page1["next_after"])
+    assert (
+        names(page1["items"]) == ["f0.txt", "f1.txt"]
+        and page1["next_after"] == "f1.txt"
+    )
+    page2 = c.data(
+        "list_files", folder_id=str(fx.y2026), limit=2, after=page1["next_after"]
+    )
     assert names(page2["items"]) == ["f2.txt", "f3.txt"]
-    page3 = c.data("list_files", folder_id=str(fx.y2026), limit=2, after=page2["next_after"])
+    page3 = c.data(
+        "list_files", folder_id=str(fx.y2026), limit=2, after=page2["next_after"]
+    )
     assert names(page3["items"]) == ["f4.txt"] and page3["next_after"] is None
 
 
@@ -525,7 +610,9 @@ def test_paging_never_exposes_the_name_of_a_protected_row(fx: Fx) -> None:
         page = c.data("list_folders", **args)
         seen += names(page["items"])
         after = page["next_after"]
-        assert after is None or after in seen  # a boundary is a row the client was shown
+        assert (
+            after is None or after in seen
+        )  # a boundary is a row the client was shown
         if after is None:
             break
     assert after is None and seen == ["d0000"] + [n for n in seen[1:]]
@@ -552,8 +639,13 @@ def test_search_names_only_without_the_text_scope(fx: Fx) -> None:
     assert hits[0]["snippet"] is None and hits[0]["match"] == "name"
     both = {h["id"]: h for h in with_text.data("search_files", query="roof")["items"]}
     assert set(both) == {str(by_name), str(by_text)}
-    assert "builder" in both[str(by_text)]["snippet"] and both[str(by_text)]["match"] == "content"
-    scoped = with_text.data("search_files", query="roof", folder_id=str(fx.other))["items"]
+    assert (
+        "builder" in both[str(by_text)]["snippet"]
+        and both[str(by_text)]["match"] == "content"
+    )
+    scoped = with_text.data("search_files", query="roof", folder_id=str(fx.other))[
+        "items"
+    ]
     assert scoped == []
 
 
@@ -591,13 +683,19 @@ def test_collections_list_only_readable_normal_members(fx: Fx) -> None:
     alice, c = client_for(fx)
     roof = doc(fx, alice, fx.y2026, "roof.txt", ROOF)
     secret = file_in(alice, fx.private, "secret.txt")
-    made = alice.post("/collections", json={"title": "House", "node_ids": [str(roof), str(secret)]})
+    made = alice.post(
+        "/collections", json={"title": "House", "node_ids": [str(roof), str(secret)]}
+    )
     assert made.status_code == 201, made.text
     cid = made.json()["id"]
     label(alice, fx.private, "private")
-    assert c.data("list_collections")["items"] == [{"id": cid, "title": "House", "role": "owner"}]
+    assert c.data("list_collections")["items"] == [
+        {"id": cid, "title": "House", "role": "owner"}
+    ]
     detail = c.data("list_collections", collection_id=cid)
-    assert [m["name"] for m in detail["members"]] == ["roof.txt"]  # the Private member is gone
+    assert [m["name"] for m in detail["members"]] == [
+        "roof.txt"
+    ]  # the Private member is gone
     assert c.error("list_collections", collection_id=str(uuid.uuid4())) == "Not found."
     bob = Client(fx, mint(Api(fx, "bob"), ALL_SCOPES)[0])
     assert bob.data("list_collections")["items"] == []
@@ -608,7 +706,9 @@ def test_activity_for_a_normal_folder(fx: Fx) -> None:
     alice, c = client_for(fx)
     f = file_in(alice, fx.y2026, "roof.txt")
     items = c.data("list_activity", node_id=str(f))["items"]
-    assert items and {"id", "node_id", "at", "action", "actor_kind", "details"} == set(items[0])
+    assert items and {"id", "node_id", "at", "action", "actor_kind", "details"} == set(
+        items[0]
+    )
     assert all("email" not in json.dumps(i) for i in items)
     assert c.data("list_activity", node_id=str(fx.taxes), limit=1)["items"]
 
@@ -628,7 +728,10 @@ def test_cross_user_and_shares(fx: Fx) -> None:
     assert bob.error("get_text_excerpt", node_id=str(f)) == "Not found."
     assert bob.error("list_activity", node_id=str(f)) == "Not found."
     assert bob.data("search_files", query="roof")["items"] == []
-    assert bob.data("search_files", query="builder", folder_id=str(fx.y2026))["items"] == []
+    assert (
+        bob.data("search_files", query="builder", folder_id=str(fx.y2026))["items"]
+        == []
+    )
     ghost = str(uuid.uuid4())  # a missing id and a forbidden id answer the same
     assert bob.error("get_file_metadata", node_id=ghost) == "Not found."
     assert {r["name"] for r in bob.data("list_folders")["items"]} == {
@@ -638,14 +741,18 @@ def test_cross_user_and_shares(fx: Fx) -> None:
     # a share opens exactly that folder and nothing around it
     alice_c = (alice.client, alice.headers)
     fx.grant(alice_c, fx.y2026, "bob@example.com", "viewer")
-    assert names(bob.data("list_files", folder_id=str(fx.y2026))["items"]) == ["roof.txt"]
+    assert names(bob.data("list_files", folder_id=str(fx.y2026))["items"]) == [
+        "roof.txt"
+    ]
     assert "builder" in bob.data("get_text_excerpt", node_id=str(f))["text"]
     assert bob.error("list_files", folder_id=str(fx.taxes)) == "Not found."
     kinds = {r["kind"] for r in bob.data("list_folders")["items"]}
     assert kinds == {"personal", "shared", "shared_with_me"}
     meta = bob.data("get_file_metadata", node_id=str(f))
     assert meta["parent_id"] == str(fx.y2026)
-    assert bob.data("get_file_metadata", node_id=str(fx.y2026))["parent_id"] is None  # Taxes unseen
+    assert (
+        bob.data("get_file_metadata", node_id=str(fx.y2026))["parent_id"] is None
+    )  # Taxes unseen
     # revoking the grant stops it on the next call
     r = alice.client.delete(
         f"/api/v1/nodes/{fx.y2026}/grants/{fx.uid('bob@example.com')}",
@@ -684,7 +791,9 @@ def test_private_and_confidential_never_reach_a_client(fx: Fx) -> None:
     vault_file = doc(fx, alice, vault, "will.txt", "Quokka will: " + SECRET)
     label(alice, priv, "private")
     label(alice, vault, "confidential")
-    unlock(alice, vault)  # open in the person's own browser session: still invisible to a client
+    unlock(
+        alice, vault
+    )  # open in the person's own browser session: still invisible to a client
     assert alice.get(f"/nodes/{vault_file}/content").status_code == 200
 
     ids = {str(i) for i in (priv, inner, vault, priv_file, deep_file, vault_file)}
@@ -698,9 +807,13 @@ def test_private_and_confidential_never_reach_a_client(fx: Fx) -> None:
 
     clean(c.data("list_folders"))
     clean(c.data("list_folders", folder_id=str(fx.alice_root)))
-    assert "Diary" not in names(c.data("list_folders", folder_id=str(fx.alice_root))["items"])
+    assert "Diary" not in names(
+        c.data("list_folders", folder_id=str(fx.alice_root))["items"]
+    )
     clean(c.data("search_files", query="quokka"))
-    assert [h["id"] for h in c.data("search_files", query="quokka")["items"]] == [str(open_file)]
+    assert [h["id"] for h in c.data("search_files", query="quokka")["items"]] == [
+        str(open_file)
+    ]
     assert c.data("search_files", query="diary")["items"] == []
     assert c.data("search_files", query="will")["items"] == []
     assert c.data("search_files", query="quokka", folder_id=str(priv))["items"] == []
@@ -752,9 +865,13 @@ def test_audit_holds_ids_and_tool_names_only(fx: Fx) -> None:
     c.error("get_text_excerpt", node_id=str(uuid.uuid4()))
     Client(fx, "fcmcp_" + "q" * 40).rpc("ping")
     rows = fx.w.db_rows(AuthAudit)
-    blob = json.dumps([{"a": r.action, "d": r.details, "ip": r.ip} for r in rows], default=str)
+    blob = json.dumps(
+        [{"a": r.action, "d": r.details, "ip": r.ip} for r in rows], default=str
+    )
     assert value not in blob and "fcmcp_" + "q" * 40 not in blob
-    assert "very private" not in blob and "builder" not in blob and "roof.txt" not in blob
+    assert (
+        "very private" not in blob and "builder" not in blob and "roof.txt" not in blob
+    )
     calls = [r.details for r in rows if r.action == "mcp.call"]
     assert [d["tool"] for d in calls] == [
         "search_files",

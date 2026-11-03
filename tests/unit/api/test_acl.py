@@ -71,7 +71,8 @@ class Fx:
     def onboard(self, email: str, role: str) -> None:
         token = invite(self.w, self.admin, email, role)
         r = self.w.browser().post(
-            "/api/v1/auth/invitations/accept", json={"token": token, "password": PASSWORD}
+            "/api/v1/auth/invitations/accept",
+            json={"token": token, "password": PASSWORD},
         )
         assert r.status_code == 200, r.text
 
@@ -98,16 +99,24 @@ class Fx:
             assert root is not None
             comps = nodes.path_components(db, child)
             db.commit()
-            with open_dir(self.w.settings.library_path, root.relative_dir, comps, create=True):
+            with open_dir(
+                self.w.settings.library_path, root.relative_dir, comps, create=True
+            ):
                 pass
             return child.id
 
     def grant(
-        self, owner: tuple[TestClient, dict[str, str]], node: uuid.UUID, email: str, level: str
+        self,
+        owner: tuple[TestClient, dict[str, str]],
+        node: uuid.UUID,
+        email: str,
+        level: str,
     ) -> None:
         c, h = owner
         r = c.put(
-            f"/api/v1/nodes/{node}/grants/{self.uid(email)}", json={"level": level}, headers=h
+            f"/api/v1/nodes/{node}/grants/{self.uid(email)}",
+            json={"level": level},
+            headers=h,
         )
         assert r.status_code == 200, r.text
 
@@ -136,14 +145,19 @@ def matrix_world(fx: Fx) -> dict[str, tuple[TestClient, dict[str, str]]]:
     # Disable eve last: the grant row stays, the account must not.
     c, h = fx.admin
     r = c.patch(
-        f"/api/v1/admin/users/{fx.uid('eve@example.com')}", json={"status": "disabled"}, headers=h
+        f"/api/v1/admin/users/{fx.uid('eve@example.com')}",
+        json={"status": "disabled"},
+        headers=h,
     )
     assert r.status_code == 200
     return sessions
 
 
 def expected(persona: str, resource: str) -> frozenset[Privilege]:
-    if resource in ("shared_root", "shared_sub"):  # default 'editor' for every active account
+    if resource in (
+        "shared_root",
+        "shared_sub",
+    ):  # default 'editor' for every active account
         return NONE if persona == "eve" else EDITOR
     if persona == "alice":
         return ALL_PRIVILEGES
@@ -155,7 +169,15 @@ def expected(persona: str, resource: str) -> frozenset[Privilege]:
 
 
 PERSONAS = ["alice", "bob", "carol", "dave", "eve", "admin", "admin2"]
-RESOURCES = ["alice_root", "taxes", "y2026", "other", "private", "shared_root", "shared_sub"]
+RESOURCES = [
+    "alice_root",
+    "taxes",
+    "y2026",
+    "other",
+    "private",
+    "shared_root",
+    "shared_sub",
+]
 
 
 def test_acl_matrix(fx: Fx) -> None:
@@ -184,13 +206,23 @@ def test_acl_matrix(fx: Fx) -> None:
                 assert r.status_code == 200, (persona, resource, r.text)
                 assert r.json()["my_privileges"] == sorted(p.value for p in want)
             else:
-                assert (r.status_code, r.json()) == (403, FORBIDDEN), (persona, resource)
+                assert (r.status_code, r.json()) == (403, FORBIDDEN), (
+                    persona,
+                    resource,
+                )
             # Grant administration: personal tree = owner only; shared tree = any administrator.
             g = c.get(f"/api/v1/nodes/{node_id}/grants")
-            can_admin = (persona == "alice" and resource not in ("shared_root", "shared_sub")) or (
-                persona in ("admin", "admin2") and resource in ("shared_root", "shared_sub")
+            can_admin = (
+                persona == "alice" and resource not in ("shared_root", "shared_sub")
+            ) or (
+                persona in ("admin", "admin2")
+                and resource in ("shared_root", "shared_sub")
             )
-            assert g.status_code == (200 if can_admin else 403), (persona, resource, g.text)
+            assert g.status_code == (200 if can_admin else 403), (
+                persona,
+                resource,
+                g.text,
+            )
             if not can_admin:
                 assert g.json() == FORBIDDEN
 
@@ -224,14 +256,18 @@ def test_private_sibling_non_disclosure(fx: Fx) -> None:
         assert secret not in blob
     entries = {e["node_id"]: e for e in bob.get("/api/v1/roots").json()}
     assert entries[str(fx.y2026)]["kind"] == "shared_with_me"
-    assert entries[str(fx.y2026)]["owner_name"] == "New"  # alice's display name from invite()
+    assert (
+        entries[str(fx.y2026)]["owner_name"] == "New"
+    )  # alice's display name from invite()
     # The grantee's own listing of grants on the folder is the owner's business only.
     assert bob.get(f"/api/v1/nodes/{fx.y2026}/grants").status_code == 403
 
 
 def test_roots_lists_only_top_most_grants_and_own_root(fx: Fx) -> None:
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
-    fx.grant(fx.alice, fx.y2026, "bob@example.com", "editor")  # nested under an existing grant
+    fx.grant(
+        fx.alice, fx.y2026, "bob@example.com", "editor"
+    )  # nested under an existing grant
     bob, _ = signed_in(fx.w, "bob@example.com")
     kinds = {e["node_id"]: e["kind"] for e in bob.get("/api/v1/roots").json()}
     assert str(fx.taxes) in kinds and str(fx.y2026) not in kinds
@@ -290,13 +326,25 @@ def test_admin_reads_personal_only_through_owner_grant_and_revocation_is_immedia
     fx.grant(fx.alice, fx.taxes, "admin@example.com", "viewer")
     r = c.get(f"/api/v1/nodes/{fx.taxes}")
     assert r.status_code == 200
-    assert r.json()["my_privileges"] == ["list", "read", "traverse"]  # read-only, no write/share
-    assert c.get(f"/api/v1/nodes/{fx.alice_root}").status_code == 403  # nothing above it
-    assert c.get(f"/api/v1/nodes/{fx.taxes}/grants").status_code == 403  # viewer cannot re-share
+    assert r.json()["my_privileges"] == [
+        "list",
+        "read",
+        "traverse",
+    ]  # read-only, no write/share
+    assert (
+        c.get(f"/api/v1/nodes/{fx.alice_root}").status_code == 403
+    )  # nothing above it
+    assert (
+        c.get(f"/api/v1/nodes/{fx.taxes}/grants").status_code == 403
+    )  # viewer cannot re-share
     ac, ah = fx.alice
-    d = ac.delete(f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('admin@example.com')}", headers=ah)
+    d = ac.delete(
+        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('admin@example.com')}", headers=ah
+    )
     assert d.status_code == 200
-    assert c.get(f"/api/v1/nodes/{fx.taxes}").status_code == 403  # same session, next request
+    assert (
+        c.get(f"/api/v1/nodes/{fx.taxes}").status_code == 403
+    )  # same session, next request
 
 
 def test_admin_administers_shared_grants_but_reads_only_with_own_grant(fx: Fx) -> None:
@@ -305,15 +353,22 @@ def test_admin_administers_shared_grants_but_reads_only_with_own_grant(fx: Fx) -
     assert fx.privs("admin@example.com", fx.shared_sub) == EDITOR
     # ...administering is separate from holding: remove the admin's own grant, content closes.
     uid = fx.uid("admin@example.com")
-    assert c.delete(f"/api/v1/nodes/{fx.shared_root}/grants/{uid}", headers=h).status_code == 200
+    assert (
+        c.delete(f"/api/v1/nodes/{fx.shared_root}/grants/{uid}", headers=h).status_code
+        == 200
+    )
     assert fx.privs("admin@example.com", fx.shared_sub) == NONE
     assert c.get(f"/api/v1/nodes/{fx.shared_sub}").status_code == 403
-    assert c.get(f"/api/v1/nodes/{fx.shared_sub}/grants").status_code == 200  # still administers
+    assert (
+        c.get(f"/api/v1/nodes/{fx.shared_sub}/grants").status_code == 200
+    )  # still administers
     # Members do not administer shared grants, even with editor access.
     carol, ch = signed_in(fx.w, "carol@example.com")
     assert carol.get(f"/api/v1/nodes/{fx.shared_root}").status_code == 200
     r = carol.put(
-        f"/api/v1/nodes/{fx.shared_root}/grants/{uid}", json={"level": "editor"}, headers=ch
+        f"/api/v1/nodes/{fx.shared_root}/grants/{uid}",
+        json={"level": "editor"},
+        headers=ch,
     )
     assert r.status_code == 403
 
@@ -321,14 +376,19 @@ def test_admin_administers_shared_grants_but_reads_only_with_own_grant(fx: Fx) -
 def test_shared_tree_subfolder_grant_is_scoped(fx: Fx) -> None:
     c, h = fx.admin
     dave = fx.uid("dave@example.com")
-    assert c.delete(f"/api/v1/nodes/{fx.shared_root}/grants/{dave}", headers=h).status_code == 200
+    assert (
+        c.delete(f"/api/v1/nodes/{fx.shared_root}/grants/{dave}", headers=h).status_code
+        == 200
+    )
     assert fx.privs("dave@example.com", fx.shared_root) == NONE
     assert fx.privs("dave@example.com", fx.shared_sub) == NONE
     fx.grant(fx.admin, fx.shared_sub, "dave@example.com", "viewer")
     assert fx.privs("dave@example.com", fx.shared_sub) == VIEWER
     assert fx.privs("dave@example.com", fx.shared_root) == NONE
     dc, _ = signed_in(fx.w, "dave@example.com")
-    shared_entries = [e for e in dc.get("/api/v1/roots").json() if e["kind"] == "shared"]
+    shared_entries = [
+        e for e in dc.get("/api/v1/roots").json() if e["kind"] == "shared"
+    ]
     assert [e["node_id"] for e in shared_entries] == [str(fx.shared_sub)]
 
 
@@ -349,7 +409,9 @@ def test_revocation_applies_to_the_existing_session(fx: Fx) -> None:
     assert bob.get(f"/api/v1/nodes/{fx.other}").status_code == 403
     # A job-style actor (originating user id, no HTTP session) is re-evaluated the same way.
     assert fx.privs("bob@example.com", fx.other) == NONE
-    again = ac.delete(f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}", headers=ah)
+    again = ac.delete(
+        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}", headers=ah
+    )
     assert again.status_code == 404
 
 
@@ -360,7 +422,9 @@ def test_downgrade_takes_effect_immediately(fx: Fx) -> None:
     assert fx.privs("bob@example.com", fx.other) == VIEWER
     with fx.w.ctx.sessions() as db:
         count = db.scalar(
-            select(func.count()).select_from(NodeGrant).where(NodeGrant.node_id == fx.taxes)
+            select(func.count())
+            .select_from(NodeGrant)
+            .where(NodeGrant.node_id == fx.taxes)
         )
     assert count == 1  # upsert, not a second row
 
@@ -382,7 +446,9 @@ def test_disabled_grantee_loses_access_and_disabled_owner_keeps_grants(fx: Fx) -
     # Re-enable bob, then disable the owner: shared-out folders keep working (owner decision 4).
     assert (
         c.patch(
-            f"/api/v1/admin/users/{fx.uid('bob@example.com')}", json={"status": "active"}, headers=h
+            f"/api/v1/admin/users/{fx.uid('bob@example.com')}",
+            json={"status": "active"},
+            headers=h,
         ).status_code
         == 200
     )
@@ -406,21 +472,33 @@ def test_grant_validation_and_authorization(fx: Fx) -> None:
     base = f"/api/v1/nodes/{fx.taxes}/grants"
     me, bob = fx.uid("alice@example.com"), fx.uid("bob@example.com")
     assert (
-        ac.put(f"{base}/{me}", json={"level": "viewer"}, headers=ah).json()["detail"]["code"]
+        ac.put(f"{base}/{me}", json={"level": "viewer"}, headers=ah).json()["detail"][
+            "code"
+        ]
         == "CANNOT_GRANT_SELF"
     )
     assert (
-        ac.put(f"{base}/{uuid.uuid4()}", json={"level": "viewer"}, headers=ah).json()["detail"][
-            "code"
-        ]
+        ac.put(f"{base}/{uuid.uuid4()}", json={"level": "viewer"}, headers=ah).json()[
+            "detail"
+        ]["code"]
         == "UNKNOWN_GRANTEE"
     )
-    assert ac.put(f"{base}/{bob}", json={"level": "owner"}, headers=ah).status_code == 422
     assert (
-        ac.put(f"{base}/{bob}", json={"level": "viewer", "extra": 1}, headers=ah).status_code == 422
+        ac.put(f"{base}/{bob}", json={"level": "owner"}, headers=ah).status_code == 422
     )
-    assert ac.put(f"{base}/{bob}", json={"level": "viewer"}).status_code == 403  # no CSRF header
-    assert ac.put(f"{base}/not-a-uuid", json={"level": "viewer"}, headers=ah).status_code == 422
+    assert (
+        ac.put(
+            f"{base}/{bob}", json={"level": "viewer", "extra": 1}, headers=ah
+        ).status_code
+        == 422
+    )
+    assert (
+        ac.put(f"{base}/{bob}", json={"level": "viewer"}).status_code == 403
+    )  # no CSRF header
+    assert (
+        ac.put(f"{base}/not-a-uuid", json={"level": "viewer"}, headers=ah).status_code
+        == 422
+    )
     # Grants on files are not offered in the MVP.
     with fx.w.ctx.sessions() as db:
         taxes = db.get(Node, fx.taxes)
@@ -440,20 +518,30 @@ def test_grant_validation_and_authorization(fx: Fx) -> None:
             )
         )
         db.commit()
-    r = ac.put(f"/api/v1/nodes/{file_id}/grants/{bob}", json={"level": "viewer"}, headers=ah)
+    r = ac.put(
+        f"/api/v1/nodes/{file_id}/grants/{bob}", json={"level": "viewer"}, headers=ah
+    )
     assert r.json()["detail"]["code"] == "NOT_A_DIRECTORY"
     # An editor grantee cannot re-share; a stranger cannot grant on someone else's folder.
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     cc, ch = signed_in(fx.w, "carol@example.com")
-    assert cc.put(f"{base}/{bob}", json={"level": "viewer"}, headers=ch).status_code == 403
+    assert (
+        cc.put(f"{base}/{bob}", json={"level": "viewer"}, headers=ch).status_code == 403
+    )
     dc, dh = signed_in(fx.w, "dave@example.com")
-    assert dc.put(f"{base}/{bob}", json={"level": "viewer"}, headers=dh).status_code == 403
+    assert (
+        dc.put(f"{base}/{bob}", json={"level": "viewer"}, headers=dh).status_code == 403
+    )
     # Audit holds ids only.
     with fx.w.ctx.sessions() as db:
         rows = db.scalars(
-            select(AuthAudit).where(AuthAudit.action.in_(["grant.set", "access.denied"]))
+            select(AuthAudit).where(
+                AuthAudit.action.in_(["grant.set", "access.denied"])
+            )
         ).all()
-    assert rows and all("name" not in str(r.details) and "@" not in str(r.details) for r in rows)
+    assert rows and all(
+        "name" not in str(r.details) and "@" not in str(r.details) for r in rows
+    )
 
 
 def test_path_like_ids_are_rejected(fx: Fx) -> None:
@@ -472,19 +560,24 @@ def test_every_account_has_exactly_one_personal_root_and_default_grant(fx: Fx) -
         users = db.scalars(select(User)).all()
         assert len(users) == 7
         for u in users:
-            roots = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == u.id)).all()
+            roots = db.scalars(
+                select(StorageRoot).where(StorageRoot.owner_user_id == u.id)
+            ).all()
             assert len(roots) == 1
             assert roots[0].relative_dir == f"personal/{u.id}"
             assert roots[0].kind == "personal"
             level = db.scalars(
                 select(NodeGrant.level).where(
-                    NodeGrant.node_id == fx.shared_root, NodeGrant.grantee_user_id == u.id
+                    NodeGrant.node_id == fx.shared_root,
+                    NodeGrant.grantee_user_id == u.id,
                 )
             ).all()
             assert level == ["editor"]
         assert (
             db.scalar(
-                select(func.count()).select_from(StorageRoot).where(StorageRoot.kind == "shared")
+                select(func.count())
+                .select_from(StorageRoot)
+                .where(StorageRoot.kind == "shared")
             )
             == 1
         )
@@ -493,7 +586,11 @@ def test_every_account_has_exactly_one_personal_root_and_default_grant(fx: Fx) -
 def test_default_shared_access_is_configurable_for_future_accounts(fx: Fx) -> None:
     c, h = fx.admin
     for value, expect in (("viewer", ["viewer"]), ("none", [])):
-        r = c.put("/api/v1/admin/storage/shared-default-access", json={"value": value}, headers=h)
+        r = c.put(
+            "/api/v1/admin/storage/shared-default-access",
+            json={"value": value},
+            headers=h,
+        )
         assert r.status_code == 200
         fx.onboard(f"user-{value}@example.com", "member")
         with fx.w.ctx.sessions() as db:
@@ -509,7 +606,9 @@ def test_default_shared_access_is_configurable_for_future_accounts(fx: Fx) -> No
     assert fx.privs("bob@example.com", fx.shared_root) == EDITOR
     assert (
         c.put(
-            "/api/v1/admin/storage/shared-default-access", json={"value": "owner"}, headers=h
+            "/api/v1/admin/storage/shared-default-access",
+            json={"value": "owner"},
+            headers=h,
         ).status_code
         == 422
     )
@@ -517,16 +616,24 @@ def test_default_shared_access_is_configurable_for_future_accounts(fx: Fx) -> No
     assert bc.get("/api/v1/admin/storage").status_code == 403
     assert (
         bc.put(
-            "/api/v1/admin/storage/shared-default-access", json={"value": "editor"}, headers=bh
+            "/api/v1/admin/storage/shared-default-access",
+            json={"value": "editor"},
+            headers=bh,
         ).status_code
         == 403
     )
 
 
-def test_ensure_roots_creates_directories_and_marks_unusable_roots(fx: Fx, tmp_path: Path) -> None:
+def test_ensure_roots_creates_directories_and_marks_unusable_roots(
+    fx: Fx, tmp_path: Path
+) -> None:
     lib = fx.w.settings.library_path
     counts = ensure_roots(fx.w.ctx.sessions, fx.w.settings)
-    assert counts == {"active": 8, "missing": 0, "unsupported_mount": 0}  # 7 personal + shared
+    assert counts == {
+        "active": 8,
+        "missing": 0,
+        "unsupported_mount": 0,
+    }  # 7 personal + shared
     assert (lib / "shared").is_dir()
     alice_dir = lib / "personal" / str(fx.uid("alice@example.com"))
     assert alice_dir.is_dir() and alice_dir.stat().st_mode & 0o007 == 0
@@ -544,7 +651,9 @@ def test_ensure_roots_creates_directories_and_marks_unusable_roots(fx: Fx, tmp_p
     assert list(elsewhere.iterdir()) == []
     with fx.w.ctx.sessions() as db:
         bob_root = db.scalars(
-            select(StorageRoot).where(StorageRoot.owner_user_id == fx.uid("bob@example.com"))
+            select(StorageRoot).where(
+                StorageRoot.owner_user_id == fx.uid("bob@example.com")
+            )
         ).one()
         assert bob_root.status == "missing"
     # Once the link is removed the root recovers on the next start.
@@ -574,7 +683,10 @@ def test_node_path_resolves_from_lineage_and_refuses_corrupted_names(fx: Fx) -> 
         comps = nodes.path_components(db, node)
         assert comps == ["Taxes", "2026"]
         with open_dir(lib, root.relative_dir, comps) as fd:
-            assert os.fstat(fd).st_ino == (lib / root.relative_dir / "Taxes" / "2026").stat().st_ino
+            assert (
+                os.fstat(fd).st_ino
+                == (lib / root.relative_dir / "Taxes" / "2026").stat().st_ino
+            )
         taxes = db.get(Node, fx.taxes)
         assert taxes is not None
         taxes.name = ".."
@@ -593,9 +705,13 @@ def test_policy_denies_unknown_actor_and_missing_node(fx: Fx) -> None:
         assert engine.effective(db, Actor(uuid.uuid4()), node) == NONE
         assert engine.effective(db, Actor(fx.uid("alice@example.com")), None) == NONE
         with pytest.raises(engine.Forbidden):
-            engine.require(db, Actor(fx.uid("bob@example.com")), fx.taxes, Privilege.TRAVERSE)
+            engine.require(
+                db, Actor(fx.uid("bob@example.com")), fx.taxes, Privilege.TRAVERSE
+            )
         with pytest.raises(engine.Forbidden):
-            engine.require(db, Actor(fx.uid("alice@example.com")), uuid.uuid4(), Privilege.TRAVERSE)
+            engine.require(
+                db, Actor(fx.uid("alice@example.com")), uuid.uuid4(), Privilege.TRAVERSE
+            )
 
 
 def test_denials_are_audited_with_ids_only(fx: Fx) -> None:
@@ -603,7 +719,9 @@ def test_denials_are_audited_with_ids_only(fx: Fx) -> None:
     assert dave.get(f"/api/v1/nodes/{fx.private}").status_code == 403
     assert dave.get(f"/api/v1/nodes/{uuid.uuid4()}").status_code == 403
     with fx.w.ctx.sessions() as db:
-        rows = db.scalars(select(AuthAudit).where(AuthAudit.action == "access.denied")).all()
+        rows = db.scalars(
+            select(AuthAudit).where(AuthAudit.action == "access.denied")
+        ).all()
     assert len(rows) == 2
     assert all(set(r.details) == {"node_id", "required"} for r in rows)
     assert all(r.actor_user_id == fx.uid("dave@example.com") for r in rows)

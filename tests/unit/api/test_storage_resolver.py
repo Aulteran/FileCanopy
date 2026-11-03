@@ -68,7 +68,9 @@ def test_validate_name_accepts_and_normalizes() -> None:
     assert validate_name("Taxes 2026") == "Taxes 2026"
     assert validate_name("é") == "é"  # NFC
     assert validate_name("x" * 255) == "x" * 255
-    assert validate_name("..hidden") == "..hidden"  # only the exact reserved names are refused
+    assert (
+        validate_name("..hidden") == "..hidden"
+    )  # only the exact reserved names are refused
 
 
 def test_ensure_root_creates_private_directories(lib: Path) -> None:
@@ -80,14 +82,18 @@ def test_ensure_root_creates_private_directories(lib: Path) -> None:
 
 
 @pytest.mark.parametrize("name", BAD_NAMES)
-def test_component_traversal_refused_at_use_time(lib: Path, outside: Path, name: str) -> None:
+def test_component_traversal_refused_at_use_time(
+    lib: Path, outside: Path, name: str
+) -> None:
     ensure_root_dir(lib, "shared")
     with pytest.raises(StorageEscape), open_dir(lib, "shared", [name]):
         pass
     assert (outside / "secret.txt").read_text() == "not yours"
 
 
-@pytest.mark.parametrize("root_dir", ["", "shared//x", "/shared", "../shared", "shared/..", "."])
+@pytest.mark.parametrize(
+    "root_dir", ["", "shared//x", "/shared", "../shared", "shared/..", "."]
+)
 def test_bad_root_dir_refused(lib: Path, root_dir: str) -> None:
     with pytest.raises(StorageEscape), open_dir(lib, root_dir):
         pass
@@ -182,7 +188,9 @@ def test_missing_paths_report_missing(lib: Path, tmp_path: Path) -> None:
         pass
 
 
-def test_filesystem_boundary_is_refused(lib: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_filesystem_boundary_is_refused(
+    lib: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     ensure_root_dir(lib, "shared")
     (lib / "shared" / "a").mkdir()
     calls: list[int] = []
@@ -190,9 +198,22 @@ def test_filesystem_boundary_is_refused(lib: Path, monkeypatch: pytest.MonkeyPat
     def fstat(fd: int) -> os.stat_result:
         r = os.fstat(fd)
         calls.append(fd)
-        dev = r.st_dev + (len(calls) - 1)  # every directory below the root "is" a new device
+        dev = r.st_dev + (
+            len(calls) - 1
+        )  # every directory below the root "is" a new device
         return os.stat_result(
-            (r.st_mode, r.st_ino, dev, r.st_nlink, r.st_uid, r.st_gid, r.st_size, 0, 0, 0)
+            (
+                r.st_mode,
+                r.st_ino,
+                dev,
+                r.st_nlink,
+                r.st_uid,
+                r.st_gid,
+                r.st_size,
+                0,
+                0,
+                0,
+            )
         )
 
     proxy: Any = types.SimpleNamespace(**{k: getattr(os, k) for k in dir(os)})
@@ -202,7 +223,9 @@ def test_filesystem_boundary_is_refused(lib: Path, monkeypatch: pytest.MonkeyPat
         pass
 
 
-def test_corrupted_database_name_cannot_become_traversal(lib: Path, outside: Path) -> None:
+def test_corrupted_database_name_cannot_become_traversal(
+    lib: Path, outside: Path
+) -> None:
     # A node row whose name was altered to '..' must be refused by the resolver itself.
     ensure_root_dir(lib, "personal/u")
     with pytest.raises(StorageEscape), open_dir(lib, "personal/u", ["..", "outside"]):

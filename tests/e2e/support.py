@@ -24,7 +24,9 @@ class World:
     alice_disk: Path
 
 
-def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ctx: Any) -> Page:
+def sign_in(
+    browser: Browser, w: World, email: str, *, setup: bool = False, **ctx: Any
+) -> Page:
     """Signs in. Someone whose setup window is open first gets the full-page setup screen. With
     `setup=True` that screen is left on the page for the test to use; otherwise "Decide later" is
     pressed for every such screen (the window stays open) so the test lands in the browser."""

@@ -46,7 +46,9 @@ def test_first_run_setup_and_sign_in(stack: Stack, browser: Browser) -> None:
     page.get_by_label("Email").fill("admin@example.com")
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Create account").click()
-    expect(page.get_by_role("alert").filter(has_text="setup token is not correct")).to_be_visible()
+    expect(
+        page.get_by_role("alert").filter(has_text="setup token is not correct")
+    ).to_be_visible()
 
     page.get_by_label("Setup token").fill(token)
     page.get_by_role("button", name="Create account").click()
@@ -63,11 +65,15 @@ def test_first_run_setup_and_sign_in(stack: Stack, browser: Browser) -> None:
     # full-page screen before the browser
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
     page.get_by_role("button", name="Decide later").click()
-    expect(page.get_by_role("heading", level=1, name="Set up Shared files")).to_be_visible()
+    expect(
+        page.get_by_role("heading", level=1, name="Set up Shared files")
+    ).to_be_visible()
     page.get_by_role("button", name="Decide later").click()
     nav = page.get_by_role("navigation", name="Locations")
     expect(nav.get_by_role("link")).to_have_count(2)  # My files and the shared tree
-    expect(nav.get_by_role("link", name="My files")).to_have_attribute("aria-current", "page")
+    expect(nav.get_by_role("link", name="My files")).to_have_attribute(
+        "aria-current", "page"
+    )
     page.reload()  # the session survives a reload
     expect(nav).to_be_visible()
     page.get_by_role("button", name="Sign out").click()
@@ -89,7 +95,9 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     dialog = page.get_by_role("dialog", name="New folder")
     dialog.get_by_label("Folder name").fill("Docs")
     dialog.get_by_role("button", name="Create").click()
-    expect(dialog.get_by_role("alert")).to_have_text("An item with that name already exists here.")
+    expect(dialog.get_by_role("alert")).to_have_text(
+        "An item with that name already exists here."
+    )
     dialog.get_by_role("button", name="Cancel").click()
 
     open_folder(page, "Docs")
@@ -136,7 +144,9 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     dialog.get_by_role("button", name="Archive").click()
     expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
-    expect(dialog.get_by_role("alert")).to_have_text("An item with that name already exists here.")
+    expect(dialog.get_by_role("alert")).to_have_text(
+        "An item with that name already exists here."
+    )
     dialog.get_by_role("button", name="Cancel").click()
     assert (disk / "Docs" / "final.bin").exists()
     page.close()
@@ -160,7 +170,9 @@ def test_move_between_folders(browser: Browser, world: World) -> None:
     crumbs(page).get_by_role("link", name="My files").click()
     open_folder(page, "Archive")
     upload(page, "final.bin", b"other")
-    expect(page.get_by_role("list", name="Uploads").get_by_text("already exists")).to_be_visible()
+    expect(
+        page.get_by_role("list", name="Uploads").get_by_text("already exists")
+    ).to_be_visible()
     assert (disk / "Archive" / "final.bin").stat().st_size == 3 * 1024 * 1024
     page.close()
 
@@ -202,7 +214,9 @@ def test_keyboard_operation(browser: Browser, world: World) -> None:
 
 def test_phone_sized_viewport(browser: Browser, world: World) -> None:
     w = world
-    page = sign_in(browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True)
+    page = sign_in(
+        browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True
+    )
     nav = page.get_by_role("navigation", name="Locations")
     expect(nav.get_by_role("link", name="My files")).to_be_visible()
     expect(page.get_by_role("button", name="Upload here")).to_be_visible()
@@ -242,10 +256,14 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
     kids = w.alice.call("GET", f"/api/v1/nodes/{w.alice_root}/children")[1]["items"]
     docs = next(c["id"] for c in kids if c["name"] == "Docs")
     bob_id = user_id(w.stack, w.bob_mail)
-    put = w.alice.call("PUT", f"/api/v1/nodes/{docs}/grants/{bob_id}", {"level": "viewer"})
+    put = w.alice.call(
+        "PUT", f"/api/v1/nodes/{docs}/grants/{bob_id}", {"level": "viewer"}
+    )
     assert put[0] == 200
     bob.goto(w.base + "/")
-    link = bob.get_by_role("navigation", name="Locations").get_by_role("link", name="Docs (from")
+    link = bob.get_by_role("navigation", name="Locations").get_by_role(
+        "link", name="Docs (from"
+    )
     expect(link).to_be_visible()
     link.click()
     expect(bob.get_by_text("Read-only")).to_be_visible()
@@ -262,7 +280,10 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
         for c in w.alice.call("GET", f"/api/v1/nodes/{docs}/children")[1]["items"]
         if c["name"] == "final.bin"
     )
-    assert api_status(bob, "POST", f"/api/v1/nodes/{docs}/folders", {"name": "nope"}) == 403
+    assert (
+        api_status(bob, "POST", f"/api/v1/nodes/{docs}/folders", {"name": "nope"})
+        == 403
+    )
     rename = {"name": "x", "expected_revision": 1}
     assert api_status(bob, "POST", f"/api/v1/nodes/{file_id}/rename", rename) == 403
     assert api_status(bob, "GET", f"/api/v1/nodes/{file_id}/content") == 200

@@ -23,7 +23,14 @@ from test_acl import Fx
 from test_auth import World
 from test_files import Api, code, disk, nid
 
-from app.db.models import FileEvent, FileOperation, Node, NodeGrant, ScanRun, StorageRoot
+from app.db.models import (
+    FileEvent,
+    FileOperation,
+    Node,
+    NodeGrant,
+    ScanRun,
+    StorageRoot,
+)
 from app.storage import reconcile, roots
 from app.storage.reconcile import PassResult
 from app.storage.service import ReconcilerService
@@ -60,7 +67,9 @@ def root_id(fx: Fx, node_id: uuid.UUID) -> uuid.UUID:
 
 def scan(fx: Fx, anchor: uuid.UUID | None = None, **kw: Any) -> PassResult:
     """One pass over the root that contains `anchor` (alice's personal root by default)."""
-    result = reconciler(fx).run_root(root_id(fx, anchor or fx.alice_root), "manual", **kw)
+    result = reconciler(fx).run_root(
+        root_id(fx, anchor or fx.alice_root), "manual", **kw
+    )
     assert result.outcome != "skipped", result
     return result
 
@@ -73,7 +82,9 @@ def row(fx: Fx, node_id: uuid.UUID) -> Node:
         return node
 
 
-def child(fx: Fx, parent: uuid.UUID, name: str, *, status: str | None = None) -> Node | None:
+def child(
+    fx: Fx, parent: uuid.UUID, name: str, *, status: str | None = None
+) -> Node | None:
     with fx.w.ctx.sessions() as db:
         query = select(Node).where(Node.parent_id == parent, Node.name == name)
         if status is not None:
@@ -126,7 +137,11 @@ def test_first_scan_fills_fingerprints_silently(fx: Fx) -> None:
     result = scan(fx)
     assert result.outcome == "ok"
     after = row(fx, fx.taxes)
-    assert after.fs_ino is not None and after.fs_dev is not None and after.mtime_ns is not None
+    assert (
+        after.fs_ino is not None
+        and after.fs_dev is not None
+        and after.mtime_ns is not None
+    )
     assert after.revision == before.revision
     assert all_events(fx) == []
 
@@ -139,8 +154,12 @@ def test_app_writes_are_not_external_changes(fx: Fx, alice: Api) -> None:
     settle_events = [(e.action, e.actor_kind) for e in all_events(fx)]
     result = scan(fx)
     assert result.outcome == "ok"
-    assert result.counts.get("modified", 0) == 0 and result.counts.get("created", 0) == 0
-    assert [(e.action, e.actor_kind) for e in all_events(fx)] == settle_events  # nothing new
+    assert (
+        result.counts.get("modified", 0) == 0 and result.counts.get("created", 0) == 0
+    )
+    assert [
+        (e.action, e.actor_kind) for e in all_events(fx)
+    ] == settle_events  # nothing new
     created = events(fx, f)
     assert [e.action for e in created] == ["uploaded"]
     assert created[0].actor_kind == "user" and created[0].actor_user_id == alice.uid
@@ -165,7 +184,9 @@ def test_external_file_is_created_by_external_filesystem(fx: Fx, alice: Api) -> 
     assert alice.download(node.id).content == b"hello"  # readable like any other file
 
 
-def test_external_modification_bumps_revision_and_clears_hash(fx: Fx, alice: Api) -> None:
+def test_external_modification_bumps_revision_and_clears_hash(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.taxes, "doc.txt", b"one"))
     before = row(fx, f)
     assert before.content_hash is not None
@@ -254,7 +275,9 @@ def test_move_into_a_new_folder_keeps_file_identity(fx: Fx, alice: Api) -> None:
     scan(fx)
     node = row(fx, f)
     archive = child(fx, fx.taxes, "Archive")
-    assert archive is not None and node.parent_id == archive.id and node.status == "active"
+    assert (
+        archive is not None and node.parent_id == archive.id and node.status == "active"
+    )
 
 
 def test_copy_and_delete_is_an_uncertain_inferred_move(fx: Fx, alice: Api) -> None:
@@ -306,7 +329,10 @@ def test_vanished_file_is_missing_and_can_reappear(fx: Fx, alice: Api) -> None:
     scan(fx)
     assert row(fx, f).status == "missing"
     assert actions(fx, f) == ["uploaded", "missing"]
-    assert alice.download(f).status_code == 409 and code(alice.download(f)) == "CONTENT_MISSING"
+    assert (
+        alice.download(f).status_code == 409
+        and code(alice.download(f)) == "CONTENT_MISSING"
+    )
     items = {i["name"]: i for i in alice.children(fx.taxes)}
     assert items["gone.txt"]["status"] == "missing"  # shown, not hidden
     path.write_bytes(saved)  # restored from a backup
@@ -326,7 +352,9 @@ def test_vanished_folder_marks_the_subtree_missing(fx: Fx, alice: Api) -> None:
     assert event.details["affected"] == 2
 
 
-def test_missing_file_found_elsewhere_by_a_later_scan_links_again(fx: Fx, alice: Api) -> None:
+def test_missing_file_found_elsewhere_by_a_later_scan_links_again(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.taxes, "wanderer.txt", b"found again"))
     stash = fx.w.settings.library_path.parent / "stash.tmp"  # outside every root
     shutil.move(disk(fx, f), stash)
@@ -399,31 +427,43 @@ def test_mass_disappearance_suspends_the_root(fx: Fx, alice: Api) -> None:
     assert alice.upload(fx.taxes, "still-works.txt", b"ok").status_code == 201
 
 
-def test_suspended_root_is_resolved_by_its_owner_not_the_admin(fx: Fx, alice: Api) -> None:
+def test_suspended_root_is_resolved_by_its_owner_not_the_admin(
+    fx: Fx, alice: Api
+) -> None:
     base = make_tree(fx, fx.taxes)
     scan(fx)
     shutil.rmtree(base)
     assert scan(fx).outcome == "suspended"
     admin, bob = Api(fx, "admin"), Api(fx, "bob")
     body = {"action": "apply"}
-    assert admin.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 403
-    assert bob.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 403
+    assert (
+        admin.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 403
+    )
+    assert (
+        bob.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 403
+    )
     r = alice.post(f"/nodes/{fx.taxes}/scan/resolve", json=body)
     assert (r.status_code, code(r)) == (422, "NOT_A_ROOT")
     assert (
-        alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json={"action": "keep"}).status_code
+        alice.post(
+            f"/nodes/{fx.alice_root}/scan/resolve", json={"action": "keep"}
+        ).status_code
         == 200
     )
     with fx.w.ctx.sessions() as db:
         root = db.get(StorageRoot, root_id(fx, fx.alice_root))
         assert root is not None and root.scan_state == "suspended"
-    assert alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 200
+    assert (
+        alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body).status_code == 200
+    )
     service: ReconcilerService = fx.w.app.state.reconciler
     assert service.process_requests() == 1  # the forced pass
     with fx.w.ctx.sessions() as db:
         root = db.get(StorageRoot, root_id(fx, fx.alice_root))
         assert root is not None and root.scan_state is None
-        assert len(list(db.scalars(select(Node).where(Node.status == "missing")))) >= 120
+        assert (
+            len(list(db.scalars(select(Node).where(Node.status == "missing")))) >= 120
+        )
     r = alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=body)
     assert (r.status_code, code(r)) == (409, "NOT_SUSPENDED")
 
@@ -435,13 +475,21 @@ def test_shared_root_suspension_is_an_admin_decision(fx: Fx) -> None:
     assert scan(fx, fx.shared_root).outcome == "suspended"
     alice = Api(fx, "alice")
     body = {"action": "apply"}
-    assert alice.post(f"/nodes/{fx.shared_root}/scan/resolve", json=body).status_code == 403
     assert (
-        Api(fx, "admin").post(f"/nodes/{fx.shared_root}/scan/resolve", json=body).status_code == 200
+        alice.post(f"/nodes/{fx.shared_root}/scan/resolve", json=body).status_code
+        == 403
+    )
+    assert (
+        Api(fx, "admin")
+        .post(f"/nodes/{fx.shared_root}/scan/resolve", json=body)
+        .status_code
+        == 200
     )
 
 
-def test_admin_overview_shows_only_a_status_code_for_a_suspended_personal_root(fx: Fx) -> None:
+def test_admin_overview_shows_only_a_status_code_for_a_suspended_personal_root(
+    fx: Fx,
+) -> None:
     base = make_tree(fx, fx.taxes)
     scan(fx)
     shutil.rmtree(base)
@@ -457,7 +505,9 @@ def test_admin_overview_shows_only_a_status_code_for_a_suspended_personal_root(f
 
 
 def test_library_relocation_with_preserved_mtimes_is_silent(fx: Fx, alice: Api) -> None:
-    ids = [nid(alice.upload(fx.taxes, f"r{i}.txt", f"data {i}".encode())) for i in range(5)]
+    ids = [
+        nid(alice.upload(fx.taxes, f"r{i}.txt", f"data {i}".encode())) for i in range(5)
+    ]
     base = make_tree(fx, fx.private)
     scan(fx)
     n_events = len(all_events(fx))
@@ -470,18 +520,26 @@ def test_library_relocation_with_preserved_mtimes_is_silent(fx: Fx, alice: Api) 
     old_inodes = {i: row(fx, i).fs_ino for i in ids}
     result = scan(fx)
     assert result.outcome == "ok"
-    assert len(all_events(fx)) == n_events  # nothing recorded: names matched, identity kept
+    assert (
+        len(all_events(fx)) == n_events
+    )  # nothing recorded: names matched, identity kept
     assert all(row(fx, i).status == "active" for i in ids)
-    assert {i: row(fx, i).fs_ino for i in ids} != old_inodes  # fingerprints were refreshed
+    assert {
+        i: row(fx, i).fs_ino for i in ids
+    } != old_inodes  # fingerprints were refreshed
 
 
-def test_library_relocation_without_mtimes_asks_before_recording(fx: Fx, alice: Api) -> None:
+def test_library_relocation_without_mtimes_asks_before_recording(
+    fx: Fx, alice: Api
+) -> None:
     make_tree(fx, fx.private)
     scan(fx)
     n_events = len(all_events(fx))
     root_dir = disk(fx, fx.alice_root)
     copy = root_dir.with_name("relocated")
-    shutil.copytree(root_dir, copy, copy_function=shutil.copyfile)  # fresh mtimes everywhere
+    shutil.copytree(
+        root_dir, copy, copy_function=shutil.copyfile
+    )  # fresh mtimes everywhere
     shutil.rmtree(root_dir)
     copy.rename(root_dir)
     result = scan(fx)
@@ -494,7 +552,9 @@ def test_restart_scan_picks_up_changes_made_while_down(fx: Fx, alice: Api) -> No
     scan(fx)
     disk(fx, f).write_bytes(b"v2 changed while the app was down")
     (disk(fx, fx.taxes) / "added-while-down.txt").write_bytes(b"new")
-    fresh = reconcile.Reconciler(fx.w.ctx.sessions, fx.w.settings)  # a new process, no memory
+    fresh = reconcile.Reconciler(
+        fx.w.ctx.sessions, fx.w.settings
+    )  # a new process, no memory
     result = fresh.run_root(root_id(fx, fx.alice_root), "startup")
     assert result.outcome == "ok"
     assert row(fx, f).revision == 2
@@ -541,7 +601,9 @@ def test_planned_operation_defers_changes_in_its_folder(fx: Fx) -> None:
         )
         db.commit()
     result = scan(fx)
-    assert child(fx, fx.taxes, "mid-upload.txt") is None and result.counts["deferred"] == 1
+    assert (
+        child(fx, fx.taxes, "mid-upload.txt") is None and result.counts["deferred"] == 1
+    )
     with now() as db:
         for op in db.scalars(select(FileOperation)):
             op.status = "failed"
@@ -635,7 +697,9 @@ def test_nested_mounted_drive_is_listed_unsupported_and_never_entered(
     node = uuid.UUID(items["usb-drive"]["id"])
     assert alice.get(f"/nodes/{node}/children").status_code in (409, 422)
     with fx.w.ctx.sessions() as db:
-        assert not list(db.scalars(select(Node).where(Node.name == "secret-on-other-drive.txt")))
+        assert not list(
+            db.scalars(select(Node).where(Node.name == "secret-on-other-drive.txt"))
+        )
     assert alice.mkdir(node, "x").status_code in (409, 422)
 
 
@@ -647,7 +711,9 @@ def test_root_on_another_device_is_refused(
         rel = db.get(StorageRoot, root).relative_dir  # type: ignore[union-attr]
     real = roots.root_device
     monkeypatch.setattr(
-        roots, "root_device", lambda lib, r: real(lib, r) + 1 if r == rel else real(lib, r)
+        roots,
+        "root_device",
+        lambda lib, r: real(lib, r) + 1 if r == rel else real(lib, r),
     )
     counts = roots.ensure_roots(fx.w.ctx.sessions, fx.w.settings)
     assert counts["unsupported_mount"] == 1
@@ -655,8 +721,12 @@ def test_root_on_another_device_is_refused(
         assert db.get(StorageRoot, root).status == "unsupported_mount"  # type: ignore[union-attr]
     assert alice.get(f"/nodes/{fx.taxes}/children").status_code == 403  # unavailable
     assert alice.upload(fx.taxes, "nope.txt", b"x").status_code == 403
-    assert fx.alice_root not in [uuid.UUID(r["node_id"]) for r in alice.get("/roots").json()]
-    assert reconciler(fx).run_root(root, "periodic").outcome == "skipped"  # never scanned
+    assert fx.alice_root not in [
+        uuid.UUID(r["node_id"]) for r in alice.get("/roots").json()
+    ]
+    assert (
+        reconciler(fx).run_root(root, "periodic").outcome == "skipped"
+    )  # never scanned
     assert not (disk(fx, fx.taxes) / "nope.txt").exists()  # never written
     statuses = Api(fx, "admin").get("/admin/storage").json()["personal_roots"]
     assert "unsupported_mount" in [p["status"] for p in statuses]
@@ -675,15 +745,22 @@ def test_case_collision_tree_keeps_both_and_warns(fx: Fx, alice: Api) -> None:
     (base / "Unique.pdf").write_bytes(b"u")
     scan(fx)
     items = {i["name"]: i for i in alice.children(fx.taxes)}
-    assert items["Report.pdf"]["name_collision"] and items["report.pdf"]["name_collision"]
+    assert (
+        items["Report.pdf"]["name_collision"] and items["report.pdf"]["name_collision"]
+    )
     assert not items["Unique.pdf"]["name_collision"]
     assert alice.download(uuid.UUID(items["Report.pdf"]["id"])).content == b"upper"
     assert alice.download(uuid.UUID(items["report.pdf"]["id"])).content == b"lower"
     scan(fx)  # never merged on later passes
-    assert len([i for i in alice.children(fx.taxes) if i["name"].lower() == "report.pdf"]) == 2
+    assert (
+        len([i for i in alice.children(fx.taxes) if i["name"].lower() == "report.pdf"])
+        == 2
+    )
 
 
-def test_app_refuses_to_create_a_name_that_differs_only_by_case(fx: Fx, alice: Api) -> None:
+def test_app_refuses_to_create_a_name_that_differs_only_by_case(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.taxes, "Report.pdf", b"one"))
     r = alice.upload(fx.taxes, "REPORT.PDF", b"two")
     assert (r.status_code, code(r)) == (409, "NAME_CONFLICT")
@@ -720,7 +797,11 @@ def test_undecodable_name_is_listed_stably_and_unsupported(fx: Fx, alice: Api) -
     os.close(fd)
     scan(fx)
     scan(fx)
-    items = [i for i in alice.children(fx.taxes) if i["unsupported_reason"] == "undecodable_name"]
+    items = [
+        i
+        for i in alice.children(fx.taxes)
+        if i["unsupported_reason"] == "undecodable_name"
+    ]
     assert len(items) == 1 and "�" in items[0]["name"] and items[0]["kind"] == "other"
     node = row(fx, uuid.UUID(items[0]["id"]))
     assert node.raw_name_digest is not None and len(node.raw_name_digest) == 64
@@ -730,7 +811,9 @@ def test_undecodable_name_is_listed_stably_and_unsupported(fx: Fx, alice: Api) -
 def test_control_character_name_is_unsupported(fx: Fx, alice: Api) -> None:
     (disk(fx, fx.taxes) / "line\nbreak.txt").write_bytes(b"x")
     scan(fx)
-    items = [i for i in alice.children(fx.taxes) if i["unsupported_reason"] == "invalid_name"]
+    items = [
+        i for i in alice.children(fx.taxes) if i["unsupported_reason"] == "invalid_name"
+    ]
     assert len(items) == 1
 
 
@@ -752,7 +835,9 @@ def test_network_filesystem_is_detected_from_mountinfo(tmp_path: Path) -> None:
     assert roots.filesystem_type(Path("/app data/x"), info) == "ext4"
     assert roots.filesystem_type(Path("/elsewhere"), info) == "overlay"
     assert roots.is_network_fs("nfs4", "auto") and roots.is_network_fs("cifs", "auto")
-    assert not roots.is_network_fs("ext4", "auto") and not roots.is_network_fs("overlay", "auto")
+    assert not roots.is_network_fs("ext4", "auto") and not roots.is_network_fs(
+        "overlay", "auto"
+    )
     assert roots.is_network_fs("ext4", "yes") and not roots.is_network_fs("nfs4", "no")
 
 
@@ -781,7 +866,9 @@ def test_periodic_rescan_finds_changes_without_any_watcher(
     make_world: Callable[..., World],
 ) -> None:
     """Simulates a network share: no events ever arrive, the interval pass is the guarantee."""
-    fx = Fx(make_world(network_fs="yes", watcher_enabled=False, rescan_interval_seconds=1))
+    fx = Fx(
+        make_world(network_fs="yes", watcher_enabled=False, rescan_interval_seconds=1)
+    )
     assert fx.w.app.state.reconciler.watcher is None
     scan(fx)
     (disk(fx, fx.taxes) / "arrives-silently.txt").write_bytes(b"x")
@@ -789,7 +876,10 @@ def test_periodic_rescan_finds_changes_without_any_watcher(
     service.start()
     try:
         deadline = time.monotonic() + 15
-        while time.monotonic() < deadline and child(fx, fx.taxes, "arrives-silently.txt") is None:
+        while (
+            time.monotonic() < deadline
+            and child(fx, fx.taxes, "arrives-silently.txt") is None
+        ):
             time.sleep(0.2)
     finally:
         service.stop()
@@ -806,7 +896,9 @@ def test_inotify_watcher_reports_changed_directories(fx: Fx) -> None:
         rid = root_id(fx, fx.alice_root)
         with fx.w.ctx.sessions() as db:
             rel = db.get(StorageRoot, rid).relative_dir  # type: ignore[union-attr]
-        assert watcher.sync(fx.w.settings.library_path, rid, rel, [(fx.taxes, ["Taxes"])])
+        assert watcher.sync(
+            fx.w.settings.library_path, rid, rel, [(fx.taxes, ["Taxes"])]
+        )
         assert watcher.watching(rid)
         (disk(fx, fx.taxes) / "event.txt").write_bytes(b"x")
         deadline = time.monotonic() + 5
@@ -836,7 +928,9 @@ def test_hints_are_debounced_then_rescan_the_directory(fx: Fx) -> None:
 # ------------------------------------------------------------------ hashing
 
 
-def test_background_hasher_fills_hashes_and_skips_changed_files(fx: Fx, alice: Api) -> None:
+def test_background_hasher_fills_hashes_and_skips_changed_files(
+    fx: Fx, alice: Api
+) -> None:
     fx.w.settings.hash_rate_bytes = 10**9
     (disk(fx, fx.taxes) / "plain.txt").write_bytes(b"hash me")
     (disk(fx, fx.taxes) / "racy.txt").write_bytes(b"will change")
@@ -870,7 +964,9 @@ def test_rescan_needs_list_and_is_rate_limited(fx: Fx, alice: Api) -> None:
     assert bob.post(f"/nodes/{fx.taxes}/rescan").status_code == 202
     again = alice.post(f"/nodes/{fx.taxes}/rescan")
     assert (again.status_code, code(again)) == (429, "RESCAN_TOO_SOON")
-    other = alice.post(f"/nodes/{fx.private}/rescan")  # a different folder is not limited
+    other = alice.post(
+        f"/nodes/{fx.private}/rescan"
+    )  # a different folder is not limited
     assert other.status_code == 202
     f = nid(alice.upload(fx.taxes, "f.txt", b"x"))
     assert alice.post(f"/nodes/{f}/rescan").status_code == 422
@@ -936,7 +1032,9 @@ def test_reused_inode_does_not_hand_a_missing_folders_grants_to_a_new_folder(
     payroll = disk(fx, fx.taxes) / "Payroll"
     payroll.mkdir()
     (payroll / "salaries.txt").write_bytes(b"unrelated")
-    set_inode(fx, old, payroll.stat().st_ino)  # the kernel reused the freed inode number
+    set_inode(
+        fx, old, payroll.stat().st_ino
+    )  # the kernel reused the freed inode number
     scan(fx)
     assert row(fx, old).status == "missing"  # not linked to the unrelated folder
     new = child(fx, fx.taxes, "Payroll")
@@ -969,7 +1067,9 @@ def test_tiny_identical_files_are_never_linked_by_hash(fx: Fx, alice: Api) -> No
     assert row(fx, f).status == "missing"
 
 
-def test_file_and_folder_trading_a_name_do_not_stall_the_root(fx: Fx, alice: Api) -> None:
+def test_file_and_folder_trading_a_name_do_not_stall_the_root(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.taxes, "swap", b"i was a file"))
     path = disk(fx, f)
     saved = path.read_bytes()
@@ -1002,14 +1102,18 @@ def test_a_crashing_pass_never_leaves_a_running_scan_run(
         assert "running" not in runs and "failed" in runs
 
 
-def test_dismissing_grants_needs_a_grant_administrator_and_audits_them(fx: Fx, alice: Api) -> None:
+def test_dismissing_grants_needs_a_grant_administrator_and_audits_them(
+    fx: Fx, alice: Api
+) -> None:
     sub = nid(alice.mkdir(fx.taxes, "Granted"))
     fx.grant(fx.alice, fx.taxes, "carol@example.com", "editor")
     fx.grant(fx.alice, sub, "bob@example.com", "viewer")
     shutil.rmtree(disk(fx, sub))
     scan(fx)
     carol = Api(fx, "carol")
-    assert carol.post(f"/nodes/{sub}/dismiss").status_code == 403  # editors cannot drop grants
+    assert (
+        carol.post(f"/nodes/{sub}/dismiss").status_code == 403
+    )  # editors cannot drop grants
     assert row(fx, sub).status == "missing"
     assert alice.post(f"/nodes/{sub}/dismiss").status_code == 200
     from app.db.models import AuthAudit
@@ -1031,13 +1135,17 @@ def test_hashing_skips_a_suspended_root(fx: Fx) -> None:
     assert reconciler(fx).hash_pending(root_id(fx, fx.alice_root)) == 0
 
 
-def test_device_is_rechecked_on_every_pass(fx: Fx, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_device_is_rechecked_on_every_pass(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
     rid = root_id(fx, fx.alice_root)
     with fx.w.ctx.sessions() as db:
         rel = db.get(StorageRoot, rid).relative_dir  # type: ignore[union-attr]
     real = roots.root_device
     monkeypatch.setattr(
-        roots, "root_device", lambda lib, r: real(lib, r) + 1 if r == rel else real(lib, r)
+        roots,
+        "root_device",
+        lambda lib, r: real(lib, r) + 1 if r == rel else real(lib, r),
     )
     assert reconciler(fx).run_root(rid, "periodic").outcome == "skipped"
     with fx.w.ctx.sessions() as db:
@@ -1061,7 +1169,9 @@ def test_suspended_root_reports_what_it_is_waiting_on(fx: Fx, alice: Api) -> Non
     assert (r.status_code, code(r)) == (422, "NOT_A_ROOT")
 
 
-def test_apply_is_refused_when_the_plan_grew_since_it_was_reviewed(fx: Fx, alice: Api) -> None:
+def test_apply_is_refused_when_the_plan_grew_since_it_was_reviewed(
+    fx: Fx, alice: Api
+) -> None:
     first = make_tree(fx, fx.taxes, 120)
     second = make_tree(fx, fx.private, 100)
     scan(fx)
@@ -1070,19 +1180,31 @@ def test_apply_is_refused_when_the_plan_grew_since_it_was_reviewed(fx: Fx, alice
     reviewed = alice.get(f"/nodes/{fx.alice_root}/scan").json()["counts"]["affected"]
     shutil.rmtree(second)  # more disappears while the owner is looking
     resolve = {"action": "apply"}
-    assert alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code == 200
+    assert (
+        alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code
+        == 200
+    )
     service: ReconcilerService = fx.w.app.state.reconciler
     fx.w.advance(seconds=5)  # distinct run timestamps, as in real life
     service.process_requests()
     again = alice.get(f"/nodes/{fx.alice_root}/scan").json()
-    assert again["scan_state"] == "suspended" and again["reason"] == "CHANGED_SINCE_REVIEW"
+    assert (
+        again["scan_state"] == "suspended" and again["reason"] == "CHANGED_SINCE_REVIEW"
+    )
     assert again["counts"]["affected"] > reviewed
     with fx.w.ctx.sessions() as db:
-        assert not list(db.scalars(select(Node).where(Node.status == "missing")))  # nothing applied
+        assert not list(
+            db.scalars(select(Node).where(Node.status == "missing"))
+        )  # nothing applied
     # having seen the new numbers, applying again goes through
-    assert alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code == 200
+    assert (
+        alice.post(f"/nodes/{fx.alice_root}/scan/resolve", json=resolve).status_code
+        == 200
+    )
     fx.w.advance(seconds=5)
     service.process_requests()
     assert alice.get(f"/nodes/{fx.alice_root}/scan").json()["scan_state"] is None
     with fx.w.ctx.sessions() as db:
-        assert len(list(db.scalars(select(Node).where(Node.status == "missing")))) >= 220
+        assert (
+            len(list(db.scalars(select(Node).where(Node.status == "missing")))) >= 220
+        )

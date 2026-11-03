@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.ai import organize
 from app.auth import clock
 from app.auth.deps import (
     Principal,
@@ -300,6 +301,8 @@ def set_label(
             old=current,
             level=wanted,
         )
+        if privacy.RANK[wanted] > privacy.RANK[current]:
+            organize.scrub_under(db, node)  # same transaction; M16 follow-up
         db.commit()
     return describe(db, Actor(principal.user.id, session_id=principal.session.id), node)
 

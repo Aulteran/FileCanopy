@@ -104,6 +104,17 @@ def _start(
     url = ctx.oidc.authorization_url(state, nonce, challenge, reauth=purpose == "reauth")
     now = clock.utcnow()
     db.execute(delete(OidcLogin).where(OidcLogin.expires_at < now - timedelta(hours=1)))
+    # M23: a spent or expired round trip keeps no secret (PKCE verifier, nonce, the invited
+    # person's password hash) while it waits for the delete above; the columns are NOT NULL, so
+    # they are blanked rather than nulled.
+    db.execute(
+        update(OidcLogin)
+        .where(
+            (OidcLogin.used_at.is_not(None)) | (OidcLogin.expires_at < now),
+            OidcLogin.code_verifier != "",
+        )
+        .values(code_verifier="", nonce="", password_hash=None, new_name=None)
+    )
     db.add(
         OidcLogin(
             state_hash=digest(state),

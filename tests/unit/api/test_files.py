@@ -63,7 +63,10 @@ class Api:
         **kw: Any,
     ) -> Any:
         return self.post(
-            f"/nodes/{parent}/files", params={"name": name, "on_conflict": mode}, content=data, **kw
+            f"/nodes/{parent}/files",
+            params={"name": name, "on_conflict": mode},
+            content=data,
+            **kw,
         )
 
     def download(self, node: uuid.UUID) -> Any:
@@ -85,7 +88,9 @@ class Api:
     def copy(self, node: uuid.UUID, target: uuid.UUID, **extra: Any) -> Any:
         key = extra.pop("key", None)
         return self.post(
-            f"/nodes/{node}/copy", json={"target_parent_id": str(target), **extra}, key=key
+            f"/nodes/{node}/copy",
+            json={"target_parent_id": str(target), **extra},
+            key=key,
         )
 
     def children(self, node: uuid.UUID, **params: Any) -> list[dict[str, Any]]:
@@ -116,7 +121,11 @@ def disk(fx: Fx, node_id: uuid.UUID) -> Path:
         assert node is not None
         root = db.get(StorageRoot, node.root_id)
         assert root is not None
-        return fx.w.settings.library_path / root.relative_dir / Path(*path_components(db, node))
+        return (
+            fx.w.settings.library_path
+            / root.relative_dir
+            / Path(*path_components(db, node))
+        )
 
 
 def node_row(fx: Fx, node_id: uuid.UUID) -> Node:
@@ -163,16 +172,30 @@ def test_folder_upload_download_roundtrip_uses_real_files(fx: Fx, alice: Api) ->
     got = alice.download(f)
     assert got.status_code == 200 and got.content == data
     assert got.headers["content-type"] == "application/octet-stream"
-    assert got.headers["content-disposition"].startswith("attachment; filename*=UTF-8''a.txt")
+    assert got.headers["content-disposition"].startswith(
+        "attachment; filename*=UTF-8''a.txt"
+    )
     assert got.headers["x-content-type-options"] == "nosniff"
     items = alice.children(docs)
-    assert [(i["name"], i["kind"], i["size"]) for i in items] == [("a.txt", "file", len(data))]
+    assert [(i["name"], i["kind"], i["size"]) for i in items] == [
+        ("a.txt", "file", len(data))
+    ]
     assert tmp_leftovers(fx) == []
     assert node_row(fx, f).size == len(data)
 
 
 def test_names_are_validated_and_normalized(fx: Fx, alice: Api) -> None:
-    bad = ["..", ".", "a/b", "a\\b", "", "x\x00y", "tab\tname", "n" * 256, f"{files.TMP_PREFIX}x"]
+    bad = [
+        "..",
+        ".",
+        "a/b",
+        "a\\b",
+        "",
+        "x\x00y",
+        "tab\tname",
+        "n" * 256,
+        f"{files.TMP_PREFIX}x",
+    ]
     for name in bad:
         r = alice.mkdir(fx.alice_root, name)
         assert r.status_code in (422,), (name, r.text)
@@ -191,16 +214,22 @@ def test_listing_is_paginated_sorted_and_needs_a_folder(fx: Fx, alice: Api) -> N
     for n in ("c", "a", "b", "d"):
         assert alice.upload(lst, n, n.encode()).status_code == 201
     first = alice.get(f"/nodes/{lst}/children", params={"limit": 2}).json()
-    assert [i["name"] for i in first["items"]] == ["a", "b"] and first["next_after"] == "b"
+    assert [i["name"] for i in first["items"]] == ["a", "b"] and first[
+        "next_after"
+    ] == "b"
     rest = alice.get(
         f"/nodes/{lst}/children", params={"limit": 5, "after": first["next_after"]}
     ).json()
-    assert [i["name"] for i in rest["items"]] == ["c", "d"] and rest["next_after"] is None
+    assert [i["name"] for i in rest["items"]] == ["c", "d"] and rest[
+        "next_after"
+    ] is None
     a = alice.children(lst)[0]["id"]
     assert alice.get(f"/nodes/{a}/children").status_code == 422  # a file
 
 
-def test_large_file_streams_without_buffering_and_round_trips(fx: Fx, alice: Api) -> None:
+def test_large_file_streams_without_buffering_and_round_trips(
+    fx: Fx, alice: Api
+) -> None:
     chunk = os.urandom(1024 * 1024)
     total = 96
     digest = hashlib.sha256()
@@ -226,7 +255,9 @@ def test_large_file_streams_without_buffering_and_round_trips(fx: Fx, alice: Api
     assert tmp_leftovers(fx) == []
 
 
-def test_upload_limit_aborts_and_leaves_nothing(make_world: Callable[..., World]) -> None:
+def test_upload_limit_aborts_and_leaves_nothing(
+    make_world: Callable[..., World],
+) -> None:
     fx = Fx(make_world(max_upload_bytes=2048))
     a = Api(fx, "alice")
     r = a.upload(fx.alice_root, "big", iter([b"x" * 1500, b"y" * 1500]))
@@ -275,7 +306,9 @@ def test_new_account_directory_is_created_on_first_write(fx: Fx) -> None:
     assert r.status_code == 200
     root = fx.root_of("frank@example.com")
     frank = Api(fx, "frank")
-    assert not disk(fx, root).exists()  # the API has not restarted since the account was created
+    assert not disk(
+        fx, root
+    ).exists()  # the API has not restarted since the account was created
     assert frank.upload(root, "first.txt", b"1").status_code == 201
     assert disk(fx, root).is_dir()
 
@@ -295,7 +328,9 @@ def test_nothing_is_ever_overwritten(fx: Fx, alice: Api) -> None:
     b = nid(alice.upload(fx.alice_root, "b.txt", b"bee"))
     r = alice.rename(b, "a.txt", node_row(fx, b).revision)
     assert r.status_code == 409 and code(r) == "NAME_CONFLICT"
-    assert disk(fx, a).read_bytes() == b"original" and disk(fx, b).read_bytes() == b"bee"
+    assert (
+        disk(fx, a).read_bytes() == b"original" and disk(fx, b).read_bytes() == b"bee"
+    )
     d = nid(alice.mkdir(fx.alice_root, "D"))
     assert alice.mkdir(fx.alice_root, "D").status_code == 409
     r = alice.move(b, d, node_row(fx, b).revision, name="x")
@@ -316,9 +351,9 @@ def test_file_present_on_disk_but_unknown_to_the_database_is_not_clobbered(
     assert r.status_code == 409 and code(r) == "NAME_CONFLICT"
     assert host_file.read_bytes() == b"made by the host"
     kept = alice.upload(fx.alice_root, "host.txt", b"app upload", mode="keep_both")
-    assert kept.json()["node"]["name"] == "host (2).txt" or kept.json()["node"]["name"] == (
-        "host.txt (2)"
-    )
+    assert kept.json()["node"]["name"] == "host (2).txt" or kept.json()["node"][
+        "name"
+    ] == ("host.txt (2)")
     other = nid(alice.upload(fx.alice_root, "other.txt", b"o"))
     r = alice.rename(other, "host.txt", 1)
     assert r.status_code == 409
@@ -332,7 +367,9 @@ def test_file_present_on_disk_but_unknown_to_the_database_is_not_clobbered(
 def test_rename_is_revision_checked(fx: Fx, alice: Api) -> None:
     f = nid(alice.upload(fx.alice_root, "a.txt", b"x"))
     r1 = alice.rename(f, "b.txt", 1)
-    assert r1.status_code == 200 and rev(r1) == 2 and r1.json()["node"]["name"] == "b.txt"
+    assert (
+        r1.status_code == 200 and rev(r1) == 2 and r1.json()["node"]["name"] == "b.txt"
+    )
     stale = alice.rename(f, "c.txt", 1)
     assert stale.status_code == 409 and code(stale) == "REVISION_CONFLICT"
     assert disk(fx, f).name == "b.txt"
@@ -407,10 +444,14 @@ def test_two_nodes_racing_for_one_name_never_clobber(
 
 def test_directories_are_never_replaced_by_a_rename(fx: Fx, alice: Api) -> None:
     """A plain rename(2) would silently replace an empty directory; ours must not."""
-    assert files._renameat2 is not None  # the kernel primitive is in use in the test container
+    assert (
+        files._renameat2 is not None
+    )  # the kernel primitive is in use in the test container
     a = nid(alice.mkdir(fx.alice_root, "Alpha"))
     nid(alice.upload(a, "keep.txt", b"keep"))
-    (disk(fx, fx.alice_root) / "Beta").mkdir()  # created by the host, unknown to the database
+    (
+        disk(fx, fx.alice_root) / "Beta"
+    ).mkdir()  # created by the host, unknown to the database
     r = alice.rename(a, "Beta", 1)
     assert r.status_code == 409 and code(r) == "NAME_CONFLICT"
     assert (disk(fx, fx.alice_root) / "Alpha" / "keep.txt").read_bytes() == b"keep"
@@ -437,11 +478,19 @@ def test_idempotent_create_upload_and_rename(fx: Fx, alice: Api) -> None:
 
     f = nid(u1)
     m1 = alice.rename(f, "v.txt", 1, key="r-1")
-    m2 = alice.rename(f, "v.txt", 1, key="r-1")  # revision is stale by now, but it is a retry
-    assert m1.status_code == 200 and m2.status_code == 200 and m2.json()["replayed"] is True
+    m2 = alice.rename(
+        f, "v.txt", 1, key="r-1"
+    )  # revision is stale by now, but it is a retry
+    assert (
+        m1.status_code == 200
+        and m2.status_code == 200
+        and m2.json()["replayed"] is True
+    )
     assert rev(m2) == 2
     bad = alice.post(
-        "/nodes/" + str(f) + "/rename", json={"name": "z", "expected_revision": 2}, key="x" * 200
+        "/nodes/" + str(f) + "/rename",
+        json={"name": "z", "expected_revision": 2},
+        key="x" * 200,
     )
     assert bad.status_code == 422
     # keys are per actor: another user's identical key does not collide
@@ -465,7 +514,9 @@ def test_failed_operation_with_key_can_be_retried(fx: Fx, alice: Api) -> None:
 # ------------------------------------------------------------------ authorization
 
 
-def test_unauthorized_download_and_every_other_operation_is_403(fx: Fx, alice: Api) -> None:
+def test_unauthorized_download_and_every_other_operation_is_403(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.alice_root, "secret.txt", b"top secret"))
     d = nid(alice.mkdir(fx.alice_root, "Dir"))
     dave = Api(fx, "dave")
@@ -530,7 +581,9 @@ def test_admin_has_no_file_access_to_personal_trees(fx: Fx, alice: Api) -> None:
 def test_disabled_root_blocks_operations_and_is_hidden(fx: Fx, alice: Api) -> None:
     f = nid(alice.upload(fx.alice_root, "p.txt", b"x"))
     with fx.w.ctx.sessions() as db:
-        root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
+        root = db.scalars(
+            select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)
+        ).one()
         root.status = "disabled"
         db.commit()
     for r in (
@@ -575,7 +628,9 @@ def test_file_actions_are_audited_with_ids_only(fx: Fx, alice: Api) -> None:
 # ------------------------------------------------------------------ move and lineage
 
 
-def test_move_rewrites_descendant_lineages_in_the_same_transaction(fx: Fx, alice: Api) -> None:
+def test_move_rewrites_descendant_lineages_in_the_same_transaction(
+    fx: Fx, alice: Api
+) -> None:
     a = nid(alice.mkdir(fx.alice_root, "A"))
     sub = nid(alice.mkdir(a, "sub"))
     leaf = nid(alice.upload(sub, "leaf.txt", b"leaf"))
@@ -583,7 +638,9 @@ def test_move_rewrites_descendant_lineages_in_the_same_transaction(fx: Fx, alice
     r = alice.move(a, b, 1)
     assert r.status_code == 200, r.text
     assert disk(fx, leaf).read_bytes() == b"leaf"
-    assert str(disk(fx, leaf).relative_to(disk(fx, fx.alice_root))) == "B/A/sub/leaf.txt"
+    assert (
+        str(disk(fx, leaf).relative_to(disk(fx, fx.alice_root))) == "B/A/sub/leaf.txt"
+    )
     leaf_row, b_row = node_row(fx, leaf), node_row(fx, b)
     assert leaf_row.lineage.startswith(b_row.lineage)
     assert leaf_row.lineage == f"{b_row.lineage}{a}/{sub}/{leaf}/"
@@ -608,7 +665,9 @@ def test_move_needs_write_on_both_ends(fx: Fx, alice: Api) -> None:
     fx.grant(fx.alice, fx.private, "carol@example.com", "viewer")
     carol = Api(fx, "carol")
     g = nid(alice.upload(fx.taxes, "n.txt", b"n"))
-    assert carol.move(g, fx.private, 1).status_code == 403  # target is read-only for carol
+    assert (
+        carol.move(g, fx.private, 1).status_code == 403
+    )  # target is read-only for carol
     other = nid(alice.mkdir(fx.taxes, "Dest"))
     assert carol.move(g, other, 1).status_code == 200  # editor both ends, same root
 
@@ -629,10 +688,14 @@ def test_copy_file_and_tree_creates_independent_real_files(fx: Fx, alice: Api) -
     new_one = [n for n in alice.children(top) if n["name"] == "one.txt"][0]["id"]
     new_sub = [n for n in alice.children(top) if n["name"] == "sub"][0]["id"]
     new_two = alice.children(new_sub)[0]["id"]
-    assert len({str(x) for x in (f1, f2, sub, new_one, new_sub, new_two)}) == 6  # fresh identities
+    assert (
+        len({str(x) for x in (f1, f2, sub, new_one, new_sub, new_two)}) == 6
+    )  # fresh identities
     assert disk(fx, uuid.UUID(new_one)).read_bytes() == b"1" * 5000
     assert disk(fx, uuid.UUID(new_two)).read_bytes() == disk(fx, f2).read_bytes()
-    assert not os.path.samefile(disk(fx, f1), disk(fx, uuid.UUID(new_one)))  # not a hardlink
+    assert not os.path.samefile(
+        disk(fx, f1), disk(fx, uuid.UUID(new_one))
+    )  # not a hardlink
     assert disk(fx, f1).read_bytes() == b"1" * 5000  # source untouched
     again = alice.copy(src, dst)
     assert again.status_code == 409 and code(again) == "NAME_CONFLICT"
@@ -705,20 +768,30 @@ def test_symlinks_are_never_followed(fx: Fx, alice: Api, tmp_path: Path) -> None
     moved = real.with_name("Folder.real")
     real.rename(moved)
     real.symlink_to(tmp_path, target_is_directory=True)
-    for r in (alice.download(inner), alice.upload(folder, "n", b"n"), alice.mkdir(folder, "d")):
+    for r in (
+        alice.download(inner),
+        alice.upload(folder, "n", b"n"),
+        alice.mkdir(folder, "d"),
+    ):
         assert r.status_code == 409 and code(r) == "STORAGE_UNSAFE_PATH", r.text
     assert not (tmp_path / "n").exists() and not (tmp_path / "d").exists()
     assert sorted(p.name for p in tmp_path.iterdir() if p.is_file()) == ["outside.txt"]
 
 
-def test_hardlinked_files_are_not_read_or_copied(fx: Fx, alice: Api, tmp_path: Path) -> None:
+def test_hardlinked_files_are_not_read_or_copied(
+    fx: Fx, alice: Api, tmp_path: Path
+) -> None:
     f = nid(alice.upload(fx.alice_root, "a.txt", b"shared inode"))
-    os.link(disk(fx, f), tmp_path / "alias")  # content now also reachable outside the library
+    os.link(
+        disk(fx, f), tmp_path / "alias"
+    )  # content now also reachable outside the library
     r = alice.download(f)
     assert r.status_code == 409 and code(r) == "UNSUPPORTED_ENTRY"
     dst = nid(alice.mkdir(fx.alice_root, "Dst"))
     assert alice.copy(f, dst).status_code == 409
-    assert alice.rename(f, "b.txt", 1).status_code == 200  # metadata-only operations still work
+    assert (
+        alice.rename(f, "b.txt", 1).status_code == 200
+    )  # metadata-only operations still work
 
 
 def test_fifo_does_not_hang_download_or_copy(fx: Fx, alice: Api) -> None:
@@ -778,14 +851,18 @@ def test_cross_device_move_copies_verifies_then_removes_source(
     r = alice.move(src, dst, 1)
     assert r.status_code == 200, r.text
     assert r.json()["operation"]["status"] == "committed"
-    assert not old_dir.exists()  # source removed only after the copy was verified and committed
+    assert (
+        not old_dir.exists()
+    )  # source removed only after the copy was verified and committed
     assert disk(fx, src).parent.name == "Elsewhere"
     assert {k: disk(fx, v).read_bytes() for k, v in ids.items()} == before
     assert node_row(fx, ids["a"]).lineage.startswith(node_row(fx, dst).lineage)
     assert tmp_leftovers(fx) == []
 
 
-def test_cross_device_file_move_and_copy(fx: Fx, alice: Api, cross_device: None) -> None:
+def test_cross_device_file_move_and_copy(
+    fx: Fx, alice: Api, cross_device: None
+) -> None:
     f = nid(alice.upload(fx.alice_root, "f.bin", b"payload" * 5000))
     dst = nid(alice.mkdir(fx.alice_root, "To"))
     assert alice.move(f, dst, 1).status_code == 200
@@ -843,7 +920,9 @@ def test_source_changed_during_move_is_never_deleted(
     assert r.json()["operation"]["status"] == "reconcile_needed"
     assert r.json()["operation"]["detail"]["step"] == "source_remnants"
     assert victim.read_bytes() == b"edited by someone else after the copy"  # survived
-    assert disk(fx, ids["b"]).read_bytes() == b"bee"  # destination holds the verified copy
+    assert (
+        disk(fx, ids["b"]).read_bytes() == b"bee"
+    )  # destination holds the verified copy
     op = alice.get(f"/operations/{r.json()['operation']['id']}").json()
     assert op["status"] == "reconcile_needed"
 
@@ -911,7 +990,9 @@ def _crash_state(fx: Fx, alice: Api, *, fs_done: bool) -> tuple[uuid.UUID, uuid.
     f = nid(alice.upload(fx.alice_root, "old.txt", b"x"))
     ino = (disk(fx, fx.alice_root) / "old.txt").stat().st_ino
     if fs_done:
-        (disk(fx, fx.alice_root) / "old.txt").rename(disk(fx, fx.alice_root) / "new.txt")
+        (disk(fx, fx.alice_root) / "old.txt").rename(
+            disk(fx, fx.alice_root) / "new.txt"
+        )
     with fx.w.ctx.sessions() as db:
         node = db.get(Node, f)
         assert node is not None
@@ -938,10 +1019,13 @@ def _crash_state(fx: Fx, alice: Api, *, fs_done: bool) -> tuple[uuid.UUID, uuid.
         return f, op.id
 
 
-def test_recovery_rolls_forward_when_the_filesystem_step_finished(fx: Fx, alice: Api) -> None:
+def test_recovery_rolls_forward_when_the_filesystem_step_finished(
+    fx: Fx, alice: Api
+) -> None:
     f, op_id = _crash_state(fx, alice, fs_done=True)
     counts = fileops.recover_operations(
-        fx.w.ctx.sessions, fx.w.settings.model_copy(update={"operation_stale_seconds": 0})
+        fx.w.ctx.sessions,
+        fx.w.settings.model_copy(update={"operation_stale_seconds": 0}),
     )
     assert counts["committed"] == 1
     row = node_row(fx, f)
@@ -951,10 +1035,13 @@ def test_recovery_rolls_forward_when_the_filesystem_step_finished(fx: Fx, alice:
         assert db.get(FileOperation, op_id).status == "committed"  # type: ignore[union-attr]
 
 
-def test_recovery_rolls_back_when_the_filesystem_was_untouched(fx: Fx, alice: Api) -> None:
+def test_recovery_rolls_back_when_the_filesystem_was_untouched(
+    fx: Fx, alice: Api
+) -> None:
     f, op_id = _crash_state(fx, alice, fs_done=False)
     counts = fileops.recover_operations(
-        fx.w.ctx.sessions, fx.w.settings.model_copy(update={"operation_stale_seconds": 0})
+        fx.w.ctx.sessions,
+        fx.w.settings.model_copy(update={"operation_stale_seconds": 0}),
     )
     assert counts["rolled_back"] == 1
     row = node_row(fx, f)
@@ -964,18 +1051,25 @@ def test_recovery_rolls_back_when_the_filesystem_was_untouched(fx: Fx, alice: Ap
 def test_recovery_flags_what_it_cannot_decide(fx: Fx, alice: Api) -> None:
     f, op_id = _crash_state(fx, alice, fs_done=False)
     base = disk(fx, fx.alice_root)
-    (base / "old.txt").rename(base / "kept-aside.txt")  # keeps the old inode number in use
-    (base / "old.txt").write_bytes(b"different file")  # neither name holds the recorded inode
+    (base / "old.txt").rename(
+        base / "kept-aside.txt"
+    )  # keeps the old inode number in use
+    (base / "old.txt").write_bytes(
+        b"different file"
+    )  # neither name holds the recorded inode
     (disk(fx, fx.alice_root) / "new.txt").write_bytes(b"another one")
     counts = fileops.recover_operations(
-        fx.w.ctx.sessions, fx.w.settings.model_copy(update={"operation_stale_seconds": 0})
+        fx.w.ctx.sessions,
+        fx.w.settings.model_copy(update={"operation_stale_seconds": 0}),
     )
     assert counts["reconcile_needed"] == 1
     assert node_row(fx, f).status == "reconcile_needed"
     assert (disk(fx, fx.alice_root) / "old.txt").read_bytes() == b"different file"
 
 
-def test_recovery_ignores_fresh_operations_and_clears_leftover_staging(fx: Fx, alice: Api) -> None:
+def test_recovery_ignores_fresh_operations_and_clears_leftover_staging(
+    fx: Fx, alice: Api
+) -> None:
     leftover = disk(fx, fx.alice_root) / f"{files.TMP_PREFIX}deadbeef"
     leftover.write_bytes(b"partial")
     with fx.w.ctx.sessions() as db:
@@ -987,7 +1081,11 @@ def test_recovery_ignores_fresh_operations_and_clears_leftover_staging(fx: Fx, a
                 action="upload",
                 status="planned",
                 request_hash="h",
-                detail={"parent": str(fx.alice_root), "name": "u.txt", "tmp": leftover.name},
+                detail={
+                    "parent": str(fx.alice_root),
+                    "name": "u.txt",
+                    "tmp": leftover.name,
+                },
                 created_at=node.updated_at,
                 updated_at=node.updated_at,
             )
@@ -1002,7 +1100,8 @@ def test_recovery_ignores_fresh_operations_and_clears_leftover_staging(fx: Fx, a
     }
     assert leftover.exists()
     counts = fileops.recover_operations(
-        fx.w.ctx.sessions, fx.w.settings.model_copy(update={"operation_stale_seconds": 0})
+        fx.w.ctx.sessions,
+        fx.w.settings.model_copy(update={"operation_stale_seconds": 0}),
     )
     assert counts["failed"] == 1 and not leftover.exists()
 
@@ -1036,7 +1135,9 @@ def test_file_routes_exist_and_are_all_policy_guarded(fx: Fx) -> None:
 
 def test_file_mutations_keep_csrf_and_auth(fx: Fx, alice: Api) -> None:
     c = alice.client
-    r = c.post(f"/api/v1/nodes/{fx.alice_root}/folders", json={"name": "x"})  # no CSRF header
+    r = c.post(
+        f"/api/v1/nodes/{fx.alice_root}/folders", json={"name": "x"}
+    )  # no CSRF header
     assert r.status_code == 403 and code(r) == "CSRF_TOKEN_INVALID"
     anon = fx.w.browser()
     assert anon.get(f"/api/v1/nodes/{fx.alice_root}/children").status_code == 401
@@ -1057,7 +1158,9 @@ def test_no_hardlink_filesystem_rename_fallback_does_not_report_failure(
 
     monkeypatch.setattr(files, "_renameat2", None)
     monkeypatch.setattr(os, "link", no_link)
-    f = nid(alice.upload(fx.alice_root, "a.txt", b"payload"))  # publish uses the same fallback
+    f = nid(
+        alice.upload(fx.alice_root, "a.txt", b"payload")
+    )  # publish uses the same fallback
     r = alice.rename(f, "b.txt", 1)
     assert r.status_code == 200, r.text
     assert disk(fx, f).read_bytes() == b"payload" and disk(fx, f).name == "b.txt"
@@ -1095,7 +1198,9 @@ def test_move_commits_against_fresh_lineage_when_the_target_moved_meanwhile(
     x_row, p_row = node_row(fx, x), node_row(fx, p)
     assert x_row.lineage == f"{p_row.lineage}{x}/"
     assert alice.download(x).content == b"x-bytes"
-    assert disk(fx, x).parent.name == "P" and disk(fx, x).parent.parent.name == "Elsewhere"
+    assert (
+        disk(fx, x).parent.name == "P" and disk(fx, x).parent.parent.name == "Elsewhere"
+    )
 
 
 def test_concurrent_move_creating_a_cycle_is_refused(
@@ -1144,7 +1249,9 @@ def test_failed_undo_of_a_created_entry_is_flagged(
     assert (disk(fx, fx.alice_root) / "orphan.txt").exists()  # reported, not hidden
 
 
-def test_recovery_releases_claims_that_have_no_open_operation(fx: Fx, alice: Api) -> None:
+def test_recovery_releases_claims_that_have_no_open_operation(
+    fx: Fx, alice: Api
+) -> None:
     f = nid(alice.upload(fx.alice_root, "stuck.txt", b"x"))
     with fx.w.ctx.sessions() as db:
         node = db.get(Node, f)
@@ -1157,13 +1264,21 @@ def test_recovery_releases_claims_that_have_no_open_operation(fx: Fx, alice: Api
     assert alice.rename(f, "y.txt", 1).status_code == 200
 
 
-def test_retry_of_a_failed_keyed_operation_is_compare_and_swap(fx: Fx, alice: Api) -> None:
+def test_retry_of_a_failed_keyed_operation_is_compare_and_swap(
+    fx: Fx, alice: Api
+) -> None:
     alice.upload(fx.alice_root, "a.txt", b"x")
     assert alice.upload(fx.alice_root, "a.txt", b"y", key="k").status_code == 409
     ctx = fileops.OpCtx(fx.w.ctx.sessions(), fx.w.settings, alice.uid)
     params = {"parent": str(fx.alice_root), "name": "a.txt", "mode": "reject"}
     first = fileops._begin(
-        ctx, "upload", "k", node_id=None, target_parent_id=fx.alice_root, params=params, detail={}
+        ctx,
+        "upload",
+        "k",
+        node_id=None,
+        target_parent_id=fx.alice_root,
+        params=params,
+        detail={},
     )
     assert first[1] is False
     with pytest.raises(fileops.OpError) as err:  # second concurrent retry loses
@@ -1181,7 +1296,9 @@ def test_retry_of_a_failed_keyed_operation_is_compare_and_swap(fx: Fx, alice: Ap
 
 def test_writes_to_a_missing_root_are_refused(fx: Fx, alice: Api) -> None:
     with fx.w.ctx.sessions() as db:
-        root = db.scalars(select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)).one()
+        root = db.scalars(
+            select(StorageRoot).where(StorageRoot.owner_user_id == alice.uid)
+        ).one()
         root.status = "missing"
         db.commit()
     r = alice.upload(fx.alice_root, "n.txt", b"n")

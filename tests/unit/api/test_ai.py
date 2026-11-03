@@ -25,7 +25,13 @@ from test_files import Api, code
 from app.ai import budget
 from app.ai.gateway import AiCaller, AiError
 from app.ai.providers import EndpointError
-from app.ai.routing import AiRefused, ClearedInput, assert_deliverable, clear, resolve_route
+from app.ai.routing import (
+    AiRefused,
+    ClearedInput,
+    assert_deliverable,
+    clear,
+    resolve_route,
+)
 from app.ai.secrets import SecretBox, SecretsError, aad_for, parse_key
 from app.db.models import (
     AiBudget,
@@ -65,7 +71,10 @@ class Net:
                 200,
                 json={
                     "content": [{"type": "text", "text": self.text}],
-                    "usage": {"input_tokens": self.usage[0], "output_tokens": self.usage[1]},
+                    "usage": {
+                        "input_tokens": self.usage[0],
+                        "output_tokens": self.usage[1],
+                    },
                 },
             )
         return httpx.Response(
@@ -153,9 +162,13 @@ def caller(fx: Fx, email: str, *, job: bool = False) -> AiCaller:
         # the session that holds the person's unlock, else any of their sessions
         sid = (
             db.scalars(
-                select(ConfidentialUnlock.session_id).where(ConfidentialUnlock.user_id == uid)
+                select(ConfidentialUnlock.session_id).where(
+                    ConfidentialUnlock.user_id == uid
+                )
             ).first()
-            or db.scalars(select(AuthSession.id).where(AuthSession.user_id == uid)).first()
+            or db.scalars(
+                select(AuthSession.id).where(AuthSession.user_id == uid)
+            ).first()
         )
     return AiCaller(uid, None if job else sid, "job" if job else "user")
 
@@ -180,7 +193,9 @@ def file_in(api: Api, parent: uuid.UUID, name: str = "a.txt") -> uuid.UUID:
 
 
 def label(api: Api, node: uuid.UUID, value: str) -> None:
-    r = api.client.put(f"/api/v1/nodes/{node}/privacy", json={"label": value}, headers=api.headers)
+    r = api.client.put(
+        f"/api/v1/nodes/{node}/privacy", json={"label": value}, headers=api.headers
+    )
     assert r.status_code == 200, r.text
 
 
@@ -225,7 +240,11 @@ def test_gate_table(label_: str, mode: str, opt_in: bool, unlocked: bool) -> Non
     )
     try:
         cleared = clear(
-            "x", label=label_, provider_mode=mode, local_opt_in=opt_in, unlocked_by_person=unlocked
+            "x",
+            label=label_,
+            provider_mode=mode,
+            local_opt_in=opt_in,
+            unlocked_by_person=unlocked,
         )
         allowed = True
         assert_deliverable(cleared, mode)
@@ -240,10 +259,16 @@ def test_cleared_input_cannot_be_forged_and_adapters_recheck() -> None:
     with pytest.raises(AiRefused):
         assert_deliverable("raw text", "cloud")
     local = clear(
-        "x", label="private", provider_mode="local", local_opt_in=True, unlocked_by_person=False
+        "x",
+        label="private",
+        provider_mode="local",
+        local_opt_in=True,
+        unlocked_by_person=False,
     )
     with pytest.raises(AiRefused) as e:
-        assert_deliverable(local, "cloud")  # cleared for local, offered to a cloud adapter
+        assert_deliverable(
+            local, "cloud"
+        )  # cleared for local, offered to a cloud adapter
     assert e.value.reason == "mode_mismatch"
 
 
@@ -253,7 +278,10 @@ def test_route_table(fx: Fx) -> None:
     with fx.w.ctx.sessions() as db:
         a = db.get(User, alice.uid)
         assert a is not None
-        assert resolve_route(db, root_kind="shared", owner=None).reason == "ai_not_configured"
+        assert (
+            resolve_route(db, root_kind="shared", owner=None).reason
+            == "ai_not_configured"
+        )
         assert resolve_route(db, root_kind="personal", owner=a).reason == "ai_off"
     assert put(admin, "/instance/provider", cloud_body()).status_code == 200
     for pref, reason, scope in [
@@ -284,10 +312,14 @@ def test_key_is_sealed_and_never_returned(
     with fx.w.ctx.sessions() as db:
         row = db.scalars(select(AiProvider)).one()
         assert row.secret_ciphertext and API_KEY.encode() not in row.secret_ciphertext
-        assert API_KEY not in json.dumps([a.details for a in db.scalars(select(AuthAudit))])
+        assert API_KEY not in json.dumps(
+            [a.details for a in db.scalars(select(AuthAudit))]
+        )
         # a ciphertext moved onto another row does not open
         with pytest.raises(SecretsError):
-            fx.w.app.state.ai_box.open(row.secret_ciphertext, aad_for(uuid.uuid4(), None))
+            fx.w.app.state.ai_box.open(
+                row.secret_ciphertext, aad_for(uuid.uuid4(), None)
+            )
     # the key is not echoed by a failing provider either
     net.status = 500
     caplog.set_level(logging.DEBUG)
@@ -300,23 +332,33 @@ def test_cloud_needs_secrets_key_consent_prices_and_a_key(
     fx: Fx, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     admin = Api(fx, "admin")
-    assert code(put(admin, "/instance/provider", cloud_body(acknowledge_cloud=False))) == (
-        "CONSENT_REQUIRED"
+    assert code(
+        put(admin, "/instance/provider", cloud_body(acknowledge_cloud=False))
+    ) == ("CONSENT_REQUIRED")
+    assert code(
+        put(
+            admin, "/instance/provider", cloud_body(price_in_micro=0, price_out_micro=0)
+        )
+    ) == ("PRICES_REQUIRED")
+    assert (
+        code(put(admin, "/instance/provider", cloud_body(api_key=None)))
+        == "API_KEY_REQUIRED"
     )
     assert code(
-        put(admin, "/instance/provider", cloud_body(price_in_micro=0, price_out_micro=0))
-    ) == ("PRICES_REQUIRED")
-    assert code(put(admin, "/instance/provider", cloud_body(api_key=None))) == "API_KEY_REQUIRED"
-    assert code(put(admin, "/instance/provider", cloud_body(endpoint="https://evil.example"))) == (
-        "INVALID_PROVIDER"
+        put(admin, "/instance/provider", cloud_body(endpoint="https://evil.example"))
+    ) == ("INVALID_PROVIDER")
+    assert (
+        code(put(admin, "/instance/provider", cloud_body(model="a b;c")))
+        == "INVALID_PROVIDER"
     )
-    assert code(put(admin, "/instance/provider", cloud_body(model="a b;c"))) == "INVALID_PROVIDER"
     (tmp_path / "x").mkdir()
     bare = with_resolver(Fx(World(tmp_path / "x", monkeypatch)))
     r = put(Api(bare, "admin"), "/instance/provider", cloud_body())
     assert r.status_code == 503 and code(r) == "SECRETS_KEY_NOT_CONFIGURED"
     # local providers need no key and no secrets key
-    assert put(Api(bare, "admin"), "/instance/provider", local_body()).status_code == 200
+    assert (
+        put(Api(bare, "admin"), "/instance/provider", local_body()).status_code == 200
+    )
 
 
 def test_people_may_not_add_local_endpoints_and_admin_cannot_see_theirs(fx: Fx) -> None:
@@ -359,7 +401,9 @@ def test_protected_never_reaches_cloud(fx: Fx, net: Net) -> None:
             label(alice, folder, lab)
             if lab == "confidential":
                 assert (
-                    alice.post(f"/nodes/{folder}/unlock", json={"password": PASSWORD}).status_code
+                    alice.post(
+                        f"/nodes/{folder}/unlock", json={"password": PASSWORD}
+                    ).status_code
                     == 200
                 )
             f = file_in(alice, folder)
@@ -385,13 +429,20 @@ def test_local_provider_for_protected_needs_opt_in_and_unlock(fx: Fx, net: Net) 
         run(fx, me, fp)
     assert e.value.reason == "local_opt_in_required"
     r = alice.client.put(
-        "/api/v1/preferences/local-processing", json={"enabled": True}, headers=alice.headers
+        "/api/v1/preferences/local-processing",
+        json={"enabled": True},
+        headers=alice.headers,
     )
     assert r.status_code == 200, r.text
     assert run(fx, me, fp).value.ok is True  # Private, local, opted in
-    with pytest.raises(AiRefused):  # Confidential is locked (node unreadable): same answer
+    with pytest.raises(
+        AiRefused
+    ):  # Confidential is locked (node unreadable): same answer
         run(fx, me, fc)
-    assert alice.post(f"/nodes/{conf}/unlock", json={"password": PASSWORD}).status_code == 200
+    assert (
+        alice.post(f"/nodes/{conf}/unlock", json={"password": PASSWORD}).status_code
+        == 200
+    )
     assert run(fx, caller(fx, "alice"), fc).value.ok is True
     # a background job is never unlocked
     with pytest.raises(AiRefused):
@@ -443,7 +494,9 @@ def test_cap_blocks_and_usage_is_visible(fx: Fx, net: Net) -> None:
     me = caller(fx, "alice")
     run(fx, me, f)
     u = admin.get("/ai/instance").json()["usage"]
-    assert u["spent_micro"] == 3000 + 1500 and u["reserved_micro"] == 0  # 1000 in, 100 out
+    assert (
+        u["spent_micro"] == 3000 + 1500 and u["reserved_micro"] == 0
+    )  # 1000 in, 100 out
     cap = put(admin, "/instance/cap", {"cap_micro": u["spent_micro"]})
     assert cap.status_code == 200
     sent = len(net.requests)
@@ -452,7 +505,9 @@ def test_cap_blocks_and_usage_is_visible(fx: Fx, net: Net) -> None:
     assert e.value.reason == "budget_exceeded" and len(net.requests) == sent
     assert put(admin, "/instance/cap", {"cap_micro": 0}).status_code == 200
     assert code(put(admin, "/instance/cap", {"cap_micro": -1})) == "VALIDATION_ERROR"
-    assert any(u.status == "refused" and u.reason == "budget_exceeded" for u in usage_rows(fx))
+    assert any(
+        u.status == "refused" and u.reason == "budget_exceeded" for u in usage_rows(fx)
+    )
     # the ledger holds no document text
     assert "invoice" not in json.dumps(
         [
@@ -517,7 +572,9 @@ def test_stale_reservations_are_given_back(fx: Fx, net: Net) -> None:
 
 def test_budget_race(tmp_path: Path) -> None:
     """Many parallel reservations: the sum that gets through never passes the cap."""
-    engine = create_engine(f"sqlite:///{tmp_path / 'race.db'}", connect_args={"timeout": 30})
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'race.db'}", connect_args={"timeout": 30}
+    )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)
     with sessions() as db:
@@ -575,13 +632,21 @@ def test_local_endpoint_must_be_local(fx: Fx, endpoint: str) -> None:
 
 def test_local_endpoint_accepts_private_and_loopback(fx: Fx) -> None:
     admin = Api(fx, "admin")
-    for ep in ("http://ollama.internal:11434", "http://127.0.0.1:11434", "http://192.168.1.9"):
-        assert put(admin, "/instance/provider", local_body(endpoint=ep)).status_code == 200
+    for ep in (
+        "http://ollama.internal:11434",
+        "http://127.0.0.1:11434",
+        "http://192.168.1.9",
+    ):
+        assert (
+            put(admin, "/instance/provider", local_body(endpoint=ep)).status_code == 200
+        )
 
 
 def test_dns_rebinding_is_refused_at_connect_time(fx: Fx, net: Net) -> None:
     admin, alice = Api(fx, "admin"), Api(fx, "alice")
-    assert put(admin, "/instance/provider", local_body()).status_code == 200  # private when saved
+    assert (
+        put(admin, "/instance/provider", local_body()).status_code == 200
+    )  # private when saved
     set_pref(alice, "instance_default")
     with fx.w.ctx.sessions() as db:
         u = db.get(User, alice.uid)
@@ -605,7 +670,9 @@ def test_dns_rebinding_is_refused_at_connect_time(fx: Fx, net: Net) -> None:
 def test_operator_allow_list_narrows_local_hosts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fx2 = with_resolver(Fx(World(tmp_path, monkeypatch, secrets_key=KEY, ai_local_hosts="gpu.lan")))
+    fx2 = with_resolver(
+        Fx(World(tmp_path, monkeypatch, secrets_key=KEY, ai_local_hosts="gpu.lan"))
+    )
     HOSTS["gpu.lan"] = ["10.1.1.1"]
     admin = Api(fx2, "admin")
     assert code(put(admin, "/instance/provider", local_body())) == "ENDPOINT_NOT_LOCAL"
@@ -663,7 +730,10 @@ def test_request_is_as_protected_as_its_strictest_source(fx: Fx, net: Net) -> No
 def test_person_must_agree_to_the_servers_cloud_ai(fx: Fx, net: Net) -> None:
     alice, admin = Api(fx, "alice"), Api(fx, "admin")
     put(admin, "/instance/provider", local_body())
-    assert put(alice, "/me/preference", {"preference": "instance_default"}).status_code == 200
+    assert (
+        put(alice, "/me/preference", {"preference": "instance_default"}).status_code
+        == 200
+    )
     f = file_in(alice, fx.y2026)
     assert run(fx, caller(fx, "alice"), f).value.ok  # local: nothing to agree to
     # the administrator now switches the server to a cloud vendor
@@ -672,7 +742,10 @@ def test_person_must_agree_to_the_servers_cloud_ai(fx: Fx, net: Net) -> None:
         run(fx, caller(fx, "alice"), f)
     assert e.value.reason == "instance_consent_required"
     assert alice.get("/ai/status").json()["instance_needs_ack"] is True
-    assert put(alice, "/me/preference", {"preference": "instance_default"}).status_code == 409
+    assert (
+        put(alice, "/me/preference", {"preference": "instance_default"}).status_code
+        == 409
+    )
     assert (
         put(
             alice,
@@ -683,7 +756,9 @@ def test_person_must_agree_to_the_servers_cloud_ai(fx: Fx, net: Net) -> None:
     )
     assert run(fx, caller(fx, "alice"), f).value.ok
     # a different vendor needs a new agreement
-    assert put(admin, "/instance/provider", cloud_body(kind="openai")).status_code == 200
+    assert (
+        put(admin, "/instance/provider", cloud_body(kind="openai")).status_code == 200
+    )
     with pytest.raises(AiRefused) as e:
         run(fx, caller(fx, "alice"), f)
     assert e.value.reason == "instance_consent_required"
@@ -706,16 +781,22 @@ def test_late_finish_does_not_return_the_reservation_twice(fx: Fx) -> None:
         db.commit()
         fx.w.advance(minutes=30)
         assert budget.sweep_stale(db, "instance") == 1
-        assert budget.claim(db, row.id) is False  # the sweep owns it now: no second release
+        assert (
+            budget.claim(db, row.id) is False
+        )  # the sweep owns it now: no second release
         b = db.scalars(select(AiBudget)).one()
         assert b.reserved_micro == 0
-        budget.settle(db, "instance", row.month, 0, 250_000)  # the late result is still counted
+        budget.settle(
+            db, "instance", row.month, 0, 250_000
+        )  # the late result is still counted
         db.refresh(b)
         assert (b.reserved_micro, b.spent_micro) == (0, 250_000)
 
 
 def test_reservation_estimate_is_a_byte_bound() -> None:
-    cjk = "漢字" * 500  # 1000 characters, 3000 bytes; real tokenisers can spend 1+ per character
+    cjk = (
+        "漢字" * 500
+    )  # 1000 characters, 3000 bytes; real tokenisers can spend 1+ per character
     assert budget.estimate_tokens(len(cjk.encode())) >= 3000
     assert budget.estimate_tokens(0) > 0
 

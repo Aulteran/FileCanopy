@@ -26,10 +26,14 @@ def stack(app_stack: Stack) -> Stack:
 def test_parallel_wrong_pins_are_counted_before_they_are_compared(stack: Stack) -> None:
     assert stack.sql("select version_num from alembic_version") == "0023"
     m = Member(stack, "pin")
-    status, out = js(m.client, "PUT", "/api/v1/auth/pin", {"pin": PIN, "password": PASSWORD})
+    status, out = js(
+        m.client, "PUT", "/api/v1/auth/pin", {"pin": PIN, "password": PASSWORD}
+    )
     assert status == 200, out
     folder = m.folder("Secret" + uuid.uuid4().hex[:4])
-    status, out = js(m.client, "PUT", f"/api/v1/nodes/{folder}/privacy", {"label": "confidential"})
+    status, out = js(
+        m.client, "PUT", f"/api/v1/nodes/{folder}/privacy", {"label": "confidential"}
+    )
     assert status == 200, out
 
     codes: list[int] = []
@@ -38,7 +42,9 @@ def test_parallel_wrong_pins_are_counted_before_they_are_compared(stack: Stack) 
 
     def guess() -> None:
         gate.wait()
-        st, _ = js(m.client, "POST", f"/api/v1/nodes/{folder}/unlock", {"pin": "000001"})
+        st, _ = js(
+            m.client, "POST", f"/api/v1/nodes/{folder}/unlock", {"pin": "000001"}
+        )
         with lock:
             codes.append(st)
 
@@ -58,7 +64,10 @@ def test_parallel_wrong_pins_are_counted_before_they_are_compared(stack: Stack) 
         )
     )
     assert failed == compared
-    assert int(stack.sql(f"select failures from user_pin where user_id = '{m.uid}'")) == failed
+    assert (
+        int(stack.sql(f"select failures from user_pin where user_id = '{m.uid}'"))
+        == failed
+    )
     # the right PIN is refused while the wait lasts, and nothing was ever opened
     status, _ = js(m.client, "POST", f"/api/v1/nodes/{folder}/unlock", {"pin": PIN})
     assert status == 429

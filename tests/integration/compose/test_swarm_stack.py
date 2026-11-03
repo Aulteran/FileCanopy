@@ -75,7 +75,9 @@ class Swarm:
             "FILECANOPY_GID": gid,
         }
 
-    def stack_cmd(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def stack_cmd(
+        self, *args: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
         r = subprocess.run(  # noqa: S603
             ["docker", "stack", *args],  # noqa: S607
             env=self.env,
@@ -85,7 +87,9 @@ class Swarm:
             check=False,
         )
         if check and r.returncode != 0:
-            raise AssertionError(f"stack {' '.join(args)} failed:\n{r.stdout}\n{r.stderr}")
+            raise AssertionError(
+                f"stack {' '.join(args)} failed:\n{r.stdout}\n{r.stderr}"
+            )
         return r
 
     def running_replicas(self) -> dict[str, str]:
@@ -132,7 +136,10 @@ class Swarm:
 
 def instance_id(swarm: Swarm) -> str:
     task = docker(
-        "ps", "-q", "--filter", f"label=com.docker.swarm.service.name={swarm.name}_postgres"
+        "ps",
+        "-q",
+        "--filter",
+        f"label=com.docker.swarm.service.name={swarm.name}_postgres",
     ).stdout.strip()
     query = "select value #>> '{}' from app_setting where key='instance_id'"
     cmd = ["exec", task, "psql", "-U", "filecanopy", "-d", "filecanopy", "-tAc", query]
@@ -141,9 +148,18 @@ def instance_id(swarm: Swarm) -> str:
 
 @pytest.fixture(scope="module")
 def swarm(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Swarm]:
-    if any(docker("image", "inspect", local, check=False).returncode != 0 for local in IMAGES):
+    if any(
+        docker("image", "inspect", local, check=False).returncode != 0
+        for local in IMAGES
+    ):
         subprocess.run(  # noqa: S603
-            ["docker", "compose", "-f", str(REPO / "deploy" / "docker-compose.yml"), "build"],  # noqa: S607
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(REPO / "deploy" / "docker-compose.yml"),
+                "build",
+            ],  # noqa: S607
             env={**os.environ, "POSTGRES_PASSWORD": "build-only"},
             check=True,
             capture_output=True,
@@ -182,7 +198,9 @@ def swarm(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Swarm]:
 def test_stack_file_is_valid_and_publishes_nothing(swarm: Swarm) -> None:
     out = swarm.stack_cmd("config", "-c", str(STACK_FILE)).stdout
     assert "build:" not in out
-    assert "published:" not in out and "ports:" not in out, "the stack must not open host ports"
+    assert "published:" not in out and "ports:" not in out, (
+        "the stack must not open host ports"
+    )
     assert f"{PREFIX}-api:{VERSION}" in out
     r = subprocess.run(  # noqa: S603
         ["docker", "stack", "config", "-c", str(STACK_FILE)],  # noqa: S607
@@ -196,7 +214,13 @@ def test_stack_file_is_valid_and_publishes_nothing(swarm: Swarm) -> None:
 
 def test_stack_deploys_converges_and_serves(swarm: Swarm) -> None:
     swarm.stack_cmd(
-        "deploy", "--resolve-image", "never", "--detach=true", "-c", str(STACK_FILE), swarm.name
+        "deploy",
+        "--resolve-image",
+        "never",
+        "--detach=true",
+        "-c",
+        str(STACK_FILE),
+        swarm.name,
     )
     swarm.wait_converged()
     status, body = swarm.probe("http://web:8080/api/v1/health")
@@ -206,21 +230,33 @@ def test_stack_deploys_converges_and_serves(swarm: Swarm) -> None:
     # Migrations ran from the API's own start-up, and the password is not in the service spec.
     spec = docker("service", "inspect", f"{swarm.name}_api").stdout
     assert swarm.password not in spec
-    assert docker("service", "inspect", f"{swarm.name}_postgres").stdout.count(swarm.password) == 0
+    assert (
+        docker("service", "inspect", f"{swarm.name}_postgres").stdout.count(
+            swarm.password
+        )
+        == 0
+    )
     assert "pg_password" in spec
 
 
-def test_stack_runs_as_the_configured_user_with_a_sealed_filesystem(swarm: Swarm) -> None:
-    spec = json.loads(docker("service", "inspect", f"{swarm.name}_api").stdout)[0]["Spec"][
-        "TaskTemplate"
-    ]
+def test_stack_runs_as_the_configured_user_with_a_sealed_filesystem(
+    swarm: Swarm,
+) -> None:
+    spec = json.loads(docker("service", "inspect", f"{swarm.name}_api").stdout)[0][
+        "Spec"
+    ]["TaskTemplate"]
     container = spec["ContainerSpec"]
-    assert container["User"] == f"{swarm.env['FILECANOPY_UID']}:{swarm.env['FILECANOPY_GID']}"
+    assert (
+        container["User"]
+        == f"{swarm.env['FILECANOPY_UID']}:{swarm.env['FILECANOPY_GID']}"
+    )
     assert container["ReadOnly"] is True
     assert container["CapabilityDrop"] == ["ALL"]
     web = json.loads(docker("service", "inspect", f"{swarm.name}_web").stdout)[0]
     web_container = web["Spec"]["TaskTemplate"]["ContainerSpec"]
-    assert web_container["ReadOnly"] is True and web_container["CapabilityDrop"] == ["ALL"]
+    assert web_container["ReadOnly"] is True and web_container["CapabilityDrop"] == [
+        "ALL"
+    ]
     assert (
         "Ports" not in web["Spec"].get("EndpointSpec", {})
         or not web["Spec"]["EndpointSpec"]["Ports"]
@@ -235,7 +271,13 @@ def test_data_survives_a_service_restart_and_a_stack_redeploy(swarm: Swarm) -> N
     swarm.stack_cmd("rm", swarm.name)
     time.sleep(10)
     swarm.stack_cmd(
-        "deploy", "--resolve-image", "never", "--detach=true", "-c", str(STACK_FILE), swarm.name
+        "deploy",
+        "--resolve-image",
+        "never",
+        "--detach=true",
+        "-c",
+        str(STACK_FILE),
+        swarm.name,
     )
     swarm.wait_converged()
     again = instance_id(swarm)

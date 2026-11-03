@@ -88,7 +88,8 @@ class Net:
         if request.url.path == "/api/embed":
             return httpx.Response(200, json={"embeddings": vecs})
         return httpx.Response(
-            200, json={"data": [{"index": i, "embedding": v} for i, v in enumerate(vecs)]}
+            200,
+            json={"data": [{"index": i, "embedding": v} for i, v in enumerate(vecs)]},
         )
 
 
@@ -143,7 +144,9 @@ def configure(
     enable: bool = True,
 ) -> Any:
     sem_of(fx).transport = httpx.MockTransport(net)
-    r = put(admin, "/admin/semantic", {"kind": kind, "endpoint": ENDPOINT, "model": model})
+    r = put(
+        admin, "/admin/semantic", {"kind": kind, "endpoint": ENDPOINT, "model": model}
+    )
     assert r.status_code == 200, r.text
     v = admin.post("/admin/semantic/verify")
     assert v.status_code == 200, v.text
@@ -176,9 +179,15 @@ def chunks(fx: Fx) -> list[SearchChunk]:
 
 def seed(fx: Fx, alice: Api) -> dict[str, uuid.UUID]:
     ids = {
-        "invoice": nid(alice.upload(fx.taxes, "march.txt", b"Payment due: the bill amount is 40")),
-        "holiday": nid(alice.upload(fx.taxes, "summer.txt", b"A trip to the beach, great travel")),
-        "roof": nid(alice.upload(fx.taxes, "house.txt", b"The builder will repair the leak")),
+        "invoice": nid(
+            alice.upload(fx.taxes, "march.txt", b"Payment due: the bill amount is 40")
+        ),
+        "holiday": nid(
+            alice.upload(fx.taxes, "summer.txt", b"A trip to the beach, great travel")
+        ),
+        "roof": nid(
+            alice.upload(fx.taxes, "house.txt", b"The builder will repair the leak")
+        ),
     }
     return ids
 
@@ -191,18 +200,26 @@ def test_it_is_off_until_verified_and_full_text_search_works_without_it(
 ) -> None:
     seed(fx, alice)
     run_semantic(fx)
-    assert chunks(fx) == [] and net.requests == []  # nothing runs, nothing is sent anywhere
+    assert (
+        chunks(fx) == [] and net.requests == []
+    )  # nothing runs, nothing is sent anywhere
     state = admin.get("/admin/semantic").json()
     assert state["state"] == "not_configured" and not state["active"]
     assert alice.get("/search/status").json()["semantic_active"] is False
     out = search_json(alice, "bill")
-    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == [
+        "march.txt"
+    ]
     # asking for a semantic mode while it is off quietly gives the full-text answer
     out = search_json(alice, "bill", mode="semantic")
-    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == [
+        "march.txt"
+    ]
     # saving an endpoint and switching on without verifying is refused
     sem_of(fx).transport = httpx.MockTransport(net)
-    r = put(admin, "/admin/semantic", {"kind": "ollama", "endpoint": ENDPOINT, "model": "m"})
+    r = put(
+        admin, "/admin/semantic", {"kind": "ollama", "endpoint": ENDPOINT, "model": "m"}
+    )
     assert r.status_code == 200 and r.json()["state"] == "not_verified"
     assert put(admin, "/admin/semantic/enabled", {"enabled": True}).status_code == 409
     assert net.requests == []
@@ -218,27 +235,42 @@ def test_only_administrators_configure_it_and_only_local_endpoints_are_accepted(
     for host in ("http://8.8.8.8:80", "http://169.254.169.254", "http://0.0.0.0:80"):
         r = put(admin, "/admin/semantic", {**body, "endpoint": host})
         assert r.status_code == 422, host
-    for kind in ("anthropic", "openai", "gemini"):  # no cloud kind exists for embeddings
+    for kind in (
+        "anthropic",
+        "openai",
+        "gemini",
+    ):  # no cloud kind exists for embeddings
         assert put(admin, "/admin/semantic", {**body, "kind": kind}).status_code == 422
     with pytest.raises(ValueError):
         embed.validate_spec(
             "openai", "", "m", sem_of(fx).resolver, sem_of(fx).allow_hosts
         )  # the module itself refuses too
-    assert put(admin, "/admin/semantic", {**body, "model": "bad model!"}).status_code == 422
+    assert (
+        put(admin, "/admin/semantic", {**body, "model": "bad model!"}).status_code
+        == 422
+    )
     assert admin.get("/admin/semantic").json()["state"] == "not_configured"
 
 
 # ---------------------------------------------------------------- health and dimension
 
 
-def test_verify_checks_health_and_a_stable_dimension(fx: Fx, admin: Api, net: Net) -> None:
+def test_verify_checks_health_and_a_stable_dimension(
+    fx: Fx, admin: Api, net: Net
+) -> None:
     state = configure(fx, admin, net, enable=False)
     assert state["healthy"] and state["dimension"] == 16 and state["state"] == "off"
     assert state["generation"] == 1 and not state["enabled"]
     # the check sent only the fixed synthetic probes, never a document
     assert set(net.texts) == set(embed.PROBES)
-    assert put(admin, "/admin/semantic/enabled", {"enabled": True}).json()["active"] is True
-    assert put(admin, "/admin/semantic/enabled", {"enabled": False}).json()["active"] is False
+    assert (
+        put(admin, "/admin/semantic/enabled", {"enabled": True}).json()["active"]
+        is True
+    )
+    assert (
+        put(admin, "/admin/semantic/enabled", {"enabled": False}).json()["active"]
+        is False
+    )
 
 
 @pytest.mark.parametrize(
@@ -258,7 +290,11 @@ def test_a_bad_endpoint_never_becomes_healthy(
 ) -> None:
     break_it(net)
     sem_of(fx).transport = httpx.MockTransport(net)
-    put(admin, "/admin/semantic", {"kind": "openai_compatible", "endpoint": ENDPOINT, "model": "m"})
+    put(
+        admin,
+        "/admin/semantic",
+        {"kind": "openai_compatible", "endpoint": ENDPOINT, "model": "m"},
+    )
     r = admin.post("/admin/semantic/verify")
     assert r.status_code == 502 and r.json()["detail"]["code"] == code
     state = admin.get("/admin/semantic").json()
@@ -277,7 +313,9 @@ def test_pgvector_missing_keeps_it_off_and_changes_nothing_else(
 ) -> None:
     monkeypatch.setattr(semantic, "pgvector_ready", lambda db: False)
     sem_of(fx).transport = httpx.MockTransport(net)
-    put(admin, "/admin/semantic", {"kind": "ollama", "endpoint": ENDPOINT, "model": "m"})
+    put(
+        admin, "/admin/semantic", {"kind": "ollama", "endpoint": ENDPOINT, "model": "m"}
+    )
     assert admin.post("/admin/semantic/verify").status_code == 409
     state = admin.get("/admin/semantic").json()
     assert state["state"] == "pgvector_missing" and state["pgvector"] is False
@@ -299,7 +337,9 @@ def test_the_endpoint_is_checked_again_at_every_request(
         {"kind": "ollama", "endpoint": "http://embed.internal:8081", "model": "m"},
     )
     admin.post("/admin/semantic/verify")
-    assert all(r.url.host == "127.0.0.1" for r in net.requests)  # connects to the checked address
+    assert all(
+        r.url.host == "127.0.0.1" for r in net.requests
+    )  # connects to the checked address
     addresses["embed.internal"] = ["169.254.169.254"]  # the name now points at metadata
     sem.resolver = lambda host, port: addresses[host]
     net.requests.clear()
@@ -321,7 +361,12 @@ def test_semantic_finds_related_text_that_shares_no_words_and_hybrid_keeps_keywo
     assert run_semantic(fx) > 0
     assert len(chunks(fx)) == 4
     # "vacation" and "holiday" share no word: only the vector finds the beach document
-    assert alice.get("/search", params={"q": "vacation", "mode": "fulltext"}).json()["hits"] == []
+    assert (
+        alice.get("/search", params={"q": "vacation", "mode": "fulltext"}).json()[
+            "hits"
+        ]
+        == []
+    )
     assert sem_names(alice, "vacation holiday") == ["summer.txt"]
     assert sem_names(alice, "invoice for payment") == ["march.txt"]
     assert sem_names(alice, "leak repair roof") == ["house.txt"]
@@ -333,10 +378,14 @@ def test_semantic_finds_related_text_that_shares_no_words_and_hybrid_keeps_keywo
     assert out["mode"] == "hybrid"
     assert [h["name"] for h in out["hits"]] == ["keyword.txt", "summer.txt"]
     assert "holiday" in out["hits"][0]["snippet"]
-    assert search_json(alice, "payment")["mode"] == "hybrid"  # auto picks hybrid once active
+    assert (
+        search_json(alice, "payment")["mode"] == "hybrid"
+    )  # auto picks hybrid once active
 
 
-def test_a_document_in_both_lists_appears_once_and_a_name_hit_takes_a_semantic_snippet() -> None:
+def test_a_document_in_both_lists_appears_once_and_a_name_hit_takes_a_semantic_snippet() -> (
+    None
+):
     a = uuid.uuid4()
     from app.search.query import Hit
 
@@ -368,17 +417,24 @@ def test_results_follow_the_acl_and_never_hint_at_hidden_files(
     bob, carol = Api(fx, "bob"), Api(fx, "carol")
     configure(fx, admin, net)
     run_semantic(fx)
-    for who in (bob, carol, admin):  # not theirs: nothing, and the same empty answer as any miss
+    for who in (
+        bob,
+        carol,
+        admin,
+    ):  # not theirs: nothing, and the same empty answer as any miss
         out = search_json(who, "vacation holiday", mode="semantic")
         assert out["hits"] == [] and set(out) == {"hits", "mode"}
     fx.grant(fx.alice, fx.taxes, "bob@example.com", "viewer")
     assert sem_names(bob, "vacation holiday") == ["summer.txt"]
     assert sem_names(carol, "vacation holiday") == []
     r = alice.client.delete(
-        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}", headers=alice.headers
+        f"/api/v1/nodes/{fx.taxes}/grants/{fx.uid('bob@example.com')}",
+        headers=alice.headers,
     )
     assert r.status_code in (200, 204)
-    assert sem_names(bob, "vacation holiday") == []  # decided again now: no re-index needed
+    assert (
+        sem_names(bob, "vacation holiday") == []
+    )  # decided again now: no re-index needed
 
 
 def test_a_folder_filter_never_opens_a_folder_the_person_cannot_see(
@@ -406,7 +462,9 @@ def test_trashed_and_changed_files_drop_out_and_are_embedded_again(
     assert sem_names(alice, "vacation") == []
     assert sem_names(alice, "dinner recipe") == ["summer.txt"]
     r = alice.client.delete(
-        f"/api/v1/nodes/{ids['invoice']}", params={"expected_revision": 1}, headers=alice.headers
+        f"/api/v1/nodes/{ids['invoice']}",
+        params={"expected_revision": 1},
+        headers=alice.headers,
     )
     assert r.status_code in (200, 204)
     assert sem_names(alice, "bill payment") == []
@@ -415,7 +473,9 @@ def test_trashed_and_changed_files_drop_out_and_are_embedded_again(
     assert ids["invoice"] not in {c.node_id for c in chunks(fx)}
 
 
-def test_shared_tree_files_are_found_by_members(fx: Fx, alice: Api, admin: Api, net: Net) -> None:
+def test_shared_tree_files_are_found_by_members(
+    fx: Fx, alice: Api, admin: Api, net: Net
+) -> None:
     bob = Api(fx, "bob")
     bob.upload(fx.shared_sub, "family.txt", b"our holiday trip to the beach")
     configure(fx, admin, net)
@@ -439,7 +499,9 @@ def test_confidential_text_is_never_embedded_and_a_raised_label_hides_old_vector
     run_semantic(fx)
     assert "vault" not in " ".join(net.texts)  # not even sent to the local endpoint
     assert {c.node_id for c in chunks(fx)} == {
-        n for n in docs(fx) if n not in {j.node_id for j in fx.w.db_rows(SearchEmbed) if j.error}
+        n
+        for n in docs(fx)
+        if n not in {j.node_id for j in fx.w.db_rows(SearchEmbed) if j.error}
     } - set()
     assert sem_names(alice, "passport visa") == []  # unlocked, opt-in on: still nothing
     # text that was embedded as Normal stops being returned the moment the label is raised
@@ -470,7 +532,12 @@ def test_private_text_needs_the_local_processing_opt_in_and_the_persons_own_swit
     assert sem_names(alice, "vacation") == ["diary.txt"]
     # the separate "no semantic indexing" switch removes the vectors immediately
     me = alice.get("/search/semantic/me").json()
-    assert me == {"available": True, "opt_out": False, "indexed_files": 1, "waiting_files": 0}
+    assert me == {
+        "available": True,
+        "opt_out": False,
+        "indexed_files": 1,
+        "waiting_files": 0,
+    }
     off = put(alice, "/search/semantic/me", {"opt_out": True}).json()
     assert off["opt_out"] is True and off["indexed_files"] == 0
     assert chunks(fx) == [] and sem_names(alice, "vacation") == []
@@ -521,7 +588,9 @@ def test_changing_the_model_starts_a_new_generation_and_rebuilds(
     assert v["generation"] == 2 and v["dimension"] == 24 and v["enabled"] is False
     assert chunks(fx) == []  # vectors of another model are never compared with new ones
     put(admin, "/admin/semantic/enabled", {"enabled": True})
-    assert sem_names(alice, "vacation") == []  # reindexing has not run yet: no stale answers
+    assert (
+        sem_names(alice, "vacation") == []
+    )  # reindexing has not run yet: no stale answers
     indexer(fx).tick()
     assert {c.generation for c in chunks(fx)} == {2}
     assert all(len(c.embedding or []) == 24 for c in chunks(fx))
@@ -542,9 +611,15 @@ def test_an_endpoint_that_changes_dimension_underneath_turns_search_off_safely(
     with sem.sessions() as db:
         sem.recheck(db)
     state = admin.get("/admin/semantic").json()
-    assert not state["healthy"] and state["error"] == "DIMENSION_CHANGED" and not state["active"]
+    assert (
+        not state["healthy"]
+        and state["error"] == "DIMENSION_CHANGED"
+        and not state["active"]
+    )
     out = search_json(alice, "bill", mode="hybrid")  # full-text keeps answering
-    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == [
+        "march.txt"
+    ]
     net.dim = 16  # and it recovers on its own when it is the same model again
     with sem.sessions() as db:
         sem.recheck(db)
@@ -593,12 +668,18 @@ def test_an_endpoint_outage_leaves_full_text_search_untouched_and_jobs_retry(
     assert jobs and all(j.state == "queued" and j.error == "OUTAGE" for j in jobs)
     assert all(j.attempts == 1 for j in jobs)
     assert indexer(fx).tick() == 0  # backed off: not due yet
-    out = search_json(alice, "bill", mode="hybrid")  # query embedding fails: plain full-text
-    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    out = search_json(
+        alice, "bill", mode="hybrid"
+    )  # query embedding fails: plain full-text
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == [
+        "march.txt"
+    ]
     net.status = 200
     fx.w.advance(hours=2)
     assert indexer(fx).tick() >= 1
-    assert {j.state for j in fx.w.db_rows(SearchEmbed)} == {"done"} and len(chunks(fx)) == 3
+    assert {j.state for j in fx.w.db_rows(SearchEmbed)} == {"done"} and len(
+        chunks(fx)
+    ) == 3
 
 
 def test_a_job_gives_up_after_the_attempt_limit_and_a_dead_worker_lease_is_reclaimed(
@@ -635,9 +716,13 @@ def test_a_job_gives_up_after_the_attempt_limit_and_a_dead_worker_lease_is_recla
 def test_background_work_is_throttled_for_cpu_only_hosts(
     make_fx: Callable[..., Fx], net: Net, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fx = make_fx(semantic_pause_ms=250, semantic_embed_batch=2, semantic_chunk_chars=200)
+    fx = make_fx(
+        semantic_pause_ms=250, semantic_embed_batch=2, semantic_chunk_chars=200
+    )
     alice, admin = Api(fx, "alice"), Api(fx, "admin")
-    alice.upload(fx.taxes, "long.txt", ("holiday trip to the beach and back " * 40).encode())
+    alice.upload(
+        fx.taxes, "long.txt", ("holiday trip to the beach and back " * 40).encode()
+    )
     configure(fx, admin, net)
     run_index(fx)
     sleeps: list[float] = []
@@ -646,7 +731,9 @@ def test_background_work_is_throttled_for_cpu_only_hosts(
     indexer(fx).tick()
     assert len(net.requests) >= 2 and len(sleeps) == len(net.requests)
     assert set(sleeps) == {0.25}
-    assert all(len(json.loads(r.content)["input"]) <= 2 for r in net.requests)  # small batches
+    assert all(
+        len(json.loads(r.content)["input"]) <= 2 for r in net.requests
+    )  # small batches
     # one request at a time and no GPU switch of ours in the call: the server decides its threads
     assert all("n_gpu_layers" not in r.content.decode() for r in net.requests)
 
@@ -654,7 +741,9 @@ def test_background_work_is_throttled_for_cpu_only_hosts(
 # ---------------------------------------------------------------- no cloud path, gates
 
 
-def test_the_embedding_client_refuses_anything_not_cleared_for_local_use(fx: Fx, net: Net) -> None:
+def test_the_embedding_client_refuses_anything_not_cleared_for_local_use(
+    fx: Fx, net: Net
+) -> None:
     sem = sem_of(fx)
     client = sem.client(embed.EndpointSpec("ollama", ENDPOINT, "m"))
     sem.transport = httpx.MockTransport(net)
@@ -662,7 +751,11 @@ def test_the_embedding_client_refuses_anything_not_cleared_for_local_use(fx: Fx,
     with pytest.raises(embed.EmbedError, match="NOT_CLEARED"):
         client.embed(["plain string"])  # type: ignore[list-item]
     cloud = clear(
-        "x", label="normal", provider_mode="cloud", local_opt_in=False, unlocked_by_person=False
+        "x",
+        label="normal",
+        provider_mode="cloud",
+        local_opt_in=False,
+        unlocked_by_person=False,
     )
     with pytest.raises(embed.EmbedError, match="NOT_CLEARED"):
         client.embed([cloud])
@@ -710,7 +803,9 @@ def test_zero_vectors_and_odd_answers_are_rejected_not_stored() -> None:
     assert abs(math.sqrt(sum(x * x for x in v)) - 1.0) < 1e-9
 
 
-def test_workers_do_not_start_when_search_is_disabled(make_fx: Callable[..., Fx]) -> None:
+def test_workers_do_not_start_when_search_is_disabled(
+    make_fx: Callable[..., Fx],
+) -> None:
     fx = make_fx(search_enabled=False)
     idx = indexer(fx)
     idx.start()
@@ -732,11 +827,17 @@ def test_a_model_swapped_behind_the_same_address_and_name_is_detected(
     run_semantic(fx)
     assert sem_names(alice, "vacation") == ["summer.txt"]
     sem = sem_of(fx)
-    net.swapped = True  # same kind, address, model name and dimension; different vectors
+    net.swapped = (
+        True  # same kind, address, model name and dimension; different vectors
+    )
     with sem.sessions() as db:
         sem.recheck(db)
     state = admin.get("/admin/semantic").json()
-    assert state["error"] == "MODEL_CHANGED" and not state["healthy"] and not state["active"]
+    assert (
+        state["error"] == "MODEL_CHANGED"
+        and not state["healthy"]
+        and not state["active"]
+    )
     assert search_json(alice, "vacation", mode="semantic")["mode"] == "fulltext"
     # it does not recover on its own: the administrator must verify, which starts a new generation
     with sem.sessions() as db:
@@ -766,7 +867,10 @@ def test_queries_are_rate_limited_per_person_and_only_when_they_call_the_model(
         assert alice.get("/search", params={"q": "vacation"}).status_code == 200
     r = alice.get("/search", params={"q": "vacation"})
     assert r.status_code == 429 and r.json()["detail"]["code"] == "SEARCH_TOO_FAST"
-    assert alice.get("/search", params={"q": "vacation", "mode": "fulltext"}).status_code == 200
+    assert (
+        alice.get("/search", params={"q": "vacation", "mode": "fulltext"}).status_code
+        == 200
+    )
     assert bob.get("/search", params={"q": "vacation"}).status_code == 200  # per person
     fx.w.advance(seconds=61)
     sem_of(fx)._recent.clear()  # the limiter uses the monotonic clock
@@ -783,18 +887,27 @@ def test_query_embedding_has_its_own_short_timeout_and_a_global_cap(
     seen: list[float | None] = []
     real = sem.client
     monkeypatch.setattr(
-        sem, "client", lambda spec, timeout=None: (seen.append(timeout), real(spec, timeout))[1]
+        sem,
+        "client",
+        lambda spec, timeout=None: (seen.append(timeout), real(spec, timeout))[1],
     )
     assert sem_names(alice, "vacation") == ["summer.txt"]
     assert seen == [float(fx.w.settings.semantic_query_timeout_seconds)] or seen == [
         fx.w.settings.semantic_query_timeout_seconds
     ]
-    assert fx.w.settings.semantic_query_timeout_seconds < fx.w.settings.semantic_timeout_seconds
+    assert (
+        fx.w.settings.semantic_query_timeout_seconds
+        < fx.w.settings.semantic_timeout_seconds
+    )
     # every slot busy: the query quietly uses full-text instead of queueing behind the model
-    held = [sem._slots.acquire() for _ in range(fx.w.settings.semantic_query_concurrency)]
+    held = [
+        sem._slots.acquire() for _ in range(fx.w.settings.semantic_query_concurrency)
+    ]
     assert held
     out = search_json(alice, "bill", mode="hybrid")
-    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == ["march.txt"]
+    assert out["mode"] == "fulltext" and [h["name"] for h in out["hits"]] == [
+        "march.txt"
+    ]
     for _ in held:
         sem._slots.release()
     assert search_json(alice, "bill", mode="hybrid")["mode"] == "hybrid"

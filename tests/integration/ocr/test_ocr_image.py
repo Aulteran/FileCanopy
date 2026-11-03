@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[3]
 IMAGE = "filecanopy-ocr:test"
 
 
-def docker(*args: str, check: bool = True, timeout: int = 900) -> subprocess.CompletedProcess[str]:
+def docker(
+    *args: str, check: bool = True, timeout: int = 900
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         ["docker", *args],  # noqa: S607
         capture_output=True,
@@ -120,7 +122,9 @@ def test_the_container_is_sealed(sealed: str) -> None:
     assert docker("exec", sealed, "id", "-u").stdout.strip() == "10003"
     wrote = docker("exec", sealed, "sh", "-c", "touch /srv/ocr/x", check=False)
     assert wrote.returncode != 0
-    ran = docker("exec", sealed, "sh", "-c", "cp /bin/true /tmp/t && /tmp/t", check=False)
+    ran = docker(
+        "exec", sealed, "sh", "-c", "cp /bin/true /tmp/t && /tmp/t", check=False
+    )
     assert ran.returncode != 0  # the tmpfs is noexec
     net = docker(
         "exec", sealed, "python3", "-c",
@@ -128,4 +132,6 @@ def test_the_container_is_sealed(sealed: str) -> None:
         check=False,
     )  # fmt: skip
     assert net.returncode != 0
-    assert docker("exec", sealed, "python3", "healthcheck.py", check=False).returncode == 0
+    assert (
+        docker("exec", sealed, "python3", "healthcheck.py", check=False).returncode == 0
+    )

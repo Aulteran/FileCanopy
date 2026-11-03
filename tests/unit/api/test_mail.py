@@ -78,7 +78,9 @@ def build(
     if "Message-ID" not in (before or {}):
         m["Message-ID"] = f"<{uuid.uuid4()}@example.com>"
     m.set_content(body)
-    for name, data in attachments if attachments is not None else [("scan.pdf", b"%PDF-1.4 x")]:
+    for name, data in (
+        attachments if attachments is not None else [("scan.pdf", b"%PDF-1.4 x")]
+    ):
         m.add_attachment(data, maintype="application", subtype="pdf", filename=name)
     raw = m.as_bytes()
     # Headers the stdlib builder refuses to repeat are injected as raw lines.
@@ -89,7 +91,9 @@ def build(
 
 
 class FakeBox:
-    def __init__(self, messages: dict[int, bytes] | None = None, uidvalidity: int = 7) -> None:
+    def __init__(
+        self, messages: dict[int, bytes] | None = None, uidvalidity: int = 7
+    ) -> None:
         self.messages = dict(messages or {})
         self.uidvalidity = uidvalidity
         self.fail_fetch: set[int] = set()
@@ -152,7 +156,9 @@ def verify_alias(api: Api, email: str) -> Any:
     FakeSMTP.sent = []
     assert add_alias(api, email).status_code == 202
     token = token_of(FakeSMTP.sent[-1])
-    r = api.client.post("/api/v1/me/emails/verify", json={"token": token}, headers=api.headers)
+    r = api.client.post(
+        "/api/v1/me/emails/verify", json={"token": token}, headers=api.headers
+    )
     assert r.status_code == 200, r.text
     return r
 
@@ -181,7 +187,9 @@ def test_from_header_tricks_are_refused() -> None:
         return [v for k, v in msg.items() if k.lower() == "from"]
 
     assert single_from(frm("Alice <alice@example.com>")) == "alice@example.com"
-    assert single_from(frm('"alice@example.com" <evil@example.net>')) == "evil@example.net"
+    assert (
+        single_from(frm('"alice@example.com" <evil@example.net>')) == "evil@example.net"
+    )
     assert single_from(frm("a@example.com, b@example.com")) is None
     assert single_from(frm("Team: a@example.com;")) is None
     assert single_from(frm("a@example.com", "b@example.com")) is None
@@ -208,7 +216,9 @@ def test_authentication_results_policy() -> None:
     )
     assert ev([spf_only]).reason == "AUTH_FAILED"
     assert ev([spf_only], policy="dmarc").reason == "AUTH_FAILED"
-    assert ev([f"{AUTHSERV}; dmarc=pass header.from=example.com"]).reason == "AUTH_FAILED"
+    assert (
+        ev([f"{AUTHSERV}; dmarc=pass header.from=example.com"]).reason == "AUTH_FAILED"
+    )
     third_party = f"{AUTHSERV}; dmarc=pass header.from=example.com; dkim=pass header.d=esp.example"
     assert ev([third_party]).reason == "AUTH_FAILED"
     both = f"{AUTHSERV}; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=a@example.com"
@@ -216,7 +226,9 @@ def test_authentication_results_policy() -> None:
     assert not ev([both], policy="dmarc").ok
     only_dkim = f"{AUTHSERV}; dkim=pass header.d=example.com; spf=fail smtp.mailfrom=a@example.com"
     assert ev([only_dkim]).reason == "AUTH_FAILED"
-    assert ev([f"{AUTHSERV}; dmarc=fail header.from=example.com"]).reason == "AUTH_FAILED"
+    assert (
+        ev([f"{AUTHSERV}; dmarc=fail header.from=example.com"]).reason == "AUTH_FAILED"
+    )
     # a pass for some other domain says nothing about the From domain
     assert ev([passing("evil.example")]).reason == "AUTH_FAILED"
     assert (
@@ -262,14 +274,19 @@ def test_authentication_results_only_from_our_provider() -> None:
     assert ev([forged, passing()]).reason == "AUTH_MISSING"
     # a pass placed in a comment does not count
     assert not ev([f"{AUTHSERV}; dmarc=fail (dmarc=pass) header.from=example.com"]).ok
-    assert authres.evaluate([passing()], "", "aligned", "example.com").reason == "AUTH_UNCONFIGURED"
+    assert (
+        authres.evaluate([passing()], "", "aligned", "example.com").reason
+        == "AUTH_UNCONFIGURED"
+    )
 
 
 # ------------------------------------------------------------------ MIME
 
 
 def test_attachments_and_names() -> None:
-    raw = build(attachments=[("../../etc/passwd", b"a"), ("CON.txt", b"b"), ("x.pdf", b"c")])
+    raw = build(
+        attachments=[("../../etc/passwd", b"a"), ("CON.txt", b"b"), ("x.pdf", b"c")]
+    )
     parsed = parse_message(raw, LIMITS)
     names = [a.display_name for a in parsed.attachments]
     assert names[0] == "passwd" or "/" not in names[0]
@@ -277,7 +294,10 @@ def test_attachments_and_names() -> None:
     assert names[1].lower().startswith("_con")
     assert parsed.from_address == "alice@example.com"
     assert parsed.subject == "Tax papers"
-    assert parsed.attachments[0].sha256 == hashlib.sha256(parsed.attachments[0].data).hexdigest()
+    assert (
+        parsed.attachments[0].sha256
+        == hashlib.sha256(parsed.attachments[0].data).hexdigest()
+    )
 
 
 def test_safe_filename_cases() -> None:
@@ -335,14 +355,20 @@ def test_nested_message_is_opaque_and_body_is_not_kept() -> None:
     outer = EmailMessage()
     outer["From"] = "alice@example.com"
     outer.set_content("hello body text")
-    outer.add_attachment(inner, maintype="message", subtype="rfc822", filename="fwd.eml")
+    outer.add_attachment(
+        inner, maintype="message", subtype="rfc822", filename="fwd.eml"
+    )
     parsed = parse_message(outer.as_bytes(), LIMITS)
     assert [a.display_name for a in parsed.attachments] == ["fwd.eml"]
     assert parsed.attachments[0].content_type == "message/rfc822"
 
 
 def test_garbage_does_not_crash() -> None:
-    for blob in (b"", b"\x00\xff" * 50, b"Content-Type: multipart/mixed\r\n\r\nno boundary"):
+    for blob in (
+        b"",
+        b"\x00\xff" * 50,
+        b"Content-Type: multipart/mixed\r\n\r\nno boundary",
+    ):
         try:
             parsed = parse_message(blob, LIMITS)
             assert parsed.from_address is None
@@ -367,7 +393,9 @@ def test_alias_lifecycle(fx: Fx) -> None:
     assert all(a["verified"] for a in out["aliases"])
     alias_id = out["aliases"][0]["id"]
     r = alice.client.post(
-        f"/api/v1/me/emails/{alias_id}/remove", json={"password": PASSWORD}, headers=alice.headers
+        f"/api/v1/me/emails/{alias_id}/remove",
+        json={"password": PASSWORD},
+        headers=alice.headers,
     )
     assert r.status_code == 200
     assert len(alice.client.get("/api/v1/me/emails").json()["aliases"]) == 1
@@ -409,13 +437,17 @@ def test_alias_token_rules(fx: Fx) -> None:
     add_alias(alice, "shared@example.net")
     token = token_of(FakeSMTP.sent[-1])
     # another signed-in person cannot redeem it
-    r = bob.client.post("/api/v1/me/emails/verify", json={"token": token}, headers=bob.headers)
+    r = bob.client.post(
+        "/api/v1/me/emails/verify", json={"token": token}, headers=bob.headers
+    )
     assert r.status_code == 400 and code(r) == "INVALID_TOKEN"
     r = alice.client.post(
         "/api/v1/me/emails/verify", json={"token": "nonsense"}, headers=alice.headers
     )
     assert r.status_code == 400
-    ok = alice.client.post("/api/v1/me/emails/verify", json={"token": token}, headers=alice.headers)
+    ok = alice.client.post(
+        "/api/v1/me/emails/verify", json={"token": token}, headers=alice.headers
+    )
     assert ok.status_code == 200
     again = alice.client.post(
         "/api/v1/me/emails/verify", json={"token": token}, headers=alice.headers
@@ -427,7 +459,9 @@ def test_alias_token_rules(fx: Fx) -> None:
     add_alias(alice, "later@example.net")
     stale = token_of(FakeSMTP.sent[-1])
     fx.w.advance(hours=25)
-    r = alice.client.post("/api/v1/me/emails/verify", json={"token": stale}, headers=alice.headers)
+    r = alice.client.post(
+        "/api/v1/me/emails/verify", json={"token": stale}, headers=alice.headers
+    )
     assert r.status_code == 400  # expired
 
     FakeSMTP.sent = []
@@ -436,7 +470,9 @@ def test_alias_token_rules(fx: Fx) -> None:
     add_alias(alice, "later@example.net")
     second = token_of(FakeSMTP.sent[-1])
     assert first != second
-    r = alice.client.post("/api/v1/me/emails/verify", json={"token": first}, headers=alice.headers)
+    r = alice.client.post(
+        "/api/v1/me/emails/verify", json={"token": first}, headers=alice.headers
+    )
     assert r.status_code == 400  # a new request replaced the old link
 
 
@@ -458,13 +494,17 @@ def test_alias_collisions(fx: Fx) -> None:
     add_alias(bob, "race@example.net")
     b_token = token_of(FakeSMTP.sent[-1])
     assert (
-        bob.client.post("/api/v1/me/emails/verify", json={"token": b_token}, headers=bob.headers)
+        bob.client.post(
+            "/api/v1/me/emails/verify", json={"token": b_token}, headers=bob.headers
+        )
     ).status_code == 200
     r = alice.client.post(
         "/api/v1/me/emails/verify", json={"token": a_token}, headers=alice.headers
     )
     assert r.status_code == 409 and code(r) == "EMAIL_IN_USE"
-    owners = [a.user_id for a in fx.w.db_rows(UserEmailAlias) if a.email == "race@example.net"]
+    owners = [
+        a.user_id for a in fx.w.db_rows(UserEmailAlias) if a.email == "race@example.net"
+    ]
     assert owners == [bob.uid]
 
 
@@ -502,7 +542,9 @@ def test_internationalised_domains_are_one_identity(fx: Fx) -> None:
         db.commit()
     alice = Api(fx, "alice")
     assert add_alias(alice, "bob@xn--bcher-kva.example").status_code == 202
-    assert not [a for a in fx.w.db_rows(UserEmailAlias)]  # quietly refused: Bob's mailbox
+    assert not [
+        a for a in fx.w.db_rows(UserEmailAlias)
+    ]  # quietly refused: Bob's mailbox
     admin, h = fx.admin
     r = admin.post(
         "/api/v1/admin/users",
@@ -545,9 +587,15 @@ def test_verified_personal_message(fx: Fx) -> None:
     assert m.from_address == "alice@example.com"
     assert m.auth_summary["dmarc"] == "pass"
     atts = fx.w.db_rows(InboundAttachment)
-    assert [a.display_name for a in atts] == ["scan.pdf"] and atts[0].stored_name is None
+    assert [a.display_name for a in atts] == ["scan.pdf"] and atts[
+        0
+    ].stored_name is None
     # M14: the attachment was filed and the staged bytes are gone
-    assert (m.processing_state, m.content_state, m.filed_count) == ("filed", "purged", 1)
+    assert (m.processing_state, m.content_state, m.filed_count) == (
+        "filed",
+        "purged",
+        1,
+    )
     assert not (fx.w.settings.app_data_path / "mail-quarantine" / str(m.id)).exists()
     assert box.closed
 
@@ -558,7 +606,11 @@ def test_shared_destination_and_alias_sender(fx: Fx) -> None:
     box = FakeBox(
         {
             1: build(to=INGEST),
-            2: build(frm="alice@work.example.net", to=PERSONAL, auth=passing("work.example.net")),
+            2: build(
+                frm="alice@work.example.net",
+                to=PERSONAL,
+                auth=passing("work.example.net"),
+            ),
         }
     )
     run_poll(fx.w, box)
@@ -606,7 +658,9 @@ def test_recipient_must_be_unambiguous(fx: Fx) -> None:
     cases = {
         "wrong-to": build(to="somebody@example.org"),
         "no-header": build(recipient_header=""),
-        "to-only": build(recipient_header="", after={}),  # `To:` is someone-else@example.org
+        "to-only": build(
+            recipient_header="", after={}
+        ),  # `To:` is someone-else@example.org
         "conflict": build(after={"X-Original-To": INGEST}),
         "across-headers": build(after={"Delivered-To": INGEST}),
         "plus-address": build(to="personaldocs+x@example.org"),
@@ -624,7 +678,10 @@ def test_recipient_must_be_unambiguous(fx: Fx) -> None:
 
 
 def test_delivered_to_is_used_when_the_first_header_is_absent(fx: Fx) -> None:
-    assert reason_for(fx, build(recipient_header="Delivered-To", to=INGEST)) == ("verified", None)
+    assert reason_for(fx, build(recipient_header="Delivered-To", to=INGEST)) == (
+        "verified",
+        None,
+    )
 
 
 def test_inactive_and_ambiguous_accounts_quarantine(fx: Fx) -> None:
@@ -649,19 +706,26 @@ def test_inactive_and_ambiguous_accounts_quarantine(fx: Fx) -> None:
             )
         )
         db.commit()
-    assert reason_for(fx, build(frm="dave@example.com")) == ("quarantined", "SENDER_AMBIGUOUS")
+    assert reason_for(fx, build(frm="dave@example.com")) == (
+        "quarantined",
+        "SENDER_AMBIGUOUS",
+    )
 
 
 def test_unverified_alias_is_not_an_identity(fx: Fx) -> None:
     alice = Api(fx, "alice")
     assert add_alias(alice, "pending@example.net").status_code == 202
-    assert reason_for(fx, build(frm="pending@example.net", auth=passing("example.net"))) == (
+    assert reason_for(
+        fx, build(frm="pending@example.net", auth=passing("example.net"))
+    ) == (
         "quarantined",
         "SENDER_UNKNOWN",
     )
 
 
-def test_no_authserv_id_means_everything_quarantines(make_world: Callable[..., World]) -> None:
+def test_no_authserv_id_means_everything_quarantines(
+    make_world: Callable[..., World],
+) -> None:
     w = mail_world(make_world, **{**IMAP, "imap_authserv_id": ""})
     Fx(w)
     run_poll(w, FakeBox({1: build()}))
@@ -673,7 +737,10 @@ def test_revalidate_at_processing_time(fx: Fx) -> None:
     alice = Api(fx, "alice")
     verify_alias(alice, "alice@work.example.net")
     run_poll(
-        fx.w, FakeBox({1: build(frm="alice@work.example.net", auth=passing("work.example.net"))})
+        fx.w,
+        FakeBox(
+            {1: build(frm="alice@work.example.net", auth=passing("work.example.net"))}
+        ),
     )
     with fx.w.ctx.sessions() as db:
         m = db.scalars(select(InboundMessage)).one()
@@ -706,7 +773,9 @@ def test_quarantine_stores_bytes_under_server_names(fx: Fx) -> None:
         FakeBox(
             {
                 1: build(
-                    frm="stranger@example.com", to=INGEST, attachments=[("../../evil.sh", b"rm")]
+                    frm="stranger@example.com",
+                    to=INGEST,
+                    attachments=[("../../evil.sh", b"rm")],
                 )
             }
         ),
@@ -725,7 +794,15 @@ def test_quota_keeps_metadata_only(make_world: Callable[..., World]) -> None:
     Fx(w)
     run_poll(
         w,
-        FakeBox({1: build(frm="x@example.com", to=INGEST, attachments=[("big.pdf", b"x" * 100)])}),
+        FakeBox(
+            {
+                1: build(
+                    frm="x@example.com",
+                    to=INGEST,
+                    attachments=[("big.pdf", b"x" * 100)],
+                )
+            }
+        ),
     )
     m = w.db_rows(InboundMessage)[0]
     assert m.content_state == "dropped"
@@ -821,7 +898,11 @@ def test_mailbox_down_is_recorded_and_lease_released(fx: Fx) -> None:
     assert poll_once(fx.w.ctx.sessions, fx.w.settings, factory=down) == 0
     with fx.w.ctx.sessions() as db:
         state = db.scalars(select(MailboxState)).one()
-        assert (state.last_error, state.failures, state.lease_until) == ("CONNECT_FAILED", 1, None)
+        assert (state.last_error, state.failures, state.lease_until) == (
+            "CONNECT_FAILED",
+            1,
+            None,
+        )
     run_poll(fx.w, FakeBox({1: build()}))
     with fx.w.ctx.sessions() as db:
         state = db.scalars(select(MailboxState)).one()
@@ -856,7 +937,11 @@ def seed_two(fx: Fx) -> None:
         FakeBox(
             {
                 1: build(),
-                2: build(frm="stranger@example.com", to=INGEST, attachments=[("evil.exe", b"MZ")]),
+                2: build(
+                    frm="stranger@example.com",
+                    to=INGEST,
+                    attachments=[("evil.exe", b"MZ")],
+                ),
                 3: build(frm="bob@example.com", auth=passing()),
             }
         ),
@@ -885,7 +970,9 @@ def test_admin_sees_quarantine_but_never_verified_mail(fx: Fx) -> None:
         r = admin.get(f"/api/v1/admin/quarantine/{m.id}")
         assert r.status_code == (200 if m.status == "quarantined" else 404), m.status
     status = admin.get("/api/v1/admin/mailbox").json()
-    assert status["configured"] and status["quarantined"] == 1 and status["verified"] == 2
+    assert (
+        status["configured"] and status["quarantined"] == 1 and status["verified"] == 2
+    )
     assert "box-secret" not in admin.get("/api/v1/admin/mailbox").text
 
 
@@ -895,7 +982,12 @@ def test_non_admin_cannot_use_admin_routes(fx: Fx) -> None:
     mid = next(m.id for m in fx.w.db_rows(InboundMessage) if m.status == "quarantined")
     for path in ("/admin/mailbox", "/admin/quarantine", f"/admin/quarantine/{mid}"):
         assert alice.get(path).status_code == 403
-    assert alice.post(f"/admin/quarantine/{mid}/reject", json={"confirm": True}).status_code == 403
+    assert (
+        alice.post(
+            f"/admin/quarantine/{mid}/reject", json={"confirm": True}
+        ).status_code
+        == 403
+    )
     assert alice.post("/admin/mailbox/poll").status_code == 403
     anon = fx.w.browser()
     assert anon.get("/api/v1/me/inbox").status_code == 401
@@ -915,17 +1007,24 @@ def test_quarantine_download_is_inert_and_audited(fx: Fx) -> None:
     assert "sandbox" in r.headers["content-security-policy"]
     assert "attachment" in r.headers["content-disposition"]
     assert "evil.exe" not in r.headers["content-disposition"]
-    assert any(a.action == "mail.attachment_downloaded" for a in fx.w.db_rows(AuthAudit))
+    assert any(
+        a.action == "mail.attachment_downloaded" for a in fx.w.db_rows(AuthAudit)
+    )
     # an attachment of a verified message is not reachable through the admin route
     verified = next(m for m in fx.w.db_rows(InboundMessage) if m.status == "verified")
     va = [a for a in fx.w.db_rows(InboundAttachment) if a.message_id == verified.id][0]
     assert (
-        admin.get(f"/api/v1/admin/quarantine/{verified.id}/attachments/{va.id}/content").status_code
+        admin.get(
+            f"/api/v1/admin/quarantine/{verified.id}/attachments/{va.id}/content"
+        ).status_code
         == 404
     )
     # wrong message for the attachment
     assert (
-        admin.get(f"/api/v1/admin/quarantine/{m.id}/attachments/{va.id}/content").status_code == 404
+        admin.get(
+            f"/api/v1/admin/quarantine/{m.id}/attachments/{va.id}/content"
+        ).status_code
+        == 404
     )
 
 
@@ -935,15 +1034,22 @@ def test_reject_needs_confirmation_and_removes_bytes(fx: Fx) -> None:
     m = next(m for m in fx.w.db_rows(InboundMessage) if m.status == "quarantined")
     base = fx.w.settings.app_data_path / "mail-quarantine" / str(m.id)
     assert (
-        admin.post(f"/api/v1/admin/quarantine/{m.id}/reject", json={}, headers=h).status_code == 422
+        admin.post(
+            f"/api/v1/admin/quarantine/{m.id}/reject", json={}, headers=h
+        ).status_code
+        == 422
     )
     assert base.exists()
-    r = admin.post(f"/api/v1/admin/quarantine/{m.id}/reject", json={"confirm": True}, headers=h)
+    r = admin.post(
+        f"/api/v1/admin/quarantine/{m.id}/reject", json={"confirm": True}, headers=h
+    )
     assert r.status_code == 200 and r.json()["status"] == "rejected"
     assert r.json()["reason"] == "SENDER_UNKNOWN" and not base.exists()
     att = [a for a in fx.w.db_rows(InboundAttachment) if a.message_id == m.id][0]
     assert (
-        admin.get(f"/api/v1/admin/quarantine/{m.id}/attachments/{att.id}/content").status_code
+        admin.get(
+            f"/api/v1/admin/quarantine/{m.id}/attachments/{att.id}/content"
+        ).status_code
         == 404
     )
     # a rejected message's bytes stay rejected when the same mail is fetched again
@@ -997,11 +1103,15 @@ def test_config_validation(tmp_path: Path) -> None:
         cfg(**{**IMAP, "imap_security": "none"})
     with pytest.raises(ValueError, match="plain email"):
         cfg(**{**IMAP, "imap_ingest_address": "Bob <x@example.org>"})
-    assert cfg(**{**IMAP, "imap_host": "localhost", "imap_security": "none"}).imap_configured
+    assert cfg(
+        **{**IMAP, "imap_host": "localhost", "imap_security": "none"}
+    ).imap_configured
     assert not cfg().imap_configured
 
 
-def test_secrets_not_in_logs_or_status(fx: Fx, caplog: pytest.LogCaptureFixture) -> None:
+def test_secrets_not_in_logs_or_status(
+    fx: Fx, caplog: pytest.LogCaptureFixture
+) -> None:
     def down() -> Any:
         raise RuntimeError("password box-secret rejected for box")
 
@@ -1015,7 +1125,10 @@ def test_base64_attachment_decodes() -> None:
     m["From"] = "alice@example.com"
     m.set_content("x")
     m.add_attachment(
-        b"\x00\x01binary" * 50, maintype="application", subtype="octet-stream", filename="b.bin"
+        b"\x00\x01binary" * 50,
+        maintype="application",
+        subtype="octet-stream",
+        filename="b.bin",
     )
     parsed = parse_message(m.as_bytes(), LIMITS)
     assert parsed.attachments[0].data == b"\x00\x01binary" * 50
