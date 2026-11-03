@@ -182,6 +182,14 @@ pending. Independent security review remains outstanding; M23 is not done.
 
 Claude Code handoff: `docs/handoffs/2026-11-03-codex-m23.md`.
 
+Additional failure-path review reproduced an OIDC code/state leak in nginx's HTTP error log when
+the API was unavailable (502/504). Path-only access logging did not protect that stream. HTTP error
+diagnostics are now discarded at the http level; sanitized access statuses, API exception types,
+health checks and global nginx lifecycle diagnostics remain. The Compose canary now stops the
+API, requests the callback with synthetic secrets, restarts the API in `finally`, and requires a
+502/504 access line without a canary anywhere in either container's logs. This observability tradeoff
+is explicit in `docs/guides/hardening.md`.
+
 ## Mapping: mandatory adversarial tests (03) → covering test
 
 | # | 03 test | Covered by |
@@ -202,3 +210,11 @@ restart, mass disappearance, and the new poisoned-item scale test), indexer
 (`test_search::test_a_crashed_worker...`), semantic (`test_semantic` retry and lease reclaim), mail
 (`test_mail`, `test_mail_ingest` retry then dead-letter), backup (`test_backup` failed/interrupted
 runs), trash (`test_trash_recovery`), import (`test_imports` resume).
+
+Uvicorn also retained its own default stderr traceback formatter after the application replaced
+root handlers. A startup-order probe reproduced exception-text leakage. Uvicorn loggers now
+propagate through the JSON formatter; a new security test configures Uvicorn before the app and
+asserts its actual stderr contains the exception type but no canary or traceback. The Linux
+security suite plus app tests pass (48 tests); focused logging/app tests pass after verifying
+the access logger remains disabled (13 tests); the strengthened Compose module passes (2 tests).
+Final GitHub CI is pending.

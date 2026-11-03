@@ -173,8 +173,20 @@ def test_container_logs_hold_no_query_string_or_secret(stack: Stack) -> None:
         )[0]
         == 401
     )
+    # nginx's upstream-error diagnostics normally repeat the full URL, including OIDC secrets.
+    # Exercise that path too; restore the shared test stack even if the request fails.
+    try:
+        stack.compose("stop", "api")
+        failed, _, _ = raw(
+            admin, "GET", f"/api/v1/auth/oidc/callback?code={canary}down&state={canary}down"
+        )
+        assert failed in (502, 504)  # refused/unresolvable upstream, or a cached address timing out
+    finally:
+        stack.compose("start", "api")
+        stack.wait_health("ok")
     result = stack.compose("logs", "--no-color", "web", "api")
     logs = result.stdout + result.stderr
     assert canary not in logs
     assert "/api/v1/search" in logs  # the access lines exist, without the address' query
     assert "/api/v1/auth/oidc/callback" in logs
+    assert f'"GET /api/v1/auth/oidc/callback" {failed} ' in logs

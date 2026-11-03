@@ -6,16 +6,21 @@
   time (`GET /api/v1/nodes/{node_id}/content 200 12ms`). Never the address' query string and never
   an id: the OIDC `code` and `state`, search terms, and invitation or reset tokens are not written.
   uvicorn's own access log (which prints the full request line) is switched off in the image and
-  in the Stack file (`--no-access-log`). Error logs carry the exception **type** only.
+  in the Stack file (`--no-access-log`). Uvicorn's error logger is routed through the same JSON
+  formatter as application logs: exception **types** are retained, traceback text is omitted.
 - **Web (nginx).** `"METHOD /path"`, status and size, from the client address. Not the query
-  string. nginx's *error* log can still quote a request line when nginx itself fails (for example
-  an upstream timeout); if you forward logs, treat the error log as sensitive.
+  string. HTTP error diagnostics are discarded because nginx can quote the original URL
+  (including OIDC secrets) and cannot apply the sanitized access-log format to them. Diagnose
+  upstream failures using the status in the access log, API exception types and health checks.
+  Global nginx startup/lifecycle diagnostics remain available.
 - **The one deliberate secret.** The first-run setup token is printed once at startup so the
   operator can read it from `docker compose logs api`. It is single-use and only valid while no
   administrator exists.
 
 If you run your own reverse proxy in front, check *its* access-log format too: the default
-`combined` format includes the query string.
+`combined` format includes the query string. Its error logs may also quote the original URL.
+The bundled nginx's HTTP-level error-log setting follows the [nginx error-log directive](https://nginx.org/en/docs/ngx_core_module.html#error_log);
+custom formatting applies to access logs, not request error diagnostics.
 
 ## Limits
 

@@ -6,6 +6,7 @@ by the API may contain any canary. The container-level streams (uvicorn, nginx) 
 against the files that configure them.
 """
 
+import json
 import logging
 import re
 import uuid
@@ -16,8 +17,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from test_auth import PASSWORD, World, invite, signed_in
+from uvicorn.config import Config
 
 from app.config import Settings
+from app.logging_config import configure_logging
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -190,6 +193,28 @@ def test_settings_never_print_their_secrets(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------- container streams
+
+
+def test_uvicorn_exception_stream_uses_the_redacting_formatter(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Match server startup: uvicorn installs handlers first, then loads the application factory.
+    Config("app.main:create_app", factory=True, access_log=False)
+    configure_logging()
+    secret = canary("uvicorn-exception")
+    try:
+        raise RuntimeError(secret)
+    except RuntimeError:
+        logging.getLogger("uvicorn.error").exception("Exception in ASGI application")
+    access = logging.getLogger("uvicorn.access")
+    assert not access.hasHandlers()  # must not undo uvicorn's --no-access-log decision
+    access.info("GET /?code=%s", secret)
+    output = capsys.readouterr()
+    assert secret not in output.out + output.err
+    assert "Traceback" not in output.err
+    record = json.loads(output.err)
+    assert record["logger"] == "uvicorn.error"
+    assert record["exc_type"] == "RuntimeError"
 
 
 def test_the_image_and_stack_switch_uvicorn_access_log_off() -> None:
