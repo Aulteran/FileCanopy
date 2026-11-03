@@ -27,6 +27,7 @@ from app.auth.schemas import Ok
 from app.auth.service import audit
 from app.db.models import AppSetting, AuthAudit, ConfidentialUnlock, Node
 from app.domain import events
+from app.domain.fileops import serialize_tree_changes
 from app.policy import privacy
 from app.policy.deps import (
     NodeContext,
@@ -261,6 +262,8 @@ def set_label(
     needs a tick (Private) or the password (Confidential); switching the feature off blocks only
     new labels. The guard also keeps a locked folder shut: it grants no `share` until unlocked."""
     principal, node = ctx.principal, ctx.node
+    serialize_tree_changes(db)  # serialize with final proposal insertion and lineage changes
+    db.refresh(node)
     if node.kind != "dir" or node.status != "active":
         raise http_error(422, "NOT_A_DIRECTORY")
     current, wanted = node.privacy_label, body.label

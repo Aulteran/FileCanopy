@@ -114,15 +114,19 @@ def mx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Matrix:
     return Matrix(tmp_path, monkeypatch)
 
 
-def surfaces_of(api: Api, nid: uuid.UUID | str) -> dict[str, int]:
+def surface_responses(api: Api, nid: uuid.UUID | str) -> dict[str, Any]:
     return {
-        "metadata": api.get(f"/nodes/{nid}").status_code,
-        "content": api.get(f"/nodes/{nid}/content").status_code,
-        "view": api.get(f"/nodes/{nid}/view").status_code,
-        "extract": api.get(f"/nodes/{nid}/extract").status_code,
-        "thumbnail": api.get(f"/nodes/{nid}/thumbnail").status_code,
-        "activity": api.get(f"/nodes/{nid}/activity").status_code,
+        "metadata": api.get(f"/nodes/{nid}"),
+        "content": api.get(f"/nodes/{nid}/content"),
+        "view": api.get(f"/nodes/{nid}/view"),
+        "extract": api.get(f"/nodes/{nid}/extract"),
+        "thumbnail": api.get(f"/nodes/{nid}/thumbnail"),
+        "activity": api.get(f"/nodes/{nid}/activity"),
     }
+
+
+def surfaces_of(api: Api, nid: uuid.UUID | str) -> dict[str, int]:
+    return {name: response.status_code for name, response in surface_responses(api, nid).items()}
 
 
 @pytest.mark.parametrize("persona", PERSONAS)
@@ -130,12 +134,20 @@ def test_every_node_surface_agrees_with_the_policy(mx: Matrix, persona: str) -> 
     api = mx.api[persona]
     missing = surfaces_of(api, uuid.uuid4())
     for key in FILES:
-        got = surfaces_of(api, mx.node[key])
+        responses = surface_responses(api, mx.node[key])
+        got = {name: response.status_code for name, response in responses.items()}
         if key in READABLE[persona]:
             assert got["metadata"] == 200 and got["content"] == 200, (persona, key, got)
         else:
             for surface, status in got.items():
                 assert status in (401, 403, 404, 423), (persona, key, surface, status)
+                body = responses[surface].text
+                assert not any(s in body for s in (*FILES[key], str(mx.node[key]))), (
+                    persona,
+                    key,
+                    surface,
+                    body,
+                )
                 if persona != "alice":
                     # Not different from "no such id" in a way that confirms existence.
                     assert status == missing[surface] or status == 403, (
@@ -159,6 +171,14 @@ def test_nothing_unreadable_appears_in_any_list_search_or_count(mx: Matrix, pers
             assert stem not in text, (persona, key, "name")
             assert word not in text, (persona, key, "body")
             assert str(mx.node[key]) not in text, (persona, key, "id")
+            for query in (name, word):
+                result = mx.api[persona].get("/search", params={"q": query})
+                assert result.status_code == 200, result.text
+                assert result.json()["hits"] == []
+                counts = [
+                    v for k, v in _walk(result.json()) if k in ("count", "total", "total_count")
+                ]
+                assert all(c == 0 for c in counts if isinstance(c, int)), counts
 
 
 def _walk(value: Any) -> list[tuple[str, Any]]:
@@ -178,6 +198,8 @@ def test_shared_collection_hides_unreadable_members_without_a_trace(mx: Matrix) 
     view = bob.get(f"/collections/{mx.collection}")
     assert view.status_code == 200
     body = view.json()
+    assert body["count"] == 1
+    assert [member["node_id"] for member in body["members"]] == [str(mx.node["open"])]
     members = json.dumps(body)
     assert "openname" in members  # Bob can read this one
     for stem in ("hiddenname", "diaryname", "vaultname"):
@@ -241,3 +263,37 @@ def test_raising_a_label_keeps_access_but_closes_the_machine_surfaces(
             res = client.call(tool, node_id=str(mx.node["open"]))
             assert res["isError"] is True, (who, tool)
         assert "openname" not in json.dumps(client.call("search_files", query="openname"))
+
+
+def test_disabling_a_person_closes_all_surfaces_and_existing_mcp_tokens(mx: Matrix) -> None:
+    bob = mx.api["bob"]
+    assert surfaces_of(bob, mx.node["open"])["content"] == 200
+    r = mx.admin.client.patch(
+        f"/api/v1/admin/users/{bob.uid}", json={"status": "disabled"}, headers=mx.admin.headers
+    )
+    assert r.status_code == 200, r.text
+    for node in mx.node.values():
+        assert set(surfaces_of(bob, node).values()) == {401}
+    for path in (
+        "/roots",
+        "/search?q=openname",
+        "/collections",
+        f"/collections/{mx.collection}",
+        "/activity/mine",
+        "/trash",
+        f"/nodes/{mx.dirs['open']}/children",
+    ):
+        response = bob.get(path)
+        assert response.status_code == 401, (path, response.text)
+        for name, word in FILES.values():
+            assert name not in response.text and word not in response.text
+    for tool, args in (
+        ("list_folders", {}),
+        ("search_files", {"query": "openname"}),
+        ("get_file_metadata", {"node_id": str(mx.node["open"])}),
+        ("get_text_excerpt", {"node_id": str(mx.node["open"])}),
+        ("list_collections", {}),
+        ("list_activity", {}),
+    ):
+        response = mx.mcp["bob"].rpc("tools/call", {"name": tool, "arguments": args})
+        assert response.status_code == 401, response.text

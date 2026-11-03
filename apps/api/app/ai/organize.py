@@ -670,26 +670,19 @@ def _scrub(row: AiProposal) -> None:
 
 
 def scrub_under(db: Session, folder: Node) -> int:
-    """M23: a folder was just given a stricter label. Open proposals for files inside it drop
-    their model-derived text now, not when the owner next opens the queue. Open proposals are one
-    per file and few, so each is checked by walking up from its file."""
-    count = 0
-    for row in db.scalars(
-        select(AiProposal).where(AiProposal.status.in_(("pending", "applying")))
-    ).all():
-        cursor = db.get(Node, row.node_id)
-        for _ in range(256):  # deeper than any supported tree
-            if cursor is None:
-                break
-            if cursor.id == folder.id:
-                _scrub(row)  # status stays: the next read or approve retires it as stale
-                count += 1
-                break
-            cursor = db.get(Node, cursor.parent_id) if cursor.parent_id else None
-    return count
+    """Drop model-derived text in every affected proposal, including completed history."""
+    affected = select(Node.id).where(Node.lineage.startswith(folder.lineage, autoescape=True))
+    result: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+        update(AiProposal)
+        .where(AiProposal.node_id.in_(affected))
+        .values(new_name=None, new_folder_name=None, reason="", doc_type="")
+    )
+    return int(result.rowcount)
 
 
-def _retire(db: Session, row: AiProposal, status: str, outcome: str) -> bool:
+def _retire(
+    db: Session, row: AiProposal, status: str, outcome: str, *, commit: bool = True
+) -> bool:
     """Atomically ends a still-pending proposal. False if someone decided it first."""
     res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
         update(AiProposal)
@@ -704,7 +697,8 @@ def _retire(db: Session, row: AiProposal, status: str, outcome: str) -> bool:
             doc_type="",
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
     return res.rowcount == 1
 
 
@@ -718,7 +712,13 @@ def _store(
     open_row: AiProposal | None,
     ip: str | None,
 ) -> AiProposal | None:
-    if open_row is not None and not _retire(db, open_row, "superseded", "replaced"):
+    # A provider response may arrive after the privacy check. Share the final tree transaction
+    # with label changes/moves, then re-read before persisting any model-derived text.
+    fileops.serialize_tree_changes(db)
+    db.refresh(node)
+    if not _is_fresh(db, node, snap):
+        return None
+    if open_row is not None and not _retire(db, open_row, "superseded", "replaced", commit=False):
         return None  # it was approved or dismissed while the model worked
     row = AiProposal(
         owner_user_id=user.id,

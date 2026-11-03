@@ -21,9 +21,9 @@ from app.auth import clock
 from app.auth.deps import Principal, client_ip, ctx_of, current_principal, get_db, http_error
 from app.auth.pin_router import check_password, consume_reauth
 from app.auth.schemas import Ok, Strict
-from app.auth.service import audit
+from app.auth.service import audit, lock_account
 from app.config import Settings
-from app.db.models import McpToken, User
+from app.db.models import AuthSession, McpToken, User
 from app.mcp import tokens, tools
 from app.policy.model import Actor
 
@@ -297,8 +297,33 @@ def list_tokens(
     return [TokenOut(**_out(r, now)) for r in rows]
 
 
-def _live_tokens_locked(db: Session, principal: Principal) -> int:
-    db.scalar(select(User.id).where(User.id == principal.user.id).with_for_update())
+def _live_tokens_locked(db: Session, principal: Principal, cfg: Settings) -> int:
+    lock_account(db, principal.user.id)
+    # The dependency may have loaded these before waiting for a revocation's account lock.
+    # Re-read both; neither an ORM identity-map hit nor a formerly valid proof is sufficient.
+    user = db.scalar(
+        select(User).where(User.id == principal.user.id).execution_options(populate_existing=True)
+    )
+    session = db.scalar(
+        select(AuthSession)
+        .where(AuthSession.id == principal.session.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    now = clock.utcnow()
+    if (
+        user is None
+        or session is None
+        or user.status != "active"
+        or session.user_id != user.id
+        or session.revoked_at is not None
+        or session.expires_at <= now
+        or session.last_seen_at + timedelta(seconds=cfg.session_idle_seconds) <= now
+    ):
+        raise http_error(401, "UNAUTHENTICATED")
+    if session.locked_at is not None:
+        raise http_error(423, "SESSION_LOCKED")
+    principal.user, principal.session = user, session
     return tokens.live_count(db, principal.user.id)
 
 
@@ -319,10 +344,9 @@ def create_token(
         raise http_error(422, "EXPIRY_TOO_LONG")
     if not body.acknowledge_remote_ai:
         raise http_error(422, "ACKNOWLEDGEMENT_REQUIRED")
-    # Check the limit before the proof, so a refused request does not use up a one-time provider
-    # re-check; and again after it, under a row lock on the account, so two simultaneous creates
-    # cannot both pass (the proof check may commit and release the first lock).
-    if _live_tokens_locked(db, principal) >= cfg.mcp_max_tokens_per_user:
+    # Lock before checking the proof against fresh identity/session rows, and hold the same
+    # account lock used by revocation through insertion. Successful proof checks do not commit.
+    if _live_tokens_locked(db, principal, cfg) >= cfg.mcp_max_tokens_per_user:
         db.commit()
         raise http_error(409, "TOKEN_LIMIT")
     # A cookie alone never mints a long-lived credential: exactly one proof, as for aliases.
@@ -333,7 +357,7 @@ def create_token(
     elif not consume_reauth(db, principal, need_strong=True):
         db.commit()
         raise http_error(403, "REAUTH_REQUIRED")
-    if _live_tokens_locked(db, principal) >= cfg.mcp_max_tokens_per_user:
+    if _live_tokens_locked(db, principal, cfg) >= cfg.mcp_max_tokens_per_user:
         db.commit()
         raise http_error(409, "TOKEN_LIMIT")
     value, digest_, hint = tokens.mint()

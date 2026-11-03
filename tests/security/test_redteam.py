@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import select
 from test_acl import Fx
 from test_auth import World
-from test_files import Api
+from test_files import Api, code
 
 from app.db.models import Node
 
@@ -67,21 +67,35 @@ def test_hostile_names_never_escape_or_corrupt_the_tree(fx: Fx, tmp_path: Path) 
     alice, bob = Api(fx, "alice"), Api(fx, "bob")
     before = {p for p in tmp_path.rglob("*")}
     target = fx.folder(fx.alice_root, "Target")
+    destinations = {op: fx.folder(target, op) for op in ("mkdir", "upload", "copy")}
     seed = alice.upload(target, "seed.txt", b"seed")
     assert seed.status_code == 201, seed.text
     seed_id = seed.json()["node"]["id"]
+    revision = seed.json()["node"]["revision"]
     for name in HOSTILE:
         calls = (
-            alice.mkdir(target, name),
-            alice.upload(target, name, b"data"),
-            alice.post(f"/nodes/{seed_id}/copy", json={"parent_id": str(target), "name": name}),
-            alice.post(f"/nodes/{seed_id}/rename", json={"name": name}),
+            ("mkdir", alice.mkdir(destinations["mkdir"], name), 201),
+            ("upload", alice.upload(destinations["upload"], name, b"data"), 201),
+            ("copy", alice.copy(seed_id, destinations["copy"], name=name), 201),
+            ("rename", alice.rename(seed_id, name, revision), 200),
         )
-        for r in calls:
-            assert r.status_code < 500, (name, r.status_code, r.text)
+        for operation, r, success in calls:
+            assert r.status_code in (success, 422), (operation, name, r.status_code, r.text)
+            if r.status_code == 422:
+                # Only the overlong input is rejected by the name field's schema. All other
+                # refusals must come from the storage name validator, not missing/wrong fields.
+                assert code(r) == ("VALIDATION_ERROR" if len(name) > 255 else "INVALID_NAME"), (
+                    operation,
+                    name,
+                    r.text,
+                )
             assert "Traceback" not in r.text
-        # put the seed back under a safe name so the next round starts the same
-        alice.post(f"/nodes/{seed_id}/rename", json={"name": "seed.txt"})
+        renamed = calls[-1][1]
+        if renamed.status_code == 200:
+            revision = renamed.json()["node"]["revision"]
+        reset = alice.rename(seed_id, "seed.txt", revision)
+        assert reset.status_code == 200, reset.text
+        revision = reset.json()["node"]["revision"]
     new = {p for p in tmp_path.rglob("*")} - before
     inside = (tmp_path / "library", tmp_path / "app-data")
     stray = [str(p) for p in new if not any(root in p.parents for root in inside)]

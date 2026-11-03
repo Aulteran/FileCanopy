@@ -2,7 +2,7 @@
 
 - **Status:** in review, PR #31, 2026-11-03 (branch `m23-hardening`, cut from `main` at dce002c). No migration.
 - **Depends on:** M20, M21, M22 (all done and merged). **Spec:** 03 (mandatory adversarial tests), 09 (ACL matrix, exit criteria).
-- **Review:** a separate Opus security review runs after the PR opens. This branch is not merged by its author.
+- **Review:** independent review of `9535141` posted 2026-11-03 (PR comment 6598009037): one High and two Medium findings. Corrections require reviewer recheck; this branch is not merged by its author.
 
 ## Scope
 
@@ -218,3 +218,19 @@ asserts its actual stderr contains the exception type but no canary or traceback
 security suite plus app tests pass (48 tests); focused logging/app tests pass after verifying
 the access logger remains disabled (13 tests); the strengthened Compose module passes (2 tests).
 Final GitHub CI is pending.
+
+
+### Independent-review corrections
+
+See PR #31 comment 6598009037 and the Claude handoff for the findings and precise evidence.
+MCP creation and account-wide revocation now share an account lock and creation revalidates the
+fresh session and proof under it. Two concurrent PostgreSQL HTTP interleavings test both lock
+orderings, observing actual database blocking. Label raises scrub every proposal status in the
+subtree; final storage shares the tree lock, rechecks privacy and keeps proposal replacement in
+one transaction. The hostile-name test uses valid rename/copy schemas and checks specific outcomes.
+Disabled sessions/tokens, denied node response bodies, exact visible collection membership/count,
+and empty unauthorized searches are now checked explicitly.
+
+Not claimed as covered: overlapping mixed move/share/trash concurrency, and PostgreSQL HTTP
+proposal-creation/label-change interleavings. The latter has deterministic unit interleaving and
+transaction-boundary coverage. Final corrective CI and independent reviewer recheck are pending.

@@ -146,7 +146,15 @@ def create_session(
     return token, csrf_token_for(digest(token))
 
 
+def lock_account(db: Session, user_id: uuid.UUID) -> None:
+    """Serialize credential creation and account-wide revocation (PostgreSQL row lock)."""
+    # NO KEY UPDATE still conflicts with other credential changes, while allowing foreign-key
+    # checks by concurrent audit/session inserts (avoids a session -> account lock inversion).
+    db.scalar(select(User.id).where(User.id == user_id).with_for_update(key_share=True))
+
+
 def revoke_sessions(db: Session, user_id: uuid.UUID, except_hash: str | None = None) -> int:
+    lock_account(db, user_id)  # same lock and order as MCP creation: account, then session
     stmt = (
         update(AuthSession)
         .where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
