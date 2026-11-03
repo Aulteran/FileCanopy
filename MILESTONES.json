@@ -1,6 +1,6 @@
 {
-  "project": "FileCanopy (working name)",
-  "status": "m23_done",
+  "project": "FileCanopy",
+  "status": "m24_in_progress",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -821,8 +821,8 @@
         "docs link checks",
         "manual acceptance demo"
       ],
-      "notes": "Use chosen project name; FileCanopy placeholder until cleared. License is provisionally AGPL-3.0-only (LICENSE added); REMINDER: run the dependency license audit before the first release (see PROJECT_STATUS.md).",
-      "status": "not_started"
+      "notes": "Started 2026-11-03; no migration or publication. Acceptance plan docs/milestones/M24-design-and-plan.md; release evidence/check results/gates docs/release/README.md; exact application/container dependency registers and retained license texts docs/release/dependency-audit.md. Application license declaration consistent; governance drafts await owner approval. Deterministic full-commit Docker tags, clean-source guard and local-only manual preparation workflow added; byte-identical reproducibility not established. Owner approved FileCanopy name, first public beta, GitHub bug issues and Docker plus native Proxmox helper-script LXC priorities; external clearance and exact platform/support policy still pending. Runtime compatibility is NOT cleared: pinned Redis server 7.4.12 RSALv2/SSPLv1, PDF.js Liberation GPL v2 font exceptions, native/vendor/OS source and notice obligations unresolved. Native LXC service packaging and real-host validation, complete final-image SBOMs/rebuild evidence, private security route, manual demo and final candidate CI remain release gates. ADR-016 accepted/unimplemented and all documented M23 follow-ups preserved. Local evidence: repository checks pass (8 Node tests, secret scan and release docs links); web 73 tests/typecheck/build pass; API 1231 passed/7 skipped with ruff/format/mypy (120 files) clean; release Compose 5 passed/1 Windows ownership skip; full browser suite 54 passed with source building enabled after correcting a pgvector notice COPY/context error; six corrected local-image SPDX SBOMs validated against official schema, image IDs and hashes. Evidence/check-results.json under docs/release records limitations and initial failures. Manual demo, native LXC and final clean-candidate/remote checks are not performed. M24 remains in progress until evidence and approvals close the criteria.",
+      "status": "in_progress"
     }
   ]
 }

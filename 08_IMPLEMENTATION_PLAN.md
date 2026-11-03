@@ -465,16 +465,23 @@
 **Goal:** Confirm brand/license/trademark checks, open-source governance and CI release automation with accurate limitations and usage docs.
 
 **Acceptance criteria:**
-- [ ] LICENSE (AGPL-3.0-only) present and consistent with package.json and README
+- [x] LICENSE (AGPL-3.0-only) present and consistent with package.json and README
 - [ ] Dependency license audit completed and recorded: all runtime dependencies compatible with AGPL-3.0
 - [ ] CONTRIBUTING/SECURITY/CHANGELOG present after owner approval
 - [ ] Docker image tagged and reproducible
-- [ ] Privacy and host-admin limitation plainly documented
+- [x] Privacy and host-admin limitation plainly documented
 - [ ] All milestone evidence, tests and known issues published
 
 **Tests/evidence:** release install test, SBOM/secret scan, docs link checks, manual acceptance demo.
 
-**Note:** Use chosen project name; FileCanopy placeholder until cleared.
+**Note:** FileCanopy is owner-selected; external trademark/namespace clearance remains pending.
+
+**M24 checkpoint (2026-11-03):** FileCanopy is now owner-selected and the first public release
+will be beta; external clearance evidence remains pending. Two checked criteria have evidence in
+the [M24 release packet](docs/release/README.md): consistent declarations and shipped licence
+texts, and corrected privacy/host/backup/cloud/MCP limits. The runtime audit records unresolved
+licence/source cases, governance files remain approval drafts, byte-identical reproducibility is
+not demonstrated, and manual/native-LXC/final-candidate gates remain open. M24 is not complete.
 
 
 ## End-of-session rule

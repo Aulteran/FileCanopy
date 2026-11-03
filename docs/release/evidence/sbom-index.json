@@ -1,0 +1,61 @@
+{
+  "accessed": "2026-11-03",
+  "tool": "Docker Scout v1.27.0 (go1.26.10-X:jsonv2 - windows/amd64)",
+  "validation": "JSON parsed, SPDX-2.3 marker and nonempty package list checked; not full schema or legal review",
+  "images": [
+    {
+      "image": "filecanopy-api:dev",
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "platform": "linux/amd64",
+      "file": "image-0.spdx.json.gz",
+      "spdxSha256": "59b81c2890923a6c40d7f928eda1c464898678cb9ffffd019ed06cabf67db1ba",
+      "packages": 248,
+      "noassertion": 46
+    },
+    {
+      "image": "filecanopy-web:dev",
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "platform": "linux/amd64",
+      "file": "image-1.spdx.json.gz",
+      "spdxSha256": "5121e7714eba1e92ed88958bb8920627d61471d491ae2e198ab64040de65c863",
+      "packages": 100,
+      "noassertion": 7
+    },
+    {
+      "image": "filecanopy-postgres:dev",
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "platform": "linux/amd64",
+      "file": "image-2.spdx.json.gz",
+      "spdxSha256": "3de2d399eee5fc0ab676e3b3eaee4065ab9787c008e803cd784853606c5e13ca",
+      "packages": 80,
+      "noassertion": 11
+    },
+    {
+      "image": "redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "platform": "linux/amd64",
+      "file": "image-3.spdx.json.gz",
+      "spdxSha256": "386c1b4748ca2d6ea04ba23b8561bbd12df2ce00dc23c2d956469b3adc31a23b",
+      "packages": 31,
+      "noassertion": 4
+    },
+    {
+      "image": "filecanopy-converter:m24",
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "platform": "linux/amd64",
+      "file": "image-4.spdx.json.gz",
+      "spdxSha256": "82eb0fe6449bccfedac1a7dc6fcf3884812353cf4f1cb231924695cdccca789e",
+      "packages": 503,
+      "noassertion": 103
+    },
+    {
+      "image": "filecanopy-ocr:m24",
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "platform": "linux/amd64",
+      "file": "image-5.spdx.json.gz",
+      "spdxSha256": "20f57424c51401f3c181288a744ee3243d92d40e89f7f0e879cd5c458e28745e",
+      "packages": 350,
+      "noassertion": 73
+    }
+  ]
+}

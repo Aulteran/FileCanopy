@@ -26,6 +26,7 @@ RUN mkdir -p /run/converter && chown 10002:10002 /run/converter && chmod 0755 /r
 RUN mkdir -p /run/ocr && chown 10003:10003 /run/ocr && chmod 0755 /run/ocr
 COPY apps/api apps/api
 COPY workers workers
+COPY LICENSE LICENSE
 USER 10001:10001
 EXPOSE 8000
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

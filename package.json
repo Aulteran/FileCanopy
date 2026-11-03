@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
-  "description": "Self-hosted, folder-first file manager with optional AI (working codename).",
+  "description": "Self-hosted, folder-first file manager with optional AI.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -14,7 +14,10 @@
     "format:check": "prettier --check .",
     "test": "node --test \"tests/unit/**/*.test.mjs\"",
     "secret-scan": "node scripts/secret-scan.mjs",
-    "check": "npm run lint && npm run format:check && npm run test && npm run secret-scan",
+    "docs:links": "node scripts/docs-links.mjs",
+    "release:plan": "node scripts/release-plan.mjs",
+    "release:audit": "node scripts/release-audit.mjs",
+    "check": "npm run lint && npm run format:check && npm run test && npm run secret-scan && npm run docs:links",
     "check:api": "node scripts/api-check.mjs",
     "test:compose": "node scripts/compose-test.mjs",
     "check:full": "npm run check && npm run check:web && npm run check:api && npm run test:compose && npm run test:e2e",
