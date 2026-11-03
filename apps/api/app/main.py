@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -61,6 +62,7 @@ from app.storage.roots import ensure_roots
 from app.storage.service import ReconcilerService
 
 log = logging.getLogger("filecanopy.api")
+access_log = logging.getLogger("filecanopy.access")
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -154,6 +156,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     semantic_indexer = SemanticIndexer(semantic)
     app.state.semantic = semantic
     app.state.chat_limiter = ChatLimiter(cfg.chat_per_minute)
+    app.state.search_limiter = ChatLimiter(cfg.search_per_minute)
     app.state.mcp_limiter = TokenLimiter(cfg.mcp_per_minute)
     app.state.semantic_indexer = semantic_indexer
 
@@ -175,7 +178,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # Always generated server-side: a client-supplied value could inject log content.
-        response = await call_next(request)
+        started = time.monotonic()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+        finally:
+            # Method, route template, status, duration. Never the URL: query strings carry OIDC
+            # `code`/`state` and search terms, and paths carry ids. uvicorn's own access log
+            # (which prints the full request line) is switched off in the image command.
+            route = request.scope.get("route")
+            access_log.info(
+                "%s %s %d %dms",
+                request.method,
+                getattr(route, "path", "-"),
+                status,
+                int((time.monotonic() - started) * 1000),
+            )
         response.headers["X-Request-ID"] = uuid.uuid4().hex
         response.headers["X-Content-Type-Options"] = "nosniff"
         if request.url.path.startswith("/api/v1/") and "/health" not in request.url.path:

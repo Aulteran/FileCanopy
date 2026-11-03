@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.auth.security import csrf_token_for, digest, new_token
-from app.db.models import AuthAudit, AuthSession, AuthToken, ConfidentialUnlock, User
+from app.db.models import AuthAudit, AuthSession, AuthToken, ConfidentialUnlock, McpToken, User
 from app.domain import nodes
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
@@ -162,6 +162,14 @@ def revoke_sessions(db: Session, user_id: uuid.UUID, except_hash: str | None = N
         )
     )
     result: CursorResult[Any] = db.execute(stmt)  # type: ignore[assignment]
+    if except_hash is None:
+        # M23: ending every session (password change or reset, disable, forced sign-out) also
+        # ends the person's API tokens; a stolen token must not outlive the credential change.
+        db.execute(
+            update(McpToken)
+            .where(McpToken.user_id == user_id, McpToken.revoked_at.is_(None))
+            .values(revoked_at=clock.utcnow())
+        )
     return int(result.rowcount)
 
 

@@ -56,7 +56,7 @@ services:
         FILECANOPY_DATABASE_URL=$$(python -c 'import urllib.parse as u; p = u.quote(open("/run/secrets/pg_password").read().strip(), safe=""); print("postgresql+psycopg://filecanopy:" + p + "@postgres:5432/filecanopy")');
         export FILECANOPY_DATABASE_URL;
         python -m app.db.migrate &&
-        exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+        exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log
     environment:
       FILECANOPY_LIBRARY_PATH: /library
       FILECANOPY_APP_DATA_PATH: /app-data

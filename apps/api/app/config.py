@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     # concurrent calls, so search cannot be used to hold the model server or database sessions.
     semantic_query_timeout_seconds: int = Field(default=8, ge=1, le=60)
     semantic_query_per_minute: int = Field(default=30, ge=1, le=10_000)
+    # Search requests per person per minute (M23); typing-as-you-search stays well under it.
+    search_per_minute: int = Field(default=120, ge=1, le=100_000)
     # Document chat (M20): questions per person per minute, and what one answer may read.
     chat_per_minute: int = Field(default=10, ge=1, le=1_000)
     chat_max_sources: int = Field(default=6, ge=1, le=12)

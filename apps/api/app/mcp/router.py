@@ -96,12 +96,15 @@ def endpoint(
     ip = client_ip(request)
     ctx = ctx_of(request)
     keys = ctx.throttle.ip_keys("mcp-token", ip)
-    if (retry := ctx.throttle.retry_after(db, keys)) is not None:
-        db.commit()
-        raise http_error(429, "TOO_MANY_ATTEMPTS", {"Retry-After": str(retry)})
     try:
         token, user = tokens.authenticate(db, request.headers.get("authorization"))
     except tokens.Rejected as bad:
+        # M23: the address throttle limits *failures* only. A valid token is never refused because
+        # someone else behind the same address (a shared proxy or NAT) sent bad ones; guessing a
+        # 256-bit token is not what the throttle protects against, wasted work is.
+        if (retry := ctx.throttle.retry_after(db, keys)) is not None:
+            db.commit()
+            raise http_error(429, "TOO_MANY_ATTEMPTS", {"Retry-After": str(retry)}) from None
         ctx.throttle.record_failure(db, keys)
         audit(db, "mcp.auth_failed", ip=ip, reason=bad.reason)
         db.commit()
