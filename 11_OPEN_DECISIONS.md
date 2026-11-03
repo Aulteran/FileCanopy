@@ -30,6 +30,12 @@ This document deliberately avoids reopening already-approved product behavior. R
 16. **Backup retention for frozen roots and deleted accounts (M06c):** backups of a root that is not active (disabled, missing) or whose account was removed are never pruned, so they keep using space. Decide the audited purge: who may trigger it (administrator for frozen shared/personal roots versus owner for their own), a confirmation that names the size and the last restore point, and whether the owner is notified. Documented as follow-up; not built.
 17. **Asynchronous restore (M06c, known limitation):** restore runs inside the request, one at a time. A background job with progress and cancellation is deferred; revisit when restores of very large folders are exercised.
 
+**ADR-016 implementation scheduling (owner request 2026-11-03):** tracked as
+[M25 — Per-root backup keys and owner recovery](docs/milestones/M25-design-and-plan.md).
+Status is **not started**; roadmap/docs only. M25 depends on completed M06c, M09 and M23 and
+may run before M24 closes if owner self-restore is included in beta. This does not change the
+accepted decision, choose beta scope, or authorise implementation in this planning session.
+
 ## Confirmed defaults (do not reopen without owner consent)
 
 - No separate organizations/tenants; one instance = one family/group workspace.

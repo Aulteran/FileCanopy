@@ -10,7 +10,7 @@
 | Documents / ingestion | M10–M14 | Preview, extraction/OCR, regular search, invites/OIDC, verified email senders and quarantine/ingestion |
 | Intelligent workflows | M15–M18 | Provider abstraction and costs, AI review/auto-safety, document splitting, virtual collections |
 | Advanced integrations | M19–M21b | Optional local semantic search, document chat, disabled-by-default MCP, full UI redesign build |
-| Release | M22–M24 | Backup/recovery/Stack documentation, security hardening, reproducible public release |
+| Release / recovery | M22–M25 | Packaging, hardening and public release readiness; M25 implements ADR-016 before advertising owner self-restore |
 
 **Dependency policy:** Later milestones may be broken into even smaller sessions as necessary, but each slice must be tested and status-tracked. Exact model availability is plan-dependent; use `/model` inside Claude Code to select what the account exposes. High-stakes review can be a separate user-approved session if Opus isn't available.
 
@@ -476,6 +476,28 @@
 
 **Note:** Use chosen project name; FileCanopy placeholder until cleared.
 
+
+### M25 — Per-root backup keys and owner recovery (ADR-016)
+
+**Status:** Not started — roadmap/docs added at the owner's request 2026-11-03. No implementation authorised in this planning session.
+
+**Phase:** release · **Dependencies:** M06c, M09, M23 (all complete) · **Review:** independent security review before completion
+
+**Goal:** Implement [accepted ADR-016](docs/adr/ADR-016-per-root-backup-keys.md): independent keys per storage root, personal owner recovery, default-off administrator escrow, per-root rotation and safe legacy archive handling.
+
+**Acceptance criteria:**
+- [ ] Each root has independent keys; one owner's key cannot decrypt another root's backups
+- [ ] Owner key displayed once with save/verification guidance; no plaintext private-key persistence or logging
+- [ ] Personal escrow requires explicit owner consent, is off by default, visible and audited; no implicit personal-folder app access for administrators
+- [ ] Shared-root recovery remains administrator-controlled; lost-key consequences are explained clearly
+- [ ] Key creation/rotation is serialized per root; old chains retain their old key requirements
+- [ ] Legacy instance-key archives remain usable and labelled accurately, without silent rewriting or deletion
+- [ ] Restore preserves owner authorization, the stricter backup/current privacy label and fresh Confidential reauthentication, and never overwrites live files
+- [ ] Web/CLI flows, migrations, recovery drills, documentation and independent security review have recorded evidence
+
+**Tests/evidence:** cross-root/wrong-key tests; owner/admin authorization; key display and loss UX; escrow consent/recovery; concurrent creation/rotation; interrupted operations; legacy/new archive coexistence and CLI restore; privacy/lock enforcement; secret/plaintext leak checks; PostgreSQL Compose recovery drill; browser flows; independent review.
+
+**Ordering:** M25 can run before M24 closes; it does not depend on M24. Any release advertising owner self-restore must complete this work first. Adding M25 does not select beta scope or claim implementation. Detailed scope, boundaries and acceptance plan: [M25 plan](docs/milestones/M25-design-and-plan.md).
 
 ## End-of-session rule
 

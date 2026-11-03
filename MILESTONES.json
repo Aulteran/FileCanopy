@@ -823,6 +823,42 @@
       ],
       "notes": "Use chosen project name; FileCanopy placeholder until cleared. License is provisionally AGPL-3.0-only (LICENSE added); REMINDER: run the dependency license audit before the first release (see PROJECT_STATUS.md).",
       "status": "not_started"
+    },
+    {
+      "id": "M25",
+      "phase": "release",
+      "title": "Per-root backup keys and owner recovery (ADR-016)",
+      "depends_on": [
+        "M06c",
+        "M09",
+        "M23"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5 implementation; independent security review before completion",
+      "objective": "Implement accepted ADR-016: separate recovery keys per storage root, owner-controlled personal recovery, optional visible administrator escrow and safe legacy archive migration.",
+      "acceptance_criteria": [
+        "Each storage root has an independent key pair; an owner's key cannot decrypt another root's archives",
+        "Personal recovery key shown once to the authenticated owner with save/verification guidance; no plaintext private key persisted or logged",
+        "Personal administrator escrow off by default, enabled only by explicit owner consent, visible and audited; administrator-assisted recovery grants no silent personal-folder app access",
+        "Shared-root recovery remains administrator-controlled; losing an owner key without escrow is clearly explained as loss of access to encrypted backups",
+        "Per-root creation and rotation are serialized and cannot affect another root; old keys still decrypt their old chains",
+        "Legacy instance-key archives remain readable and clearly labelled; migration never silently deletes, rewrites or misrepresents their key scope",
+        "Restore enforces owner authorization, most restrictive backup/current privacy label and fresh Confidential reauthentication, without overwriting live files",
+        "Web and CLI recovery, escrow, rotation and upgrade paths are documented and tested with synthetic data; independent security review and all evidence recorded"
+      ],
+      "required_tests": [
+        "cross-root key isolation and wrong-key rejection",
+        "owner/admin/unrelated-user authorization and fresh reauthentication",
+        "one-time key display, key-save verification and lost-key UX",
+        "escrow default-off, explicit consent, visibility and recovery authorization",
+        "concurrent key creation/rotation and interrupted-operation recovery",
+        "legacy/new archive coexistence, upgrade and CLI restore",
+        "Private/Confidential label preservation and idle-lock refusal",
+        "no keys or plaintext contents in logs, audit or persisted state",
+        "real PostgreSQL Compose recovery drill and browser backup/recovery flows",
+        "independent security review"
+      ],
+      "notes": "Added at the owner's request 2026-11-03, planning only. Not started; no implementation, schema migration or milestone test execution. Scope and acceptance plan: docs/milestones/M25-design-and-plan.md. ADR-016 stays accepted and unimplemented until this work is built and verified. Dependencies are already done. M25 does not depend on M24: it may run before M24 closes if owner self-restore is included in the first beta. Numbering does not authorize publication or decide beta scope; any release advertising owner self-restore must satisfy ADR-016 first. M24 remains the next milestone and has not started; implementation requires a separate request.",
+      "status": "not_started"
     }
   ]
 }

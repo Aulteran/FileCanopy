@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (owner decision 2026-10-31); not yet implemented
 - **Date:** 2026-10-31
-- **Milestone:** follow-up to M06c (before any release that advertises owner self-restore); constrains M09
+- **Milestone:** [M25 — Per-root backup keys and owner recovery](../milestones/M25-design-and-plan.md), not started; follow-up to M06c, before any release that advertises owner self-restore; preserves M09 privacy requirements
 
 ## Context
 
