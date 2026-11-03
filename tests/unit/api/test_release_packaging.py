@@ -299,7 +299,16 @@ def test_restore_refuses_occupied_or_unreadable_targets(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
 def test_a_failed_restore_says_how_to_start_over(tmp_path: Path) -> None:
-    r = run_restore(tmp_path, tmp_path / "app-data", "exit 1")
+    body = 'case "$*" in *pg_restore*) exit 1 ;; *psql*) echo 0 ;; esac'
+    r = run_restore(tmp_path, tmp_path / "app-data", body)
     assert r.returncode != 0
     assert "The restore did not finish" in r.stderr
     assert "docker compose down -v" in r.stderr
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_restore_into_a_live_database_gives_no_delete_advice(tmp_path: Path) -> None:
+    r = run_restore(tmp_path, tmp_path / "app-data", 'case "$*" in *psql*) echo 12 ;; esac')
+    assert r.returncode != 0
+    assert "already has tables" in r.stderr and "DELETES" in r.stderr
+    assert "The restore did not finish" not in r.stderr, "nothing was written, so no cleanup advice"

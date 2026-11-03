@@ -52,20 +52,26 @@ cleanup_help() {
 
 The restore did not finish. The database and folders may be partly filled, and restore.sh will
 refuse to run again until they are empty. To start over:
-  1. docker compose down -v         (removes the containers and the database volume)
+  1. docker compose down -v         (removes the containers and THE DATABASE VOLUME of this project,
+                                     which holds only the half-restored data from this run)
   2. empty $APP_DATA_DIR
      and, unless you used --skip-library, $LIBRARY_DIR
   3. run restore.sh again
 The backup in $SRC is not changed by any of this.
 HELP
 }
-trap cleanup_help EXIT
-
 fc --profile '*' stop web api worker >/dev/null 2>&1 || true
 echo "Starting the database ..."
 fc up -d --wait postgres >/dev/null
 tables=$(psql_value "select count(*) from information_schema.tables where table_schema = 'public'")
-[ "$tables" = 0 ] || die "the database already has tables; start from an empty one (docker compose down -v)"
+if [ "$tables" != 0 ]; then
+  die "the database already has tables, so this is not an empty install. Nothing was changed.
+       If it is a live install, leave it alone. 'docker compose down -v' DELETES this database, and
+       a second checkout with the same project name shares it. Back it up first, or restore with
+       a different COMPOSE_PROJECT_NAME."
+fi
+# From here on something is written; if it stops partway, say how to start over.
+trap cleanup_help EXIT
 
 echo "Loading the database ..."
 fc exec -T postgres pg_restore -U filecanopy -d filecanopy --no-owner --exit-on-error --single-transaction < "$SRC/db.dump"

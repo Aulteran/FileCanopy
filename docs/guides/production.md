@@ -54,6 +54,8 @@ It writes one new folder holding the database dump, `app-data/` and `library/`, 
 
 Run it as the user that owns `library/` and `app-data/` (or root). It needs GNU `tar`; on Windows run it inside WSL.
 
+If `FILECANOPY_VERSION` is set in `deploy/.env` the scripts use the release images (`docker-compose.release.yml`), the same as your install does. On a source-built install leave it unset: no release images are published yet, so the scripts would look for images that do not exist.
+
 **Keep the result private.** It contains everyone's files, including Private and Confidential ones, password hashes, sealed provider keys and the secret kept in `app-data/`. Put it on another disk, and encrypt that disk or the copy if it leaves your hands. A backup on the same disk as the library is not a backup. Schedule it with cron or a systemd timer and prune old folders yourself.
 
 ## 5. Restore
