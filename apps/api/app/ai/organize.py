@@ -669,7 +669,20 @@ def _scrub(row: AiProposal) -> None:
     row.new_name, row.new_folder_name, row.reason, row.doc_type = None, None, "", ""
 
 
-def _retire(db: Session, row: AiProposal, status: str, outcome: str) -> bool:
+def scrub_under(db: Session, folder: Node) -> int:
+    """Drop model-derived text in every affected proposal, including completed history."""
+    affected = select(Node.id).where(Node.lineage.startswith(folder.lineage, autoescape=True))
+    result: CursorResult[Any] = db.execute(  # type: ignore[assignment]
+        update(AiProposal)
+        .where(AiProposal.node_id.in_(affected))
+        .values(new_name=None, new_folder_name=None, reason="", doc_type="")
+    )
+    return int(result.rowcount)
+
+
+def _retire(
+    db: Session, row: AiProposal, status: str, outcome: str, *, commit: bool = True
+) -> bool:
     """Atomically ends a still-pending proposal. False if someone decided it first."""
     res: CursorResult[Any] = db.execute(  # type: ignore[assignment]
         update(AiProposal)
@@ -684,7 +697,8 @@ def _retire(db: Session, row: AiProposal, status: str, outcome: str) -> bool:
             doc_type="",
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
     return res.rowcount == 1
 
 
@@ -698,7 +712,13 @@ def _store(
     open_row: AiProposal | None,
     ip: str | None,
 ) -> AiProposal | None:
-    if open_row is not None and not _retire(db, open_row, "superseded", "replaced"):
+    # A provider response may arrive after the privacy check. Share the final tree transaction
+    # with label changes/moves, then re-read before persisting any model-derived text.
+    fileops.serialize_tree_changes(db)
+    db.refresh(node)
+    if not _is_fresh(db, node, snap):
+        return None
+    if open_row is not None and not _retire(db, open_row, "superseded", "replaced", commit=False):
         return None  # it was approved or dismissed while the model worked
     row = AiProposal(
         owner_user_id=user.id,
@@ -995,7 +1015,13 @@ def visible_proposals(
         if node is None or not engine.decide(db, actor, node).allows(Privilege.READ):
             continue
         if privacy.effective_label(db, node) != "normal":
-            if row.new_name or row.reason or row.doc_type or row.new_folder_name:
+            if (
+                row.status == "pending"
+                or row.new_name
+                or row.reason
+                or row.doc_type
+                or row.new_folder_name
+            ):
                 _scrub(row)  # a file that became protected keeps no model-derived text
                 if row.status == "pending":
                     row.status, row.outcome, row.decided_at = "stale", "changed", clock.utcnow()

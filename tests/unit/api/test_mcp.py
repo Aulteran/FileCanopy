@@ -284,8 +284,10 @@ def test_failed_tokens_are_throttled_per_address(
         assert Client(fx, "fcmcp_" + "z" * 40).rpc("ping").status_code == 401
     r = Client(fx, "fcmcp_" + "z" * 40).rpc("ping")
     assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
-    assert Client(fx, value).rpc("ping").status_code == 429  # blocked before the token is read
+    # M23: a valid token is not locked out by other people's failures behind the same address
+    assert Client(fx, value).rpc("ping").status_code == 200
     fx.w.advance(seconds=1000)
+    assert Client(fx, "fcmcp_" + "z" * 40).rpc("ping").status_code == 401
     assert Client(fx, value).rpc("ping").status_code == 200
 
 

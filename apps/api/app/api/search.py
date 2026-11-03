@@ -55,6 +55,8 @@ def search(
     semantic mode while it is off (or its endpoint is down) quietly gives full-text results; there
     is never a fallback to anything but local full-text search."""
     actor = Actor(principal.user.id, session_id=principal.session.id)
+    if not request.app.state.search_limiter.allow(actor.user_id):
+        raise http_error(429, "SEARCH_TOO_FAST")
     sem: semantic.Semantic = request.app.state.semantic
     want = mode
     if want == "auto":

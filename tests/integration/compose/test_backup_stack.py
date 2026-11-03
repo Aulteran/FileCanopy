@@ -9,7 +9,6 @@ bytes only; no cloud service is involved.
 
 import json
 import secrets
-import subprocess
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -34,22 +33,7 @@ class BackupStack(Stack):
         self.backups = tmp / "backups"
         self.backups.mkdir()
         self.env["FILECANOPY_BACKUP_PATH"] = str(self.backups)
-
-    def compose(
-        self, *args: str, check: bool = True, env: dict[str, str] | None = None
-    ) -> subprocess.CompletedProcess[str]:
-        cmd = ["docker", "compose", "-p", self.name, "-f", str(COMPOSE_FILE), "-f", str(OVERRIDE)]
-        r = subprocess.run(  # noqa: S603
-            [*cmd, *args],
-            env=env or self.env,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
-        )
-        if check and r.returncode != 0:
-            raise AssertionError(f"{' '.join(args)} failed:\n{r.stdout}\n{r.stderr}")
-        return r
+        self.files.append(OVERRIDE)
 
 
 @pytest.fixture(scope="module")

@@ -508,10 +508,13 @@ class Applier:
     def _batches(self, items: list[Any], fn: Any) -> None:
         for start in range(0, len(items), BATCH):
             chunk = items[start : start + BATCH]
+            before = dict(self.done)
             try:
                 self._apply_chunk(chunk, fn)
             except Exception as exc:  # one bad change must not stall the whole root
                 log.warning("scan batch failed, retrying one by one: %s", type(exc).__name__)
+                # The failed batch was rolled back; its counts must not be added twice (M23).
+                self.done = defaultdict(int, before)
                 for item in chunk:
                     try:
                         self._apply_chunk([item], fn)

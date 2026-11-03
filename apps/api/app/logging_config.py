@@ -25,3 +25,14 @@ def configure_logging() -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(logging.INFO)
+    # uvicorn configures its own stderr handler before loading the app factory. Replacing only
+    # root handlers leaves its default traceback formatter active, leaking exception messages.
+    for name in ("uvicorn", "uvicorn.error"):
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.propagate = True
+    # Uvicorn decides whether to emit access lines by hasHandlers(). Propagating this logger to
+    # root would silently re-enable URL-bearing logs despite the image's --no-access-log flag.
+    access = logging.getLogger("uvicorn.access")
+    access.handlers.clear()
+    access.propagate = False

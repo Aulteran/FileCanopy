@@ -101,7 +101,7 @@ docker compose -f deploy/docker-compose.yml up -d --build --wait
 
 Database migrations run automatically on start. Your `deploy/.env` file is ignored by git, so `git pull` does not change it.
 
-For a production setup (published images pinned to a version, whole-install backup and restore, HTTPS, the Docker Swarm variant) read the [production guide](docs/guides/production.md).
+For a production setup (published images pinned to a version, whole-install backup and restore, HTTPS, the Docker Swarm variant) read the [production guide](docs/guides/production.md). What the containers log and the rate limits are in the [hardening guide](docs/guides/hardening.md).
 
 ## Backups
 

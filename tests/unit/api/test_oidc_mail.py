@@ -566,6 +566,20 @@ def test_link_then_sign_in_with_the_provider(make_world: Callable[..., World], i
     assert "login.success" in audit_text(w) and "sub-ada" not in audit_text(w)
 
 
+def test_spent_round_trips_keep_no_secret(make_world: Callable[..., World], idp: Idp) -> None:
+    """M23: once a round trip is used, the next start blanks its verifier and nonce."""
+    w = oidc_world(make_world, idp)
+    c, h = admin_session(w)
+    assert link(w, idp, c, h) == "linked"
+    spent = w.db_rows(OidcLogin)[0]
+    assert spent.code_verifier and spent.nonce
+    start(w.browser(), "login")  # any new start sweeps the old rows
+    rows = {r.id: r for r in w.db_rows(OidcLogin)}
+    assert rows[spent.id].code_verifier == "" and rows[spent.id].nonce == ""
+    fresh = [r for r in rows.values() if r.id != spent.id]
+    assert fresh and all(r.code_verifier and r.used_at is None for r in fresh)
+
+
 def test_unlinked_identity_is_refused_and_creates_nothing(
     make_world: Callable[..., World], idp: Idp
 ) -> None:

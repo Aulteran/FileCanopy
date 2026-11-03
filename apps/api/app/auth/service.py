@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.auth.security import csrf_token_for, digest, new_token
-from app.db.models import AuthAudit, AuthSession, AuthToken, ConfidentialUnlock, User
+from app.db.models import AuthAudit, AuthSession, AuthToken, ConfidentialUnlock, McpToken, User
 from app.domain import nodes
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
@@ -146,7 +146,15 @@ def create_session(
     return token, csrf_token_for(digest(token))
 
 
+def lock_account(db: Session, user_id: uuid.UUID) -> None:
+    """Serialize credential creation and account-wide revocation (PostgreSQL row lock)."""
+    # NO KEY UPDATE still conflicts with other credential changes, while allowing foreign-key
+    # checks by concurrent audit/session inserts (avoids a session -> account lock inversion).
+    db.scalar(select(User.id).where(User.id == user_id).with_for_update(key_share=True))
+
+
 def revoke_sessions(db: Session, user_id: uuid.UUID, except_hash: str | None = None) -> int:
+    lock_account(db, user_id)  # same lock and order as MCP creation: account, then session
     stmt = (
         update(AuthSession)
         .where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
@@ -162,6 +170,14 @@ def revoke_sessions(db: Session, user_id: uuid.UUID, except_hash: str | None = N
         )
     )
     result: CursorResult[Any] = db.execute(stmt)  # type: ignore[assignment]
+    if except_hash is None:
+        # M23: ending every session (password change or reset, disable, forced sign-out) also
+        # ends the person's API tokens; a stolen token must not outlive the credential change.
+        db.execute(
+            update(McpToken)
+            .where(McpToken.user_id == user_id, McpToken.revoked_at.is_(None))
+            .values(revoked_at=clock.utcnow())
+        )
     return int(result.rowcount)
 
 

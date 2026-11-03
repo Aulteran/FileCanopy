@@ -234,6 +234,7 @@ def _redeem(db: Session, request: Request, token: str, purpose: str, expected_st
 def accept_invitation(
     body: AcceptInvitation, request: Request, db: Session = Depends(get_db)
 ) -> Ok:
+    check_origin(request)
     ctx = ctx_of(request)
     oidc_only.require_password_login(db, ctx.settings)
     user = _redeem(db, request, body.token, "invitation", "invited")
@@ -251,6 +252,7 @@ def accept_invitation(
 
 @router.post("/auth/password-reset/complete", response_model=Ok)
 def complete_reset(body: CompleteReset, request: Request, db: Session = Depends(get_db)) -> Ok:
+    check_origin(request)
     ctx = ctx_of(request)
     oidc_only.require_password_login(db, ctx.settings)
     user = _redeem(db, request, body.token, "reset", "active")

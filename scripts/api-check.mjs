@@ -43,4 +43,5 @@ inDev(
   "-q",
   "-rs", // list why tests were skipped (the M10 hardening tests must run in CI)
   "tests/unit/api",
+  "tests/security", // M23 adversarial suite
 );

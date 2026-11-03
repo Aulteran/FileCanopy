@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 from test_acl import Fx
 from test_ai import (
     KEY,
@@ -355,9 +355,91 @@ def test_label_raised_after_suggestion_makes_it_stale(fx: Fx, net: Net) -> None:
     net.text = answer(new_name="n.pdf")
     pid = suggest(alice, f)["proposal_id"]
     label(alice, fx.alice_root, "private")
+    from app.db.models import AiProposal  # M23: scrubbed when the label changes, not at next read
+
+    (row,) = fx.w.db_rows(AiProposal)
+    assert (row.new_name, row.new_folder_name, row.reason, row.doc_type) == (None, None, "", "")
     assert code(org(alice, f"/proposals/{pid}/approve")) == "STALE"
     assert proposals(alice) == []  # and never shown again with its derived text
     assert node_row(fx, f).name == "scan0001.pdf"
+
+
+# --- sensitive warnings -------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "status", ["pending", "applying", "applied", "dismissed", "stale", "failed", "superseded"]
+)
+def test_label_raise_scrubs_all_proposal_history_in_its_subtree(
+    fx: Fx, net: Net, status: str
+) -> None:
+    alice, _ = setup(fx)
+    f = file_in(alice, fx.taxes, "history.pdf")
+    index(fx, f, "Invoice 4711")
+    net.text = answer(new_name="secret-derived-name.pdf", reason="secret extracted text")
+    pid = suggest(alice, f)["proposal_id"]
+    other = invoice(fx, alice, "unrelated.pdf")
+    other_pid = suggest(alice, other)["proposal_id"]
+    with fx.w.ctx.sessions() as db:
+        row = db.get(AiProposal, uuid.UUID(pid))
+        assert row is not None
+        row.status = status
+        row.new_folder_name = "secret derived folder"
+        db.commit()
+    label(alice, fx.taxes, "private")
+    rows = {str(row.id): row for row in fx.w.db_rows(AiProposal)}
+    row = rows[pid]
+    assert row.status == status  # scrubbing does not rewrite the audit/history outcome
+    assert (row.new_name, row.new_folder_name, row.reason, row.doc_type) == (None, None, "", "")
+    assert rows[other_pid].new_name == "secret-derived-name.pdf"
+
+
+def test_a_label_change_just_before_proposal_storage_keeps_no_model_text(
+    fx: Fx, net: Net, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alice, _ = setup(fx)
+    f = invoice(fx, alice)
+    net.text = answer(new_name="secret-derived-name.pdf")
+    store = organize._store
+
+    def label_before_store(*args: Any, **kwargs: Any) -> Any:
+        label(alice, fx.alice_root, "private")
+        return store(*args, **kwargs)
+
+    monkeypatch.setattr(organize, "_store", label_before_store)
+    assert suggest(alice, f)["skipped"] == "busy"
+    assert fx.w.db_rows(AiProposal) == []
+
+
+def test_replacing_a_proposal_keeps_the_tree_lock_until_the_new_row_commits(
+    fx: Fx, net: Net, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alice, _ = setup(fx)
+    f = invoice(fx, alice)
+    net.text = answer(new_name="first.pdf")
+    old = suggest(alice, f)["proposal_id"]
+    assert alice.rename(f, "changed.pdf", 1).status_code == 200
+    net.text = answer(new_name="second.pdf")
+    store = organize._store
+
+    def single_transaction(db: Any, *args: Any, **kwargs: Any) -> Any:
+        commits: list[None] = []
+
+        def committed(_: Any) -> None:
+            commits.append(None)
+
+        event.listen(db, "after_commit", committed)
+        try:
+            row = store(db, *args, **kwargs)
+            assert row is not None
+            assert len(commits) == 1  # retiring the old row must not release the advisory lock
+            return row
+        finally:
+            event.remove(db, "after_commit", committed)
+
+    monkeypatch.setattr(organize, "_store", single_transaction)
+    new = suggest(alice, f)["proposal_id"]
+    assert new != old
+    rows = {str(row.id): row for row in fx.w.db_rows(AiProposal)}
+    assert rows[old].status == "superseded" and rows[new].new_name == "second.pdf"
 
 
 # --- sensitive warnings -------------------------------------------------------------------------
@@ -646,7 +728,8 @@ def test_module_has_no_way_to_change_permissions_labels_or_delete() -> None:
         and isinstance(n.value, ast.Name)
         and n.value.id == "fileops"
     }
-    assert used == {"relocate", "create_folder", "_db_has"}
+    # The additional helper only serializes the DB transaction; it performs no file operation.
+    assert used == {"relocate", "create_folder", "_db_has", "serialize_tree_changes"}
     for n in ast.walk(tree):  # nothing assigns a label or a grant level
         if isinstance(n, ast.Attribute) and isinstance(n.ctx, ast.Store):
             assert n.attr not in {"privacy_label", "level", "grantee_user_id"}

@@ -25,6 +25,17 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
     s.down(volumes=True)
 
 
+@pytest.fixture
+def fresh_stack(tmp_path: Path) -> Iterator[Stack]:
+    """Bootstrap tests need an untouched instance regardless of test collection order."""
+    s = Stack(tmp_path, f"fctest{secrets.token_hex(3)}")
+    try:
+        s.up()
+        yield s
+    finally:
+        s.down(volumes=True)
+
+
 @pytest.fixture(scope="session")
 def browser() -> Iterator[Browser]:
     with sync_playwright() as p:
