@@ -223,7 +223,7 @@ services:
       OCR_MAX_BYTES: ${FILECANOPY_OCR_MAX_BYTES:-52428800}
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     profiles: [workers]
     restart: unless-stopped
     user: redis # entrypoint cannot drop privileges itself once capabilities are dropped

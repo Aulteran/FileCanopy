@@ -61,7 +61,7 @@ jobs:
           - suite: proxy
             tests: tests/integration/compose/test_proxy_stack.py
           - suite: app
-            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py tests/integration/compose/test_files_stack.py tests/integration/compose/test_import_stack.py tests/integration/compose/test_trash_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py tests/integration/compose/test_semantic_stack.py
+            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py tests/integration/compose/test_files_stack.py tests/integration/compose/test_import_stack.py tests/integration/compose/test_trash_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py tests/integration/compose/test_semantic_stack.py tests/integration/compose/test_release_stack.py
     name: compose (${{ matrix.suite }})
     steps:
       - uses: actions/checkout@v4
@@ -154,3 +154,37 @@ jobs:
       - run: python -m pytest -c apps/api/pyproject.toml -m e2e -q tests/e2e
         env:
           FILECANOPY_COMPOSE_NO_BUILD: "1"
+
+  # The Docker Swarm stack variant (M22), deployed unchanged on a real single-node swarm. Opt-in
+  # (FILECANOPY_TEST_SWARM) because the test turns the engine into a swarm manager; this runner is
+  # disposable. Only on pull requests and manual runs.
+  stack:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install pytest==9.2.0
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: runtime
+          tags: filecanopy-api:dev
+          load: true
+          cache-from: type=gha,scope=api-runtime
+          cache-to: type=gha,mode=max,scope=api-runtime
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          tags: filecanopy-web:dev
+          load: true
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - run: python -m pytest -c apps/api/pyproject.toml -m compose -q tests/integration/compose/test_swarm_stack.py
+        env:
+          FILECANOPY_TEST_SWARM: "1"

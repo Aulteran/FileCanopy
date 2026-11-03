@@ -1,5 +1,5 @@
 # Build context is the repository root:  docker build -f apps/api/Dockerfile .
-FROM python:3.13-slim AS base
+FROM python:3.13-slim@sha256:ae14d4ce8771606477a81446e7ef429edd6762305fc50c84507c1041fa8285d1 AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
