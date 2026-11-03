@@ -580,6 +580,44 @@ def test_large_tree_scans_once_then_reports_no_changes(fx: Fx) -> None:
     assert {"deferred": 0, "unreadable": 0} in runs  # the quiet second pass
 
 
+def test_a_large_tree_with_poisoned_items_recovers_without_duplicates(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M23: 3,000 files, five of which fail every attempt. The pass finishes, defers exactly those
+    five (a failed batch is retried item by item), nothing is created twice or counted twice, and
+    once the fault is gone the next pass picks the five up and the one after that has nothing to do.
+    """
+    base = disk(fx, fx.shared_sub) / "bulk"
+    for d in range(30):
+        (base / f"d{d:02}").mkdir(parents=True)
+        for i in range(100):
+            name = f"poison{i}.dat" if d == 7 and i < 5 else f"f{i:03}.dat"
+            (base / f"d{d:02}" / name).write_bytes(b"x" * (i + 1))
+    real = reconcile.Applier._create
+    broken = {"on": True}
+
+    def flaky(self: Any, db: Any, app: Any, blocked: Any) -> bool:
+        if broken["on"] and os.fsdecode(app.entry.raw).startswith("poison"):
+            raise RuntimeError("injected")
+        return bool(real(self, db, app, blocked))
+
+    monkeypatch.setattr(reconcile.Applier, "_create", flaky)
+    first = scan(fx, fx.shared_root)
+    assert first.outcome == "ok"
+    assert first.counts["created"] == 1 + 30 + 2995
+    assert first.counts.get("deferred") == 5
+    broken["on"] = False
+    second = scan(fx, fx.shared_root)
+    assert second.counts["created"] == 5
+    third = scan(fx, fx.shared_root)
+    assert not any(
+        third.counts.get(k) for k in ("created", "modified", "missing", "deferred")
+    )
+    with fx.w.ctx.sessions() as db:
+        names = list(db.scalars(select(Node.name).where(Node.name.like("poison%"))))
+    assert sorted(names) == [f"poison{i}.dat" for i in range(5)]
+
+
 # ------------------------------------------------------------------ app operations are not external
 
 
