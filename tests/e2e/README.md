@@ -10,4 +10,4 @@ npm run test:e2e
 
 They reuse the Compose helpers in `tests/integration/compose` (random credentials, temp library, isolated project name).
 
-`test_browser_ui.py` (M05) performs the first-run setup; `test_setup_import_ui.py` (M06b) reuses its accounts and stack, so run them together or in file order. A folder dropped from the desktop cannot be automated: the drop test replaces `webkitGetAsEntry` in the page with an in-page tree, the folder-picker tests use real directories.
+The first-run test in `test_browser_ui.py` uses a dedicated fresh stack. Other modules use the session stack and the `world` fixture, which creates its own accounts; they can run without the first-run test. Some file-operation cases within a module still share state. Compose ignores the operator's `deploy/.env` and inherited FileCanopy/Compose settings, using random test credentials and temporary storage. A folder dropped from the desktop cannot be automated: the drop test replaces `webkitGetAsEntry` in the page with an in-page tree, the folder-picker tests use real directories.

@@ -175,8 +175,12 @@ and Docker build contexts.
 
 Evidence at this checkpoint: `npm run check` passes (6 Node tests and clean secret scan),
 `npm run check:web` passes (73 tests), the accessibility/browser modules pass together (13 tests,
-accessibility collected first), and the M23 Compose module passes (2 tests). Full API checks and
-the new CI run are pending. Independent security review remains outstanding; M23 is not done.
+accessibility collected first), and the M23 Compose module passes (2 tests). Full verification:
+`check:api` passes ruff/format/strict mypy (120 source files), 1,220 tests passed / 7 environment
+skips; full e2e 54 passed; core and backup Compose modules 12 passed. The new GitHub CI run is
+pending. Independent security review remains outstanding; M23 is not done.
+
+Claude Code handoff: `docs/handoffs/2026-11-03-codex-m23.md`.
 
 ## Mapping: mandatory adversarial tests (03) → covering test
 
