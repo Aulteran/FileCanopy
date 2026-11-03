@@ -124,7 +124,12 @@ def test_public_routes_never_return_a_session_or_content_to_an_anonymous_caller(
     body = anon.get("/api/v1/auth/session").json()
     assert body.get("authenticated") in (False, None)
     assert "csrf_token" not in body
-    assert anon.get("/api/v1/health").json().keys() <= {"status", "core", "optional", "version"}
+    assert anon.get("/api/v1/health").json().keys() <= {
+        "status",
+        "core",
+        "optional",
+        "version",
+    }
     assert (
         anon.post(
             "/api/v1/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
