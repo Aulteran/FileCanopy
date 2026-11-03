@@ -1,8 +1,8 @@
 # M23 — Security, reliability, accessibility and performance hardening: acceptance plan
 
-- **Status:** in review, PR #31, 2026-11-03 (branch `m23-hardening`, cut from `main` at dce002c). No migration.
+- **Status:** done, merged via PR #31 as `b96b5c9`, 2026-11-03. All eight CI jobs passed on reviewed head `5ef6016`. No migration.
 - **Depends on:** M20, M21, M22 (all done and merged). **Spec:** 03 (mandatory adversarial tests), 09 (ACL matrix, exit criteria).
-- **Review:** independent review of `9535141` posted 2026-11-03 (PR comment 6598009037): one High and two Medium findings. Corrections require reviewer recheck; this branch is not merged by its author.
+- **Review:** independent review found one High and two Medium findings. Re-review 5755855096 cleared all three on `5ef6016` with no new confirmed findings; the owner explicitly authorized merge. The gaps below remain documented follow-ups.
 
 ## Scope
 
@@ -234,3 +234,8 @@ and empty unauthorized searches are now checked explicitly.
 Not claimed as covered: overlapping mixed move/share/trash concurrency, and PostgreSQL HTTP
 proposal-creation/label-change interleavings. The latter has deterministic unit interleaving and
 transaction-boundary coverage. Final corrective CI and independent reviewer recheck are pending.
+
+
+### Closure — 2026-11-03
+
+Merged on the owner's explicit instruction as `b96b5c95b7fec31247e29dff5c3deeea914a1d35`. Independent re-review: https://github.com/Aulteran/FileCanopy/pull/31#pullrequestreview-5755855096. All eight CI jobs passed on the reviewed head: https://github.com/Aulteran/FileCanopy/actions/runs/41598958373. Earlier pending statements above describe checkpoints, not the final state. Completion does not imply the documented coverage gaps or deferred limitations are resolved. M24 remains unstarted.
