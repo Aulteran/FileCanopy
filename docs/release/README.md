@@ -15,8 +15,6 @@ stable-support window is implicitly promised.
 - [Dependency audit and unresolved findings](dependency-audit.md), [application register](dependency-register.md),
   [container register](container-register.md), [application SBOM](evidence/application.cdx.json)
 - [Known issues and historical follow-ups](known-issues.md)
-- [M25: planned ADR-016 implementation](../milestones/M25-design-and-plan.md) — not started;
-  required before advertising independent owner self-restore, without deciding first-beta scope.
 - Proposed [CONTRIBUTING](drafts/CONTRIBUTING.md), [SECURITY](drafts/SECURITY.md), [CHANGELOG](drafts/CHANGELOG.md)
 - [Native Proxmox LXC plan](proxmox-lxc.md), [production guide](../guides/production.md)
 - [Owner decisions](../../11_OPEN_DECISIONS.md), [milestone status](../../MILESTONES.json)
