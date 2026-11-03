@@ -768,8 +768,8 @@
         "stack integration",
         "non-root permissions"
       ],
-      "notes": "Implemented 2026-11-02 on branch m22-production-packaging (no migration, no app code change). Base images pinned by digest; docker-compose.release.yml runs published images with a required FILECANOPY_VERSION; deploy/scripts/backup.sh and restore.sh (database + app-data + library, checksummed, refuse to overwrite); deploy/stack/docker-stack.yml tested on a single-node swarm in CI. Design: docs/milestones/M22-design-and-plan.md; guide docs/guides/production.md. Known limits: nothing is published to a registry yet (image prefix is a placeholder; M24), Stack tested on one node only, backup scripts need POSIX sh and GNU tar, disaster-recovery backups are full copies, no web screen for them.",
-      "status": "in_progress"
+      "notes": "Implemented 2026-11-02 on branch m22-production-packaging and merged via PR #30 (merge commit 85be0a4, all eight CI checks green, 2026-11-03) (no migration, no app code change). Base images pinned by digest; docker-compose.release.yml runs published images with a required FILECANOPY_VERSION; deploy/scripts/backup.sh and restore.sh (database + app-data + library, checksummed, refuse to overwrite); deploy/stack/docker-stack.yml tested on a single-node swarm in CI. Design: docs/milestones/M22-design-and-plan.md; guide docs/guides/production.md. Known limits: nothing is published to a registry yet (image prefix is a placeholder; M24), Stack tested on one node only, backup scripts need POSIX sh and GNU tar, disaster-recovery backups are full copies, no web screen for them.",
+      "status": "done"
     },
     {
       "id": "M23",
