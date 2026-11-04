@@ -102,7 +102,12 @@ committed tree and raw blobs, verifies their hashes and does not invoke archive 
 filters. Local/external/committed export rules cannot omit or substitute committed contents.
 All 21 Node tests pass, including those three attribute fixtures, binary bytes/substitution
 preservation and symlink/submodule refusal; original isolation/SBOM regressions remain in place.
-Actual five-image build and API-entrypoint verification are recorded after the corrective run.
+The actual five-image build at `bb06faeac647a9914954ca8c82dd553568554f81` passed in a disposable
+clone with local rules excluding committed `app/main.py`/favicon and an external rule excluding
+the pinned requirements file. API import succeeded; all three image files byte-matched their
+committed blobs, and the ignored public-file canary remained absent. [Build manifest](evidence/followup-build.json)
+and [probe results](evidence/followup-checks.json) retain the evidence. Corrective-head CI is
+checked separately after pushing; earlier-head CI does not establish a pass for these changes.
 
 Method references accessed 2026-11-03: [Git archive attributes](https://git-scm.com/docs/git-archive#ATTRIBUTES),
 [raw batch object output](https://git-scm.com/docs/git-cat-file),

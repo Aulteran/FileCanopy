@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-03",
+  "review": "https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5762790751",
+  "buildRevision": "bb06faeac647a9914954ca8c82dd553568554f81",
+  "checks": {
+    "repository": "21 Node tests, lint/format, secret scan and local release docs links pass",
+    "attributeFixtures": [
+      "local info/attributes",
+      "external core.attributesFile",
+      "committed export-ignore/export-subst"
+    ],
+    "preserved": "raw committed binary bytes and substitution literals",
+    "previousGuards": "ignored/untracked/live-mutation isolation, symlink/submodule refusal and SBOM regressions pass",
+    "actualBuild": {
+      "images": 5,
+      "sourceClean": true,
+      "contextSource": "raw Git tree/blob objects at the recorded commit; attributes, filters and live checkout excluded; blob hashes verified",
+      "localRules": [
+        "apps/api/app/main.py export-ignore",
+        "apps/web/public/favicon.svg export-ignore"
+      ],
+      "externalRules": [
+        "apps/api/requirements.txt export-ignore"
+      ],
+      "apiImport": "passed: /srv/filecanopy/apps/api/app/main.py",
+      "imageFilesByteMatchCommittedBlobs": [
+        "apps/api/app/main.py",
+        "apps/api/requirements.txt",
+        "apps/web/public/favicon.svg"
+      ],
+      "ignoredPublicCanaryAbsent": true
+    }
+  },
+  "limits": [
+    "No image push or public release",
+    "No byte-identical rebuild claim",
+    "Corrective-head CI evaluated separately after push",
+    "Independent re-review and public-beta gates remain open"
+  ]
+}
