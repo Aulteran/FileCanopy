@@ -113,6 +113,19 @@ Method references accessed 2026-11-03: [Git archive attributes](https://git-scm.
 [raw batch object output](https://git-scm.com/docs/git-cat-file),
 [NUL-delimited tree enumeration](https://git-scm.com/docs/git-ls-tree).
 
+### Corrective CI browser synchronization
+
+[Run 41768635632](https://github.com/Aulteran/FileCanopy/actions/runs/41768635632) on `9a8f145`
+passed seven jobs, including API/security checks and all Compose/converter/OCR/Swarm jobs.
+The browser job failed twice on the same copy-dialog timeout and dependent missing-copy conflict
+assertion (52 passed / 2 failed each attempt). These failures are retained, not counted as passes.
+The test confirmed before asserting that the asynchronously loaded destination was displayed.
+It now waits for `Destination: Archive`, checks readiness and requires the actual copy POST to
+return 201 before retaining the existing dialog/file-byte assertions. Move confirmation also
+waits for its destination. No sleeps, extra retries, longer timeouts or application changes.
+The strengthened six-test browser module passes locally; Python lint/format passes. CI must be
+evaluated again for the new head; a prior-head or failed-run result is not substituted.
+
 Results are filled from executed checks below; previous milestone CI is baseline evidence only.
 
 | Check | Result |

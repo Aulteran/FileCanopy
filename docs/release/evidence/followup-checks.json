@@ -36,5 +36,29 @@
     "No byte-identical rebuild claim",
     "Corrective-head CI evaluated separately after push",
     "Independent re-review and public-beta gates remain open"
-  ]
+  ],
+  "browserCi": {
+    "run": "https://github.com/Aulteran/FileCanopy/actions/runs/41768635632",
+    "head": "9a8f1454d3eefb8c994b932ebb8e503e1066d183",
+    "successfulJobs": 7,
+    "originalAttempt": {
+      "passed": 52,
+      "failed": 2
+    },
+    "sameHeadRetry": {
+      "passed": 52,
+      "failed": 2
+    },
+    "failures": [
+      "copy dialog did not close",
+      "dependent copy conflict not present"
+    ],
+    "testCorrection": "wait for destination metadata/readiness; require actual copy POST 201; retain dialog and byte assertions",
+    "localBrowserModule": {
+      "passed": 6,
+      "durationSeconds": 73.39
+    },
+    "pythonLintAndFormat": "passed",
+    "finalHeadCi": "evaluated separately after push"
+  }
 }
