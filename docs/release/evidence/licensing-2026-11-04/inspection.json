@@ -1,0 +1,176 @@
+{
+  "accessed": "2026-11-04T07:14:04.652Z",
+  "scope": "Local images only; no final-candidate or legal-clearance claim",
+  "images": [
+    {
+      "service": "api",
+      "requested": "local/filecanopy-pr32-816-review-api:sha-816a2fc4e7efb42aa3d59adcb2710244eb675962",
+      "imageId": "sha256:33c438eb8e6b1c50b357a49528662992b4de7b3f9a30e5ca7499f70452e2b2b9",
+      "platform": "linux/amd64",
+      "labels": {
+        "org.opencontainers.image.licenses": "AGPL-3.0-only",
+        "org.opencontainers.image.revision": "816a2fc4e7efb42aa3d59adcb2710244eb675962"
+      },
+      "files": [
+        {
+          "file": "api-packages.txt",
+          "sha256": "267bed2dc8ea1ffdf9294bd9f16816fc02ac51871dbbd7822ad4d9b400eb6311",
+          "bytes": 3978
+        },
+        {
+          "file": "api-notice-files.txt",
+          "sha256": "f7cde985146d349701b4c69c86437d5089375f37fd788d36418d6507cd75edf6",
+          "bytes": 10797
+        },
+        {
+          "file": "api-notices.tar.gz",
+          "sha256": "4c0d1b26e3d127975b99b16a2f3141305c7ed06e2cebe7a30093ab1845d76c44",
+          "bytes": 366685
+        },
+        {
+          "file": "api-native.json",
+          "sha256": "1b6444e3b9ac8afd4c006d516293b3adecb4a2a4e99a9a876a4f2cc4a8e19008",
+          "bytes": 7184
+        }
+      ]
+    },
+    {
+      "service": "web",
+      "requested": "local/filecanopy-pr32-816-review-web:sha-816a2fc4e7efb42aa3d59adcb2710244eb675962",
+      "imageId": "sha256:33bc44544c6176531c1b371bc2876f296edfe7c8fe1ef370be17ec6c2f8b3b7a",
+      "platform": "linux/amd64",
+      "labels": {
+        "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>",
+        "org.opencontainers.image.created": "2026-02-23T01:48:31.459Z",
+        "org.opencontainers.image.description": "Unprivileged NGINX Dockerfiles",
+        "org.opencontainers.image.licenses": "AGPL-3.0-only",
+        "org.opencontainers.image.revision": "816a2fc4e7efb42aa3d59adcb2710244eb675962",
+        "org.opencontainers.image.source": "https://github.com/nginx/docker-nginx-unprivileged",
+        "org.opencontainers.image.title": "docker-nginx-unprivileged",
+        "org.opencontainers.image.url": "https://github.com/nginx/docker-nginx-unprivileged",
+        "org.opencontainers.image.version": "1.28.2-alpine"
+      },
+      "files": [
+        {
+          "file": "web-packages.txt",
+          "sha256": "bd7cd4421b2bb83888354e5844d006f9eb8689c15cd9a4afa87ad04f9791cf4f",
+          "bytes": 104445
+        },
+        {
+          "file": "web-notice-files.txt",
+          "sha256": "92c2d5d90597d1da1b49f1a4d0434876fd9cf2194a06dbe5baf724a133991454",
+          "bytes": 621
+        },
+        {
+          "file": "web-notices.tar.gz",
+          "sha256": "fc5e13f0e3ef0151012690266ad1c6e526cb48a65d9bf48048374ef15f57032f",
+          "bytes": 30520
+        },
+        {
+          "file": "web-assets.sha256",
+          "sha256": "c3b484b3717585a94a9dd641379b48cc395ec039853ee83b3ba11bfb8e7a2ae6",
+          "bytes": 25723
+        }
+      ]
+    },
+    {
+      "service": "postgres",
+      "requested": "local/filecanopy-pr32-816-review-postgres:sha-816a2fc4e7efb42aa3d59adcb2710244eb675962",
+      "imageId": "sha256:a29fabdfea892f6262e7cb23acae67fb6e87d8d3f69e3501f76545af9ef65957",
+      "platform": "linux/amd64",
+      "labels": {
+        "org.opencontainers.image.licenses": "AGPL-3.0-only",
+        "org.opencontainers.image.revision": "816a2fc4e7efb42aa3d59adcb2710244eb675962"
+      },
+      "files": [
+        {
+          "file": "postgres-packages.txt",
+          "sha256": "380e93a71cc74718159924cc9705ed43de4966da70b66e1408a944a88e80a362",
+          "bytes": 63907
+        },
+        {
+          "file": "postgres-notice-files.txt",
+          "sha256": "cab97f20111797ecbbb6f765ae59cb785000c9bc68abb7c95799f391e628cc2d",
+          "bytes": 43
+        },
+        {
+          "file": "postgres-notices.tar.gz",
+          "sha256": "94e12baecad4fba96699943fe16b1dc2e336dd85241dbe6df2f2c958684017ca",
+          "bytes": 764
+        }
+      ]
+    },
+    {
+      "service": "redis",
+      "requested": "redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "platform": "linux/amd64",
+      "files": [
+        {
+          "file": "redis-packages.txt",
+          "sha256": "9d79164c83c3b83f686d25924c9e84eba0d1701d75432762d34f1479e738ad9b",
+          "bytes": 43300
+        },
+        {
+          "file": "redis-notice-files.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    {
+      "service": "converter",
+      "requested": "local/filecanopy-pr32-816-review-converter:sha-816a2fc4e7efb42aa3d59adcb2710244eb675962",
+      "imageId": "sha256:c8de65c8fd80c74dd0de6b8650be07a9a138c7c8b8b09a161c7a7324d523d851",
+      "platform": "linux/amd64",
+      "labels": {
+        "org.opencontainers.image.licenses": "AGPL-3.0-only",
+        "org.opencontainers.image.revision": "816a2fc4e7efb42aa3d59adcb2710244eb675962"
+      },
+      "files": [
+        {
+          "file": "converter-packages.txt",
+          "sha256": "aafa7908592d4c08830b22b804b17f23515f7df328f251c8fb263a0f04bac49f",
+          "bytes": 13689
+        },
+        {
+          "file": "converter-notice-files.txt",
+          "sha256": "c4751a102aa0d77f957c67ce8a31e6f8b159bf6ef9becbd70d54074be0bf585a",
+          "bytes": 11118
+        },
+        {
+          "file": "converter-notices.tar.gz",
+          "sha256": "50cbf99d5795bdfd7d69f6bad26269bb3461804bc560d7671aad50c1b3f6c59a",
+          "bytes": 1639170
+        }
+      ]
+    },
+    {
+      "service": "ocr",
+      "requested": "local/filecanopy-pr32-816-review-ocr:sha-816a2fc4e7efb42aa3d59adcb2710244eb675962",
+      "imageId": "sha256:77082a66f8904741646d26b1af0308d1c66d0f2fdf9017f2669d3f1a5a6db204",
+      "platform": "linux/amd64",
+      "labels": {
+        "org.opencontainers.image.licenses": "AGPL-3.0-only",
+        "org.opencontainers.image.revision": "816a2fc4e7efb42aa3d59adcb2710244eb675962"
+      },
+      "files": [
+        {
+          "file": "ocr-packages.txt",
+          "sha256": "3bf73efa2c4f8b1b07c2d563c9c3c22ab4b7755d5ba743a882c9a45d8c5f742c",
+          "bytes": 9104
+        },
+        {
+          "file": "ocr-notice-files.txt",
+          "sha256": "a2bc39ea4c17f8161aef3648b31ba1f51ad240f992b40b99b123652aed6141bd",
+          "bytes": 7717
+        },
+        {
+          "file": "ocr-notices.tar.gz",
+          "sha256": "f23774541774b2b3df44ffd35528bb0e34a8b41f8123d81e664fef4eaf5c2603",
+          "bytes": 574387
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ retain the historical detail. Listing an issue here does not decide that it is a
 
 | Area | Limitation / evidence | Release action |
 |---|---|---|
-| Licensing | Redis 7.4.12 uses RSALv2 or SSPLv1; PDF.js ships GPL v2 Liberation fonts with exceptions; native bundled/source obligations unresolved | Resolve or replace with a reviewed, tested alternative before licence clearance; see [audit](dependency-audit.md). |
+| Licensing | Redis 7.4.12 terms require a distribution/service decision; PDF.js Liberation 1.07.4 sources now accompany fonts, but font/native source and aggregation review remains | Valkey 9.0.6 unchanged-client/worker probes passed; replacement needs a separate decision. Complete native/OS source/notice queue and specialist review before clearance; see [investigation](licensing-review-2026-11-04.md). |
 | Packaging | Deterministic commit tags prepared; live apt/apk packages, unhashed Python downloads, toolchain and filesystem timestamps prevent a demonstrated byte-rebuild claim; no signed images. Six local-image scanner SBOMs are recorded/validated, with NOASSERTIONs outstanding. | Freeze inputs, review unknowns, retain final candidate SBOMs/source/notices and compare isolated rebuilds. |
 | Native Proxmox LXC | Owner priority, no native installer or real-host evidence; app depends on Linux filesystem and parser isolation facilities | Follow [platform validation plan](proxmox-lxc.md); do not advertise support yet. |
 | Backup keys | ADR-016 accepted, **unimplemented**: one recovery key opens all archives in its chain; no owner-only self-restore keys | Rotate after sharing; keep archives private. Owner decides beta acceptance; do not advertise per-root keys. |

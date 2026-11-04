@@ -1,0 +1,13 @@
+/usr/share/nginx/html/LICENSE.txt
+/usr/share/nginx/html/THIRD_PARTY_NOTICES.md
+/usr/share/nginx/html/pdfjs/LICENSE
+/usr/share/nginx/html/pdfjs/cmaps/LICENSE
+/usr/share/nginx/html/pdfjs/iccs/LICENSE
+/usr/share/nginx/html/pdfjs/standard_fonts/LICENSE_FOXIT
+/usr/share/nginx/html/pdfjs/standard_fonts/LICENSE_LIBERATION
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_JBIG2
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_OPENJPEG
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_PDFJS_JBIG2
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_PDFJS_OPENJPEG
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_PDFJS_QCMS
+/usr/share/nginx/html/pdfjs/wasm/LICENSE_QCMS

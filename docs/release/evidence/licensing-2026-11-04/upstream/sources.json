@@ -1,0 +1,119 @@
+{
+  "accessed": "2026-11-04T07:09:54.373Z",
+  "materials": [
+    {
+      "file": "redis-7.4.12-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/redis/redis/7.4.12/LICENSE.txt",
+      "finalUrl": "https://raw.githubusercontent.com/redis/redis/7.4.12/LICENSE.txt",
+      "sha256": "abffee3703161c0a6a0cd7f635b2c1ebb3b81bd199e9d18ea89652d678ae4287",
+      "bytes": 37493,
+      "expectedSha256": null
+    },
+    {
+      "file": "pdfjs-6.4.299-standard-fonts-README.md",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/v6.4.299/external/standard_fonts/README.md",
+      "finalUrl": "https://raw.githubusercontent.com/mozilla/pdf.js/v6.4.299/external/standard_fonts/README.md",
+      "sha256": "f21d2a0f65f7dd53bbe42ca51b40c4331f566fe91a71e689682c1b762889c47e",
+      "bytes": 1141,
+      "expectedSha256": null
+    },
+    {
+      "file": "liberation-fonts-1.07.4.tar.gz",
+      "url": "https://releases.pagure.org/liberation-fonts/liberation-fonts-1.07.4.tar.gz",
+      "unresolved": "Error: HTTP 404"
+    },
+    {
+      "file": "liberation-fonts-ttf-1.07.4.tar.gz",
+      "url": "https://releases.pagure.org/liberation-fonts/liberation-fonts-ttf-1.07.4.tar.gz",
+      "unresolved": "Error: HTTP 404"
+    },
+    {
+      "file": "liberation-1.07.4-dbeb786b.tar.gz",
+      "url": "https://codeload.github.com/liberationfonts/liberation-1.7-fonts/tar.gz/dbeb786b4ede1eaec2ec5cb8d3b75d21641e2a35",
+      "finalUrl": "https://codeload.github.com/liberationfonts/liberation-1.7-fonts/tar.gz/dbeb786b4ede1eaec2ec5cb8d3b75d21641e2a35",
+      "sha256": "05a8cc739f41d33fbc6d18f83f597cbebb91725bba028d7f1e36f7a211173abd",
+      "bytes": 2958944,
+      "expectedSha256": null
+    },
+    {
+      "file": "certifi-2026.10.23.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+      "finalUrl": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+      "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd",
+      "bytes": 136225,
+      "expectedSha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+    },
+    {
+      "file": "pip-26.2.2.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/fa/e8/0842d757e483e895e670f655084cfe8b8c72580c6769a76b30b2789a0608/pip-26.2.2.tar.gz",
+      "finalUrl": "https://files.pythonhosted.org/packages/fa/e8/0842d757e483e895e670f655084cfe8b8c72580c6769a76b30b2789a0608/pip-26.2.2.tar.gz",
+      "sha256": "3a8e5c800492787f33a4114ef54444546c340df428974ebba17e0fd47e11af2f",
+      "bytes": 1863336,
+      "expectedSha256": "3a8e5c800492787f33a4114ef54444546c340df428974ebba17e0fd47e11af2f"
+    },
+    {
+      "package": "psycopg",
+      "version": "3.3.6",
+      "status": "locator-only-not-retained",
+      "sdist": {
+        "url": "https://files.pythonhosted.org/packages/76/26/3ea4ca5eaea1c0debcdf7ee7c1613fbe721dc27a03c461c0817ffd8a0601/psycopg-3.3.6.tar.gz",
+        "sha256": "c081f2250df751a943036e42db6df4571c66cd0aabe8291a7a506512b12007d2",
+        "bytes": 168171
+      },
+      "note": "A wrapper sdist alone does not supply bundled native corresponding source or build recipes"
+    },
+    {
+      "package": "psycopg-binary",
+      "version": "3.3.6",
+      "status": "locator-only-not-retained",
+      "sdist": null,
+      "note": "A wrapper sdist alone does not supply bundled native corresponding source or build recipes"
+    },
+    {
+      "package": "cryptography",
+      "version": "50.0.2",
+      "status": "locator-only-not-retained",
+      "sdist": {
+        "url": "https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz",
+        "sha256": "7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5",
+        "bytes": 880623
+      },
+      "note": "A wrapper sdist alone does not supply bundled native corresponding source or build recipes"
+    },
+    {
+      "package": "Pillow",
+      "version": "13.0.0",
+      "status": "locator-only-not-retained",
+      "sdist": {
+        "url": "https://files.pythonhosted.org/packages/ce/a4/9cc30690a394a8305e8be4c9036aa16d0dfddadd09079860b582f562496d/pillow-13.0.0.tar.gz",
+        "sha256": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510",
+        "bytes": 47058631
+      },
+      "note": "A wrapper sdist alone does not supply bundled native corresponding source or build recipes"
+    },
+    {
+      "file": "openssl-3.5.8-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.8/LICENSE.txt",
+      "finalUrl": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.8/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "bytes": 10175,
+      "expectedSha256": null
+    },
+    {
+      "file": "openssl-4.0.3-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/openssl/openssl/openssl-4.0.3/LICENSE.txt",
+      "finalUrl": "https://raw.githubusercontent.com/openssl/openssl/openssl-4.0.3/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "bytes": 10175,
+      "expectedSha256": null
+    },
+    {
+      "file": "libpq-18.6-COPYRIGHT",
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_18_6/COPYRIGHT",
+      "finalUrl": "https://raw.githubusercontent.com/postgres/postgres/REL_18_6/COPYRIGHT",
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+      "bytes": 1198,
+      "expectedSha256": null
+    }
+  ]
+}
