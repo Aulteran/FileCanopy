@@ -2,22 +2,23 @@
 
 FileCanopy is a self-hosted file manager for your documents. You run it yourself with Docker, and it works on ordinary folders on your disk. Your files stay as normal files in a folder you choose, so you can always open them with any other program. The database only stores accounts, permissions and history. It is not a replacement for your files.
 
-> **Status: early development.** FileCanopy has no public release yet and no published Docker images. You build it from this repository. The core file manager works and is tested, but keep a separate copy of anything important.
+> **Status: preparing the first beta.** FileCanopy is the owner-approved name, but external trademark/namespace clearance is still pending. No public release or published Docker images exist. Build from source and keep independent backups. [Release evidence and remaining gates](docs/release/README.md).
 
 ## Key features
 
 - **Your files stay normal files.** The library is a plain folder tree on your disk. Nothing is converted or hidden.
-- **Accounts and roles.** There is an administrator role and a user role. There is no open sign-up. An administrator invites people with a one-time link that they copy and send themselves, because email delivery is not built yet. Password reset works the same way.
+- **Accounts and roles.** Administrator and user roles, no open sign-up, local or optional OpenID Connect sign-in. Invitations and password resets use single-use links, delivered through optional SMTP or copied by an administrator.
 - **Personal and shared folders.** Each user gets a personal folder. There is also one shared folder, where folders can be given viewer or editor access.
 - **Everyday file work.** Browse folders, upload files and whole folders, download, create folders, rename, move and copy. Keyboard navigation and a phone-friendly layout are included.
 - **Import what you already have.** During first setup you can import an existing folder or a zip file.
 - **Trash, undo and history.** Deleted items go to a trash you can restore from, and recent actions can be undone. An activity log records actions and downloads.
 - **Optional backups.** Encrypted backups of the library can be written to a separate disk you choose. They are off by default.
-- **No AI required.** The app runs fully without any AI service. AI features are planned, not built.
+- **Document tools.** Sharing, Private/Confidential folders, previews, local text search, optional OCR and verified email intake are implemented. PDF split proposals preserve the source; collections reference files without moving them.
+- **No AI required.** Basic file work runs without AI. Optional providers, validated organisation proposals, local semantic search and single-turn document chat are implemented. MCP is optional, read-only and off by default. See [feature guides](docs/guides/ai.md).
 
 ## Quick start (Docker Compose)
 
-You need Docker with Docker Compose v2. The project has been tested on Docker Desktop for Windows and on Linux in CI.
+You need Docker with Docker Compose v2 (the release override requires 2.24+). The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the available deployment path. Native Proxmox helper-script LXC installation is an owner priority, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
 
 ```bash
 git clone https://github.com/Aulteran/FileCanopy.git
@@ -142,7 +143,9 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 - **Administrators cannot open personal folders.** The administrator role does not let anyone browse, search or list another person's personal files. The only way in is a grant created by the owner of that folder.
 - **Passwords** are stored with Argon2id. Sign-in attempts are rate-limited, sessions are kept on the server, and cookies are HTTP-only.
 - **Host access is outside the app's trust model.** Anyone who can read the server's disk can read the files in `library/`, the same as any other folder on that machine.
-- **Not built yet:** privacy levels (Private and Confidential folders with re-authentication) are planned for M09. Sharing between people from the interface is planned for M08.
+- **Private and Confidential** labels are implemented and inherit downward. Both block cloud AI; local processing requires opt-in, and Confidential content requires an unlock that expires after five minutes of user inactivity in that folder. This is app access control, not encryption at rest or E2E encryption. Host, hypervisor, storage and backup administrators can still access plaintext files and state.
+- **External processing needs care.** Normal files may be sent to configured cloud AI after applicable consent. Raising a privacy label cannot recall a previous transmission. MCP clients can forward the Normal data they receive to another provider. No provider retention or compliance guarantee is made.
+- **Backups contain protected data.** Disaster-recovery copies include all files and state. ADR-016 per-root backup keys is accepted but unimplemented; the current recovery key opens all archives made with it. See [known limitations](docs/release/known-issues.md).
 - **No external security audit** has been done yet. Security work so far has been internal reviews plus automated tests.
 
 ## Project status and roadmap
@@ -155,17 +158,18 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 | Browser interface, setup import, folder uploads | Done |
 | Change detection for external edits, backups (optional) | Done |
 | Trash, undo and activity log | Done (M07) |
-| Sharing between people and personal-folder isolation | Planned (M08) |
-| Privacy levels and Confidential unlock | Planned (M09) |
-| Previews, OCR and full-text search | Planned (M10–M11) |
+| Sharing between people and personal-folder isolation | Done (M08) |
+| Privacy levels and Confidential unlock | Done (M09) |
+| Previews, OCR and full-text search | Done (M10–M11) |
 | Email invitations, SMTP, OpenID Connect sign-in | Done (M12) |
 | Provider-only sign-in, Google, Confidential PIN lock | Done (M12b) |
-| Email intake for personal and shared folders | Planned (M13–M14) |
-| PDF splitting, duplicate detection, collections | Planned (M17–M18) |
-| Optional AI (providers, organization proposals, local semantic search, chat) | Planned (M15–M16, M18–M20) |
-| Optional MCP integration | Planned (M21) |
-| Full UI redesign build | Planned (M21b) |
-| Production packaging, Docker Stack variant, hardening, public release | Planned (M22–M24) |
+| Email intake for personal and shared folders | Done (M13–M14) |
+| PDF splitting, duplicate detection, collections | Done (M17–M18), with documented limits |
+| Optional AI (providers, organization proposals, local semantic search, chat) | Done (M15–M20), with documented limits |
+| Optional MCP integration | Done (M21), scoped read-only Normal content |
+| Full UI redesign build | Done (M21b) |
+| Production packaging, single-node Stack example, hardening | Done (M22–M23), with documented follow-ups |
+| Public beta readiness | In progress (M24); release gates remain open |
 
 The full plan is in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`. The current state is recorded in `PROJECT_STATUS.md`, and design decisions are in `docs/adr/`.
 
@@ -187,8 +191,8 @@ Continuous integration runs on GitHub Actions. See `.github/workflows/ci.yml`.
 
 ## Contributing
 
-There is no contributing guide yet. The project is built one milestone at a time, and design decisions are recorded as ADRs in `docs/adr/`. Please open an issue to discuss ideas before sending a large change.
+Report bugs in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues), using synthetic examples and sanitised diagnostics. Include your commit/image identity, deployment method and reproduction steps. Discuss large changes first. [CONTRIBUTING](docs/release/drafts/CONTRIBUTING.md), [SECURITY](docs/release/drafts/SECURITY.md) and [CHANGELOG](docs/release/drafts/CHANGELOG.md) are prepared as drafts pending owner approval. A private security-reporting route still needs configuration and verification; do not post secrets or vulnerability details in public issues.
 
 ## License
 
-FileCanopy is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). The license and the final public release terms are still provisional until a dependency license audit is done before release.
+FileCanopy declares [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`), consistently with both package manifests. Third-party components retain their own terms. The [runtime dependency audit](docs/release/dependency-audit.md) records exact versions, sources and unresolved licence/redistribution issues; release clearance is pending their resolution and owner sign-off. No legal advice or blanket compatibility conclusion is implied.

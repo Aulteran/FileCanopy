@@ -1,0 +1,31 @@
+# Review artifacts only. No registry credentials, push, Git tag or GitHub Release operation.
+name: release-prepare
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-images-and-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix apps/web
+      - run: npm run check
+      - run: npm run check:web
+      - uses: docker/setup-buildx-action@v3
+      - name: Build all five images locally from the clean selected commit
+        run: node scripts/release-plan.mjs --prefix local/filecanopy-review --platform linux/amd64 --build --output "$RUNNER_TEMP/release-build.json"
+      - name: Generate exact build inventories
+        run: node scripts/release-evidence.mjs "$RUNNER_TEMP/release-build.json" "$RUNNER_TEMP/release-candidate"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-review-evidence
+          path: ${{ runner.temp }}/release-candidate/
+          if-no-files-found: error

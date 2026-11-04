@@ -19,3 +19,4 @@ RUN wget -q -O /tmp/pgvector.tar.gz \
 FROM postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
 COPY --from=build /out/usr/local/lib/postgresql/vector.so /usr/local/lib/postgresql/vector.so
 COPY --from=build /out/usr/local/share/postgresql/extension/ /usr/local/share/postgresql/extension/
+COPY LICENSE.pgvector /usr/local/share/licenses/pgvector/LICENSE

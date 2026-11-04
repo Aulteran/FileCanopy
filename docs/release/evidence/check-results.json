@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-03",
+  "baseCommit": "ad6115e36f68b91a9ad5eb2711e17290dd4e8d4f",
+  "sourceState": "local uncommitted M24 changes; not a final clean release commit",
+  "environment": "Windows host, Docker Desktop Linux amd64 engine, Node v24.21.0; API dev checks run in pinned Python 3.13 image",
+  "checks": [
+    { "command": "npm run check", "result": "passed", "nodeTests": 8, "secretScan": "no high-confidence patterns", "localLinkDestinations": 109, "releaseDeploymentMarkdownFiles": 16, "limits": "pattern scanner skips binary and >1 MiB files; not an image/archive secret scan" },
+    { "command": "npm run check:web", "result": "passed", "tests": 73, "testFiles": 14, "typecheck": "passed" },
+    { "command": "npm --prefix apps/web run build", "result": "passed", "notices": "AGPL plus React, React DOM and scheduler MIT texts byte-match source; also verified inside rebuilt runtime images, along with API AGPL and pgvector licence" },
+    { "command": "npm run check:api", "result": "passed", "tests": 1231, "skipped": 7, "mypySourceFiles": 120, "skipReasons": ["4 optional LibreOffice/Docker converter checks", "root /proc visibility", "non-root health probe", "OCR Docker CLI absent"], "warnings": ["Starlette/httpx deprecation", "intentional duplicate ZIP fixture"] },
+    { "command": "npm run test:compose -- tests/integration/compose/test_release_stack.py", "result": "passed after correction and repeated", "tests": 5, "skipped": 1, "skipReason": "Linux host ownership not assertable on Windows", "environment": "installed Git Bash bin/usr/bin added only to the test process PATH", "covers": ["fresh no-AI release install", "required version and no-build override", "sealed non-root containers", "backup/destroy/restore", "older-schema upgrade"] },
+    { "command": "npm run test:e2e -- tests/e2e -x --tb=short", "result": "passed with default source building enabled", "tests": 54, "durationSeconds": 185.90 },
+    { "command": "FILECANOPY_COMPOSE_NO_BUILD=1 npm run test:e2e -- tests/e2e -x --tb=short", "result": "passed", "tests": 54, "durationSeconds": 155.90 },
+    { "command": "node scripts/release-audit.mjs", "result": "evidence generated; compatibility unresolved", "pythonPinsMatched": 34, "installedDistributions": 35, "npmLockEntries": 183, "npmRuntimeEntries": 16, "bundledLicenceFiles": 16 },
+    { "command": "node scripts/image-inventory.mjs", "result": "passed", "images": 6 },
+    { "command": "node scripts/container-sbom.mjs; node scripts/validate-sboms.mjs", "result": "6 exact local-image SPDX SBOMs generated and official-schema/image-ID/count/SHA-256 validated", "limits": "NOASSERTION/native/source review remains; not legal clearance or a vulnerability scan" },
+    { "command": "node scripts/release-plan.mjs --prefix local/filecanopy-review --platform linux/amd64 --build", "result": "expected refusal on dirty source before Docker build", "exitCode": 1 },
+    { "command": "git diff --check; milestone JSON parse; audit input SHA-256 comparison", "result": "passed" }
+  ],
+  "initialFailures": [
+    "Docker engine temporarily unavailable; owner restored it; optional image builds retried successfully",
+    "new-file formatting failures corrected; generated nested dist incorrectly included by root lint ignore, fixed to **/dist/",
+    "sandbox blocked temporary Git config in existing secret-scan test; authorised unsandboxed rerun passed",
+    "backup drill initially failed because sh was missing from PATH; installed Git Bash process PATH fixed the environment",
+    "source-build browser setup failed due to M24 pgvector notice COPY path relative to wrong build context; Dockerfile and planner corrected, assertion added, full source-build rerun passed"
+  ],
+  "notPerformed": [
+    "manual beta acceptance demo and owner sign-off",
+    "native Proxmox LXC install or helper submission",
+    "final clean-commit image build and isolated byte-reproducibility comparison",
+    "new remote preparation workflow or final-candidate CI",
+    "public registry push/pull, public tag/release/announcement"
+  ]
+}

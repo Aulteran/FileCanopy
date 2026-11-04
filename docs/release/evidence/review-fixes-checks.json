@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-03",
+  "review": "https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5760945917",
+  "buildRevision": "8b0d45015049fed46d55c5e0b5c9b686052362e0",
+  "repositoryCheck": {
+    "tests": 16,
+    "result": "passed; lint/format, secret scan and local docs links clean"
+  },
+  "snapshot": {
+    "actualImagesBuilt": 5,
+    "ignoredCanary": "apps/web/public/build/m24-ignored-canary.txt",
+    "canaryAbsentFromBuiltWeb": true,
+    "existingTagRefused": true,
+    "ordinaryDirtyTreeRefused": true,
+    "concurrentTrackedMutation": "unit fixture verifies snapshot bytes remain fixed"
+  },
+  "candidate": {
+    "status": {
+      "revision": "8b0d45015049fed46d55c5e0b5c9b686052362e0",
+      "imageIds": [
+        "sha256:1c5bcca482ee107e7265ffa4ab9174ab2ea888b2f395d17451cde39bced7df30",
+        "sha256:877f47f3b77ee8fc568b6edfad59a411c4849f60987e9371442571d218fe3618",
+        "sha256:ed54741feef2dbfee377a39be2bd240d35dfea580de6f83be3654d9ce24c5d56",
+        "sha256:a526d59fe053acfffe1d89977ac29f31a160ce701a4d866159b32c25546faab4",
+        "sha256:06163230a46a13fc3a8ff79d9a5236228629831c9734290bcada2aaa0af09040",
+        "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f"
+      ],
+      "scannerSbom": "not generated; historical scanner evidence excluded",
+      "releaseCleared": false
+    },
+    "evidenceFiles": {
+      "application.cdx.json": "da03eee49791820b5803d1c99c6e76b9d89f021584f060713b5720d6ec1b1a6f",
+      "binary-assets.json": "48057a1fd9b53d9cb53dee9c90f5bdddeb62c7d30ebbf12b09b6f62216542bcf",
+      "bundled-notices.json": "0566e89c7f56b4498ea760a9893f9184864a3ec89b1b2cae8796df96fa1e66cd",
+      "container-copyrights.json.gz": "da54b208a07e82597b536cb5b53a7cbe609836e0db08b7d9939a9a9b28ab0cf9",
+      "container-inventory.json": "256a13365d19c86c0b7ad419d363bce14a0f58df433d7d25f238dcbe46955cc9",
+      "manifest-hashes.json": "0f68b3edbf4ec343ff4a69861655ba1c70063da81c5610daefdd6a4e953477d5",
+      "npm-locks.json": "6cbb5194233c26433e9a4ab893f9702746c5bf46096bb209e93b82660a667f03",
+      "python-runtime.json": "f5fe856f59c39a6675010885e37815e2ecf6ee3bca90910efb46e63b1b0e2871"
+    },
+    "historicalScannerFilesAbsent": true
+  },
+  "sbomRegression": {
+    "genuineSixImages": "passed",
+    "swappedSubject": "rejected",
+    "duplicateIdentity": "rejected",
+    "duplicateFile": "rejected",
+    "wrongPlatform": "rejected",
+    "missingCoverage": "rejected",
+    "staleSuccessReport": "removed before each validation"
+  },
+  "limits": [
+    "No duplicate byte-reproducibility claim",
+    "Candidate scanner generation deliberately deferred and explicitly reported",
+    "No image publication or manual release-preparation workflow dispatch",
+    "Pre-existing public-beta gates and ADR-016 remain open",
+    "Independent reviewer recheck pending"
+  ]
+}

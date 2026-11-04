@@ -5,6 +5,7 @@ COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci
 COPY apps/web/index.html apps/web/tsconfig.json apps/web/vite.config.ts ./
 COPY apps/web/THIRD_PARTY_NOTICES.md ./
+COPY LICENSE /LICENSE
 COPY apps/web/public ./public
 COPY apps/web/src ./src
 RUN npm run build

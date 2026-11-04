@@ -7,6 +7,7 @@ docs/design/
 node_modules/
 .claude/worktrees/
 coverage/
+**/dist/
 package-lock.json
 .venv/
 **/__pycache__/
@@ -14,3 +15,5 @@ package-lock.json
 **/.ruff_cache/
 **/.pytest_cache/
 *.lock
+# Generated primary-source audit snapshots retain their generator's layout and licence texts.
+docs/release/evidence/
