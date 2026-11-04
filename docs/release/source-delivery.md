@@ -59,6 +59,9 @@ Inspection uses read-only containers with no network. Fetch accesses upstream
 sources; it does not publish. Server probe creates only disposable internal-network
 containers. Verification checks source hashes, certifi byte correspondence, source
 archive contents and exact notice copying. It is not a legal-clearance test.
+Git attributes disable text conversion for the new hashed evidence and native
+notice files. Raw apk database blank record separators are intentionally retained;
+the scoped whitespace attribute preserves those bytes without hiding other diff checks.
 Fetch retains historical 404s for the obsolete font URLs as well as the recovered
 source; those historical failures do not mean the replacement source is absent.
 
