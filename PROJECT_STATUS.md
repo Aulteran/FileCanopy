@@ -1,11 +1,11 @@
 # FileCanopy — Current Project Status
 
-**Last updated:** 2026-11-03  
+**Last updated:** 2026-11-04  
 **Stage:** M00–M23 complete, including the intermediate milestones. M24 in progress; public beta is not cleared. ADR-016 (per-root backup keys) remains accepted and unimplemented.
 **Current milestone:** M24 — local release preparation, no migration or publication. [Acceptance plan](docs/milestones/M24-design-and-plan.md); [release packet, tests and remaining gates](docs/release/README.md). M23 remains done within its documented acceptance bounds.
 **Claude Code handoff:** [Codex M23 repair notes](docs/handoffs/2026-11-03-codex-m23.md).
 
-**Name:** FileCanopy selected by the owner 2026-11-03; external clearance evidence still pending. First public release: beta (owner decision). Deployment priorities: Docker and **native** Proxmox helper-script LXC; exact support matrix and native packaging/validation pending.
+**Name:** FileCanopy selected by the owner 2026-11-03; external clearance evidence still pending. First public release: beta (owner decision). First-beta priority: Docker (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later; exact Docker support matrix remains pending.
 
 - 2026-11-03: **M24 independent re-review cleared implementation findings:** review 5763151360 on `816a2fc` independently verified the five-image override/canary probe, fresh candidate evidence and all eight successful CI jobs in run 41770402434. Integrated current `main`, preserving M25's planning-only roadmap and M24's in-progress evidence; resolved the milestone-file conflict. Integrated-tree repository checks pass (21 tests/zero skips, lint/format, secret scan, 113 local documentation destinations); CI on the integrated head remains the merge gate. Owner authorised merging preparation work once checks pass and deleting its remote branch. Public-beta gates, ADR-016 and M23 limitations remain open.
 

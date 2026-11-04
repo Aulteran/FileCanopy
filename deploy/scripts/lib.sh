@@ -27,8 +27,12 @@ env_value() {
 # from published images must also be restored and checked with those images, not rebuilt.
 COMPOSE_FILE=$(env_value COMPOSE_FILE "")
 if [ -z "$COMPOSE_FILE" ]; then
-  COMPOSE_FILE="$NATIVE_DIR/docker-compose.yml"
-  if [ -n "$(env_value FILECANOPY_VERSION "")" ]; then
+  if [ -f "$DEPLOY_DIR/compose.yaml" ]; then
+    COMPOSE_FILE="$NATIVE_DIR/compose.yaml"
+  else
+    COMPOSE_FILE="$NATIVE_DIR/docker-compose.yml"
+  fi
+  if [ ! -f "$DEPLOY_DIR/compose.yaml" ] && [ -n "$(env_value FILECANOPY_VERSION "")" ]; then
     COMPOSE_FILE="$COMPOSE_FILE${COMPOSE_PATH_SEPARATOR:-:}$NATIVE_DIR/docker-compose.release.yml"
   fi
 fi
@@ -42,8 +46,13 @@ abs_path() {
   if [ -d "$p" ]; then (CDPATH= cd -- "$p" && pwd -P); else echo "$p"; fi
 }
 
-LIBRARY_DIR=$(abs_path "$(env_value FILECANOPY_LIBRARY_PATH ../library)")
-APP_DATA_DIR=$(abs_path "$(env_value FILECANOPY_APP_DATA_PATH ../app-data)")
+if [ -f "$DEPLOY_DIR/compose.yaml" ]; then
+  LIBRARY_DEFAULT=./library APP_DATA_DEFAULT=./app-data
+else
+  LIBRARY_DEFAULT=../library APP_DATA_DEFAULT=../app-data
+fi
+LIBRARY_DIR=$(abs_path "$(env_value FILECANOPY_LIBRARY_PATH "$LIBRARY_DEFAULT")")
+APP_DATA_DIR=$(abs_path "$(env_value FILECANOPY_APP_DATA_PATH "$APP_DATA_DEFAULT")")
 
 sha_sum() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
 sha_check() { if command -v sha256sum >/dev/null 2>&1; then sha256sum -c "$@"; else shasum -a 256 -c "$@"; fi; }

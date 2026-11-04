@@ -52,6 +52,10 @@ class ReleaseStack(Stack):
     def __init__(self, tmp: Path, name: str) -> None:
         super().__init__(tmp, name)
         self.tmp = tmp
+        if self.candidate:
+            self.env["COMPOSE_PROJECT_NAME"] = name
+            self.env["COMPOSE_FILE"] = str(self.files[0])
+            return
         self.files = [COMPOSE_FILE, RELEASE_FILE]
         self.env["FILECANOPY_IMAGE_PREFIX"] = PREFIX
         self.env["FILECANOPY_VERSION"] = VERSION
@@ -61,6 +65,8 @@ class ReleaseStack(Stack):
         self.env["COMPOSE_FILE"] = sep.join(str(f) for f in self.files)
 
     def tag_local_images(self) -> None:
+        if self.candidate:
+            return
         if not all(_image_present(local) for local in LOCAL_TO_RELEASE):
             base = Stack(self.tmp / "build", "fctestbuild")
             subprocess.run(  # noqa: S603
@@ -79,8 +85,9 @@ class ReleaseStack(Stack):
             env[key] = Path(env[key]).as_posix()  # the scripts are POSIX sh, also under Git Bash
         # No COMPOSE_FILE: the scripts must pick the release override from FILECANOPY_VERSION.
         env.pop("COMPOSE_FILE")
+        scripts = self.files[0].parent / "scripts" if self.candidate else SCRIPTS
         r = subprocess.run(  # noqa: S603
-            ["sh", str(SCRIPTS / name), *args],  # noqa: S607
+            ["sh", str(scripts / name), *args],  # noqa: S607
             env=env,
             capture_output=True,
             text=True,
@@ -95,10 +102,12 @@ class ReleaseStack(Stack):
 @pytest.fixture(scope="module")
 def release(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ReleaseStack]:
     s = ReleaseStack(tmp_path_factory.mktemp("release"), f"fcrel{secrets.token_hex(3)}")
-    s.tag_local_images()
-    s.up()
-    yield s
-    s.down(volumes=True)
+    try:
+        s.tag_local_images()
+        s.up()
+        yield s
+    finally:
+        s.down(volumes=True)
 
 
 def tree(root: Path) -> dict[str, str]:
@@ -112,12 +121,16 @@ def tree(root: Path) -> dict[str, str]:
 # ------------------------------------------------------------------- published images only
 
 
-def test_release_override_has_no_build_and_requires_a_version(release: ReleaseStack) -> None:
+def test_release_override_has_no_build_and_requires_a_version(
+    release: ReleaseStack,
+) -> None:
     config = release.compose("--profile", "*", "config").stdout
     assert "build:" not in config, "a release deploy must never build on the user's machine"
     images = release.compose("--profile", "*", "config", "--images").stdout.split()
-    ours = [i for i in images if i.startswith(PREFIX)]
-    assert ours and all(i.endswith(f":{VERSION}") for i in ours)
+    prefix = release.env["FILECANOPY_IMAGE_PREFIX"]
+    version = release.env["FILECANOPY_VERSION"]
+    ours = [i for i in images if i.startswith(prefix)]
+    assert ours and all(i.endswith(f":{version}") for i in ours)
     assert not [i for i in images if i.endswith((":latest", ":dev"))], images
     env = {k: v for k, v in release.env.items() if k != "FILECANOPY_VERSION"}
     r = release.compose("config", check=False, env=env)
@@ -136,9 +149,24 @@ def test_fresh_release_deploy_runs_without_ai(release: ReleaseStack) -> None:
             text=True,
             check=True,
         ).stdout.strip()
-        assert image.startswith(PREFIX), image
+        assert image.startswith(release.env["FILECANOPY_IMAGE_PREFIX"]), image
     admin = setup_admin(release)  # first-run setup works on a fresh, AI-less install
     assert admin.call("GET", "/api/v1/auth/session")[0] == 200
+
+
+def test_standalone_matches_maintained_release_settings(release: ReleaseStack) -> None:
+    if not release.candidate:
+        pytest.skip("standalone candidate mode only")
+    standalone = json.loads(release.compose("--profile", "*", "config", "--format", "json").stdout)
+    files = release.files
+    try:
+        release.files = [COMPOSE_FILE, RELEASE_FILE]
+        maintained = json.loads(
+            release.compose("--profile", "*", "config", "--format", "json").stdout
+        )
+    finally:
+        release.files = files
+    assert standalone["services"] == maintained["services"]
 
 
 # ------------------------------------------------------------------- non-root permissions
@@ -176,7 +204,9 @@ def test_every_container_runs_unprivileged_and_sealed(release: ReleaseStack) -> 
         assert r.returncode != 0, path
 
 
-def test_files_made_by_the_app_belong_to_the_configured_user(release: ReleaseStack) -> None:
+def test_files_made_by_the_app_belong_to_the_configured_user(
+    release: ReleaseStack,
+) -> None:
     if not hasattr(os, "getuid"):
         pytest.skip("host ownership is only meaningful on Linux")
     admin = setup_admin(release)
@@ -206,7 +236,10 @@ def seed(release: ReleaseStack) -> dict[str, object]:
         "POST",
         f"/api/v1/nodes/{docs['node']['id']}/files?name=report.bin",
         payload,
-        **{"Content-Type": "application/octet-stream", "Idempotency-Key": f"seed-{tag}"},
+        **{
+            "Content-Type": "application/octet-stream",
+            "Idempotency-Key": f"seed-{tag}",
+        },
     )
     assert status == 201, body
     (release.library / "outside.txt").write_text("placed by hand\n")
@@ -220,6 +253,17 @@ def seed(release: ReleaseStack) -> dict[str, object]:
         "nodes": release.sql("select count(*) from node"),
         "users": release.sql("select count(*) from app_user"),
     }
+
+
+def test_restart_preserves_data_and_sign_in(release: ReleaseStack) -> None:
+    before = seed(release)
+    release.compose("restart")
+    release.wait_health("ok", timeout=120)
+    assert release.instance_id() == before["instance_id"]
+    alice = Client(release)
+    assert alice.login(str(before["email"]), PASSWORD) == 200
+    status, payload, _ = raw(alice, "GET", f"/api/v1/nodes/{before['file_id']}/content")
+    assert status == 200 and payload == before["payload"]
 
 
 def test_backup_and_restore_drill(release: ReleaseStack) -> None:
@@ -294,7 +338,9 @@ with make_engine(load_settings()).begin() as conn:
 """
 
 
-def test_upgrade_from_an_older_schema_keeps_files_and_metadata(release: ReleaseStack) -> None:
+def test_upgrade_from_an_older_schema_keeps_files_and_metadata(
+    release: ReleaseStack,
+) -> None:
     before = seed(release)
     head = release.compose(
         "run", "--rm", "--no-deps", "migrate", "python", "-c",
