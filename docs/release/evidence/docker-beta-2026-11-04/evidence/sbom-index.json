@@ -1,0 +1,61 @@
+{
+  "accessed": "2026-11-04",
+  "tool": "Docker Scout v1.27.0 (go1.26.10-X:jsonv2 - windows/amd64)",
+  "validation": "JSON parsed, SPDX-2.3 marker and nonempty package list checked; not full schema or legal review",
+  "images": [
+    {
+      "image": "sha256:4ae39d57cb88a620ca1e8e812afb5fa68fd367c999896b12125bf941d9608c96",
+      "imageId": "sha256:4ae39d57cb88a620ca1e8e812afb5fa68fd367c999896b12125bf941d9608c96",
+      "platform": "linux/amd64",
+      "file": "image-0.spdx.json.gz",
+      "spdxSha256": "93424e6117bfc51a3722dd96d0be59ebdb95dcda708e188f72cc19d148272a39",
+      "packages": 80,
+      "noassertion": 11
+    },
+    {
+      "image": "sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2",
+      "imageId": "sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2",
+      "platform": "linux/amd64",
+      "file": "image-1.spdx.json.gz",
+      "spdxSha256": "5a0a5605278e5aa61e7dd0961edf13d65845e80b3990aed2755abb127c9f58db",
+      "packages": 248,
+      "noassertion": 46
+    },
+    {
+      "image": "sha256:93033b510af9014a1c40927d5e1e0a111788487692f260b1fca16527eb57ec38",
+      "imageId": "sha256:93033b510af9014a1c40927d5e1e0a111788487692f260b1fca16527eb57ec38",
+      "platform": "linux/amd64",
+      "file": "image-2.spdx.json.gz",
+      "spdxSha256": "31eef5405d9dd659a8f8a9a117363ed262a43cbb2c2e030ef2c79583de08eec2",
+      "packages": 100,
+      "noassertion": 7
+    },
+    {
+      "image": "sha256:a2884e44f4c81e6249061b35b0d0d62d0ea8fef564a97fc460d0aff84130de43",
+      "imageId": "sha256:a2884e44f4c81e6249061b35b0d0d62d0ea8fef564a97fc460d0aff84130de43",
+      "platform": "linux/amd64",
+      "file": "image-3.spdx.json.gz",
+      "spdxSha256": "ea75c98e9fd5c57e05106e72987808518ece2917f91bcb4a2bb9bfa37502c0b2",
+      "packages": 503,
+      "noassertion": 103
+    },
+    {
+      "image": "sha256:2ab147fef02372d362a91dce75c1002eac13be559b8d2d3cb79d2adb88fb3be0",
+      "imageId": "sha256:2ab147fef02372d362a91dce75c1002eac13be559b8d2d3cb79d2adb88fb3be0",
+      "platform": "linux/amd64",
+      "file": "image-4.spdx.json.gz",
+      "spdxSha256": "2b04ed65d1e2dfd837caa8f9c4813b7d9fe7cf3dcb63cb31b1893c56ba6de800",
+      "packages": 350,
+      "noassertion": 73
+    },
+    {
+      "image": "redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "platform": "linux/amd64",
+      "file": "image-5.spdx.json.gz",
+      "spdxSha256": "ce8ebabe6f851d2ff9b2568ddb19abd6eb82cd8fe304bec1ac00885cc5f00740",
+      "packages": 31,
+      "noassertion": 4
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 # FileCanopy — Current Project Status
 
-**Last updated:** 2026-11-04  
+**Last updated:** 2026-11-04
 **Stage:** M00–M23 complete, including the intermediate milestones. M24 in progress; public beta is not cleared. ADR-016 (per-root backup keys) remains accepted and unimplemented.
 **Current milestone:** M24 — local release preparation, no migration or publication. [Acceptance plan](docs/milestones/M24-design-and-plan.md); [release packet, tests and remaining gates](docs/release/README.md). M23 remains done within its documented acceptance bounds.
 **Claude Code handoff:** [Codex M23 repair notes](docs/handoffs/2026-11-03-codex-m23.md).
+
+- 2026-11-04: **Docker-first beta preparation:** standalone download bundle and install/upgrade/recovery instructions prepared; exact clean-commit preliminary candidate `ab3f481` built locally. Standalone lifecycle 7 passed / 1 Windows ownership skip; 54 existing browser cases passed and new Confidential reauthentication/restart case passed after a test-only status-code correction. Direct synthetic UI folder survived backup/destroy/empty restore. Six fresh local-image SPDX SBOMs validated. [Dated evidence, exact IDs, gaps and integration steps](docs/release/docker-beta-validation-2026-11-04.md). Native LXC deferred beyond first beta by owner decision; M25 remains unimplemented and beta inclusion undecided. No anonymous registry pull, publication, final licensing-integrated build, new-head remote CI or owner manual acceptance; M24/public beta remains uncleared.
 
 **Name:** FileCanopy selected by the owner 2026-11-03; external clearance evidence still pending. First public release: beta (owner decision). First-beta priority: Docker (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later; exact Docker support matrix remains pending.
 

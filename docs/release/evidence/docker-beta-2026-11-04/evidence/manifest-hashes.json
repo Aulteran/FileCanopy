@@ -1,0 +1,16 @@
+{
+  "package.json": "6b16d715aeba996f4e465eac6016c1e10e26fbe450e6c1d1970b7f9a6c3b85eb",
+  "package-lock.json": "bd387bfc632fb53770368a740b45cff6072c1631167fe744e99b56bd00034284",
+  "apps/web/package.json": "4ab5b3b202d0b705c04321c665b7af26127c17cafff09891cbc5354a05a7fd4e",
+  "apps/web/package-lock.json": "710b501561662bb829a087bf6bf67d29987ca399775dea269c995b89c1d6fae8",
+  "apps/api/requirements.txt": "b18679eaa39dac5102066f6692a1957d01295aa0eefd35ee61e5a351c746ecbc",
+  "apps/api/requirements-dev.txt": "6f8f02f773a254bf18bf30f8c546006540d5a5d0568735c3b05fa55b1796ba8e",
+  "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+  "apps/api/Dockerfile": "c1cbfc6629ed3fa4fd309854b7babf9ac39dd1a5898e5fa1b360f3186142c5da",
+  "apps/web/Dockerfile": "7095a9e026db860d4b54540048aa76cc5aa614810e84a750eb0cca14b63f6db5",
+  "deploy/postgres/Dockerfile": "07e945297dbf625e1b5f61e1e4c2575c2a6a063c41bc740baa3d586d7b72a860",
+  "deploy/postgres/LICENSE.pgvector": "3959f8e3ea8b08e35d1c26fc25bc7b6dcf7c2d80f372e4fbff6f6b0412758456",
+  "converter/Dockerfile": "4a6b97e0c460194c94c189cd25946bc7ff825a0addbc9025dab011edf1e50fa3",
+  "ocr/Dockerfile": "22c65b5833fb1a2858761335cb9bc491266583c0f2d2c639ed6e838cf1e67210",
+  "deploy/docker-compose.yml": "62a9dcb79d4a7312c2df30cad19c1ee6728715a11e66b0f66e43b5c4a6c14ef2"
+}

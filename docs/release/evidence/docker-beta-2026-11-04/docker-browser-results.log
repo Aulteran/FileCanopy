@@ -1,0 +1,28 @@
+.............F.........................................                  [100%]
+================================== FAILURES ===================================
+_________________ test_confidential_password_lock_and_restart _________________
+
+world = World(stack=<test_stack.Stack object at 0x00000179143D4830>, base='http://127.0.0.1:64167', alice_mail='alicea3eee1@ex.../Users/aadil/AppData/Local/Temp/pytest-of-aadil/pytest-93/e2e0/library/personal/3fde96f2-db51-483a-ab0c-13209f562039'))
+browser = <Browser type=<BrowserType name=chromium executable_path=C:\Users\aadil\AppData\Local\ms-playwright\chromium-1248\chrome-win64\chrome.exe> version=156.0.8078.4>
+
+    def test_confidential_password_lock_and_restart(world: World, browser: Browser) -> None:
+        page = sign_in(browser, world, world.alice_mail)
+        new_folder(page, "Candidate secret")
+        open_folder(page, "Candidate secret")
+        folder = page.url.rsplit("/", 1)[-1]
+        payload = b"synthetic confidential candidate bytes\n"
+        upload(page, "confidential.txt", payload)
+        expect(row(page, "confidential.txt")).to_be_visible()
+        page.get_by_role("button", name="Privacy…", exact=True).click()
+        dialog = page.get_by_role("dialog", name="Privacy", exact=True)
+        dialog.get_by_label("Confidential", exact=True).check()
+        dialog.get_by_role("button", name="Save", exact=True).click()
+        expect(page.get_by_role("heading", name="Candidate secret is locked")).to_be_visible()
+>       assert api_status(page, "GET", f"/api/v1/nodes/{folder}/children") == 423
+E       AssertionError: assert 403 == 423
+E        +  where 403 = api_status(<Page url='http://127.0.0.1:64167/f/f2862730-d9e0-479b-827e-46c9fa62fd43'>, 'GET', '/api/v1/nodes/f2862730-d9e0-479b-827e-46c9fa62fd43/children')
+
+tests\e2e\test_confidential_ui.py:24: AssertionError
+=========================== short test summary info ===========================
+FAILED apps\api\test_confidential_ui.py::test_confidential_password_lock_and_restart
+1 failed, 54 passed in 196.38s (0:03:16)

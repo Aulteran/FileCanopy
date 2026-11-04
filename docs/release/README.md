@@ -11,6 +11,8 @@ stable-support window is implicitly promised.
 
 ## Review packet
 
+- [Docker-first bundle and preliminary exact-candidate validation, 2026-11-04](docker-beta-validation-2026-11-04.md): current local evidence and integration gates; native LXC is deferred beyond first beta. Historical results below remain historical.
+
 - [Acceptance plan and evidence requirements](../milestones/M24-design-and-plan.md)
 - [Dependency audit and unresolved findings](dependency-audit.md), [application register](dependency-register.md),
   [container register](container-register.md), [application SBOM](evidence/application.cdx.json)
