@@ -6,7 +6,9 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const output = join(root, "docs/release/evidence");
+const outputRoot =
+  process.env.FILECANOPY_RELEASE_OUTPUT || join(root, "docs/release");
+const output = join(outputRoot, "evidence");
 mkdirSync(output, { recursive: true });
 const read = (path) => readFileSync(join(root, path), "utf8");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
@@ -246,10 +248,7 @@ const register = [
     ),
   "",
 ];
-writeFileSync(
-  join(root, "docs/release/dependency-register.md"),
-  register.join("\n"),
-);
+writeFileSync(join(outputRoot, "dependency-register.md"), register.join("\n"));
 console.log(
   `Recorded ${pins.length} Python pins, ${python.length} installed distributions, ${npm.length} npm lock entries and ${assetFiles.length} notice files in docs/release/evidence.`,
 );

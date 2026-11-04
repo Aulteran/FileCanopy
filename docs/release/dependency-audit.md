@@ -90,6 +90,20 @@ Accessed **2026-11-03**, in addition to local artifact inspection on that date:
   permissive PostgreSQL-style text. M24 adds this exact notice at
   `/usr/local/share/licenses/pgvector/LICENSE` in the rebuilt image; keep it in future source/notice bundles.
 
+## Independent-review interpretation
+
+The independent review confirms the Redis server and Liberation font terms, but co-deployment
+of a separate optional network service does not establish an AGPL-derived combined work. Nor
+does serving separately downloadable font assets automatically establish that the SPA derives
+from them. Assess aggregation, actual distribution/service scenarios and corresponding source/
+notices; licence names alone do not establish whole-application incompatibility or require a
+replacement. The L5/L6 gates are unresolved distribution/compatibility reviews, not findings that
+the whole application is incompatible. See [the review](https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5760945917).
+
+The same review reports pre-existing moderate development-tool audit nodes rooted in minimatch
+10.2.6. No application runtime exploit was established; dependency maintenance remains a separate
+tracked follow-up. No forced or breaking audit upgrade is applied in the release-tooling repairs.
+
 ## Clearance needed before publication
 
 Resolve L5 and L6, finish native/vendor/source obligations and all NOASSERTIONs (L3/L4/L8–L11),

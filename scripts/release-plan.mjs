@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { withCommitSnapshot } from "./release-snapshot.mjs";
 
 export function releasePlan({ revision, epoch, prefix, platform }) {
   if (!/^[a-f0-9]{40}$/.test(revision))
@@ -81,28 +82,30 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       throw new Error(
         "Commit the reviewed changes first. Refusing to attach a commit tag to a dirty source tree.",
       );
-    for (const item of plan.images) {
-      // Never silently replace an existing local tag: content cannot be assumed identical.
-      let exists = false;
-      try {
-        execFileSync("docker", ["image", "inspect", item.tag], {
-          stdio: "ignore",
-        });
-        exists = true;
-      } catch {
-        /* absent */
+    withCommitSnapshot(root, plan.revision, (snapshot) => {
+      for (const item of plan.images) {
+        // Never silently replace an existing local tag: content cannot be assumed identical.
+        let exists = false;
+        try {
+          execFileSync("docker", ["image", "inspect", item.tag], {
+            stdio: "ignore",
+          });
+          exists = true;
+        } catch {
+          /* absent */
+        }
+        if (exists)
+          throw new Error(
+            `Local tag already exists: ${item.tag}. Inspect it; do not overwrite a release identity.`,
+          );
+        execFileSync("docker", item.args, { cwd: snapshot, stdio: "inherit" });
+        item.imageId = JSON.parse(
+          execFileSync("docker", ["image", "inspect", item.tag], {
+            encoding: "utf8",
+          }),
+        )[0].Id;
       }
-      if (exists)
-        throw new Error(
-          `Local tag already exists: ${item.tag}. Inspect it; do not overwrite a release identity.`,
-        );
-      execFileSync("docker", item.args, { cwd: root, stdio: "inherit" });
-      item.imageId = JSON.parse(
-        execFileSync("docker", ["image", "inspect", item.tag], {
-          encoding: "utf8",
-        }),
-      )[0].Id;
-    }
+    });
     if (
       git("status", "--porcelain", "--untracked-files=normal") ||
       git("rev-parse", "HEAD") !== plan.revision
@@ -115,6 +118,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const result = {
     ...plan,
     sourceClean: !dirty,
+    contextSource:
+      "git archive of the recorded full commit; live checkout excluded",
     built: !!options.build,
     limits:
       "Deterministic commit tags and recorded inputs; byte-identical rebuilds are not established. No publication performed.",

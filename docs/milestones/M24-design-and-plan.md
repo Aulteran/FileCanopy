@@ -60,3 +60,12 @@ The Pages workflow is unchanged; no marketing-site edits or release triggers are
 
 Final evidence and blockers: [release README](../release/README.md),
 [dependency audit](../release/dependency-audit.md), [known issues](../release/known-issues.md).
+
+## Independent-review repair acceptance
+
+PR #32 review 5760945917 requires commit-only Docker snapshots (ignored/untracked and concurrent
+mutation regressions), fresh candidate artifact output without historical scanner success, and
+SPDX container-digest/unique identity/file/platform coverage validation. Run the Node security
+regressions, the unchanged genuine six-image fixture, an actual five-image snapshot build with an
+ignored canary and dirty/existing-tag refusal probes, and a real candidate-evidence assembly into
+a fresh directory. Record results in the release packet. M24 and beta clearance stay open.

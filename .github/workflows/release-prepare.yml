@@ -23,13 +23,9 @@ jobs:
       - name: Build all five images locally from the clean selected commit
         run: node scripts/release-plan.mjs --prefix local/filecanopy-review --platform linux/amd64 --build --output "$RUNNER_TEMP/release-build.json"
       - name: Generate exact build inventories
-        run: node scripts/release-evidence.mjs "$RUNNER_TEMP/release-build.json"
+        run: node scripts/release-evidence.mjs "$RUNNER_TEMP/release-build.json" "$RUNNER_TEMP/release-candidate"
       - uses: actions/upload-artifact@v4
         with:
           name: release-review-evidence
-          path: |
-            docs/release/evidence/
-            docs/release/dependency-register.md
-            docs/release/container-register.md
-            ${{ runner.temp }}/release-build.json
+          path: ${{ runner.temp }}/release-candidate/
           if-no-files-found: error

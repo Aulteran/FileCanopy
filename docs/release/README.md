@@ -31,11 +31,16 @@ From a reviewed clean commit:
 npm run release:plan -- --prefix local/filecanopy-review --platform linux/amd64
 # Build only after reviewing the plan. Output must be outside the Git tree.
 node scripts/release-plan.mjs --prefix local/filecanopy-review --platform linux/amd64 --build --output /tmp/filecanopy-build.json
-node scripts/release-evidence.mjs /tmp/filecanopy-build.json
+node scripts/release-evidence.mjs /tmp/filecanopy-build.json /tmp/filecanopy-candidate
 # With Docker Scout installed, generate and validate full image scanner SBOMs too:
 node scripts/container-sbom.mjs
 node scripts/validate-sboms.mjs
 ```
+
+The build extracts `git archive <full commit>` to a private temporary directory and uses that
+snapshot for **every** Docker context. Ignored/untracked files and concurrent checkout changes
+cannot enter the snapshot. Source symlinks and submodules are refused. The existing dirty-tree
+and existing-tag guards remain additional checks; porcelain status alone is not provenance.
 
 The five image tags are `<prefix>-{postgres,api,web,converter,ocr}:sha-<full Git commit>`; API is
 also used by migrate and workers. No default registry, release version number or `latest` alias
@@ -52,13 +57,31 @@ images. Do not publish before completing the gates below.
 
 The new `release-prepare` workflow is manual, contents-read-only and builds into the runner's local
 engine, generating review artifacts. It has no package-write permission or publication step. It
-generates application and OS inventory artifacts; full-image Scout generation is a separate
+generates application and OS inventory artifacts into a **new** candidate directory; it refuses
+existing directories and uploads only that candidate, including its build manifest and an explicit
+scanner-not-generated status. Committed historical image SBOMs and validation successes are not
+copied into the candidate. Full-image Scout generation is a separate
 required step on a host with Scout installed. It has not been run remotely in this session. Existing CI still performs the real install, full
 application/security, browser, converter, OCR and single-node Swarm checks; preparing artifacts is
 not a substitute for those checks. `.github/workflows/site.yml` remains unchanged and publishes
 only when deliberately triggered or the marketing-site paths change on main.
 
 ## Test results — 2026-11-03
+
+### Independent-review corrections
+
+[Review 5760945917](https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5760945917)
+found three defects on `0a8c73e`: ignored live files entering commit-tagged builds, historical
+scanner evidence mixed into new candidate uploads, and validator acceptance of swapped/duplicate
+SBOM subjects. Builds now use commit-only archives; candidate uploads use fresh separate output;
+validation checks the document's DESCRIBES container OCI digest, unique files/subjects and exact
+inventory/platform coverage. Validation removes any previous success report before checking.
+
+Regression evidence: repository checks pass with 16 tests, including ignored/untracked canaries,
+live checkout mutation isolation, genuine six-image validation, swapped subjects, duplicates,
+wrong platforms, missing coverage and candidate artifact separation. Full Docker and candidate
+integration evidence is recorded after the corrective build below. Existing public-beta gates
+remain open; independent re-review of the corrections is still required before calling them cleared.
 
 Results are filled from executed checks below; previous milestone CI is baseline evidence only.
 

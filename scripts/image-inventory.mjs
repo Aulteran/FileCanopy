@@ -3,10 +3,15 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const out = new URL("../docs/release/evidence/", import.meta.url);
+const out = process.env.FILECANOPY_RELEASE_OUTPUT
+  ? pathToFileURL(
+      join(resolve(process.env.FILECANOPY_RELEASE_OUTPUT), "evidence") + "/",
+    )
+  : new URL("../docs/release/evidence/", import.meta.url);
 mkdirSync(out, { recursive: true });
 const compose = readFileSync(
   new URL("../deploy/docker-compose.yml", import.meta.url),
