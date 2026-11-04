@@ -32,10 +32,11 @@ npm run release:plan -- --prefix local/filecanopy-review --platform linux/amd64
 # Build only after reviewing the plan. Output must be outside the Git tree.
 node scripts/release-plan.mjs --prefix local/filecanopy-review --platform linux/amd64 --build --output /tmp/filecanopy-build.json
 node scripts/release-evidence.mjs /tmp/filecanopy-build.json /tmp/filecanopy-candidate
-# With Docker Scout installed, generate and validate full image scanner SBOMs too:
-node scripts/container-sbom.mjs
-node scripts/validate-sboms.mjs
 ```
+
+The candidate contains no scanner SBOM. Final release clearance still requires separately
+generating and validating scanner evidence for that candidate's exact image IDs. The repository's
+retained historical scanner files are separate evidence and cannot substitute for that step.
 
 The build extracts `git archive <full commit>` to a private temporary directory and uses that
 snapshot for **every** Docker context. Ignored/untracked files and concurrent checkout changes
@@ -79,8 +80,14 @@ inventory/platform coverage. Validation removes any previous success report befo
 
 Regression evidence: repository checks pass with 16 tests, including ignored/untracked canaries,
 live checkout mutation isolation, genuine six-image validation, swapped subjects, duplicates,
-wrong platforms, missing coverage and candidate artifact separation. Full Docker and candidate
-integration evidence is recorded after the corrective build below. Existing public-beta gates
+wrong platforms, missing coverage and candidate artifact separation. An actual five-image build
+from corrective commit `8b0d45015049fed46d55c5e0b5c9b686052362e0` passed with an ignored web-public
+canary present in the checkout; the resulting web image did not contain the canary. Repeated
+build/existing-tag and ordinary untracked dirty-tree probes refused as expected. Fresh candidate
+assembly passed (34 pins, 35 distributions, six exact images); its eight evidence files contain
+no historical image SBOM/index/validation/check-results, and its status explicitly says scanner
+evidence was not generated. [Build manifest](evidence/review-fixes-build.json) and
+[repair checks](evidence/review-fixes-checks.json) record the evidence. Existing public-beta gates
 remain open; independent re-review of the corrections is still required before calling them cleared.
 
 Results are filled from executed checks below; previous milestone CI is baseline evidence only.
