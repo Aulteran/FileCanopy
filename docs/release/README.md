@@ -162,6 +162,25 @@ context as Compose. A regression assertion covers that context. The recorded fin
 inventory/SBOMs were regenerated after this correction and passed schema/identity/hash validation;
 the release install/restore suite was repeated (5 passed / 1 skip).
 
+## Final independent review and main integration
+
+[Independent re-review 5763151360](https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5763151360)
+cleared all prior implementation findings on `816a2fc`. It independently reproduced the five-image
+attribute/canary build and fresh candidate assembly and verified all eight successful jobs in
+[CI run 41770402434](https://github.com/Aulteran/FileCanopy/actions/runs/41770402434).
+Its remaining merge requirement was the `MILESTONES.json` conflict with advanced `main`.
+Integration preserves M24's in-progress evidence and M25's planning-only roadmap; the obsolete
+M25 note saying M24 had not started is corrected. Run repository checks and all eight CI jobs
+on the integrated head before merging. The owner authorised merge and remote-branch deletion
+conditional on successful validation. This approval covers preparation only; every public-beta
+gate below remains open. No M25 implementation or release publication is included.
+
+Integrated-tree local checks: JSON parses with M24 `in_progress` and M25 `not_started`;
+`npm run check` passes lint/format, 21 Node tests (zero skips), secret scan and 113 local
+documentation destinations; `git diff --check` passes. The initial sandbox run could not create
+temporary Git configuration for seven test fixtures; the authorised unsandboxed rerun passed.
+This is an environment restriction, not a waived test. Integrated-head CI is recorded on PR #32.
+
 ## Manual beta demo record (pending)
 
 Record date/operator, host and guest versions, architecture, complete source/image IDs and command
