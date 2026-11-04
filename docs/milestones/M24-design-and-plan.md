@@ -69,3 +69,9 @@ SPDX container-digest/unique identity/file/platform coverage validation. Run the
 regressions, the unchanged genuine six-image fixture, an actual five-image snapshot build with an
 ignored canary and dirty/existing-tag refusal probes, and a real candidate-evidence assembly into
 a fresh directory. Record results in the release packet. M24 and beta clearance stay open.
+
+Follow-up review 5762790751 additionally requires that local `info/attributes` and external
+attribute files cannot omit committed runtime files. Materialize raw tree/blob objects instead
+of archives, retain all previous negative fixtures and symlink/submodule guards, and verify the
+actual built API entrypoint imports and committed favicon is present under the override probe.
+Obtain corrective-head CI evidence separately; prior-head green CI is not sufficient.

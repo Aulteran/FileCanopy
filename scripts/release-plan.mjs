@@ -119,7 +119,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     ...plan,
     sourceClean: !dirty,
     contextSource:
-      "git archive of the recorded full commit; live checkout excluded",
+      "raw Git tree/blob objects at the recorded commit; attributes, filters and live checkout excluded; blob hashes verified",
     built: !!options.build,
     limits:
       "Deterministic commit tags and recorded inputs; byte-identical rebuilds are not established. No publication performed.",

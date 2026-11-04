@@ -73,6 +73,107 @@ test("commit snapshot excludes ignored/untracked bytes and isolates concurrent c
 const source = fileURLToPath(
   new URL("../../docs/release/evidence/", import.meta.url),
 );
+function repository() {
+  const parent = mkdtempSync(join(tmpdir(), "filecanopy-attributes-test-"));
+  const root = join(parent, "repo");
+  mkdirSync(root);
+  const git = (...args) =>
+    execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  git("init", "-q");
+  git("config", "core.autocrlf", "false");
+  writeFileSync(join(root, "runtime.txt"), "committed runtime\n");
+  writeFileSync(join(root, "binary.dat"), Buffer.from([0, 10, 255, 13, 0]));
+  writeFileSync(join(root, "substitution.txt"), "$Format:%H$\n");
+  return {
+    root,
+    parent,
+    git,
+    commit() {
+      git("add", ".");
+      git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-qm",
+        "fixture",
+      );
+      return git("rev-parse", "HEAD");
+    },
+  };
+}
+for (const location of [
+  "local info/attributes",
+  "external core.attributesFile",
+  "committed archive attributes",
+]) {
+  test(`snapshot preserves committed bytes despite ${location}`, () => {
+    const fixture = repository();
+    const rules =
+      "runtime.txt export-ignore\nbinary.dat export-ignore\nsubstitution.txt export-subst\n";
+    if (location === "committed archive attributes")
+      writeFileSync(join(fixture.root, ".gitattributes"), rules);
+    const revision = fixture.commit();
+    if (location === "local info/attributes")
+      writeFileSync(join(fixture.root, ".git/info/attributes"), rules);
+    if (location === "external core.attributesFile") {
+      const external = join(fixture.parent, "external-attributes");
+      writeFileSync(external, rules);
+      fixture.git("config", "core.attributesFile", external);
+    }
+    assert.equal(fixture.git("status", "--porcelain"), "");
+    withCommitSnapshot(fixture.root, revision, (snapshot) => {
+      assert.equal(
+        readFileSync(join(snapshot, "runtime.txt"), "utf8"),
+        "committed runtime\n",
+      );
+      assert.deepEqual(
+        readFileSync(join(snapshot, "binary.dat")),
+        Buffer.from([0, 10, 255, 13, 0]),
+      );
+      assert.equal(
+        readFileSync(join(snapshot, "substitution.txt"), "utf8"),
+        "$Format:%H$\n",
+      );
+    });
+  });
+}
+for (const [mode, type] of [
+  ["120000", "symlink"],
+  ["160000", "submodule"],
+]) {
+  test(`snapshot still rejects ${type} entries before building`, () => {
+    const fixture = repository();
+    fixture.commit();
+    const oid = fixture.git(
+      "rev-parse",
+      mode === "120000" ? "HEAD:runtime.txt" : "HEAD",
+    );
+    fixture.git(
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `${mode},${oid},unsupported`,
+    );
+    fixture.git(
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "commit",
+      "-qm",
+      "unsupported fixture",
+    );
+    assert.throws(
+      () =>
+        withCommitSnapshot(fixture.root, fixture.git("rev-parse", "HEAD"), () =>
+          assert.fail("must not build"),
+        ),
+      /symlinks\/submodules refused/,
+    );
+  });
+}
 function fixture() {
   const dir = mkdtempSync(join(tmpdir(), "filecanopy-sbom-test-"));
   const index = JSON.parse(readFileSync(join(source, "sbom-index.json")));

@@ -38,9 +38,11 @@ The candidate contains no scanner SBOM. Final release clearance still requires s
 generating and validating scanner evidence for that candidate's exact image IDs. The repository's
 retained historical scanner files are separate evidence and cannot substitute for that step.
 
-The build extracts `git archive <full commit>` to a private temporary directory and uses that
-snapshot for **every** Docker context. Ignored/untracked files and concurrent checkout changes
-cannot enter the snapshot. Source symlinks and submodules are refused. The existing dirty-tree
+The build materializes the full committed tree using raw `git ls-tree` and `git cat-file --batch`
+object reads, verifying each blob's Git hash and preserving regular/executable file modes. It
+uses that snapshot for **every** Docker context. Archive export rules, checkout filters, local
+`info/attributes`, external attributes and replace refs are not applied. Ignored/untracked files
+and concurrent checkout changes cannot enter the snapshot. Source symlinks and submodules are refused. The existing dirty-tree
 and existing-tag guards remain additional checks; porcelain status alone is not provenance.
 
 The five image tags are `<prefix>-{postgres,api,web,converter,ocr}:sha-<full Git commit>`; API is
@@ -74,7 +76,8 @@ only when deliberately triggered or the marketing-site paths change on main.
 [Review 5760945917](https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5760945917)
 found three defects on `0a8c73e`: ignored live files entering commit-tagged builds, historical
 scanner evidence mixed into new candidate uploads, and validator acceptance of swapped/duplicate
-SBOM subjects. Builds now use commit-only archives; candidate uploads use fresh separate output;
+SBOM subjects. The first repair used commit archives (superseded by the raw-object fix below);
+candidate uploads use fresh separate output;
 validation checks the document's DESCRIBES container OCI digest, unique files/subjects and exact
 inventory/platform coverage. Validation removes any previous success report before checking.
 
@@ -89,6 +92,21 @@ no historical image SBOM/index/validation/check-results, and its status explicit
 evidence was not generated. [Build manifest](evidence/review-fixes-build.json) and
 [repair checks](evidence/review-fixes-checks.json) record the evidence. Existing public-beta gates
 remain open; independent re-review of the corrections is still required before calling them cleared.
+
+### Follow-up attribute-provenance correction
+
+[Review 5762790751](https://github.com/Aulteran/FileCanopy/pull/32#pullrequestreview-5762790751)
+clears the original ignored-file and both SBOM reproductions, but reproduced a broken release
+when local archive attributes omitted committed API/favicon files. The replacement reads the
+committed tree and raw blobs, verifies their hashes and does not invoke archive or checkout
+filters. Local/external/committed export rules cannot omit or substitute committed contents.
+All 21 Node tests pass, including those three attribute fixtures, binary bytes/substitution
+preservation and symlink/submodule refusal; original isolation/SBOM regressions remain in place.
+Actual five-image build and API-entrypoint verification are recorded after the corrective run.
+
+Method references accessed 2026-11-03: [Git archive attributes](https://git-scm.com/docs/git-archive#ATTRIBUTES),
+[raw batch object output](https://git-scm.com/docs/git-cat-file),
+[NUL-delimited tree enumeration](https://git-scm.com/docs/git-ls-tree).
 
 Results are filled from executed checks below; previous milestone CI is baseline evidence only.
 
