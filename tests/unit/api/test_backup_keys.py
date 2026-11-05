@@ -261,6 +261,20 @@ def test_legacy_instance_key_chains_are_labelled_and_stay_readable(fx: Fx) -> No
     assert mine["legacy_chains"] == 1 and mine["key_state"] == "active"
 
 
+def test_no_sealed_copy_survives_rotation_or_turning_escrow_off(fx: Fx) -> None:
+    alice = alice_api(fx)
+    encrypted_on(fx)
+    first = make_owner_key(fx, alice, escrow=True)
+    second = make_owner_key(fx, alice, expected=crypto.recovery_key_fingerprint(first), escrow=True)
+    sealed = {k.state: k.escrow_blob is not None for k in fx.w.db_rows(BackupRootKey)}
+    assert sealed == {"retired": False, "active": True}  # the retired key's copy is gone
+    off = put_escrow(alice, fx.alice_root, enabled=False, password=PASSWORD)
+    assert off.status_code == 200 and off.json()["escrow"] is False
+    rows = fx.w.db_rows(BackupRootKey)
+    assert rows and all(k.escrow_blob is None and k.escrow_key_fingerprint is None for k in rows)
+    assert second  # the owner keeps using the new key
+
+
 def test_unencrypted_jobs_need_no_owner_key(fx: Fx) -> None:
     alice_api(fx).upload(fx.taxes, "a.txt", b"x")
     enable(fx, **{k: v for k, v in PLAIN.items() if k in ("encrypt", "acknowledge_unencrypted")})

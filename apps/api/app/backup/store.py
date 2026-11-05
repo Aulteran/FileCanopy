@@ -271,6 +271,8 @@ def confirm_root_key(
     previous = active_root_key(db, root_id)
     if previous is not None:
         previous.state, previous.retired_at = "retired", now
+        # a retired key's sealed copy is dropped: escrow consent covered the key in use then
+        previous.escrow_blob = previous.escrow_key_fingerprint = None
         db.flush()
     pending.state, pending.confirmed_at = "active", now
     if blob is not None:
@@ -301,7 +303,8 @@ def set_escrow(
             db, root_id, recovery_key, row.fingerprint, admin
         )
     else:
-        row.escrow_blob = row.escrow_key_fingerprint = None
+        for each in db.scalars(select(BackupRootKey).where(BackupRootKey.root_id == root_id)):
+            each.escrow_blob = each.escrow_key_fingerprint = None  # every key of this folder
     row.escrow_changed_at = now
     db.flush()
     return row

@@ -72,7 +72,7 @@ def test_migration_backfills_existing_accounts_on_postgres(stack: Stack) -> None
         "split_proposal, ai_proposal, search_chunk, search_embed, search_doc, search_job, "
         "confidential_unlock, "
         "notification, trash_item, "
-        "backup_chain_state, backup_run, "
+        "backup_chain_state, backup_run, backup_root_key, "
         "import_entry, import_batch, file_event, scan_run, file_operation, node_grant, node, "
         "storage_root; "
         "delete from app_setting where key = 'shared_tree_default_access'; "
