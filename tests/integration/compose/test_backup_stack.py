@@ -69,7 +69,7 @@ def wait_run(admin: Client, kind: str, timeout: float = 90) -> dict[str, Any]:
 
 
 def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None:
-    assert stack.sql("select version_num from alembic_version") == "0023"
+    assert stack.sql("select version_num from alembic_version") == "0024"
     admin = setup_admin(stack)
     status = admin.call("GET", "/api/v1/admin/backups")[1]
     assert status["settings"]["enabled"] is False  # off by default
@@ -144,6 +144,36 @@ def test_backups_end_to_end_on_postgres_behind_nginx(stack: BackupStack) -> None
     assert member.login("mem@example.com") == 200
     assert member.call("GET", "/api/v1/admin/backups")[0] == 403
     assert js(member, "POST", f"/api/v1/nodes/{shared}/backups/restore", {})[0] == 403
+
+    # ADR-016: the member's own folder has its own key; the administrator cannot use or see it
+    mem_root = stack.sql(
+        "select n.id from node n join storage_root r on r.id = n.root_id "
+        "join app_user u on u.id = r.owner_user_id "
+        "where n.parent_id is null and u.email = 'mem@example.com'"
+    )
+    secret = {"password": "correct horse battery staple"}
+    assert admin.call("POST", f"/api/v1/nodes/{mem_root}/backup-key", secret)[0] == 403
+    code, made, _ = member.call(
+        "POST", f"/api/v1/nodes/{mem_root}/backup-key", {**secret, "expected_fingerprint": None}
+    )
+    assert code == 200 and made["state"] == "pending", made
+    owner_key = made["recovery_key"]
+    assert owner_key.startswith("fcbk1-") and owner_key != key
+    code, done, _ = member.call(
+        "POST",
+        f"/api/v1/nodes/{mem_root}/backup-key/confirm",
+        {**secret, "recovery_key": owner_key, "escrow_consent": False},
+    )
+    assert code == 200 and done["state"] == "active" and done["escrow"] is False, done
+    assert member.call("GET", f"/api/v1/nodes/{mem_root}/backup-key")[1]["recovery_key"] is None
+    stored = stack.sql(
+        "select coalesce(string_agg(value::text, ' '), '') from app_setting"
+    ) + stack.sql(
+        "select coalesce(string_agg(public || fingerprint || coalesce(escrow_blob::text, ''), ' '),"
+        " '') from backup_root_key"
+    )
+    assert owner_key.removeprefix("fcbk1-") not in stored  # only the public half is kept
+    assert admin.call("GET", f"/api/v1/nodes/{mem_root}/backups")[0] == 403
 
     # the API restarts with the configuration and chain state intact
     stack.compose("restart", "api")

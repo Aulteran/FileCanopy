@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.backup import crypto
-from app.db.models import AppSetting
+from app.db.models import AppSetting, BackupRootKey, StorageRoot
 
 SETTINGS_KEY = "backup_settings"
 KEY_KEY = "backup_key"
@@ -135,3 +135,173 @@ def rotate_key(db: Session, expected_fingerprint: str | None = None) -> tuple[st
     ):
         raise KeyChanged
     return _store_key(db, row)
+
+
+# ------------------------------------------------------------------ per-root keys (ADR-016)
+#
+# The shared tree keeps using the administrator's instance key above. Every personal root has its
+# own key chain: the private half is shown once to the owner and never stored; the database keeps
+# the public half and its fingerprint. A new key is `pending` until the owner proves they saved it
+# by presenting it back; only then does it become the one `active` key and does the root back up
+# again. Every change locks the root's row, so two requests cannot both create or rotate its key.
+
+
+class RootKeyError(Exception):
+    """Base class; `code` is an API error code."""
+
+    code = "ROOT_KEY_ERROR"
+
+
+class NoPendingKey(RootKeyError):
+    code = "NO_PENDING_KEY"
+
+
+class EscrowUnavailable(RootKeyError):
+    code = "ESCROW_UNAVAILABLE"
+
+
+class NoActiveKey(RootKeyError):
+    code = "NO_ACTIVE_KEY"
+
+
+class KeyMismatch(RootKeyError):
+    code = "BACKUP_KEY_MISMATCH"
+
+
+def _lock_root(db: Session, root_id: Any) -> StorageRoot:
+    root = db.scalar(select(StorageRoot).where(StorageRoot.id == root_id).with_for_update())
+    if root is None:
+        raise RootKeyError("root not found")
+    return root
+
+
+def active_root_key(db: Session, root_id: Any) -> BackupRootKey | None:
+    return db.scalar(
+        select(BackupRootKey).where(
+            BackupRootKey.root_id == root_id, BackupRootKey.state == "active"
+        )
+    )
+
+
+def pending_root_key(db: Session, root_id: Any) -> BackupRootKey | None:
+    return db.scalar(
+        select(BackupRootKey).where(
+            BackupRootKey.root_id == root_id, BackupRootKey.state == "pending"
+        )
+    )
+
+
+def root_key_fingerprints(db: Session, root_id: Any) -> set[str]:
+    """Fingerprints of every key this root ever had (any state): what makes a chain 'its own'."""
+    return set(
+        db.scalars(select(BackupRootKey.fingerprint).where(BackupRootKey.root_id == root_id))
+    )
+
+
+def key_for_root(db: Session, root: StorageRoot) -> KeyInfo | None:
+    """The key a run of this root encrypts to: the instance key for the shared tree, the owner's
+    confirmed key for a personal root. A key the owner has not confirmed is never used."""
+    if root.kind == "shared":
+        return load_key(db)
+    row = active_root_key(db, root.id)
+    if row is None:
+        return None
+    return KeyInfo(row.public, row.fingerprint, row.created_at.isoformat())
+
+
+def begin_root_key(db: Session, root_id: Any, expected_fingerprint: str | None) -> tuple[str, str]:
+    """Makes a pending key pair for the root and returns (recovery key text, fingerprint) to show
+    once. Replaces an earlier pending key (nothing was ever encrypted to it). Compare-and-swap on
+    the active key: refused with KeyChanged unless the root's active key is still the one the
+    caller saw (None when it has none), so a stale page cannot rotate a newer key away."""
+    _lock_root(db, root_id)
+    active = active_root_key(db, root_id)
+    if (active.fingerprint if active else None) != expected_fingerprint:
+        raise KeyChanged
+    old = pending_root_key(db, root_id)
+    if old is not None:
+        db.delete(old)
+        db.flush()
+    recovery, public, fp = crypto.generate_keypair()
+    db.add(
+        BackupRootKey(
+            root_id=root_id,
+            public=public,
+            fingerprint=fp,
+            state="pending",
+            created_at=clock.utcnow(),
+        )
+    )
+    db.flush()
+    return recovery, fp
+
+
+def _seal_for(
+    db: Session, root_id: Any, recovery_key: str, fp: str, admin: KeyInfo | None
+) -> tuple[bytes, str]:
+    if admin is None:
+        raise EscrowUnavailable
+    blob = crypto.seal(
+        crypto.parse_public_key(admin.public),
+        recovery_key.strip().encode(),
+        crypto.escrow_context(root_id, fp),
+    )
+    return blob, admin.fingerprint
+
+
+def confirm_root_key(
+    db: Session,
+    root_id: Any,
+    recovery_key: str,
+    *,
+    escrow: bool,
+    admin: KeyInfo | None,
+) -> BackupRootKey:
+    """The owner presented the key back: it is proven saved. The pending key becomes the active
+    one (the previous active key is retired but kept: it still describes its chains)."""
+    _lock_root(db, root_id)
+    fp = crypto.recovery_key_fingerprint(recovery_key)  # BadKey if malformed
+    pending = pending_root_key(db, root_id)
+    if pending is None or pending.fingerprint != fp:
+        raise NoPendingKey
+    now = clock.utcnow()
+    blob = efp = None
+    if escrow:
+        blob, efp = _seal_for(db, root_id, recovery_key, fp, admin)
+    previous = active_root_key(db, root_id)
+    if previous is not None:
+        previous.state, previous.retired_at = "retired", now
+        db.flush()
+    pending.state, pending.confirmed_at = "active", now
+    if blob is not None:
+        pending.escrow_blob, pending.escrow_key_fingerprint, pending.escrow_changed_at = (
+            blob,
+            efp,
+            now,
+        )
+    db.flush()
+    return pending
+
+
+def set_escrow(
+    db: Session, root_id: Any, *, enabled: bool, recovery_key: str | None, admin: KeyInfo | None
+) -> BackupRootKey:
+    """Turns administrator escrow on (the owner presents their key, which is sealed to the
+    administrator key) or off (the sealed copy is deleted; copies the administrator already made
+    cannot be recalled)."""
+    _lock_root(db, root_id)
+    row = active_root_key(db, root_id)
+    if row is None:
+        raise NoActiveKey
+    now = clock.utcnow()
+    if enabled:
+        if recovery_key is None or crypto.recovery_key_fingerprint(recovery_key) != row.fingerprint:
+            raise KeyMismatch
+        row.escrow_blob, row.escrow_key_fingerprint = _seal_for(
+            db, root_id, recovery_key, row.fingerprint, admin
+        )
+    else:
+        row.escrow_blob = row.escrow_key_fingerprint = None
+    row.escrow_changed_at = now
+    db.flush()
+    return row

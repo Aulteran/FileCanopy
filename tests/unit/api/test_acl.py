@@ -651,6 +651,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/backups/settings",
     "/api/v1/admin/backups/run",
     "/api/v1/admin/backups/key/rotate",
+    "/api/v1/admin/backups/roots/{root_id}/escrow",  # M25: admin-only, sealed blob, audited
     "/api/v1/auth/lock",  # own session only; no node addressed
     "/api/v1/auth/oidc/reauth/start",  # M12b: own session only
     "/api/v1/auth/pin",  # M12b: own account only

@@ -656,6 +656,46 @@ class BackupChainState(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
+class BackupRootKey(Base):
+    """A personal root's backup key (ADR-016). Only the public half and its fingerprint are kept:
+    the private half is shown once to the owner and never stored. `pending` keys are made but not
+    yet proven saved (nothing is encrypted to them); the one `active` key encrypts new chains;
+    `retired` keys only describe old chains. `escrow_blob` is the private half sealed to the
+    administrator key, present only when the owner consented."""
+
+    __tablename__ = "backup_root_key"
+    __table_args__ = (
+        Index(
+            "uq_backup_root_key_one_active",
+            "root_id",
+            unique=True,
+            sqlite_where=text("state = 'active'"),
+            postgresql_where=text("state = 'active'"),
+        ),
+        Index(
+            "uq_backup_root_key_one_pending",
+            "root_id",
+            unique=True,
+            sqlite_where=text("state = 'pending'"),
+            postgresql_where=text("state = 'pending'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), index=True, nullable=False
+    )
+    public: Mapped[str] = mapped_column(String(64), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(16), nullable=False)
+    state: Mapped[str] = mapped_column(String(8), nullable=False)  # pending | active | retired
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    escrow_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    escrow_key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    escrow_changed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
 class SearchDoc(Base):
     """Extracted text of one file, for full-text search (M11). A derivative: it is only ever read
     through `app.search.query`, which re-decides access per person. The row records which version

@@ -44,7 +44,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth import clock
 from app.auth.service import audit
 from app.backup import crypto, retention
-from app.backup.store import BackupConfig, KeyInfo, load_config, load_key
+from app.backup.store import BackupConfig, KeyInfo, key_for_root, load_config
 from app.backup.volume import backups_root, inspect_volume
 from app.config import Settings
 from app.db.models import (
@@ -414,10 +414,11 @@ class BackupEngine:
     def _run(self, root_id: uuid.UUID) -> RunResult:
         settings = self.settings
         with self.sessions() as db:
-            cfg, key = load_config(db), load_key(db)
+            cfg = load_config(db)
             root = db.get(StorageRoot, root_id)
             if root is None or root.status != "active" or root.scan_state is not None:
                 return RunResult("skipped", code="ROOT_NOT_ACTIVE")
+            key = key_for_root(db, root)  # ADR-016: the owner's own key for a personal root
             if root.scan_paused_since is not None:
                 return RunResult("skipped", code="IMPORT_WRITING")
             state = db.get(BackupChainState, root_id)
@@ -442,7 +443,11 @@ class BackupEngine:
             if not vol.usable:
                 return self._refuse(root_id, kind, "BACKUP_VOLUME_UNAVAILABLE", cfg, key)
             if cfg.encrypt and key is None:
-                return self._refuse(root_id, kind, "BACKUP_KEY_MISSING", cfg, key)
+                # a personal root waits for its owner's key; it is never encrypted to another one
+                no_key = (
+                    "BACKUP_OWNER_KEY_PENDING" if root.kind == "personal" else "BACKUP_KEY_MISSING"
+                )
+                return self._refuse(root_id, kind, no_key, cfg, key)
             tree = collect_tree(db, root)
             relative_dir, label = root.relative_dir, root_label(root)
             top = domain_nodes.root_node(db, root_id)

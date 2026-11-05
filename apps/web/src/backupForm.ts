@@ -68,6 +68,8 @@ export const WARNINGS: Record<string, string> = {
     "Backups are not encrypted. Anyone who can read the backup folder can read everyone's files in it.",
   key_missing:
     "Encryption is on but there is no key. Create a new recovery key below.",
+  owner_keys_pending:
+    "Some people have not saved a backup key for their own folder yet. Their folders are not backed up until they do (Backups page).",
   last_run_failed:
     "The last backup of at least one folder failed. Existing backups were left untouched.",
   volume_too_small:
@@ -100,6 +102,16 @@ const RESTORE_ERRORS: Record<string, string> = {
   RESTORE_IN_PROGRESS: "Another restore is running. Try again in a moment.",
   ROOT_NOT_ACTIVE:
     "This folder is not available right now (disabled, missing, syncing paused or being imported). Try again later.",
+  BACKUP_NOT_ENCRYPTED:
+    "Encrypted backups are not turned on, so there is no key to create.",
+  NO_PENDING_KEY:
+    "That is not the key that was just created. Check you copied it exactly, or create a new one.",
+  NO_ACTIVE_KEY: "This folder has no confirmed backup key yet.",
+  ESCROW_UNAVAILABLE:
+    "The administrator key does not exist yet, so escrow cannot be turned on.",
+  PIN_REQUIRED: "Enter your six-digit PIN.",
+  PASSWORD_REQUIRED: "Enter your password.",
+  NOT_PERSONAL: "Only personal folders have their own backup key.",
   KEY_CHANGED:
     "The recovery key was changed by someone else. Reload the page and look at the current key before creating another.",
   UNENCRYPTED_NOT_ACKNOWLEDGED:
@@ -108,6 +120,12 @@ const RESTORE_ERRORS: Record<string, string> = {
   BACKUP_NOT_ENABLED: "Backups are not turned on.",
   BACKUP_RUN_TOO_SOON: "A backup was just requested. Try again in a minute.",
 };
+
+/** The PIN once the person has one, else the password: send whichever the field looks like. */
+export function secretOf(text: string): { pin?: string; password?: string } {
+  const t = text.trim();
+  return /^\d{6}$/.test(t) ? { pin: t } : { password: text };
+}
 
 export function backupError(code: string): string | null {
   return RESTORE_ERRORS[code] ?? null;

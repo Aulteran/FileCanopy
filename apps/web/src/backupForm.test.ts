@@ -5,6 +5,7 @@ import {
   gbToBytes,
   hoursToMinutes,
   minutesToHours,
+  secretOf,
   warningText,
   wholeNumber,
 } from "./backupForm";
@@ -35,6 +36,14 @@ describe("backup form helpers", () => {
   });
 });
 
+describe("secretOf", () => {
+  it("sends a six-digit entry as the PIN and anything else as the password", () => {
+    expect(secretOf("123456")).toEqual({ pin: "123456" });
+    expect(secretOf("hunter2 pass")).toEqual({ password: "hunter2 pass" });
+    expect(secretOf("1234567")).toEqual({ password: "1234567" });
+  });
+});
+
 describe("backup messages", () => {
   it("explains every warning the server can send, and hides unknown codes", () => {
     for (const code of [
@@ -43,6 +52,7 @@ describe("backup messages", () => {
       "single_chain",
       "unencrypted",
       "key_missing",
+      "owner_keys_pending",
       "volume_too_small",
       "source_unreadable",
       "volume_nested",
@@ -56,6 +66,7 @@ describe("backup messages", () => {
     expect(backupError("BACKUP_KEY_MISMATCH")).toMatch(/does not belong/);
     expect(backupError("ROOT_NOT_ACTIVE")).toMatch(/not available/);
     expect(backupError("KEY_CHANGED")).toMatch(/changed by someone/);
+    expect(backupError("NO_PENDING_KEY")).toMatch(/not the key/);
     expect(backupError("NOPE")).toBeNull();
   });
 });

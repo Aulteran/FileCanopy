@@ -554,8 +554,12 @@ export type BackupStatus = {
     history_days: number | null;
   };
   roots: {
+    root_id: string;
     kind: string;
     user_id: string | null;
+    key_state: "instance" | "none" | "pending" | "active";
+    escrow: boolean;
+    legacy_chains: number;
     status: string;
     chains: number;
     last_run: BackupRun | null;
@@ -576,6 +580,34 @@ export type RestorePoint = {
   files_changed: number;
   files_deleted: number;
   files_missing: number;
+  key_scope: "plain" | "owner" | "shared" | "legacy_instance";
+  key_fingerprint: string | null;
+};
+// ADR-016: a personal folder's own backup key. The recovery key is present only in the response
+// that creates it.
+export type OwnerKey = {
+  kind: string;
+  backups_enabled: boolean;
+  encrypted: boolean;
+  state: "none" | "pending" | "active" | "instance";
+  fingerprint: string | null;
+  pending_fingerprint: string | null;
+  created_at: string | null;
+  confirmed_at: string | null;
+  escrow: boolean;
+  escrow_changed_at: string | null;
+  escrow_current: boolean | null;
+  legacy_chains: number;
+  recovery_key: string | null;
+  recovery_key_fingerprint: string | null;
+};
+export type Secret = { pin?: string; password?: string };
+export type EscrowExport = {
+  root_id: string;
+  user_id: string | null;
+  key_fingerprint: string;
+  sealed_to_fingerprint: string | null;
+  sealed: string;
 };
 export type RestoreResult = {
   folder_node_id: string | null;
@@ -1389,6 +1421,44 @@ export const api = {
     call<BackupStatus>("POST", "/api/v1/admin/backups/key/rotate", {
       expected_fingerprint: expectedFingerprint,
     }),
+  ownerKey: (root: string) =>
+    call<OwnerKey>("GET", `/api/v1/nodes/${enc(root)}/backup-key`),
+  createOwnerKey: (
+    root: string,
+    secret: Secret,
+    expected_fingerprint: string | null,
+  ) =>
+    call<OwnerKey>("POST", `/api/v1/nodes/${enc(root)}/backup-key`, {
+      ...secret,
+      expected_fingerprint,
+    }),
+  confirmOwnerKey: (
+    root: string,
+    secret: Secret,
+    recovery_key: string,
+    escrow_consent: boolean,
+  ) =>
+    call<OwnerKey>("POST", `/api/v1/nodes/${enc(root)}/backup-key/confirm`, {
+      ...secret,
+      recovery_key,
+      escrow_consent,
+    }),
+  setEscrow: (
+    root: string,
+    secret: Secret,
+    enabled: boolean,
+    recovery_key: string | null,
+  ) =>
+    call<OwnerKey>("PUT", `/api/v1/nodes/${enc(root)}/backup-key/escrow`, {
+      ...secret,
+      enabled,
+      recovery_key,
+    }),
+  exportEscrow: (rootId: string) =>
+    call<EscrowExport>(
+      "POST",
+      `/api/v1/admin/backups/roots/${enc(rootId)}/escrow`,
+    ),
   restorePoints: (root: string) =>
     call<RestorePoint[]>("GET", `/api/v1/nodes/${enc(root)}/backups`),
   restoreBackup: (root: string, recovery_key: string, run_id: string | null) =>

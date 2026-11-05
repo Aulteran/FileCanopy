@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 from test_acl import Fx
-from test_auth import World
+from test_auth import PASSWORD, World
 from test_files import Api, code, disk, nid
 from test_reconcile import root_id, row, scan
 
@@ -40,6 +40,7 @@ from app.db.models import (
     AppSetting,
     AuthAudit,
     BackupChainState,
+    BackupRootKey,
     BackupRun,
     Node,
     StorageRoot,
@@ -100,6 +101,38 @@ def enable(fx: Fx, **over: Any) -> dict[str, Any]:
     assert r.status_code == 200, r.text
     body: dict[str, Any] = r.json()
     return body
+
+
+def make_owner_key(
+    fx: Fx,
+    who: Api | None = None,
+    node: uuid.UUID | None = None,
+    *,
+    escrow: bool = False,
+    expected: str | None = None,
+) -> str:
+    """ADR-016: the owner creates a key for their root, saves it and proves it by presenting it
+    back (fresh password). Returns the recovery key."""
+    api = who or Api(fx, "alice")
+    target = node or fx.alice_root
+    made = api.post(
+        f"/nodes/{target}/backup-key",
+        json={"password": PASSWORD, "expected_fingerprint": expected},
+    )
+    assert made.status_code == 200, made.text
+    key: str = made.json()["recovery_key"]
+    done = api.post(
+        f"/nodes/{target}/backup-key/confirm",
+        json={"password": PASSWORD, "recovery_key": key, "escrow_consent": escrow},
+    )
+    assert done.status_code == 200, done.text
+    return key
+
+
+def owner_key(fx: Fx, **over: Any) -> str:
+    """Encrypted backups on, plus a confirmed key for alice's root; returns that key."""
+    enable(fx, encrypt=True, acknowledge_unencrypted=False, **over)
+    return make_owner_key(fx)
 
 
 def service(fx: Fx) -> BackupService:
@@ -870,8 +903,10 @@ def test_archives_are_encrypted_by_default_with_a_one_time_key(
 ) -> None:
     alice.upload(fx.taxes, MARKER_NAME + ".txt", MARKER)
     first = enable(fx, encrypt=True, acknowledge_unencrypted=False)
-    key = first["recovery_key"]
-    assert key.startswith("fcbk1-") and first["key"]["present"] is True
+    admin_key = first["recovery_key"]  # the administrator's key (shared tree), shown once
+    assert admin_key.startswith("fcbk1-") and first["key"]["present"] is True
+    key = make_owner_key(fx)  # alice's own key; the app keeps only its public half
+    assert key != admin_key and key.startswith("fcbk1-")
     assert enable(fx, encrypt=True)["recovery_key"] is None  # shown once
     status = fx.admin[0].get("/api/v1/admin/backups", headers=fx.admin[1]).json()
     assert status["recovery_key"] is None and status["key"]["fingerprint"]
@@ -886,6 +921,9 @@ def test_archives_are_encrypted_by_default_with_a_one_time_key(
     # the recovery key is nowhere on the instance
     needle = key.removeprefix("fcbk1-")
     stored = " ".join(repr(s.value) for s in fx.w.db_rows(AppSetting))
+    stored += " ".join(
+        repr((k.public, k.fingerprint, k.escrow_blob)) for k in fx.w.db_rows(BackupRootKey)
+    )
     assert needle not in stored and "fcbk1" not in stored
     assert needle not in audit_text(fx)
     dumped = " ".join(repr((x.chain_id, x.error_code)) for x in fx.w.db_rows(BackupRun))
@@ -901,7 +939,7 @@ def test_archives_are_encrypted_by_default_with_a_one_time_key(
 
 def test_wrong_truncated_and_damaged_archives_fail_cleanly(fx: Fx, alice: Api) -> None:
     alice.upload(fx.taxes, "a.txt", blob(150_000))
-    key = enable(fx, encrypt=True, acknowledge_unencrypted=False)["recovery_key"]
+    key = owner_key(fx)
     run_ok(fx)
     a = archives(fx)[0]
     other, _, _ = crypto.generate_keypair()
@@ -943,13 +981,11 @@ def test_key_loss_rotation_starts_a_new_chain_and_old_chains_need_the_old_key(
     fx: Fx, alice: Api
 ) -> None:
     alice.upload(fx.taxes, "a.txt", b"original")
-    old = enable(fx, encrypt=True, acknowledge_unencrypted=False, full_every=5)["recovery_key"]
+    old = owner_key(fx, full_every=5)
     run_ok(fx)
     fx.w.advance(minutes=1)
-    c, h = fx.admin
-    rotated = c.post("/api/v1/admin/backups/key/rotate", headers=h).json()
-    new = rotated["recovery_key"]
-    assert new and new != old
+    new = make_owner_key(fx, expected=crypto.recovery_key_fingerprint(old))  # rotation
+    assert new != old
     r2 = run_ok(fx)
     assert r2.kind == "full" and r2.seq == 1  # a new chain for the new key
     old_run, new_run = runs(fx)
@@ -957,21 +993,21 @@ def test_key_loss_rotation_starts_a_new_chain_and_old_chains_need_the_old_key(
     assert members(archives(fx)[1], new)
     with pytest.raises(crypto.DecryptionError):
         members(archives(fx)[1], old)
-    row = [a for a in fx.w.db_rows(AuthAudit) if a.action == "backup.key_rotated"][0]
-    assert new not in repr(row.details) and old not in repr(row.details)
+    rows = [a for a in fx.w.db_rows(AuthAudit) if a.action == "backup.owner_key_created"]
+    assert len(rows) == 2 and rows[1].details["rotation"] is True
+    assert new not in repr(rows[1].details) and old not in repr(rows[1].details)
 
 
 def test_losing_the_stored_key_refuses_runs_instead_of_writing_plain_archives(
     fx: Fx, alice: Api
 ) -> None:
-    alice.upload(fx.taxes, "a.txt", b"a")
     enable(fx, encrypt=True, acknowledge_unencrypted=False)
     with fx.w.ctx.sessions() as db:
         row = db.get(AppSetting, KEY_KEY)
         assert row is not None
         db.delete(row)
         db.commit()
-    result = run(fx)
+    result = run(fx, fx.shared_root)
     assert (result.status, result.code) == ("refused", "BACKUP_KEY_MISSING")
     assert not list(volume_dir(fx).rglob("*.tar.gz*"))
     status = fx.admin[0].get("/api/v1/admin/backups", headers=fx.admin[1]).json()
@@ -979,7 +1015,7 @@ def test_losing_the_stored_key_refuses_runs_instead_of_writing_plain_archives(
     rotated = fx.admin[0].post("/api/v1/admin/backups/key/rotate", headers=fx.admin[1]).json()
     assert rotated["recovery_key"]  # recovery path: make a new key, back up again
     fx.w.advance(minutes=61)
-    assert run(fx).status == "ok"
+    assert run(fx, fx.shared_root).status == "ok"
 
 
 def test_changing_encryption_starts_a_new_chain(fx: Fx, alice: Api) -> None:
@@ -988,6 +1024,7 @@ def test_changing_encryption_starts_a_new_chain(fx: Fx, alice: Api) -> None:
     assert run_ok(fx).kind == "full"
     assert run_ok(fx).kind == "incremental"
     enable(fx, encrypt=True, acknowledge_unencrypted=False, full_every=5)
+    make_owner_key(fx)
     third = run_ok(fx)
     assert third.kind == "full" and third.encrypted
 
@@ -1007,7 +1044,7 @@ def test_cli_verify_list_and_decrypt(
     fx: Fx, alice: Api, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     alice.upload(fx.taxes, "a.txt", blob(50_000))
-    key = enable(fx, encrypt=True, acknowledge_unencrypted=False)["recovery_key"]
+    key = owner_key(fx)
     run_ok(fx)
     a = archives(fx)[0]
     key_file = tmp_path / "key.txt"
@@ -1041,9 +1078,12 @@ def test_cli_verify_list_and_decrypt(
 def make_restore_fixture(fx: Fx, alice: Api, encrypt: bool = True) -> str | None:
     alice.upload(fx.taxes, "a.txt", b"alpha")
     alice.upload(fx.y2026, "b.txt", b"beta")
-    body = enable(fx, encrypt=encrypt, acknowledge_unencrypted=not encrypt, full_every=5)
+    key: str | None = None
+    if encrypt:
+        key = owner_key(fx, full_every=5)
+    else:
+        enable(fx, encrypt=False, acknowledge_unencrypted=True, full_every=5)
     run_ok(fx)
-    key: str | None = body["recovery_key"]
     return key
 
 
@@ -1158,7 +1198,7 @@ def test_restore_checks_the_key_and_refuses_a_wrong_one(fx: Fx, alice: Api) -> N
 
 def test_damaged_archive_leaves_no_half_restored_folder(fx: Fx, alice: Api) -> None:
     alice.upload(fx.taxes, "a.bin", blob(300_000))
-    key = enable(fx, encrypt=True, acknowledge_unencrypted=False)["recovery_key"]
+    key = owner_key(fx)
     run_ok(fx)
     a = archives(fx)[0]
     data = bytearray(a.read_bytes())
@@ -1260,10 +1300,7 @@ def test_no_content_paths_or_keys_in_logs_or_audit(
     caplog.set_level(logging.DEBUG)
     alice.upload(fx.taxes, MARKER_NAME + ".txt", MARKER)
     alice.upload(fx.taxes, "big.bin", blob(100_000))
-    body = enable(
-        fx, encrypt=True, acknowledge_unencrypted=False, full_every=1, max_size_bytes=10**9
-    )
-    key = body["recovery_key"]
+    key = owner_key(fx, full_every=1, max_size_bytes=10**9)
     for _ in range(3):
         run_ok(fx)
     real_verify = engine_mod.verify_archive
@@ -1451,7 +1488,7 @@ def test_restore_refuses_an_archive_that_names_another_run(fx: Fx, alice: Api) -
 
 def test_encrypted_archive_is_bound_to_its_run_and_cannot_be_moved(fx: Fx, alice: Api) -> None:
     alice.upload(fx.taxes, "a.txt", b"a")
-    key = enable(fx, encrypt=True, acknowledge_unencrypted=False, full_every=5)["recovery_key"]
+    key = owner_key(fx, full_every=5)
     run_ok(fx)
     alice.upload(fx.taxes, "b.txt", b"b")
     run_ok(fx)

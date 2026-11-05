@@ -1,7 +1,14 @@
 # M25 — Per-root backup keys and owner recovery (ADR-016)
 
-**Status:** Not started. Added 2026-11-03 at the owner's request, roadmap/documentation only.
-No application code, migration or implementation work is authorised by this planning session.
+**Status:** Implemented 2026-11-05 on branch `m25-backup-keys`; awaiting CI and independent security
+review (see PROJECT_STATUS and MILESTONES.json for evidence). Planned 2026-11-03 at the owner's request.
+Implementation notes: owner key handoff requires the owner to present the key back before it is used
+(a personal root is refused with `BACKUP_OWNER_KEY_PENDING` until then); escrow is sealed to the
+administrator key at confirmation or later with the owner's key, and opened offline
+(`python -m app.backup.cli escrow-open`); disabling escrow deletes the sealed copy and does not recall
+copies already taken; rotating the administrator key leaves older sealed copies flagged as
+`escrow_current: false` until the owner re-seals. Keys apply only to encrypted backups; the proposed
+[M27](M27-design-and-plan.md) adds per-job encryption choices.
 
 **Decision:** [ADR-016](../adr/ADR-016-per-root-backup-keys.md), accepted 2026-10-31, remains unimplemented.
 **Dependencies:** M06c (backup engine), M09 (privacy/Confidential), M23 (hardening), all complete.

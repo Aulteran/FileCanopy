@@ -102,4 +102,4 @@ Compose is the primary, best-tested way to run FileCanopy. If you already run Sw
   [packaging and real-host testing pending](../release/proxmox-lxc.md). No native support or
   upstream helper availability is claimed.
 - The host/hypervisor administrator can inspect all plaintext files and state. Confidential is
-  an app lock, not disk encryption. ADR-016 per-root backup keys remains accepted and unimplemented.
+  an app lock, not disk encryption. Per-folder backup keys (ADR-016, M25) mean that after an upgrade each person must create and confirm a backup key before their personal folder is backed up again; the shared folder keeps using the administrator key.
