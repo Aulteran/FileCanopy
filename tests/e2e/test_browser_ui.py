@@ -60,6 +60,9 @@ def test_first_run_setup_and_sign_in(fresh_stack: Stack, browser: Browser) -> No
 
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Sign in").click()
+    # an administrator first gets the optional server step
+    expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
+    page.get_by_role("button", name="Continue to file setup").click()
     # a fresh account has two open setup windows (its own folder and the shared tree): each gets a
     # full-page screen before the browser
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()

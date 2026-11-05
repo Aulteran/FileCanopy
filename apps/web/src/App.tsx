@@ -20,7 +20,7 @@ import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
-import { AdminPage } from "./AdminPage";
+import { AdminPage, ServerSetupStep } from "./AdminPage";
 import { ProfileMenu } from "./ProfileMenu";
 import {
   ADMIN_PATH,
@@ -54,6 +54,16 @@ import { UsersPage } from "./Users";
 // Roots whose setup screen the person postponed ("Decide later") in this browser tab. It survives
 // a reload but not a new tab or a new sign-in, so the screen is offered again after signing in.
 const DEFERRED_KEY = "fc.setup-deferred";
+// An administrator's first-run "set up the server" step, done for this browser tab and person.
+const SERVER_STEP_KEY = "fc.server-step";
+
+function readServerStep(userId: string): boolean {
+  try {
+    return sessionStorage.getItem(`${SERVER_STEP_KEY}:${userId}`) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function readDeferred(userId: string): Set<string> {
   try {
@@ -259,6 +269,17 @@ function Shell({
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
+  const [serverStepDone, setServerStepDone] = useState(() =>
+    readServerStep(session.user.id),
+  );
+  function finishServerStep(): void {
+    setServerStepDone(true);
+    try {
+      sessionStorage.setItem(`${SERVER_STEP_KEY}:${session.user.id}`, "1");
+    } catch {
+      /* storage unavailable: the step is simply offered again */
+    }
+  }
   const [reload, setReload] = useState(0);
 
   const loadRoots = useCallback(() => {
@@ -497,6 +518,31 @@ function Shell({
       ? r.node_id === setupFor && r.setup_open
       : r.setup_open && !deferred.has(r.node_id),
   );
+  if (setupRoot && admin && !serverStepDone && setupFor === null) {
+    return (
+      <div className="shell setup-only">
+        {header(false)}
+        <main id="main" tabIndex={-1} className="content">
+          <ServerSetupStep
+            onAi={() => setAiSettings(true)}
+            onAdmin={() => {
+              // Postpone the file setup so the full app (with the Admin pages) opens first.
+              const next = new Set(deferred);
+              for (const r of roots) if (r.setup_open) next.add(r.node_id);
+              setDeferred(next);
+              writeDeferred(session.user.id, next);
+              finishServerStep();
+              go(ADMIN_PATH);
+            }}
+            onContinue={finishServerStep}
+          />
+        </main>
+        {aiSettings && (
+          <AiSettings admin={admin} onClose={() => setAiSettings(false)} />
+        )}
+      </div>
+    );
+  }
   if (setupRoot) {
     return (
       <div className="shell setup-only">
@@ -703,7 +749,7 @@ function Shell({
           ))}
         {adminRoute &&
           (admin ? (
-            <AdminPage go={go} />
+            <AdminPage go={go} onAi={() => setAiSettings(true)} />
           ) : (
             <p>Only administrators can open the admin page.</p>
           ))}
