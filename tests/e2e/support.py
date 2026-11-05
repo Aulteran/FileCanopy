@@ -70,7 +70,7 @@ def row(page: Page, name: str) -> Locator:
 
 
 def select(page: Page, name: str) -> None:
-    row(page, name).locator("td").nth(1).click()  # the size cell: not the folder link
+    row(page, name).locator("td").nth(2).click()  # the size cell: not the folder link
 
 
 def crumbs(page: Page) -> Locator:

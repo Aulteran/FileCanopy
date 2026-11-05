@@ -71,7 +71,8 @@ def test_first_run_setup_and_sign_in(fresh_stack: Stack, browser: Browser) -> No
     expect(nav.get_by_role("link", name="My files")).to_have_attribute("aria-current", "page")
     page.reload()  # the session survives a reload
     expect(nav).to_be_visible()
-    page.get_by_role("button", name="Sign out").click()
+    page.get_by_role("button", name=re.compile("Profile menu")).click()
+    page.get_by_role("menuitem", name="Sign out").click()
     expect(page.get_by_role("heading", name="Sign in")).to_be_visible()
     page.context.close()
 

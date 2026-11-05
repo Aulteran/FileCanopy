@@ -1,3 +1,4 @@
+import { readZip, ZipError } from "./zipRead";
 import { Icon } from "./Icon";
 import { loadDensity, saveDensity, type Density } from "./density";
 import { LabelBadge, LockCard, LockStrip, PrivacyDialog } from "./Privacy";
@@ -33,6 +34,7 @@ import {
   fileMap,
   forgetUpload,
   fromInput,
+  stripTopFolder,
   pendingFiles,
   readEntriesTree,
   rememberUpload,
@@ -126,7 +128,10 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   >("loading");
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
+  const zipInput = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Items ticked for a bulk action (separate from the one item shown in the details pane).
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [focusIx, setFocusIx] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState("");
@@ -278,6 +283,38 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           : fail(err),
       );
     }
+    await refresh();
+  }
+
+  function toggleChecked(id: string): void {
+    setChecked((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteChecked(): Promise<void> {
+    const targets = items.filter((c) => checked.has(c.id));
+    let moved = 0;
+    let lastOp: Operation | null = null;
+    for (const c of targets) {
+      try {
+        const r = await api.deleteNode(c.id, c.revision);
+        lastOp = r.operation;
+        moved++;
+      } catch (err) {
+        setErrorText(fail(err));
+        break;
+      }
+    }
+    setChecked(new Set());
+    setSelectedId(null);
+    if (moved > 0)
+      offerUndo(
+        `Moved ${moved} item${moved === 1 ? "" : "s"} to the Trash`,
+        moved === 1 ? undoableId(lastOp) : null,
+      );
     await refresh();
   }
 
@@ -464,6 +501,19 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       await refresh();
     } catch (err) {
       setErrorText(fail(err));
+    }
+  }
+
+  async function unpackZip(zip: File): Promise<void> {
+    if (!canWrite) return;
+    try {
+      await runFolderUpload(stripTopFolder(await readZip(zip)));
+    } catch (err) {
+      setErrorText(
+        err instanceof ZipError
+          ? "That zip could not be unpacked here. Use Upload here to add it as a file."
+          : fail(err),
+      );
     }
   }
 
@@ -680,6 +730,26 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           <Icon name="upload" />
           Upload folder
         </button>
+        <input
+          ref={zipInput}
+          type="file"
+          accept=".zip,application/zip"
+          hidden
+          data-testid="unpack-zip-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void unpackZip(file);
+          }}
+        />
+        <button
+          disabled={!canWrite}
+          title={noWrite || "Add the files inside a .zip to this folder"}
+          onClick={() => zipInput.current?.click()}
+        >
+          <Icon name="upload" />
+          Unpack zip here
+        </button>
         <button
           disabled={!canWrite}
           title={noWrite}
@@ -879,6 +949,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             <table role="grid" aria-label={`Contents of ${info.name}`}>
               <thead>
                 <tr>
+                  <th scope="col" className="pick">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all items"
+                      checked={
+                        items.length > 0 && checked.size === items.length
+                      }
+                      onChange={(e) =>
+                        setChecked(
+                          e.target.checked
+                            ? new Set(items.map((c) => c.id))
+                            : new Set(),
+                        )
+                      }
+                    />
+                  </th>
                   <th scope="col">Name</th>
                   <th scope="col" className="num">
                     Size
@@ -902,12 +988,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     onFocus={(e) => {
                       if (e.target === e.currentTarget) setFocusIx(ix);
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) toggleChecked(c.id);
                       setSelectedId(c.id);
                       setFocusIx(ix);
                     }}
                     onKeyDown={(e) => onGridKey(e, ix, c)}
                   >
+                    <td className="pick">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.name}`}
+                        checked={checked.has(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleChecked(c.id)}
+                      />
+                    </td>
                     <td>
                       <span
                         className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
@@ -1118,6 +1214,21 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           ) : (
             <>
               <h2>{info.name}</h2>
+              {checked.size > 0 && (
+                <div className="actions">
+                  <p className="hint">{checked.size} selected</p>
+                  <button
+                    disabled={!canWrite}
+                    title={noWrite}
+                    onClick={() => void deleteChecked()}
+                  >
+                    Move {checked.size} to Trash
+                  </button>
+                  <button onClick={() => setChecked(new Set())}>
+                    Clear selection
+                  </button>
+                </div>
+              )}
               <p className="hint">
                 {items.length} item{items.length === 1 ? "" : "s"}
                 {next ? "+" : ""}. Select an item for details.

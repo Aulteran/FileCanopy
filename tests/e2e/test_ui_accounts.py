@@ -50,6 +50,7 @@ def _set_password(browser: Browser, link: str, password: str, *, name: str | Non
 def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) -> None:
     email = f"carol{uuid.uuid4().hex[:6]}@example.com"
     admin = sign_in(browser, world, "admin@example.com")
+    admin.get_by_role("link", name="Admin").click()
     admin.get_by_role("link", name="Users").click()
     expect(admin.get_by_role("heading", name="Users", exact=True)).to_be_visible()
 
@@ -80,7 +81,7 @@ def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) 
 
     # signed in: the new account works, is a member and sees no Users link
     carol = sign_in(browser, world, email)
-    expect(carol.get_by_role("link", name="Users")).to_have_count(0)
+    expect(carol.get_by_role("link", name="Admin")).to_have_count(0)
     admin.reload()
     expect(row(admin, email)).to_contain_text("Active")
     expect(row(admin, "Carol C")).to_be_visible()
@@ -123,7 +124,7 @@ def test_a_broken_link_explains_itself(world: World, browser: Browser) -> None:
 
 def test_member_cannot_manage_users(world: World, browser: Browser) -> None:
     page = sign_in(browser, world, world.alice_mail)
-    expect(page.get_by_role("link", name="Users")).to_have_count(0)
+    expect(page.get_by_role("link", name="Admin")).to_have_count(0)
     page.goto(world.base + "/admin/users")
     expect(page.get_by_text("Only administrators can manage users.")).to_be_visible()
     assert api_status(page, "GET", "/api/v1/admin/users") == 403
@@ -210,13 +211,15 @@ def test_picker_offers_folders_past_the_first_page(world: World, browser: Browse
 
 def test_mail_and_single_sign_on_are_off_by_default(world: World, browser: Browser) -> None:
     admin = sign_in(browser, world, "admin@example.com")
+    admin.get_by_role("link", name="Admin").click()
     admin.get_by_role("link", name="Users").click()
     panel = admin.get_by_role("region", name="Mail and single sign-on")
     expect(panel).to_contain_text("Email is not configured.")
     expect(panel).to_contain_text("Single sign-on is not configured.")
     # without mail there is no "email it" choice: the manual link flow is the only one
     expect(admin.get_by_label("Email the invitation link")).to_have_count(0)
-    admin.get_by_role("button", name="Account").click()
+    admin.get_by_role("button", name=re.compile("Profile menu")).click()
+    admin.get_by_role("menuitem", name="Account").click()
     expect(admin.get_by_text("Single sign-on is not set up on this server.")).to_be_visible()
     # the sign-in page offers neither a provider button nor "Forgot your password?"
     page = browser.new_context().new_page()

@@ -7,6 +7,8 @@ The runs, archives, keys and restore with a mounted volume are covered by the AP
 suites. Random credentials only.
 """
 
+import re
+
 import pytest
 from playwright.sync_api import Browser, expect
 from support import World, api_status, sign_in
@@ -18,7 +20,8 @@ def test_administrator_sees_settings_and_the_missing_volume_warning(
     world: World, browser: Browser
 ) -> None:
     page = sign_in(browser, world, "admin@example.com")
-    page.get_by_role("link", name="Backups").click()
+    page.get_by_role("button", name=re.compile("Profile menu")).click()
+    page.get_by_role("menuitem", name="Backups").click()
     expect(page.get_by_role("heading", name="Backups", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Backup settings")).to_be_visible()
     warnings = page.get_by_role("list", name="Warnings")
@@ -42,7 +45,8 @@ def test_member_sees_only_restore_and_cannot_use_the_admin_calls(
     world: World, browser: Browser
 ) -> None:
     page = sign_in(browser, world, world.alice_mail)
-    page.get_by_role("link", name="Backups").click()
+    page.get_by_role("button", name=re.compile("Profile menu")).click()
+    page.get_by_role("menuitem", name="Backups").click()
     expect(page.get_by_role("heading", name="Restore", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Backup settings")).to_have_count(0)
     expect(page.get_by_text("There are no backups of this folder yet.")).to_be_visible()
