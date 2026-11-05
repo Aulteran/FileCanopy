@@ -859,6 +859,32 @@
       ],
       "notes": "Added at the owner's request 2026-11-03, planning only. Not started; no implementation, schema migration or milestone test execution. Scope and acceptance plan: docs/milestones/M25-design-and-plan.md. ADR-016 stays accepted and unimplemented until this work is built and verified. Dependencies are already done. M25 does not depend on M24: it may run before M24 closes if owner self-restore is included in the first beta. Numbering does not authorize publication or decide beta scope; any release advertising owner self-restore must satisfy ADR-016 first. M24 release preparation remains in progress; M25 implementation requires a separate request.",
       "status": "not_started"
+    },
+    {
+      "id": "M26",
+      "phase": "release",
+      "title": "Branch model, CI promotion and registry publication (dev/beta/release, GHCR)",
+      "depends_on": [
+        "M22",
+        "M24"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5; independent review of workflow permissions",
+      "objective": "Adopt dev, beta and release branches with rulesets and CI promotion, and publish beta and release images to GHCR with a GitHub Release, only after owner approval.",
+      "acceptance_criteria": [
+        "Branch model, default-branch decision and rulesets documented and owner-approved before any GitHub setting changes",
+        "Feature branches PR into dev with full CI; dev PRs into beta; beta or dev PRs into release",
+        "Merge to beta publishes a beta-tagged GHCR image, never tagged latest; merge to release publishes a release image and GitHub Release",
+        "Publish workflows are least-privilege, protected by an Environment, cannot run on PRs or forks, and produce digests, SBOMs and provenance",
+        "Anonymous pull of the published image plus install test passes; rollback and tag immutability documented",
+        "Project conventions (CLAUDE.md, CONTRIBUTING) updated to the new branch flow with owner approval"
+      ],
+      "required_tests": [
+        "workflow lint and trigger/permission assertions",
+        "dry-run publish evidence",
+        "anonymous pull and install test against published image"
+      ],
+      "notes": "Planning only, added 2026-11-05; see docs/milestones/M26-design-and-plan.md. Nothing created or published. Stable release is undefined until the owner defines it.",
+      "status": "not_started"
     }
   ]
 }
