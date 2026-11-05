@@ -17,6 +17,7 @@ import {
   warningText,
   wholeNumber,
 } from "./backupForm";
+import { BackupJobsPanel } from "./BackupJobs";
 import { describeError, formatDate, formatSize } from "./format";
 
 type Props = {
@@ -35,6 +36,7 @@ export function BackupsPage({ admin, roots, onEnded }: Props) {
     <div className="backups">
       <h1>Backups</h1>
       {admin && <BackupSettingsPanel onEnded={onEnded} />}
+      {admin && <BackupJobsPanel onEnded={onEnded} />}
       <OwnerKeyPanel roots={roots} onEnded={onEnded} />
       <RestorePanel admin={admin} roots={roots} onEnded={onEnded} />
     </div>

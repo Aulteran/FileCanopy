@@ -160,6 +160,11 @@ class Settings(BaseSettings):
     backup_free_space_reserve_bytes: int = Field(default=1024**3, ge=0)
     # Files up to this size are read into memory so a change during the read can be retried.
     backup_buffer_file_bytes: int = Field(default=4 * 1024**2, ge=0)
+    # M27: remote backup destinations (SFTP, S3-compatible) are refused when they resolve to a
+    # loopback, private, link-local or metadata address, unless the operator allows it here (a
+    # NAS or MinIO on the LAN). Off by default: an administrator must not reach the internal
+    # network through the backup feature.
+    backup_allow_private_destinations: bool = False
 
     # --- Authentication (M02) ---
     # Optional operator-chosen first-run setup token (>= 32 chars). Empty = generate one at

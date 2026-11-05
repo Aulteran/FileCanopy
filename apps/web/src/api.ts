@@ -1,7 +1,7 @@
 // Thin client for the FileCanopy API. Ids only: no function takes a path. Errors from the API are
 // `{detail: {code}}`; mutations need the CSRF token from the session (ADR-012).
 
-import type { BackupSettings } from "./backupForm";
+import type { BackupSettings, JobBody } from "./backupForm";
 
 export class ApiError extends Error {
   constructor(
@@ -529,6 +529,30 @@ export type BackupRun = {
   files_unstable: number | null;
   encrypted: boolean;
 };
+export type BackupJob = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  scope: string;
+  backup_type: "full" | "chain";
+  chain_length: number;
+  interval_minutes: number;
+  min_chains_kept: number;
+  max_size_bytes: number | null;
+  encrypt: boolean;
+  allow_confidential: boolean;
+  destination_type: "local" | "sftp" | "s3";
+  destination: Record<string, string | number>;
+  credentials_set: boolean;
+  warnings: string[];
+  last_status: string | null;
+  last_error: string | null;
+  last_finished_at: string | null;
+  next_due: string | null;
+  chains: number;
+  recovery_key: string | null;
+  recovery_key_fingerprint: string | null;
+};
 export type BackupStatus = {
   settings: BackupSettings;
   volume: {
@@ -672,13 +696,21 @@ async function call<T>(
     let reason: string | null = null;
     try {
       const data = (await res.json()) as {
-        detail?: { code?: string; reason?: string; count?: number };
+        detail?: {
+          code?: string;
+          reason?: string;
+          count?: number;
+          host_key_sha256?: string;
+        };
       };
       code = data.detail?.code ?? code;
       // UNLINKED_USERS says how many people would be left without a provider link.
+      // A SFTP host key fingerprint (public) rides along so it can be compared and pinned.
       reason =
         data.detail?.reason ??
-        (data.detail?.count !== undefined ? String(data.detail.count) : null);
+        (data.detail?.count !== undefined
+          ? String(data.detail.count)
+          : (data.detail?.host_key_sha256 ?? null));
     } catch {
       /* non-JSON error page from a proxy */
     }
@@ -1417,6 +1449,20 @@ export const api = {
     call<BackupStatus>("PUT", "/api/v1/admin/backups/settings", b),
   runBackup: () =>
     call<{ status: string }>("POST", "/api/v1/admin/backups/run"),
+  backupJobs: () => call<BackupJob[]>("GET", "/api/v1/admin/backups/jobs"),
+  createBackupJob: (b: JobBody) =>
+    call<BackupJob>("POST", "/api/v1/admin/backups/jobs", b),
+  saveBackupJob: (id: string, b: JobBody) =>
+    call<BackupJob>("PUT", `/api/v1/admin/backups/jobs/${enc(id)}`, b),
+  deleteBackupJob: (id: string) =>
+    call<{ status: string }>("DELETE", `/api/v1/admin/backups/jobs/${enc(id)}`),
+  testBackupJob: (id: string) =>
+    call<{ ok: boolean }>("POST", `/api/v1/admin/backups/jobs/${enc(id)}/test`),
+  runBackupJob: (id: string) =>
+    call<{ status: string }>(
+      "POST",
+      `/api/v1/admin/backups/jobs/${enc(id)}/run`,
+    ),
   rotateBackupKey: (expectedFingerprint: string | null) =>
     call<BackupStatus>("POST", "/api/v1/admin/backups/key/rotate", {
       expected_fingerprint: expectedFingerprint,
