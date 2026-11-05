@@ -4,6 +4,7 @@ import {
   api,
   type BackupStatus,
   type EntryPoint,
+  type OwnerKey,
   type RestorePoint,
 } from "./api";
 import {
@@ -12,6 +13,7 @@ import {
   gbToBytes,
   hoursToMinutes,
   minutesToHours,
+  secretOf,
   warningText,
   wholeNumber,
 } from "./backupForm";
@@ -33,6 +35,7 @@ export function BackupsPage({ admin, roots, onEnded }: Props) {
     <div className="backups">
       <h1>Backups</h1>
       {admin && <BackupSettingsPanel onEnded={onEnded} />}
+      <OwnerKeyPanel roots={roots} onEnded={onEnded} />
       <RestorePanel admin={admin} roots={roots} onEnded={onEnded} />
     </div>
   );
@@ -180,9 +183,9 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
             {recoveryFp ? ` Key fingerprint: ${recoveryFp}.` : ""}
           </p>
           <p>
-            The key opens every backup on the volume. If you give it to someone
-            so they can restore their own folder, create a new recovery key
-            afterwards (&ldquo;New recovery key&rdquo; below).
+            This administrator key opens the shared folder&rsquo;s backups and
+            any older backups made before people had their own keys. Each
+            person&rsquo;s folder has its own key, which only they see.
           </p>
           <pre className="key" aria-label="Recovery key">
             {recovery}
@@ -374,6 +377,222 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
         </tbody>
       </table>
     </section>
+  );
+}
+
+function OwnerKeyPanel({
+  roots,
+  onEnded,
+}: {
+  roots: EntryPoint[];
+  onEnded: () => void;
+}) {
+  const mine = roots.filter((r) => r.kind === "personal");
+  if (mine.length === 0) return null;
+  return (
+    <section aria-labelledby="bk-keys">
+      <h2 id="bk-keys">Your backup key</h2>
+      <p className="hint">
+        Encrypted backups of your own folder use a key only you hold. The app
+        does not keep it. If you lose it and did not share it with the
+        administrator, your encrypted backups cannot be read by anyone. Your
+        files themselves are not affected.
+      </p>
+      {mine.map((r) => (
+        <OwnerKeyRoot key={r.node_id} root={r} onEnded={onEnded} />
+      ))}
+    </section>
+  );
+}
+
+function OwnerKeyRoot({
+  root,
+  onEnded,
+}: {
+  root: EntryPoint;
+  onEnded: () => void;
+}) {
+  const [info, setInfo] = useState<OwnerKey | null>(null);
+  const [shown, setShown] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
+  const [back, setBack] = useState("");
+  const [escrow, setEscrow] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setInfo(await api.ownerKey(root.node_id));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) onEnded();
+    }
+  }, [root.node_id, onEnded]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function act(fn: () => Promise<OwnerKey>): Promise<void> {
+    setError("");
+    setBusy(true);
+    try {
+      const next = await fn();
+      setShown(next.recovery_key);
+      setInfo({ ...next, recovery_key: null });
+      setSecret("");
+      setBack("");
+      setEscrow(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) onEnded();
+      setError(message(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (info === null) return <p className="loading">Loading…</p>;
+  if (!info.backups_enabled || !info.encrypted)
+    return (
+      <p className="hint">
+        {root.name}: backups are off or not encrypted, so no key is needed.
+      </p>
+    );
+  const pending = info.state === "pending" || shown !== null;
+  return (
+    <div className="stack-form" aria-label={`Backup key for ${root.name}`}>
+      <h3>{root.name}</h3>
+      {info.state === "active" ? (
+        <p>
+          Active key {info.fingerprint}. Administrator access:{" "}
+          <strong>{info.escrow ? "allowed" : "not allowed"}</strong>
+          {info.escrow && info.escrow_current === false
+            ? " (sealed to an older administrator key)"
+            : ""}
+          .
+        </p>
+      ) : (
+        <p role="status">
+          Your folder is not backed up until you create a key and confirm you
+          saved it.
+        </p>
+      )}
+      {info.legacy_chains > 0 && (
+        <p className="hint">
+          {info.legacy_chains} older backup chain
+          {info.legacy_chains === 1 ? " was" : "s were"} made with the
+          administrator&rsquo;s key. You cannot restore them without it.
+        </p>
+      )}
+      {shown !== null && (
+        <div className="banner warn" role="alert">
+          <h3>Save this key now</h3>
+          <p>
+            It is shown once and never stored. Fingerprint:{" "}
+            {info.pending_fingerprint}.
+          </p>
+          <pre className="key" aria-label="Your recovery key">
+            {shown}
+          </pre>
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(shown)}
+          >
+            Copy
+          </button>
+        </div>
+      )}
+      <label>
+        PIN (or password if you have no PIN yet)
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+        />
+      </label>
+      {(pending || info.state === "active") && (
+        <label>
+          {pending
+            ? "Paste the key back to prove you saved it"
+            : "Your key (only needed to share a copy with the administrator)"}
+          <input
+            type="password"
+            autoComplete="off"
+            value={back}
+            onChange={(e) => setBack(e.target.value)}
+          />
+        </label>
+      )}
+      {pending && (
+        <>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={escrow}
+              onChange={(e) => setEscrow(e.target.checked)}
+            />{" "}
+            Let the administrator keep an encrypted copy so they can help if I
+            lose the key. This lets them read my backups, though not my live
+            folder in the app. Off unless I tick it.
+          </label>
+          <button
+            type="button"
+            disabled={busy || !back.trim() || !secret}
+            onClick={() =>
+              void act(() =>
+                api.confirmOwnerKey(
+                  root.node_id,
+                  secretOf(secret),
+                  back.trim(),
+                  escrow,
+                ),
+              )
+            }
+          >
+            Confirm and start backing up
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        disabled={busy || !secret}
+        onClick={() =>
+          void act(() =>
+            api.createOwnerKey(
+              root.node_id,
+              secretOf(secret),
+              info.fingerprint,
+            ),
+          )
+        }
+      >
+        {info.state === "active"
+          ? "Create a new key (rotate)"
+          : "Create my key"}
+      </button>
+      {info.state === "active" && (
+        <button
+          type="button"
+          disabled={busy || !secret || (!info.escrow && !back.trim())}
+          onClick={() =>
+            void act(() =>
+              api.setEscrow(
+                root.node_id,
+                secretOf(secret),
+                !info.escrow,
+                info.escrow ? null : back.trim(),
+              ),
+            )
+          }
+        >
+          {info.escrow
+            ? "Stop sharing with the administrator"
+            : "Share an encrypted copy with the administrator"}
+        </button>
+      )}
+      <p role="alert" className="error">
+        {error}
+      </p>
+    </div>
   );
 }
 

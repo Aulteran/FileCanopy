@@ -857,7 +857,41 @@
         "real PostgreSQL Compose recovery drill and browser backup/recovery flows",
         "independent security review"
       ],
-      "notes": "Added at the owner's request 2026-11-03, planning only. Not started; no implementation, schema migration or milestone test execution. Scope and acceptance plan: docs/milestones/M25-design-and-plan.md. ADR-016 stays accepted and unimplemented until this work is built and verified. Dependencies are already done. M25 does not depend on M24: it may run before M24 closes if owner self-restore is included in the first beta. Numbering does not authorize publication or decide beta scope; any release advertising owner self-restore must satisfy ADR-016 first. M24 release preparation remains in progress; M25 implementation requires a separate request.",
+      "notes": "Added at the owner's request 2026-11-03, planning only. Not started; no implementation, schema migration or milestone test execution. Scope and acceptance plan: docs/milestones/M25-design-and-plan.md. ADR-016 stays accepted and unimplemented until this work is built and verified. Dependencies are already done. M25 does not depend on M24: it may run before M24 closes if owner self-restore is included in the first beta. Numbering does not authorize publication or decide beta scope; any release advertising owner self-restore must satisfy ADR-016 first. M24 release preparation remains in progress; M25 implementation requires a separate request. 2026-11-05 IMPLEMENTATION on branch m25-backup-keys (owner request via coordinator): migration 0024 backup_root_key (pending/active/retired, one active and one pending per root); shared root keeps the administrator instance key; a personal root is refused (BACKUP_OWNER_KEY_PENDING) until its owner creates a key and proves it by presenting it back with a fresh PIN/password; escrow off by default, enabled only with explicit consent and the owner key, sealed to the administrator key (X25519/HKDF/AES-GCM, context-bound), exported only to the administrator as a sealed blob and opened offline with cli escrow-open; per-root rotation with row lock and fingerprint compare-and-swap; legacy instance-key chains labelled legacy_instance; web owner key panel; README, production guide, known issues and ADR-016 updated. Keys apply only to encrypted backups (plain backups need none; see proposed M27). Independent security review and CI are still required, so status stays in_progress.",
+      "status": "in_progress"
+    },
+    {
+      "id": "M27",
+      "phase": "release",
+      "title": "Backup jobs, destinations and backup types (proposed)",
+      "depends_on": [
+        "M06c",
+        "M23",
+        "M25"
+      ],
+      "recommended_claude_code_model": "Sonnet 5.5 implementation; Opus 5.5 for credential storage and egress review; independent security review",
+      "objective": "Let administrators define several backup jobs, each with its own destination (local folder or remote such as SFTP, FTP/FTPS, S3-compatible), schedule, encryption on or off, and backup type (Full every time, or Incremental chain: a full backup then N incrementals, repeating).",
+      "acceptance_criteria": [
+        "Administrators can create, edit, disable and delete backup jobs; today's single global setting migrates to one default job with unchanged behaviour",
+        "Each job chooses encrypted or not; keys (ADR-016) apply only to encrypted jobs; unencrypted jobs are clearly labelled and need administrator acknowledgement",
+        "Confidential content is never written to an unencrypted job without a documented owner-approved rule",
+        "Each job chooses a destination type (local folder or a remote type) with validation and connection test; remote credentials stored encrypted, never returned, logged or audited",
+        "Each job chooses its frequency and backup type: Full every time, or Incremental chain with a configurable number of incrementals before a new full",
+        "Remote uploads are atomic or resumable, checksum-verified, and never treated as restore points until complete; remote retention deletes only the job's own objects",
+        "Restore from any destination keeps owner authorization, strictest privacy label, fresh Confidential reauthentication and never overwrites live files",
+        "Independent security review of credential storage and egress; documentation and synthetic-data tests for every destination type"
+      ],
+      "required_tests": [
+        "job validation and migration of existing global settings",
+        "per-job encryption with and without per-root keys",
+        "both backup types including the chain boundary",
+        "unencrypted-job handling of Private and Confidential content",
+        "each destination type against a local test server or emulator, no live cloud calls",
+        "credential redaction in logs, audit and API responses",
+        "interrupted-upload recovery and real PostgreSQL Compose drill",
+        "independent security review"
+      ],
+      "notes": "PROPOSED 2026-11-05 at the owner's request; planning only, nothing built. Plan and open questions: docs/milestones/M27-design-and-plan.md. Owner words: not all backups need encryption; jobs choose destination (a dropdown for local folder vs remote such as FTP, SFTP, AWS), frequency, and backup type; suggested name for the full-then-incrementals mode is Incremental chain. Does not change M25 scope. Needs its own ADR before implementation and an owner decision on the open questions.",
       "status": "not_started"
     },
     {

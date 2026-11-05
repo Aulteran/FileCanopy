@@ -3,6 +3,7 @@
     python -m app.backup.cli list   <backups folder>
     python -m app.backup.cli verify <archive> [<archive> ...] [--key-file FILE]
     python -m app.backup.cli decrypt <archive.fcb> <out.tar.gz> --key-file FILE
+    python -m app.backup.cli escrow-open <export.json> <out-key-file> --key-file ADMIN_KEY_FILE
 
 The recovery key is read from `--key-file` or the FILECANOPY_RECOVERY_KEY environment variable,
 never from an argument (arguments are visible to other users of the machine). Without a key,
@@ -11,6 +12,7 @@ file names of the archives and error classes, never file names or content from i
 """
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -55,6 +57,32 @@ def verify_one(path: Path, key: str | None) -> str | None:
     return None
 
 
+def escrow_open(args: argparse.Namespace, admin_key: str | None) -> int:
+    """Opens an owner's escrowed key (the JSON the administrator exported) with the administrator
+    recovery key and writes it to a new owner-only file; it is never printed."""
+    if admin_key is None:
+        print("the administrator recovery key is required (--key-file)", file=sys.stderr)  # noqa: T201
+        return 2
+    out = Path(args.output)
+    if out.exists():
+        print("output file exists; refusing to overwrite", file=sys.stderr)  # noqa: T201
+        return 2
+    try:
+        info = json.loads(Path(args.export).read_text(encoding="utf-8"))
+        owner_key = crypto.open_sealed(
+            admin_key,
+            base64.b64decode(info["sealed"]),
+            crypto.escrow_context(info["root_id"], crypto.fingerprint_of_text(info)),
+        )
+    except (crypto.CryptoError, KeyError, ValueError, TypeError) as exc:
+        print(f"could not open the escrowed key: {type(exc).__name__}", file=sys.stderr)  # noqa: T201
+        return 1
+    fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(owner_key)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.backup.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -67,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
     p_decrypt.add_argument("archive")
     p_decrypt.add_argument("output")
     p_decrypt.add_argument("--key-file")
+    p_escrow = sub.add_parser("escrow-open")
+    p_escrow.add_argument("export")
+    p_escrow.add_argument("output")
+    p_escrow.add_argument("--key-file")
     args = parser.parse_args(argv)
 
     if args.command == "list":
@@ -93,6 +125,9 @@ def main(argv: list[str] | None = None) -> int:
             )  # noqa: T201
             failed += reason is not None
         return 1 if failed else 0
+
+    if args.command == "escrow-open":
+        return escrow_open(args, key)
 
     if key is None:
         print("a recovery key is required (--key-file or FILECANOPY_RECOVERY_KEY)", file=sys.stderr)  # noqa: T201

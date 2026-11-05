@@ -256,5 +256,54 @@ class DecryptingReader(io.RawIOBase):
         return n
 
 
+SEAL_MAGIC = b"FCE1"
+SEAL_INFO = b"filecanopy-escrow-v1"
+MAX_SEALED = 512
+
+
+def _seal_key(shared: bytes, ephemeral_public: bytes, recipient_public: bytes) -> bytes:
+    return HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=ephemeral_public + recipient_public,
+        info=SEAL_INFO,
+    ).derive(shared)
+
+
+def seal(recipient_public: bytes, plaintext: bytes, context: bytes) -> bytes:
+    """Encrypts a small secret (an owner's recovery key, for administrator escrow) to a public key:
+    ephemeral X25519, HKDF-SHA256, AES-256-GCM. `context` is authenticated, so a sealed blob cannot
+    be moved to another root or key. Only the holder of the matching private key can open it."""
+    ephemeral = X25519PrivateKey.generate()
+    eph_public = _public_raw(ephemeral)
+    shared = ephemeral.exchange(X25519PublicKey.from_public_bytes(recipient_public))
+    key = _seal_key(shared, eph_public, recipient_public)
+    nonce = os.urandom(12)
+    sealed = AESGCM(key).encrypt(nonce, plaintext, SEAL_MAGIC + eph_public + context)
+    return SEAL_MAGIC + eph_public + nonce + sealed
+
+
+def open_sealed(recovery_key: str, blob: bytes, context: bytes) -> bytes:
+    private = parse_recovery_key(recovery_key)
+    if len(blob) < 4 + 32 + 12 + 16 or len(blob) > MAX_SEALED or blob[:4] != SEAL_MAGIC:
+        raise DecryptionError("not a sealed FileCanopy key")
+    eph_public, nonce, sealed = blob[4:36], blob[36:48], blob[48:]
+    try:
+        shared = private.exchange(X25519PublicKey.from_public_bytes(eph_public))
+        key = _seal_key(shared, eph_public, _public_raw(private))
+        return AESGCM(key).decrypt(nonce, sealed, SEAL_MAGIC + eph_public + context)
+    except (InvalidTag, ValueError) as exc:
+        raise DecryptionError("wrong key or damaged sealed key") from exc
+
+
+def escrow_context(root_id: object, fingerprint_text: str) -> bytes:
+    return f"fce|{root_id}|{fingerprint_text}".encode()
+
+
+def fingerprint_of_text(info: dict[str, object]) -> str:
+    """The owner-key fingerprint named in an escrow export (part of the sealed context)."""
+    return str(info["key_fingerprint"])
+
+
 def looks_encrypted(head: bytes) -> bool:
     return head[:4] == MAGIC

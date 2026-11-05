@@ -124,8 +124,10 @@ In-app backups are off by default, and the app does not need a backup disk to ru
 Things to know:
 
 - A backup copies everyone's files, including private ones.
-- **The recovery key is shown once and never stored.** Without it, encrypted backups cannot be read. Store it somewhere safe.
-- **Rotate the recovery key after you give it to someone.** Restoring needs the key, and that one key opens every archive on the backup disk. Give it out only for a restore, then create a new key from the Backups page. Older archives stay readable only with the key they were made with. Separate keys per folder are decided (ADR-016) but not built yet.
+- **Recovery keys are shown once and never stored.** Without a key, its encrypted backups cannot be read. Store it somewhere safe.
+- **Each person has their own backup key (ADR-016).** The administrator key covers the shared folder only. Each person creates a key for their personal folder on the Backups page, saves it, and pastes it back to prove it; their folder is not backed up until then. A person's key opens only their own folder's archives, so handing one person a key no longer exposes anyone else.
+- **Administrator escrow is off unless the owner turns it on.** The owner can choose to let the administrator keep an encrypted copy of their key so a lost key can be recovered. This lets the administrator read that person's backups (never the live folder in the app). Without it, a lost personal key means those encrypted backups are unrecoverable; the live files are unaffected. The administrator opens an escrowed key offline with `python -m app.backup.cli escrow-open`.
+- **Backups made before per-folder keys** (encrypted to the old instance key) stay readable with that administrator key and are labelled legacy. Rotating a key only protects future backups; it does not revoke keys already copied.
 - Backups of folders that are disabled, missing or belong to removed accounts are kept and never cleaned up automatically, so they keep using space. There is no screen for purging them yet.
 - A restore runs inside the web request, so restoring a very large folder can take a long time.
 - Restoring a single file or folder from a backup is planned but not built.
@@ -147,7 +149,7 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 - **Host access is outside the app's trust model.** Anyone who can read the server's disk can read the files in `library/`, the same as any other folder on that machine.
 - **Private and Confidential** labels are implemented and inherit downward. Both block cloud AI; local processing requires opt-in, and Confidential content requires an unlock that expires after five minutes of user inactivity in that folder. This is app access control, not encryption at rest or E2E encryption. Host, hypervisor, storage and backup administrators can still access plaintext files and state.
 - **External processing needs care.** Normal files may be sent to configured cloud AI after applicable consent. Raising a privacy label cannot recall a previous transmission. MCP clients can forward the Normal data they receive to another provider. No provider retention or compliance guarantee is made.
-- **Backups contain protected data.** Disaster-recovery copies include all files and state. ADR-016 per-root backup keys is accepted but unimplemented; the current recovery key opens all archives made with it. See [known limitations](docs/release/known-issues.md).
+- **Backups contain protected data.** Disaster-recovery copies include all files and state. Per-folder backup keys (ADR-016, M25) are implemented but await independent security review; archives made before them are opened by the old administrator key. See [known limitations](docs/release/known-issues.md).
 - **No external security audit** has been done yet. Security work so far has been internal reviews plus automated tests.
 
 ## Project status and roadmap

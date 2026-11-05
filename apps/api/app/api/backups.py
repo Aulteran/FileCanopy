@@ -8,6 +8,7 @@ personal root. The recovery key is accepted in a request body, used in memory an
 logged.
 """
 
+import base64
 import threading
 import uuid
 from dataclasses import asdict
@@ -18,10 +19,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.privacy import _verify_secret
 from app.auth.deps import Principal, client_ip, get_db, http_error, require_admin
 from app.auth.service import audit
+from app.backup import crypto, retention
 from app.backup import restore as restore_mod
-from app.backup import retention
 from app.backup.service import BackupService
 from app.backup.store import (
     FULL_EVERY_RANGE,
@@ -29,15 +31,22 @@ from app.backup.store import (
     MIN_CHAINS_RANGE,
     BackupConfig,
     KeyChanged,
+    RootKeyError,
+    active_root_key,
+    begin_root_key,
+    confirm_root_key,
     create_key_if_absent,
     load_config,
     load_key,
+    pending_root_key,
+    root_key_fingerprints,
     save_config,
+    set_escrow,
 )
 from app.backup.store import rotate_key as rotate_stored_key
 from app.backup.volume import backups_root, folder_usage, inspect_volume
 from app.config import Settings
-from app.db.models import AuthAudit, BackupRun, Node, StorageRoot
+from app.db.models import AuthAudit, BackupRootKey, BackupRun, Node, StorageRoot
 from app.domain.nodes import root_node
 from app.policy import privacy
 from app.policy.deps import NodeContext, grant_admin_access
@@ -107,8 +116,14 @@ class RunOut(BaseModel):
 
 
 class RootOut(BaseModel):
+    root_id: uuid.UUID
     kind: str
     user_id: uuid.UUID | None  # an account id only, never a name or content
+    # shared: "instance" (the administrator's key). personal: none | pending | active (the
+    # owner's own key; a root without an active key is not backed up while encryption is on).
+    key_state: str
+    escrow: bool  # the owner chose to let the administrator open this root's archives
+    legacy_chains: int  # chains written under the old instance-wide key
     status: str
     chains: int
     last_run: RunOut | None
@@ -146,6 +161,9 @@ class RestorePointOut(BaseModel):
     files_changed: int
     files_deleted: int
     files_missing: int
+    # plain | owner (the root's own key) | shared (the administrator's key) | legacy_instance
+    key_scope: str
+    key_fingerprint: str | None
 
 
 class RotateBody(BaseModel):
@@ -206,6 +224,30 @@ def _run_out(r: BackupRun, *, counts: bool = True) -> RunOut:
     )
 
 
+def legacy_chain_count(db: Session, root: StorageRoot) -> int:
+    """Chains of a personal root written under the old instance-wide key (ADR-016 section 6)."""
+    if root.kind != "personal":
+        return 0
+    own = root_key_fingerprints(db, root.id)
+    rows = db.execute(
+        select(BackupRun.chain_id, BackupRun.key_fingerprint).where(
+            BackupRun.root_id == root.id,
+            BackupRun.status == "ok",
+            BackupRun.pruned_at.is_(None),
+            BackupRun.encrypted.is_(True),
+        )
+    )
+    return len({chain for chain, fp in rows if fp is not None and fp not in own})
+
+
+def key_scope(root: StorageRoot, run: BackupRun, own: set[str]) -> str:
+    if not run.encrypted:
+        return "plain"
+    if root.kind == "shared":
+        return "shared"
+    return "owner" if run.key_fingerprint in own else "legacy_instance"
+
+
 def build_status(
     db: Session,
     settings: Settings,
@@ -220,6 +262,13 @@ def build_status(
         used = folder_usage(backups_root(settings))
     roots = list(db.scalars(select(StorageRoot).order_by(StorageRoot.created_at)))
     chains = retention.list_chains(db)
+    active_keys = {
+        k.root_id: k
+        for k in db.scalars(select(BackupRootKey).where(BackupRootKey.state == "active"))
+    }
+    pending_keys = set(
+        db.scalars(select(BackupRootKey.root_id).where(BackupRootKey.state == "pending"))
+    )
 
     # sizes for the estimates: newest full and mean changed-only run of each root's newest chain
     last_full = 0
@@ -252,9 +301,19 @@ def build_status(
             next_due = (last.finished_at or last.started_at) + timedelta(
                 minutes=cfg.interval_minutes
             )
+        if root.kind == "shared":
+            key_state = "instance"
+        elif root.id in active_keys:
+            key_state = "active"
+        else:
+            key_state = "pending" if root.id in pending_keys else "none"
         root_out.append(
             RootOut(
+                root_id=root.id,
                 kind=root.kind,
+                key_state=key_state,
+                escrow=root.id in active_keys and active_keys[root.id].escrow_blob is not None,
+                legacy_chains=legacy_chain_count(db, root),
                 user_id=root.owner_user_id,
                 status="scan_suspended"
                 if root.status == "active" and root.scan_state
@@ -288,6 +347,12 @@ def build_status(
         warnings.append("unencrypted")
     if cfg.enabled and cfg.encrypt and key is None:
         warnings.append("key_missing")
+    if (
+        cfg.enabled
+        and cfg.encrypt
+        and any(r.key_state in ("none", "pending") for r in root_out if r.kind == "personal")
+    ):
+        warnings.append("owner_keys_pending")  # these roots wait for their owner's key
     latest = [r.last_run for r in root_out if r.last_run]
     if any(r.status == "failed" for r in latest):
         warnings.append("last_run_failed")
@@ -455,14 +520,254 @@ def _root_of(db: Session, node: Node) -> StorageRoot:
     return root
 
 
+# ------------------------------------------------------------------ owner keys (ADR-016)
+
+
+class OwnerKeyOut(BaseModel):
+    kind: str  # personal | shared
+    backups_enabled: bool
+    encrypted: bool
+    state: str  # none | pending | active (a personal root); instance (the shared tree)
+    fingerprint: str | None  # of the active key
+    pending_fingerprint: str | None
+    created_at: datetime | None
+    confirmed_at: datetime | None
+    escrow: bool
+    escrow_changed_at: datetime | None
+    # False when the sealed copy was made for an administrator key that has since been rotated.
+    escrow_current: bool | None
+    legacy_chains: int
+    recovery_key: str | None = None  # present only in the response that created it
+    recovery_key_fingerprint: str | None = None
+
+
+class FreshBody(BaseModel):
+    """Fresh proof of identity: the six-digit PIN once the person has one, else the password."""
+
+    model_config = ConfigDict(extra="forbid")
+    pin: str | None = Field(default=None, max_length=32)
+    password: str | None = Field(default=None, min_length=1, max_length=1024)
+
+
+class NewKeyBody(FreshBody):
+    # Compare-and-swap: the active key's fingerprint the page showed (None when it had none).
+    expected_fingerprint: str | None = Field(default=None, max_length=64)
+
+
+class ConfirmKeyBody(FreshBody):
+    recovery_key: str = Field(max_length=200, repr=False)
+    # Administrator escrow is never implied: it needs this explicit, separate consent.
+    escrow_consent: bool = False
+
+
+class EscrowBody(FreshBody):
+    enabled: bool
+    recovery_key: str | None = Field(default=None, max_length=200, repr=False)
+
+
+class EscrowExportOut(BaseModel):
+    root_id: uuid.UUID
+    user_id: uuid.UUID | None
+    key_fingerprint: str  # of the owner's key inside the blob
+    sealed_to_fingerprint: str | None  # the administrator key the blob was sealed to
+    sealed: str  # base64 of the sealed key: useless without the administrator recovery key
+
+
+def _personal_root(db: Session, node: Node) -> StorageRoot:
+    root = _root_of(db, node)
+    if root.kind != "personal":
+        raise http_error(422, "NOT_PERSONAL")  # the shared tree uses the administrator's key
+    return root
+
+
+def _owner_key_out(
+    db: Session,
+    root: StorageRoot,
+    *,
+    recovery: str | None = None,
+    recovery_fp: str | None = None,
+) -> OwnerKeyOut:
+    cfg, admin = load_config(db), load_key(db)
+    active, pending = active_root_key(db, root.id), pending_root_key(db, root.id)
+    has_escrow = active is not None and active.escrow_blob is not None
+    return OwnerKeyOut(
+        kind=root.kind,
+        backups_enabled=cfg.enabled,
+        encrypted=cfg.encrypt,
+        state="active" if active else "pending" if pending else "none",
+        fingerprint=active.fingerprint if active else None,
+        pending_fingerprint=pending.fingerprint if pending else None,
+        created_at=active.created_at if active else None,
+        confirmed_at=active.confirmed_at if active else None,
+        escrow=has_escrow,
+        escrow_changed_at=active.escrow_changed_at if active else None,
+        escrow_current=(
+            None
+            if not has_escrow or active is None
+            else admin is not None and active.escrow_key_fingerprint == admin.fingerprint
+        ),
+        legacy_chains=legacy_chain_count(db, root),
+        recovery_key=recovery,
+        recovery_key_fingerprint=recovery_fp,
+    )
+
+
+def _fresh(request: Request, db: Session, ctx: NodeContext, body: FreshBody) -> None:
+    _verify_secret(request, db, ctx.principal, body.pin, body.password)
+
+
+@router.get("/nodes/{node_id}/backup-key", response_model=OwnerKeyOut)
+def owner_key_status(
+    ctx: NodeContext = Depends(grant_admin_access), db: Session = Depends(get_db)
+) -> OwnerKeyOut:
+    root = _root_of(db, ctx.node)
+    out = _owner_key_out(db, root)
+    if root.kind == "shared":
+        out.state = "instance"
+    return out
+
+
+@router.post("/nodes/{node_id}/backup-key", response_model=OwnerKeyOut)
+def create_owner_key(
+    body: NewKeyBody,
+    request: Request,
+    ctx: NodeContext = Depends(grant_admin_access),
+    db: Session = Depends(get_db),
+) -> OwnerKeyOut:
+    """Makes a new key pair for this personal root and shows the recovery key once. The key does
+    nothing until the owner proves it is saved (confirm); an earlier unconfirmed key is replaced.
+    Doing this when a key is active is a rotation: the old key keeps opening its old chains."""
+    root = _personal_root(db, ctx.node)
+    cfg = load_config(db)
+    if not cfg.enabled or not cfg.encrypt:
+        raise http_error(409, "BACKUP_NOT_ENCRYPTED")
+    _fresh(request, db, ctx, body)
+    try:
+        recovery, fp = begin_root_key(db, root.id, body.expected_fingerprint)
+    except KeyChanged as exc:
+        db.rollback()
+        raise http_error(409, "KEY_CHANGED") from exc
+    audit(
+        db,
+        "backup.owner_key_created",
+        actor=ctx.principal.user.id,
+        ip=client_ip(request),
+        root_id=str(root.id),
+        rotation=body.expected_fingerprint is not None,
+    )
+    db.commit()
+    return _owner_key_out(db, root, recovery=recovery, recovery_fp=fp)
+
+
+@router.post("/nodes/{node_id}/backup-key/confirm", response_model=OwnerKeyOut)
+def confirm_owner_key(
+    body: ConfirmKeyBody,
+    request: Request,
+    ctx: NodeContext = Depends(grant_admin_access),
+    db: Session = Depends(get_db),
+) -> OwnerKeyOut:
+    """The owner presents the key back, which proves it was saved. Only then is it used for new
+    archives. `escrow_consent` also seals a copy to the administrator key (off unless sent)."""
+    root = _personal_root(db, ctx.node)
+    _fresh(request, db, ctx, body)
+    try:
+        row = confirm_root_key(
+            db, root.id, body.recovery_key, escrow=body.escrow_consent, admin=load_key(db)
+        )
+    except crypto.BadKey as exc:
+        db.rollback()
+        raise http_error(422, "BACKUP_KEY_INVALID") from exc
+    except RootKeyError as exc:
+        db.rollback()
+        raise http_error(409, exc.code) from exc
+    audit(
+        db,
+        "backup.owner_key_confirmed",
+        actor=ctx.principal.user.id,
+        ip=client_ip(request),
+        root_id=str(root.id),
+        escrow=row.escrow_blob is not None,
+    )
+    db.commit()
+    service_of(request).request_run()
+    return _owner_key_out(db, root)
+
+
+@router.put("/nodes/{node_id}/backup-key/escrow", response_model=OwnerKeyOut)
+def change_escrow(
+    body: EscrowBody,
+    request: Request,
+    ctx: NodeContext = Depends(grant_admin_access),
+    db: Session = Depends(get_db),
+) -> OwnerKeyOut:
+    """Owner-only. Enabling needs the key (it is sealed to the administrator key); disabling
+    deletes the sealed copy but cannot recall anything the administrator already took."""
+    root = _personal_root(db, ctx.node)
+    _fresh(request, db, ctx, body)
+    try:
+        set_escrow(
+            db, root.id, enabled=body.enabled, recovery_key=body.recovery_key, admin=load_key(db)
+        )
+    except crypto.BadKey as exc:
+        db.rollback()
+        raise http_error(422, "BACKUP_KEY_INVALID") from exc
+    except RootKeyError as exc:
+        db.rollback()
+        raise http_error(422 if exc.code == "BACKUP_KEY_MISMATCH" else 409, exc.code) from exc
+    audit(
+        db,
+        "backup.escrow_enabled" if body.enabled else "backup.escrow_disabled",
+        actor=ctx.principal.user.id,
+        ip=client_ip(request),
+        root_id=str(root.id),
+    )
+    db.commit()
+    return _owner_key_out(db, root)
+
+
+@router.post("/admin/backups/roots/{root_id}/escrow", response_model=EscrowExportOut)
+def export_escrow(
+    root_id: uuid.UUID,
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> EscrowExportOut:
+    """Hands the administrator the sealed copy of an owner's key (only if that owner opted in). It
+    opens only with the administrator recovery key, offline (`cli escrow-open`). This is not a way
+    into the folder in the app: restore stays with the owner, and the export is audited."""
+    root = db.get(StorageRoot, root_id)
+    row = active_root_key(db, root_id) if root is not None and root.kind == "personal" else None
+    if root is None or row is None or row.escrow_blob is None:
+        raise http_error(404, "NOT_FOUND")
+    audit(
+        db,
+        "backup.escrow_exported",
+        actor=admin.user.id,
+        target=root.owner_user_id,
+        ip=client_ip(request),
+        root_id=str(root.id),
+    )
+    db.commit()
+    return EscrowExportOut(
+        root_id=root.id,
+        user_id=root.owner_user_id,
+        key_fingerprint=row.fingerprint,
+        sealed_to_fingerprint=row.escrow_key_fingerprint,
+        sealed=base64.b64encode(row.escrow_blob).decode(),
+    )
+
+
 @router.get("/nodes/{node_id}/backups", response_model=list[RestorePointOut])
 def list_restore_points(
     ctx: NodeContext = Depends(grant_admin_access), db: Session = Depends(get_db)
 ) -> list[RestorePointOut]:
     """Restore points of a root: its owner's (personal) or the administrator's (shared tree)."""
     root = _root_of(db, ctx.node)
+    own = root_key_fingerprints(db, root.id)
     return [
         RestorePointOut(
+            key_scope=key_scope(root, r, own),
+            key_fingerprint=r.key_fingerprint,
             id=r.id,
             kind=r.kind,
             finished_at=r.finished_at,

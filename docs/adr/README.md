@@ -15,7 +15,7 @@ ADRs record cross-cutting technical decisions. Each one is written as **Proposed
 | [ADR-011](ADR-011-import-identity-and-reconciliation.md) | Initial import, filesystem identity and reconciliation (M06) | Accepted |
 | [ADR-015](ADR-015-optional-backups.md) | Optional library backups (full plus changed-only chains, size-limited) | Accepted |
 | [ADR-012](ADR-012-authentication-and-bootstrap.md) | Local authentication, sessions and first-admin bootstrap (M02) | Accepted |
-| [ADR-016](ADR-016-per-root-backup-keys.md) | Per-root backup key pairs with administrator escrow and an owner recovery key | Accepted (not yet implemented) |
+| [ADR-016](ADR-016-per-root-backup-keys.md) | Per-root backup key pairs with administrator escrow and an owner recovery key | Accepted (implemented in M25, pending independent review) |
 | [ADR-017](ADR-017-trash-location-and-retention.md) | Trash location, visibility and retention defaults (M07) | Accepted |
 | [ADR-007](ADR-007-email-trust-and-quarantine.md) | Email trust and quarantine pipeline (M13) | Accepted |
 | [ADR-019](ADR-019-in-app-document-viewer.md) | In-app document viewer: PDF.js, images, text, Office via a sandboxed converter | Accepted |
