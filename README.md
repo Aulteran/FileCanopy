@@ -18,38 +18,66 @@ FileCanopy is a self-hosted file manager for your documents. You run it yourself
 
 The prepared [standalone Docker bundle](docs/guides/docker-install.md) will let users install with two downloads and `docker compose up -d` once images are published and anonymous pulls pass acceptance. Today the source route below remains available.
 
-## Quick start (Docker Compose)
+## Quick start (Docker Compose, published images)
 
-You need Docker with Docker Compose v2 (the release override requires 2.24+). The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the first-beta priority (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
+You need Docker with Docker Compose v2.24 or newer. Nothing is built on your machine: the images are pulled from GitHub Container Registry (`ghcr.io/aulteran/filecanopy-*`). The quick start uses the **beta** tag. The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the first-beta priority (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
+
+1. **Get the two files.** Make a folder and copy `compose.yaml` and `.env.example` into it. Both are in [`deploy/quickstart/`](deploy/quickstart/):
+
+   ```bash
+   mkdir filecanopy && cd filecanopy
+   curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/beta/deploy/quickstart/compose.yaml
+   curl -fsSLo .env https://raw.githubusercontent.com/Aulteran/FileCanopy/beta/deploy/quickstart/.env.example
+   chmod 600 .env
+   ```
+
+2. **Edit `.env`.** Set `POSTGRES_PASSWORD` to a long random value (required). You can generate one with:
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+
+   Every variable in `.env` is listed with a comment. Only `POSTGRES_PASSWORD` must be set; the rest have safe defaults.
+
+3. **Create the data folders.** `library/` holds your files and `app-data/` holds app-private working data. On Linux, make them owned by the user the app runs as (`FILECANOPY_UID`/`FILECANOPY_GID`, default `10001`):
+
+   ```bash
+   mkdir library app-data
+   sudo chown 10001:10001 library app-data   # Linux only; Docker Desktop needs no step
+   ```
+
+4. **Start it.**
+
+   ```bash
+   docker compose up -d --wait
+   curl http://127.0.0.1:8080/api/v1/health
+   ```
+
+   The health check should report `ok`. Then open **http://127.0.0.1:8080** in your browser and continue with [First-run setup](#first-run-setup).
+
+To update later, run `docker compose pull` and then `docker compose up -d --wait`. Back up first (see [Backups](#backups)). The beta tag moves when a new beta is published; to stay on one version, set `FILECANOPY_VERSION` in `.env` to that exact version.
+
+<details>
+<summary>Build from source (developers)</summary>
 
 ```bash
 git clone https://github.com/Aulteran/FileCanopy.git
 cd FileCanopy
-cp deploy/.env.example deploy/.env
-```
-
-Open `deploy/.env` in a text editor and set `POSTGRES_PASSWORD` to a long random value. You can generate one with:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-Then create the data folders and start the stack:
-
-```bash
+cp deploy/.env.example deploy/.env   # then set POSTGRES_PASSWORD in deploy/.env
 mkdir -p library app-data
 docker compose -f deploy/docker-compose.yml up -d --build --wait
-curl http://127.0.0.1:8080/api/v1/health
 ```
 
-The health check should report `ok`. Then open **http://127.0.0.1:8080** in your browser.
+The rest of this README uses `deploy/` paths for this route. Quick-start users keep `.env` and `compose.yaml` in their own folder and drop the `-f deploy/docker-compose.yml` part.
+
+</details>
 
 ## First-run setup
 
-1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN` in `deploy/.env`, the API prints a token to its log. Show it with:
+1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN`, the API prints a token to its log. Show it with (quick start: `docker compose logs api`; source build: add `-f deploy/docker-compose.yml`):
 
    ```bash
-   docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"
+   docker compose logs api | grep "SETUP TOKEN"
    ```
 
    If you set your own token, use that value instead. A restart can issue a new generated token, so check the log again if the old one stops working.
