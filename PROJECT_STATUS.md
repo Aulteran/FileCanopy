@@ -1,9 +1,11 @@
 # FileCanopy — Current Project Status
 
-**Last updated:** 2026-11-04
+**Last updated:** 2026-11-05
 **Stage:** M00–M23 complete, including the intermediate milestones. M24 in progress; public beta is not cleared. ADR-016 (per-root backup keys) remains accepted and unimplemented.
 **Current milestone:** M24 — local release preparation, no migration or publication. [Acceptance plan](docs/milestones/M24-design-and-plan.md); [release packet, tests and remaining gates](docs/release/README.md). M23 remains done within its documented acceptance bounds.
 **Claude Code handoff:** [Codex M23 repair notes](docs/handoffs/2026-11-03-codex-m23.md).
+
+- 2026-11-05: **Codex branches integrated:** `codex/docker-beta-validation` and `codex/m24-licensing-policies` merged on branch `m24-codex-merge` (conflicts in MILESTONES.json and docs/release/README.md resolved by keeping both sides). Duplicate certifi/pip/Liberation archives under `docs/release/evidence/licensing-2026-11-04/upstream/` removed; the shipped copies in `apps/api/vendor-sources` and `apps/web/public/sources` remain, with URLs and SHA-256 in `sources.json`. Root checks: 23 Node tests pass, docs links pass. No application code change; M24 remains in progress, no publication. M25 not started.
 
 - 2026-11-04: **Docker-first beta preparation:** standalone download bundle and install/upgrade/recovery instructions prepared; exact clean-commit preliminary candidate `ab3f481` built locally. Standalone lifecycle 7 passed / 1 Windows ownership skip; 54 existing browser cases passed and new Confidential reauthentication/restart case passed after a test-only status-code correction. Direct synthetic UI folder survived backup/destroy/empty restore. Six fresh local-image SPDX SBOMs validated. [Dated evidence, exact IDs, gaps and integration steps](docs/release/docker-beta-validation-2026-11-04.md). Native LXC deferred beyond first beta by owner decision; M25 remains unimplemented and beta inclusion undecided. No anonymous registry pull, publication, final licensing-integrated build, new-head remote CI or owner manual acceptance; M24/public beta remains uncleared.
 
