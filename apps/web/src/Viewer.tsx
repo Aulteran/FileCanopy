@@ -602,6 +602,11 @@ function PdfView({
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(0);
   const [current, setCurrent] = useState(1);
+  const [fitPage, setFitPage] = useState(false);
+  const [rail, setRail] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 900,
+  );
+  const [height, setHeight] = useState(0);
   const [firstSize, setFirstSize] = useState<[number, number] | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -652,7 +657,10 @@ function PdfView({
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const measure = (): void => setWidth(el.clientWidth);
+    const measure = (): void => {
+      setWidth(el.clientWidth);
+      setHeight(el.clientHeight);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -663,43 +671,182 @@ function PdfView({
   if (!doc || !firstSize) return <p className="loading">Loading…</p>;
 
   // Fit to the width of the window (with a little margin), then apply the zoom.
-  const fit = width > 0 ? Math.max(0.2, (width - 24) / firstSize[0]) : 1;
+  const fitW = width > 0 ? Math.max(0.2, (width - 24) / firstSize[0]) : 1;
+  const fitH = height > 0 ? Math.max(0.2, (height - 24) / firstSize[1]) : fitW;
+  const fit = fitPage ? Math.min(fitW, fitH) : fitW;
   const scale = fit * zoom;
   const pages = Array.from({ length: doc.numPages }, (_, i) => i + 1);
+
+  const goTo = (n: number): void => {
+    const target = Math.min(doc.numPages, Math.max(1, Math.round(n) || 1));
+    const sheet = scroller.current?.querySelector<HTMLElement>(
+      `[data-page="${target}"]`,
+    );
+    if (scroller.current && sheet)
+      scroller.current.scrollTop = sheet.offsetTop - 12;
+    setCurrent(target);
+  };
 
   return (
     <>
       <Zoombar
         zoom={zoom}
-        onZoom={setZoom}
+        onZoom={(z) => {
+          setZoom(z);
+          if (z === 1) setFitPage(false);
+        }}
         label="Page size"
         min={0.5}
         max={4}
         extra={
-          <span className="viewer-page" aria-live="polite">
-            Page {current} of {doc.numPages}
-          </span>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setZoom(1);
+                setFitPage(true);
+              }}
+            >
+              Fit page
+            </button>
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={current <= 1}
+              onClick={() => goTo(current - 1)}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={current >= doc.numPages}
+              onClick={() => goTo(current + 1)}
+            >
+              ›
+            </button>
+            <input
+              key={current}
+              className="viewer-goto"
+              type="number"
+              min={1}
+              max={doc.numPages}
+              aria-label="Go to page"
+              defaultValue={current}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") goTo(Number(e.currentTarget.value));
+              }}
+            />
+            <span className="viewer-page" aria-live="polite">
+              Page {current} of {doc.numPages}
+            </span>
+            <button
+              type="button"
+              aria-pressed={rail}
+              onClick={() => setRail((r) => !r)}
+            >
+              Thumbnails
+            </button>
+          </>
         }
       />
-      <div
-        className="viewer-scroll viewer-pdf"
-        ref={scroller}
-        tabIndex={0}
-        aria-label="Document pages"
-      >
-        {pages.map((n) => (
-          <PdfPage
-            key={n}
-            doc={doc}
-            number={n}
-            scale={scale}
-            placeholder={[firstSize[0] * scale, firstSize[1] * scale]}
-            root={scroller}
-            onCurrent={setCurrent}
-          />
-        ))}
+      <div className="viewer-pdfwrap">
+        {rail && (
+          <nav className="viewer-rail" aria-label="Page thumbnails">
+            {pages.map((n) => (
+              <PdfThumb
+                key={n}
+                doc={doc}
+                number={n}
+                active={n === current}
+                onPick={goTo}
+              />
+            ))}
+          </nav>
+        )}
+        <div
+          className="viewer-scroll viewer-pdf"
+          ref={scroller}
+          tabIndex={0}
+          aria-label="Document pages"
+        >
+          {pages.map((n) => (
+            <PdfPage
+              key={n}
+              doc={doc}
+              number={n}
+              scale={scale}
+              placeholder={[firstSize[0] * scale, firstSize[1] * scale]}
+              root={scroller}
+              onCurrent={setCurrent}
+            />
+          ))}
+        </div>
       </div>
     </>
+  );
+}
+
+function PdfThumb({
+  doc,
+  number,
+  active,
+  onPick,
+}: {
+  doc: Doc;
+  number: number;
+  active: boolean;
+  onPick: (n: number) => void;
+}) {
+  const box = useRef<HTMLButtonElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => setNear(e?.isIntersecting ?? false),
+      { rootMargin: "200px 0px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!near) return;
+    let live = true;
+    let render: { cancel: () => void; promise: Promise<unknown> } | null = null;
+    (async () => {
+      try {
+        const page = await doc.getPage(number);
+        const c = canvas.current;
+        if (!live || !c) return;
+        const base = page.getViewport({ scale: 1 });
+        const vp = page.getViewport({ scale: 110 / base.width });
+        c.width = Math.floor(vp.width);
+        c.height = Math.floor(vp.height);
+        render = page.render({ canvas: c, viewport: vp });
+        await render.promise;
+      } catch {
+        /* a thumbnail that fails to draw stays blank */
+      }
+    })();
+    return () => {
+      live = false;
+      render?.cancel();
+    };
+  }, [doc, number, near]);
+  return (
+    <button
+      ref={box}
+      type="button"
+      className={active ? "viewer-thumb current" : "viewer-thumb"}
+      aria-label={`Go to page ${number}`}
+      aria-current={active ? "page" : undefined}
+      onClick={() => onPick(number)}
+    >
+      <canvas ref={canvas} aria-hidden="true" />
+      <span>{number}</span>
+    </button>
   );
 }
 
