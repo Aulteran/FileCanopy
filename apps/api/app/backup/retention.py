@@ -124,7 +124,7 @@ def usage_bytes(db: Session, settings: Settings, cfg: BackupConfig) -> int:
     """What the job holds. The default job: its part of the backup folder (the folders of other
     jobs excluded). Another job: the sizes of its verified runs, wherever they are stored."""
     if cfg.job_id is None:
-        return folder_usage(backups_root(settings), skip_prefix="j-")
+        return folder_usage(backups_root(settings), skip_jobs=True)
     total = db.scalar(
         select(func.coalesce(func.sum(BackupRun.size_bytes), 0)).where(
             BackupRun.job_id == cfg.job_id,

@@ -42,6 +42,7 @@ const EMPTY: JobForm = {
   privateKey: "",
   accessKeyId: "",
   secretAccessKey: "",
+  reauth: "",
 };
 
 function formOf(job: BackupJob): JobForm {
@@ -129,7 +130,7 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
           : await api.saveBackupJob(editing ?? "", body);
       if (saved.recovery_key) setRecovery(saved.recovery_key);
       setEditing(null);
-      setForm(EMPTY); // typed credentials do not stay in the page
+      setForm(EMPTY); // typed credentials and the PIN do not stay in the page
       await load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) onEnded();
@@ -364,8 +365,9 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
                 files in it
               </label>
               <p className="hint">
-                Confidential files are left out of unencrypted jobs unless you
-                allow them below.
+                Unencrypted jobs skip personal folders entirely. In the shared
+                folder, Confidential files are left out unless you allow them
+                below.
               </p>
               <label className="check">
                 <input
@@ -525,6 +527,20 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
                 />
               </label>
             </>
+          )}
+          {(remote || !form.encrypt) && (
+            <label>
+              Confirm with your PIN or password
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={form.reauth}
+                onChange={(e) => set("reauth", e.target.value)}
+              />
+              <span className="hint">
+                Required to save a remote or unencrypted job.
+              </span>
+            </label>
           )}
           <p role="alert" className="error">
             {error}

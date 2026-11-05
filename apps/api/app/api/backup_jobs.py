@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.backups import service_of, settings_of
+from app.api.privacy import _verify_secret
 from app.auth import clock
 from app.auth.deps import Principal, client_ip, get_db, http_error, require_admin
 from app.auth.service import audit
@@ -61,6 +62,10 @@ class JobBody(BaseModel):
     acknowledge_unencrypted: bool = False
     acknowledge_confidential: bool = False
     acknowledge_remote_unencrypted: bool = False
+    # Fresh administrator reauthentication (PIN, or password until a PIN is set), required to
+    # create or change a remote or unencrypted job. Never stored or logged.
+    pin: str | None = Field(default=None, max_length=32, repr=False)
+    password: str | None = Field(default=None, max_length=256, repr=False)
 
 
 class JobOut(BaseModel):
@@ -96,6 +101,8 @@ def _warnings(job: BackupJob) -> list[str]:
     out: list[str] = []
     if not job.encrypt:
         out.append("unencrypted")
+        if job.scope in ("all", "personal"):
+            out.append("personal_skipped")  # personal folders are only backed up encrypted
         if job.destination_type != "local":
             out.append("remote_unencrypted")
         out.append("confidential_included" if job.allow_confidential else "confidential_excluded")
@@ -175,7 +182,7 @@ def _get(db: Session, job_id: uuid.UUID) -> BackupJob:
 
 
 def _validate(
-    request: Request, db: Session, body: JobBody, existing: BackupJob | None
+    request: Request, db: Session, admin: Principal, body: JobBody, existing: BackupJob | None
 ) -> tuple[dict[str, Any], dict[str, str] | None]:
     """The checked column values and the (clean) new credentials, or an HTTP error."""
     settings = settings_of(request)
@@ -198,6 +205,8 @@ def _validate(
     if clash is not None and (existing is None or clash != existing.id):
         raise http_error(409, "JOB_NAME_TAKEN")
     remote = body.destination_type != "local"
+    if not body.encrypt and body.scope == "personal":
+        raise http_error(422, "UNENCRYPTED_PERSONAL_NOT_ALLOWED")  # nothing would be backed up
     if not body.encrypt:
         if not body.acknowledge_unencrypted:
             raise http_error(422, "UNENCRYPTED_NOT_ACKNOWLEDGED")
@@ -205,11 +214,29 @@ def _validate(
             raise http_error(422, "REMOTE_UNENCRYPTED_NOT_ACKNOWLEDGED")
         if body.allow_confidential and not body.acknowledge_confidential:
             raise http_error(422, "CONFIDENTIAL_NOT_ACKNOWLEDGED")
+    if remote or not body.encrypt or (existing is not None and not existing.encrypt):
+        _verify_secret(request, db, admin, body.pin, body.password)  # fresh reauthentication
+    moved = existing is not None and jobs_mod.destination_identity(
+        existing.destination_type, existing.destination or {}
+    ) != jobs_mod.destination_identity(body.destination_type, destination)
+    if moved and existing is not None:
+        held = db.scalar(
+            select(func.count(BackupRun.id)).where(
+                BackupRun.job_id == existing.id,
+                BackupRun.status == "ok",
+                BackupRun.pruned_at.is_(None),
+            )
+        )
+        if held:
+            # the chain and its retention live at the old destination: a new job is the way
+            raise http_error(409, "DESTINATION_LOCKED")
     if remote:
         if not jobs_mod.box_of(settings).configured:
-            raise http_error(409, "SECRETS_KEY_MISSING")  # nowhere safe to keep credentials
-        same_kind = existing is not None and existing.destination_type == body.destination_type
-        if creds is None and not (same_kind and existing and existing.credentials_sealed):
+            raise http_error(409, "SECRETS_KEY_MISSING")  # nowhere safe to keep them
+        keep_ok = existing is not None and bool(existing.credentials_sealed) and not moved
+        if creds is None and not keep_ok:
+            # also when the host, user, bucket or endpoint changed: stored credentials never
+            # follow a job to a different server
             raise http_error(422, "CREDENTIALS_REQUIRED")
     if body.enabled and not inspect_volume(settings).usable:
         raise http_error(409, "BACKUP_VOLUME_UNAVAILABLE")  # remote jobs stage on the volume too
@@ -266,7 +293,7 @@ def create_job(
 ) -> JobOut:
     if (db.scalar(select(func.count(BackupJob.id))) or 0) >= MAX_JOBS:
         raise http_error(409, "TOO_MANY_JOBS")
-    values, creds = _validate(request, db, body, None)
+    values, creds = _validate(request, db, admin, body, None)
     now = clock.utcnow()
     job = BackupJob(id=uuid.uuid4(), created_by=admin.user.id, created_at=now, updated_at=now)
     _apply(request, job, values, creds)
@@ -299,7 +326,7 @@ def update_job(
 ) -> JobOut:
     job = _get(db, job_id)
     before = _public(job)
-    values, creds = _validate(request, db, body, job)
+    values, creds = _validate(request, db, admin, body, job)
     _apply(request, job, values, creds)
     extra = _instance_key(db, job)
     db.flush()

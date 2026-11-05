@@ -3,6 +3,7 @@ it. Nesting with the library or app data is refused at startup by `Settings`; th
 what can only be seen at run time."""
 
 import os
+import re
 import shutil
 import stat
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from pathlib import Path
 from app.config import Settings, backup_dir, path_identity
 
 BACKUP_DIR = "filecanopy-backups"
+JOB_DIR = re.compile(r"^j-[0-9a-f]{8}$")  # a job folder (M27); nothing else is skipped
 
 
 @dataclass(frozen=True)
@@ -90,15 +92,15 @@ def backups_root(settings: Settings, *, create: bool = False) -> Path:
     return root
 
 
-def folder_usage(root: Path, skip_prefix: str | None = None) -> int:
+def folder_usage(root: Path, skip_jobs: bool = False) -> int:
     """Bytes of everything the app keeps in its backup folder (archives, indexes, leftovers).
-    `skip_prefix` leaves out top-level folders with that name prefix (other jobs' folders)."""
+    `skip_jobs` leaves out the folders of backup jobs (`j-<8 hex>`)."""
     total = 0
     if not root.exists():
         return 0
     for current, dirs, names in os.walk(root, followlinks=False):
-        if skip_prefix and Path(current) == root:
-            dirs[:] = [d for d in dirs if not d.startswith(skip_prefix)]
+        if skip_jobs and Path(current) == root:
+            dirs[:] = [d for d in dirs if not JOB_DIR.match(d)]
         for name in names:
             try:
                 total += os.lstat(os.path.join(current, name)).st_size

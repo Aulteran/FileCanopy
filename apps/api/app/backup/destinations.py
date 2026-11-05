@@ -24,6 +24,7 @@ import socket
 from io import StringIO
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from app.backup.jobs import JobError, JobSpec, open_credentials
 from app.config import Settings
@@ -53,16 +54,22 @@ class Destination(Protocol):
 # ------------------------------------------------------------------ address policy
 
 
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+
+
 def _blocked(address: str) -> bool:
-    ip = ipaddress.ip_address(address.split("%")[0])
-    return (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    )
+    """Only globally routable addresses pass (an allow-list: CGNAT 100.64.0.0/10, the ranges
+    used by VPN overlays and every private, loopback or link-local range are refused). Addresses
+    that embed an IPv4 one (mapped, 6to4, NAT64) are judged by the address inside."""
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address = ipaddress.ip_address(address.split("%")[0])
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.sixtofour is not None:
+            ip = ip.sixtofour
+        elif ip in _NAT64:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return not ip.is_global
 
 
 def resolve_checked(host: str, port: int, *, allow_private: bool) -> str:
@@ -236,11 +243,18 @@ class S3Destination:
         self.base = str(dest.get("path", ""))
         endpoint = str(dest.get("endpoint_url") or "")
         if endpoint:
-            host = endpoint.removeprefix("https://").split("/")[0]
-            name, sep, port = host.rpartition(":")
-            if not sep or not port.isdigit():
-                name, port = host, "443"
-            resolve_checked(name, int(port), allow_private=allow_private)
+            parts = urlsplit(endpoint)
+            if (
+                parts.scheme != "https"
+                or not parts.hostname
+                or parts.username
+                or parts.password
+                or parts.query
+                or parts.fragment
+                or parts.path not in ("", "/")
+            ):
+                raise DestinationError("DESTINATION_INVALID")
+            resolve_checked(parts.hostname, parts.port or 443, allow_private=allow_private)
         import boto3  # type: ignore[import-untyped]
         from botocore.config import Config  # type: ignore[import-untyped]
 
@@ -257,6 +271,12 @@ class S3Destination:
                 retries={"max_attempts": 3, "mode": "standard"},
             ),
         )
+        if not allow_private:
+            # Every request (retries and redirects included) re-checks where its host resolves
+            # to right before it is sent, so a name that starts pointing inside after the check
+            # above, or a redirect to an internal host, is refused. The remaining window is the
+            # time between this check and the connection of the HTTP library.
+            self._client.meta.events.register("before-send", _guard_request)
 
     @classmethod
     def with_client(cls, client: Any, bucket: str, base: str = "") -> "S3Destination":
@@ -274,6 +294,8 @@ class S3Destination:
             self._client.head_bucket(Bucket=self.bucket)
             self._client.put_object(Bucket=self.bucket, Key=probe, Body=b"ok")
             self._client.delete_object(Bucket=self.bucket, Key=probe)
+        except DestinationError:
+            raise
         except Exception as exc:
             raise DestinationError(_s3_code(exc, "DESTINATION_NOT_WRITABLE")) from None
 
@@ -284,6 +306,8 @@ class S3Destination:
                 str(local), self.bucket, remote, ExtraArgs={"Metadata": {"sha256": sha256}}
             )
             head = self._client.head_object(Bucket=self.bucket, Key=remote)
+        except DestinationError:
+            raise
         except Exception as exc:
             raise DestinationError(_s3_code(exc, "UPLOAD_FAILED")) from None
         if head.get("ContentLength") != size or head.get("Metadata", {}).get("sha256") != sha256:
@@ -296,17 +320,26 @@ class S3Destination:
     def get(self, key: str, local: Path) -> None:
         try:
             self._client.download_file(self.bucket, self._key(key), str(local))
+        except DestinationError:
+            raise
         except Exception as exc:
             raise DestinationError(_s3_code(exc, "DOWNLOAD_FAILED")) from None
 
     def delete(self, key: str) -> None:
         try:
             self._client.delete_object(Bucket=self.bucket, Key=self._key(key))
+        except DestinationError:
+            raise
         except Exception as exc:
             raise DestinationError(_s3_code(exc, "DELETE_FAILED")) from None
 
     def close(self) -> None:
         return None
+
+
+def _guard_request(request: Any, **_: Any) -> None:
+    parts = urlsplit(str(request.url))
+    resolve_checked(parts.hostname or "", parts.port or 443, allow_private=False)
 
 
 def _s3_code(exc: Exception, default: str) -> str:
@@ -332,8 +365,13 @@ def open_destination(spec: JobSpec, settings: Settings) -> Destination | None:
     except JobError as exc:
         raise DestinationError(exc.code) from None
     allow = settings.backup_allow_private_destinations
-    if spec.destination_type == "sftp":
-        return SftpDestination(spec, creds, allow_private=allow)
-    if spec.destination_type == "s3":
-        return S3Destination(spec, creds, allow_private=allow)
+    try:
+        if spec.destination_type == "sftp":
+            return SftpDestination(spec, creds, allow_private=allow)
+        if spec.destination_type == "s3":
+            return S3Destination(spec, creds, allow_private=allow)
+    except DestinationError:
+        raise
+    except Exception:  # library errors can carry hosts or key names: only a fixed code leaves
+        raise DestinationError("DESTINATION_FAILED") from None
     raise DestinationError("DESTINATION_TYPE_INVALID")

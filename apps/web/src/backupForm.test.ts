@@ -101,6 +101,7 @@ const FORM: JobForm = {
   privateKey: "",
   accessKeyId: "",
   secretAccessKey: "",
+  reauth: "",
 };
 
 describe("backup job form", () => {
@@ -142,6 +143,15 @@ describe("backup job form", () => {
     if (typeof local === "string") throw new Error(local);
     expect(local.acknowledge_confidential).toBe(false);
     expect(local.acknowledge_remote_unencrypted).toBe(false);
+  });
+  it("sends the PIN or the password for the fresh confirmation", () => {
+    const pin = jobBody({ ...FORM, reauth: "123456" });
+    if (typeof pin === "string") throw new Error(pin);
+    expect(pin.pin).toBe("123456");
+    const pw = jobBody({ ...FORM, reauth: "a password" });
+    if (typeof pw === "string") throw new Error(pw);
+    expect(pw.password).toBe("a password");
+    expect(pw.pin).toBeUndefined();
   });
   it("keeps stored credentials when none are typed", () => {
     const body = jobBody({

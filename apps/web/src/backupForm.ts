@@ -159,6 +159,11 @@ const RESTORE_ERRORS: Record<string, string> = {
   S3_AUTH_FAILED: "The storage service refused the access key.",
   S3_BUCKET_MISSING:
     "That bucket does not exist or is not visible to this key.",
+  DESTINATION_LOCKED:
+    "This job already holds backups at its destination, so the destination cannot change. Create a new job instead.",
+  UNENCRYPTED_PERSONAL_NOT_ALLOWED:
+    "Personal folders are only backed up by encrypted jobs. Choose another scope or turn encryption on.",
+  DESTINATION_FAILED: "The destination could not be opened.",
   UPLOAD_FAILED: "Uploading the backup failed.",
   UPLOAD_VERIFY_FAILED: "The uploaded backup did not match and was removed.",
 };
@@ -175,6 +180,8 @@ export const JOB_WARNINGS: Record<string, string> = {
   host_key_unpinned:
     "The SFTP host key is not pinned yet, so this job cannot connect. Use Test connection to see it.",
   credentials_missing: "No credentials are stored for this destination.",
+  personal_skipped:
+    "Personal folders are not part of this job because it is not encrypted. Only encrypted jobs back them up.",
 };
 
 export function jobWarningText(code: string): string {
@@ -208,6 +215,7 @@ export type JobForm = {
   privateKey: string;
   accessKeyId: string;
   secretAccessKey: string;
+  reauth: string;
 };
 
 export type JobBody = {
@@ -227,6 +235,8 @@ export type JobBody = {
   acknowledge_unencrypted: boolean;
   acknowledge_confidential: boolean;
   acknowledge_remote_unencrypted: boolean;
+  pin?: string;
+  password?: string;
 };
 
 /** The request body for a job, or a sentence saying what to fix. Credentials are sent only when
@@ -293,6 +303,7 @@ export function jobBody(f: JobForm): JobBody | string {
     acknowledge_confidential:
       !f.encrypt && f.allowConfidential && f.ackConfidential,
     acknowledge_remote_unencrypted: !f.encrypt && remote && f.ackRemote,
+    ...(f.reauth.trim() !== "" ? secretOf(f.reauth) : {}),
   };
 }
 

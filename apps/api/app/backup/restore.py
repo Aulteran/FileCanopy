@@ -83,6 +83,9 @@ def chain_for(db: Session, root_id: uuid.UUID, target: BackupRun) -> list[Backup
             .where(
                 BackupRun.root_id == root_id,
                 BackupRun.chain_id == target.chain_id,
+                BackupRun.job_id.is_(None)
+                if target.job_id is None
+                else BackupRun.job_id == target.job_id,
                 BackupRun.status == "ok",
                 BackupRun.pruned_at.is_(None),
                 BackupRun.seq <= target.seq,

@@ -458,6 +458,11 @@ class BackupEngine:
                 return RunResult("skipped", code="ROOT_NOT_ACTIVE")
             if cfg.scope != "all" and cfg.scope != root.kind:
                 return RunResult("skipped", code="OUT_OF_SCOPE")
+            if cfg.job_id is not None and not cfg.encrypt and root.kind == "personal":
+                # the web administrator role must not be a way to copy personal files in the
+                # clear (and, with a remote destination, off the host): only encrypted jobs
+                # back up personal folders, each to its owner's own key
+                return RunResult("skipped", code="UNENCRYPTED_PERSONAL_SKIPPED")
             key = key_for_root(db, root)  # ADR-016: the owner's own key for a personal root
             if root.scan_paused_since is not None:
                 return RunResult("skipped", code="IMPORT_WRITING")

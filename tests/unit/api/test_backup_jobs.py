@@ -17,15 +17,9 @@ from pathlib import Path
 from typing import Any, Self
 
 import pytest
-from app.backup import destinations, retention
-from app.backup import engine as engine_mod
-from app.backup import restore as restore_mod
-from app.backup.destinations import DestinationError, S3Destination, SftpDestination
-from app.backup.jobs import JobError, JobSpec, open_credentials, seal_credentials
-from app.db.models import BackupJob, BackupJobChainState, BackupRun, Node
 from sqlalchemy import select
 from test_acl import Fx
-from test_auth import World
+from test_auth import PASSWORD, World
 from test_backup import (  # noqa: F401  (make_world is a fixture)
     audit_text,
     file_names,
@@ -38,6 +32,13 @@ from test_backup import (  # noqa: F401  (make_world is a fixture)
 )
 from test_files import Api, code, nid
 from test_reconcile import root_id
+
+from app.backup import destinations, retention
+from app.backup import engine as engine_mod
+from app.backup import restore as restore_mod
+from app.backup.destinations import DestinationError, S3Destination, SftpDestination
+from app.backup.jobs import JobError, JobSpec, open_credentials, seal_credentials
+from app.db.models import BackupJob, BackupJobChainState, BackupRun, Node
 
 SECRET_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode()
 S3_SECRET = "TESTONLY-s3-secret-do-not-leak"
@@ -64,6 +65,7 @@ def body(**over: Any) -> dict[str, Any]:
         "encrypt": False,
         "acknowledge_unencrypted": True,
         "destination_type": "local",
+        "password": PASSWORD,  # fresh admin reauthentication
         **over,
     }
 
@@ -86,9 +88,7 @@ S3: dict[str, Any] = {
 }
 
 
-def job_runs(
-    fx: Fx, job_id: uuid.UUID | None, status: str | None = "ok"
-) -> list[BackupRun]:
+def job_runs(fx: Fx, job_id: uuid.UUID | None, status: str | None = "ok") -> list[BackupRun]:
     with fx.w.ctx.sessions() as db:
         q = select(BackupRun).where(
             BackupRun.job_id.is_(None) if job_id is None else BackupRun.job_id == job_id
@@ -101,18 +101,14 @@ def job_runs(
         return rows
 
 
-def go(
-    fx: Fx, job_id: uuid.UUID | None, anchor: uuid.UUID | None = None
-) -> engine_mod.RunResult:
-    result = service(fx).engine.run_root(root_id(fx, anchor or fx.alice_root), job_id)
+def go(fx: Fx, job_id: uuid.UUID | None, anchor: uuid.UUID | None = None) -> engine_mod.RunResult:
+    result = service(fx).engine.run_root(root_id(fx, anchor or fx.shared_root), job_id)
     fx.w.advance(minutes=61)
     return result
 
 
 def archives_of(fx: Fx, job: uuid.UUID | None) -> list[Path]:
-    return [
-        volume_dir(fx) / r.archive_name for r in job_runs(fx, job) if r.archive_name
-    ]
+    return [volume_dir(fx) / r.archive_name for r in job_runs(fx, job) if r.archive_name]
 
 
 class FakeDest:
@@ -151,11 +147,7 @@ class FakeDest:
         self.closed += 1
 
     def keys(self) -> set[str]:
-        return {
-            p.relative_to(self.base).as_posix()
-            for p in self.base.rglob("*")
-            if p.is_file()
-        }
+        return {p.relative_to(self.base).as_posix() for p in self.base.rglob("*") if p.is_file()}
 
 
 @pytest.fixture
@@ -174,8 +166,8 @@ def remote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeDest:
     return dest
 
 
-def upload(fx: Fx, name: str, data: bytes = b"hello") -> uuid.UUID:
-    return nid(Api(fx, "alice").upload(fx.taxes, name, data))
+def upload(fx: Fx, name: str, data: bytes = b"hello", where: uuid.UUID | None = None) -> uuid.UUID:
+    return nid(Api(fx, "alice").upload(where or fx.shared_sub, name, data))
 
 
 def label(fx: Fx, node: uuid.UUID, value: str) -> None:
@@ -194,9 +186,7 @@ def test_create_validates_and_labels_unencrypted_jobs(fx: Fx) -> None:
     assert ok.status_code == 201, ok.text
     out = ok.json()
     assert out["encrypt"] is False and out["destination_type"] == "local"
-    assert {"unencrypted", "confidential_excluded"} <= set(
-        out["warnings"]
-    )  # clearly labelled
+    assert {"unencrypted", "confidential_excluded"} <= set(out["warnings"])  # clearly labelled
     assert out["allow_confidential"] is False
     clash = create(fx, name="nightly")
     assert (clash.status_code, code(clash)) == (409, "JOB_NAME_TAKEN")
@@ -239,13 +229,9 @@ def test_remote_jobs_need_a_secrets_key(
 
 
 def test_remote_jobs_need_credentials_and_acknowledgement(fx: Fx) -> None:
-    r = create(
-        fx, **{**S3, "credentials": None}, encrypt=True, acknowledge_unencrypted=False
-    )
+    r = create(fx, **{**S3, "credentials": None}, encrypt=True, acknowledge_unencrypted=False)
     assert (r.status_code, code(r)) == (422, "CREDENTIALS_REQUIRED")
-    r = create(
-        fx, **S3
-    )  # unencrypted to a remote needs its own, stronger acknowledgement
+    r = create(fx, **S3)  # unencrypted to a remote needs its own, stronger acknowledgement
     assert (r.status_code, code(r)) == (422, "REMOTE_UNENCRYPTED_NOT_ACKNOWLEDGED")
     r = create(fx, **S3, acknowledge_remote_unencrypted=True)
     assert r.status_code == 201 and "remote_unencrypted" in r.json()["warnings"]
@@ -271,9 +257,7 @@ def test_credentials_are_sealed_never_returned_never_logged(
     with fx.w.ctx.sessions() as db:
         row = db.get(BackupJob, job_id)
         assert row is not None and row.credentials_sealed is not None
-        assert (
-            S3_SECRET.encode() not in row.credentials_sealed
-        )  # a database copy shows nothing
+        assert S3_SECRET.encode() not in row.credentials_sealed  # a database copy shows nothing
         assert S3_SECRET not in repr(row.destination)
         spec = JobSpec(
             job_id=job_id,
@@ -287,16 +271,12 @@ def test_credentials_are_sealed_never_returned_never_logged(
             sealed=row.credentials_sealed,
         )
         assert open_credentials(fx.w.settings, spec)["secret_access_key"] == S3_SECRET
-        other = JobSpec(
-            **{**spec.__dict__, "job_id": uuid.uuid4()}
-        )  # copied onto another job
+        other = JobSpec(**{**spec.__dict__, "job_id": uuid.uuid4()})  # copied onto another job
         with pytest.raises(JobError) as moved:
             open_credentials(fx.w.settings, other)
         assert moved.value.code == "CREDENTIALS_UNREADABLE"
     # an update without credentials keeps the stored ones
-    again = body(
-        **{**S3, "credentials": None}, encrypt=True, acknowledge_unencrypted=False
-    )
+    again = body(**{**S3, "credentials": None}, encrypt=True, acknowledge_unencrypted=False)
     upd = c.put(f"{JOBS}/{job_id}", json=again, headers=h)
     assert upd.status_code == 200 and upd.json()["credentials_set"] is True, upd.text
     for text in (r.text, listing, upd.text, audit_text(fx), caplog.text):
@@ -345,40 +325,29 @@ def test_jobs_have_their_own_folder_chain_state_and_the_default_job_is_unchanged
     assert job_run.archive_name.startswith(f"j-{job.hex[:8]}/")
     assert not default_run.archive_name.startswith("j-")  # unchanged layout
     with fx.w.ctx.sessions() as db:
-        assert (
-            db.get(BackupJobChainState, (job, root_id(fx, fx.alice_root))) is not None
-        )
+        assert db.get(BackupJobChainState, (job, root_id(fx, fx.shared_root))) is not None
         assert {c.job_id for c in retention.list_chains(db, job)} == {job}
         assert {c.job_id for c in retention.list_chains(db, None)} == {None}
     status = c.get("/api/v1/admin/backups", headers=h).json()
-    mine = next(
-        r for r in status["roots"] if r["root_id"] == str(root_id(fx, fx.alice_root))
-    )
-    assert (
-        mine["chains"] == 1
-    )  # the default job's own list: the job's chain is not in it
+    mine = next(r for r in status["roots"] if r["root_id"] == str(root_id(fx, fx.shared_root)))
+    assert mine["chains"] == 1  # the default job's own list: the job's chain is not in it
 
 
 def test_scheduler_runs_each_enabled_job_when_due(fx: Fx) -> None:
     upload(fx, "a.txt")
-    job = make_job(fx, scope="personal")
+    job = make_job(fx, scope="shared")
     results = service(fx).tick()
     assert results and all(r.status == "ok" for _, r in results)
     assert job_runs(fx, job) and not job_runs(fx, None)  # the default job is off
     assert service(fx).tick() == []  # nothing due yet
     fx.w.advance(minutes=61)
     assert service(fx).tick()
-    assert (
-        service(fx).tick(force=True, jobs=frozenset({None})) == []
-    )  # default job is disabled
+    assert service(fx).tick(force=True, jobs=frozenset({None})) == []  # default job is disabled
 
 
 def test_scope_limits_the_roots_a_job_covers(fx: Fx) -> None:
     job = make_job(fx, scope="shared")
-    assert go(fx, job).code == "OUT_OF_SCOPE"  # alice's root is personal
-
-
-# ------------------------------------------------------------------ privacy
+    assert go(fx, job, fx.alice_root).code == "OUT_OF_SCOPE"  # alice's root is personal
 
 
 def test_unencrypted_job_leaves_confidential_files_out(fx: Fx) -> None:
@@ -395,12 +364,10 @@ def test_unencrypted_job_leaves_confidential_files_out(fx: Fx) -> None:
 
 def test_confidential_folder_is_excluded_with_everything_below_it(fx: Fx) -> None:
     upload(fx, "inside.txt")
-    label(fx, fx.taxes, "confidential")  # the folder carries it; children inherit
+    label(fx, fx.shared_sub, "confidential")  # the folder carries it; children inherit
     job = make_job(fx)
     assert go(fx, job).status == "ok"
-    assert not any(
-        n.endswith("inside.txt") for n in file_names(archives_of(fx, job)[0])
-    )
+    assert not any(n.endswith("inside.txt") for n in file_names(archives_of(fx, job)[0]))
 
 
 def test_confidential_is_included_only_when_explicitly_allowed(fx: Fx) -> None:
@@ -425,24 +392,19 @@ def test_raising_a_label_starts_a_new_full_chain_without_the_file(fx: Fx) -> Non
     assert not any(n.endswith("doc.txt") for n in file_names(archives_of(fx, job)[1]))
 
 
-def test_encrypted_job_includes_confidential_and_follows_the_owner_key_rule(
-    fx: Fx,
-) -> None:
-    secret = upload(fx, "secret.txt", b"sealed-content")
+def test_encrypted_job_includes_confidential_and_follows_the_owner_key_rule(fx: Fx) -> None:
+    secret = upload(fx, "secret.txt", b"sealed-content", fx.taxes)
     label(fx, secret, "confidential")
     job = make_job(fx, encrypt=True, acknowledge_unencrypted=False)
-    refused = go(fx, job)  # a personal root waits for its owner's confirmed key (M25)
+    refused = go(fx, job, fx.alice_root)  # a personal root waits for its owner's key (M25)
     assert (refused.status, refused.code) == ("refused", "BACKUP_OWNER_KEY_PENDING")
     key = make_owner_key(fx)
-    assert go(fx, job).status == "ok"
-    run = job_runs(fx, job)[0]
+    assert go(fx, job, fx.alice_root).status == "ok"
+    run = next(r for r in job_runs(fx, job) if r.root_id == root_id(fx, fx.alice_root))
     assert run.encrypted and run.key_fingerprint
-    path = archives_of(fx, job)[0]
+    path = volume_dir(fx) / (run.archive_name or "")
     assert b"sealed-content" not in path.read_bytes()
     assert any(n.endswith("secret.txt") for n in file_names(path, key))
-
-
-# ------------------------------------------------------------------ remote destinations
 
 
 def test_remote_run_uploads_verifies_and_keeps_only_the_newest_archive_local(
@@ -473,7 +435,7 @@ def test_failed_upload_is_not_a_restore_point_and_leaves_the_chain_untouched(
     assert not job_runs(fx, job) and remote.keys() == set()
     assert not archives_of(fx, job)
     with fx.w.ctx.sessions() as db:
-        assert db.get(BackupJobChainState, (job, root_id(fx, fx.alice_root))) is None
+        assert db.get(BackupJobChainState, (job, root_id(fx, fx.shared_root))) is None
     remote.fail_put = None
     assert go(fx, job).status == "ok"  # the next run starts over cleanly
 
@@ -488,24 +450,22 @@ def test_sidecar_upload_failure_removes_the_archive_from_the_remote(
     assert remote.keys() == set()
 
 
-def test_restore_fetches_trimmed_archives_back_from_the_remote(
-    fx: Fx, remote: FakeDest
-) -> None:
-    alice = Api(fx, "alice")
+def test_restore_fetches_trimmed_archives_back_from_the_remote(fx: Fx, remote: FakeDest) -> None:
+    c, h = fx.admin
     upload(fx, "one.txt", b"first-version")
     job = make_job(fx, **S3, acknowledge_remote_unencrypted=True, chain_length=4)
     assert go(fx, job).status == "ok"
     upload(fx, "two.txt", b"second-version")
     assert go(fx, job).status == "ok"
     first, second = job_runs(fx, job)
-    assert not (
-        volume_dir(fx) / (first.archive_name or "")
-    ).exists()  # trimmed after upload
-    r = alice.post(
-        f"/nodes/{fx.alice_root}/backups/restore", json={"run_id": str(second.id)}
+    assert not (volume_dir(fx) / (first.archive_name or "")).exists()  # trimmed after upload
+    r = c.post(
+        f"/api/v1/nodes/{fx.shared_root}/backups/restore",
+        json={"run_id": str(second.id)},
+        headers=h,
     )
     assert r.status_code == 200, r.text
-    restored = lib_root(fx) / r.json()["folder_name"]
+    restored = lib_root(fx, fx.shared_root) / r.json()["folder_name"]
     texts = {p.read_bytes() for p in restored.rglob("*.txt")}
     assert {b"first-version", b"second-version"} <= texts
 
@@ -513,7 +473,7 @@ def test_restore_fetches_trimmed_archives_back_from_the_remote(
 def test_restore_refuses_a_damaged_remote_download_and_keeps_nothing(
     fx: Fx, remote: FakeDest
 ) -> None:
-    alice = Api(fx, "alice")
+    c, h = fx.admin
     upload(fx, "one.txt")
     job = make_job(fx, **S3, acknowledge_remote_unencrypted=True, chain_length=4)
     go(fx, job)
@@ -521,16 +481,16 @@ def test_restore_refuses_a_damaged_remote_download_and_keeps_nothing(
     go(fx, job)
     first, second = job_runs(fx, job)
     remote.path_of(first.archive_name or "").write_bytes(b"corrupt")
-    r = alice.post(
-        f"/nodes/{fx.alice_root}/backups/restore", json={"run_id": str(second.id)}
+    r = c.post(
+        f"/api/v1/nodes/{fx.shared_root}/backups/restore",
+        json={"run_id": str(second.id)},
+        headers=h,
     )
     assert (r.status_code, code(r)) == (409, "BACKUP_ARCHIVE_DAMAGED")
     assert not (volume_dir(fx) / (first.archive_name or "")).exists()
 
 
-def test_retention_deletes_only_the_objects_the_job_created(
-    fx: Fx, remote: FakeDest
-) -> None:
+def test_retention_deletes_only_the_objects_the_job_created(fx: Fx, remote: FakeDest) -> None:
     foreign = remote.base / "bk" / "someone-elses.tar.gz"
     foreign.parent.mkdir(parents=True)
     foreign.write_bytes(b"not ours")
@@ -632,9 +592,7 @@ class FakeS3:
     def delete_object(self, **kw: Any) -> None:
         self.objects.pop(kw["Key"], None)
 
-    def upload_file(
-        self, path: str, bucket: str, key: str, ExtraArgs: dict[str, Any]
-    ) -> None:
+    def upload_file(self, path: str, bucket: str, key: str, ExtraArgs: dict[str, Any]) -> None:
         if self.fail:
             raise self.fail
         data = Path(path).read_bytes()
@@ -650,9 +608,7 @@ class FakeS3:
 
 class AwsError(Exception):
     def __init__(self, error_code: str) -> None:
-        super().__init__(
-            f"The access key AKIASECRETKEY failed: {error_code}"
-        )  # carries a secret
+        super().__init__(f"The access key AKIASECRETKEY failed: {error_code}")  # carries a secret
         self.response = {"Error": {"Code": error_code}}
 
 
@@ -678,9 +634,7 @@ def test_s3_destination_verifies_size_and_checksum_and_hides_error_text(
     client.fail = AwsError("InvalidAccessKeyId")
     with pytest.raises(DestinationError) as auth:
         dest.put(src, "j-1/y", sha, 7)
-    assert auth.value.code == "S3_AUTH_FAILED" and "AKIASECRETKEY" not in str(
-        auth.value
-    )
+    assert auth.value.code == "S3_AUTH_FAILED" and "AKIASECRETKEY" not in str(auth.value)
     assert auth.value.__cause__ is None  # the original message is not chained either
     dest.delete("j-1/shared/c/0001-full.tar.gz")
     assert "bk/j-1/shared/c/0001-full.tar.gz" not in client.objects
@@ -747,9 +701,7 @@ def test_sftp_destination_uploads_atomically_and_cleans_up_a_short_upload(
     with pytest.raises(DestinationError) as bad:
         dest.put(src, "j-1/shared/0002-full.tar.gz", "ignored", 7)
     assert bad.value.code == "UPLOAD_VERIFY_FAILED"
-    assert set(sftp.files) == {
-        "bk/j-1/shared/0001-full.tar.gz"
-    }  # the partial one is removed
+    assert set(sftp.files) == {"bk/j-1/shared/0001-full.tar.gz"}  # the partial one is removed
     dest.delete("j-1/shared/0001-full.tar.gz")
     dest.delete("j-1/shared/0001-full.tar.gz")  # already gone is fine
     assert sftp.files == {}
@@ -770,10 +722,7 @@ def test_internal_addresses_are_refused_unless_the_operator_allows_them(
     with pytest.raises(DestinationError) as blocked:
         destinations.resolve_checked("nas.example.test", 22, allow_private=False)
     assert blocked.value.code == "DESTINATION_ADDRESS_BLOCKED"
-    assert (
-        destinations.resolve_checked("nas.example.test", 22, allow_private=True)
-        == address
-    )
+    assert destinations.resolve_checked("nas.example.test", 22, allow_private=True) == address
 
 
 def test_public_addresses_pass_the_policy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -782,10 +731,7 @@ def test_public_addresses_pass_the_policy(monkeypatch: pytest.MonkeyPatch) -> No
         "getaddrinfo",
         lambda *a, **k: [(0, 0, 0, "", ("93.184.216.34", 22))],
     )
-    assert (
-        destinations.resolve_checked("example.test", 22, allow_private=False)
-        == "93.184.216.34"
-    )
+    assert destinations.resolve_checked("example.test", 22, allow_private=False) == "93.184.216.34"
 
 
 def test_a_job_without_stored_credentials_fails_cleanly(fx: Fx) -> None:
@@ -807,3 +753,236 @@ def test_a_job_without_stored_credentials_fails_cleanly(fx: Fx) -> None:
     assert err.value.code == "CREDENTIALS_MISSING"
     sealed = seal_credentials(fx.w.settings, job_id, {"k": "TESTONLY-value"})
     assert b"TESTONLY-value" not in sealed and sealed.startswith(b"FS1")
+
+
+# ------------------------------------------------------------------ review fixes (M27)
+
+
+def test_unencrypted_jobs_never_back_up_personal_folders(fx: Fx) -> None:
+    upload(fx, "private.txt", b"alice-private", fx.taxes)
+    label(fx, fx.taxes, "private")
+    job = make_job(fx)  # unencrypted, covers everything
+    assert "personal_skipped" in fx.admin[0].get(JOBS, headers=fx.admin[1]).json()[0]["warnings"]
+    result = go(fx, job, fx.alice_root)
+    assert (result.status, result.code) == ("skipped", "UNENCRYPTED_PERSONAL_SKIPPED")
+    # allow_confidential does not open personal folders either
+    wide = make_job(fx, name="Wide", allow_confidential=True, acknowledge_confidential=True)
+    assert go(fx, wide, fx.alice_root).code == "UNENCRYPTED_PERSONAL_SKIPPED"
+    assert not archives_of(fx, job) and not archives_of(fx, wide)
+    only = create(fx, name="Personal only", scope="personal")
+    assert (only.status_code, code(only)) == (422, "UNENCRYPTED_PERSONAL_NOT_ALLOWED")
+
+
+def test_remote_and_unencrypted_jobs_need_fresh_reauthentication(fx: Fx) -> None:
+    c, h = fx.admin
+    r = c.post(JOBS, json={k: v for k, v in body().items() if k != "password"}, headers=h)
+    assert (r.status_code, r.json()["detail"]["code"]) == (403, "PASSWORD_REQUIRED")
+    wrong = create(fx, password="not-the-password")
+    assert wrong.status_code in (401, 403)
+    assert not c.get(JOBS, headers=h).json()  # nothing was created
+    enc = create(fx, name="Enc", encrypt=True, acknowledge_unencrypted=False, password=None)
+    assert enc.status_code == 201  # a local encrypted job needs no extra confirmation
+    # changing a remote job needs it too
+    job = make_job(fx, name="Remote", **S3, acknowledge_remote_unencrypted=True)
+    upd = {k: v for k, v in body(name="Remote", **S3, acknowledge_remote_unencrypted=True).items()}
+    upd.pop("password")
+    upd["credentials"] = None
+    again = c.put(f"{JOBS}/{job}", json=upd, headers=h)
+    assert (again.status_code, again.json()["detail"]["code"]) == (403, "PASSWORD_REQUIRED")
+
+
+def test_stored_credentials_never_follow_a_changed_destination(fx: Fx) -> None:
+    c, h = fx.admin
+    job = make_job(fx, **S3, acknowledge_remote_unencrypted=True)
+    base = body(**S3, acknowledge_remote_unencrypted=True)
+    base["credentials"] = None
+    for change in (
+        {"bucket": "another-bucket"},
+        {"endpoint_url": "https://s3.other.example"},
+        {"region": "eu-west-1"},
+        {"path": "elsewhere"},
+    ):
+        moved = {**base, "destination": {**S3["destination"], **change}}
+        r = c.put(f"{JOBS}/{job}", json=moved, headers=h)
+        assert (r.status_code, code(r)) == (422, "CREDENTIALS_REQUIRED"), change
+    same = c.put(f"{JOBS}/{job}", json=base, headers=h)  # unchanged destination keeps them
+    assert same.status_code == 200 and same.json()["credentials_set"] is True
+    sftp = make_job(
+        fx,
+        name="sftp",
+        destination_type="sftp",
+        destination={"host": "a.example.test", "username": "fc", "path": "bk"},
+        credentials={"password": SFTP_PASSWORD},
+        acknowledge_remote_unencrypted=True,
+    )
+    other_host = body(
+        name="sftp",
+        destination_type="sftp",
+        destination={"host": "evil.example.test", "username": "fc", "path": "bk"},
+        credentials=None,
+        acknowledge_remote_unencrypted=True,
+    )
+    r = c.put(f"{JOBS}/{sftp}", json=other_host, headers=h)
+    assert (r.status_code, code(r)) == (422, "CREDENTIALS_REQUIRED")
+
+
+def test_destination_cannot_change_while_the_job_holds_backups(fx: Fx, remote: FakeDest) -> None:
+    c, h = fx.admin
+    upload(fx, "a.txt")
+    job = make_job(fx, **S3, acknowledge_remote_unencrypted=True)
+    assert go(fx, job).status == "ok"
+    to_local = body(acknowledge_remote_unencrypted=True)
+    r = c.put(f"{JOBS}/{job}", json=to_local, headers=h)
+    assert (r.status_code, code(r)) == (409, "DESTINATION_LOCKED")
+    other = {**body(**S3, acknowledge_remote_unencrypted=True)}
+    other["destination"] = {**S3["destination"], "bucket": "another-bucket"}
+    r = c.put(f"{JOBS}/{job}", json=other, headers=h)
+    assert (r.status_code, code(r)) == (409, "DESTINATION_LOCKED")
+    # credentials alone may be rotated; a job without backups may be moved freely
+    rotate = body(**S3, acknowledge_remote_unencrypted=True)
+    rotate["credentials"] = {"access_key_id": "AKIANEWKEY", "secret_access_key": "new-secret"}
+    assert c.put(f"{JOBS}/{job}", json=rotate, headers=h).status_code == 200
+    fresh = make_job(fx, name="Fresh", **S3, acknowledge_remote_unencrypted=True)
+    moved = body(name="Fresh", acknowledge_remote_unencrypted=True)
+    assert c.put(f"{JOBS}/{fresh}", json=moved, headers=h).status_code == 200
+
+
+def test_sftp_private_keys_with_newlines_and_exact_passwords_are_accepted() -> None:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    pem = (
+        Ed25519PrivateKey.generate()
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.OpenSSH,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
+    assert "\n" in pem
+    from app.backup.jobs import clean_credentials
+
+    assert clean_credentials("sftp", {"private_key": pem}) == {"private_key": pem}
+    spaced = " pass word "  # not stripped
+    assert clean_credentials("sftp", {"password": spaced}) == {"password": spaced}
+    for bad in ({"password": "a\x00b"}, {"password": "line\nbreak"}, {}):
+        with pytest.raises(JobError):
+            clean_credentials("sftp", bad)
+    with pytest.raises(JobError):
+        clean_credentials("s3", {"access_key_id": "AKIA", "secret_access_key": ""})
+
+
+def test_private_key_job_is_stored_and_listed_without_the_key(fx: Fx) -> None:
+    pem = "-----BEGIN OPENSSH PRIVATE KEY-----\nTESTONLY-KEY-BODY\n-----END OPENSSH PRIVATE KEY-----\n"
+    r = create(
+        fx,
+        destination_type="sftp",
+        destination={"host": "a.example.test", "username": "fc"},
+        credentials={"private_key": pem},
+        acknowledge_remote_unencrypted=True,
+    )
+    assert r.status_code == 201, r.text
+    assert "TESTONLY-KEY-BODY" not in r.text + fx.admin[0].get(JOBS, headers=fx.admin[1]).text
+    assert "TESTONLY-KEY-BODY" not in audit_text(fx)
+
+
+def test_region_is_validated_and_construction_errors_have_fixed_codes(
+    fx: Fx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad = {**S3, "destination": {**S3["destination"], "region": "us east/1"}}
+    r = create(fx, **bad, acknowledge_remote_unencrypted=True)
+    assert (r.status_code, code(r)) == (422, "DESTINATION_INVALID")
+
+    def boom(*a: Any, **k: Any) -> None:
+        raise RuntimeError("secret host name leaked in a library message")
+
+    monkeypatch.setattr(destinations, "S3Destination", boom)
+    job = make_job(fx, **S3, acknowledge_remote_unencrypted=True)
+    c, h = fx.admin
+    t = c.post(f"{JOBS}/{job}/test", headers=h)
+    assert (t.status_code, t.json()["detail"]["code"]) == (409, "DESTINATION_FAILED")
+    assert "leaked" not in t.text
+
+
+def test_restore_chain_never_mixes_two_jobs_with_the_same_chain_id(fx: Fx) -> None:
+    upload(fx, "a.txt")
+    one, two = make_job(fx), make_job(fx, name="Second")
+    assert go(fx, one).status == "ok" and go(fx, two).status == "ok"
+    first = job_runs(fx, one)[0]
+    with fx.w.ctx.sessions() as db:
+        for row in db.scalars(select(BackupRun).where(BackupRun.job_id == two)):
+            row.chain_id = first.chain_id  # a collision
+        db.commit()
+        target = db.get(BackupRun, first.id)
+        assert target is not None
+        chain = restore_mod.chain_for(db, target.root_id, target)
+    assert [r.job_id for r in chain] == [one]
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["100.64.0.1", "100.127.255.254", "::ffff:127.0.0.1", "64:ff9b::7f00:1", "2002:7f00:1::1"],
+)
+def test_cgnat_and_embedded_internal_addresses_are_refused(address: str) -> None:
+    assert destinations._blocked(address) is True  # noqa: SLF001
+
+
+def test_global_addresses_are_allowed() -> None:
+    assert destinations._blocked("93.184.216.34") is False  # noqa: SLF001
+    assert destinations._blocked("2606:4700:4700::1111") is False  # noqa: SLF001
+
+
+def test_s3_endpoint_must_be_a_plain_https_origin_and_requests_are_rechecked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = JobSpec(
+        job_id=uuid.uuid4(),
+        name="x",
+        enabled=True,
+        interval_minutes=60,
+        full_every=1,
+        min_chains_kept=2,
+        max_size_bytes=None,
+        encrypt=True,
+        destination_type="s3",
+        destination={"bucket": "fc-test-bucket", "endpoint_url": "https://user:pw@s3.example.test"},
+    )
+    creds = {"access_key_id": "AKIATESTONLY", "secret_access_key": "x"}
+    for endpoint in (
+        "https://user:pw@s3.example.test",
+        "https://s3.example.test/path?x=1",
+        "https://s3.example.test/#frag",
+        "http://s3.example.test",
+    ):
+        s = JobSpec(
+            **{**spec.__dict__, "destination": {**spec.destination, "endpoint_url": endpoint}}
+        )
+        with pytest.raises(DestinationError) as bad:
+            S3Destination(s, creds, allow_private=True)
+        assert bad.value.code == "DESTINATION_INVALID"
+    # a name that resolves inside after the first check is refused when the request is sent
+    answers = iter([[(0, 0, 0, "", ("93.184.216.34", 443))], [(0, 0, 0, "", ("10.0.0.5", 443))]])
+    monkeypatch.setattr(destinations.socket, "getaddrinfo", lambda *a, **k: next(answers))
+    ok = JobSpec(
+        **{
+            **spec.__dict__,
+            "destination": {"bucket": "fc-test-bucket", "endpoint_url": "https://s3.example.test"},
+        }
+    )
+    dest = S3Destination(ok, creds, allow_private=False)
+    request = type("R", (), {"url": "https://s3.example.test/fc-test-bucket/key"})()
+    with pytest.raises(DestinationError) as rebound:
+        destinations._guard_request(request)  # noqa: SLF001
+    assert rebound.value.code == "DESTINATION_ADDRESS_BLOCKED"
+    dest.close()
+
+
+def test_default_job_usage_ignores_only_real_job_folders(tmp_path: Path) -> None:
+    from app.backup.volume import folder_usage
+
+    for name, size in (("j-0123abcd", 100), ("j-my-root", 10), ("shared", 1)):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "f").write_bytes(b"x" * size)
+    assert folder_usage(tmp_path) == 111
+    assert folder_usage(tmp_path, skip_jobs=True) == 11  # a root folder named j-... still counts

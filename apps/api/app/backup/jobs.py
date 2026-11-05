@@ -11,6 +11,7 @@ they are never returned, logged or audited.
 """
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -137,6 +138,34 @@ def _text(value: Any, maximum: int, code: str, *, required: bool = True) -> str:
     return value.strip()
 
 
+def _secret(value: Any, maximum: int, code: str, *, multiline: bool = False) -> str:
+    """A secret as typed: not stripped (a password may start or end with a space), no NUL or
+    other control characters. Only a private key (PEM) may span lines."""
+    if value is None or value == "":
+        return ""
+    allowed = {"\n", "\r"} if multiline else set()
+    if (
+        not isinstance(value, str)
+        or len(value) > maximum
+        or any(ord(c) < 32 and c not in allowed for c in value)
+    ):
+        raise JobError(code)
+    return value
+
+
+REGION = re.compile(r"^[a-z0-9-]{1,32}$")
+
+
+def destination_identity(kind: str, dest: dict[str, Any]) -> tuple[Any, ...]:
+    """Everything that decides *where* a job's data and credentials go. A change in any of it
+    means stored credentials must be entered again and, once the job holds backups, is refused."""
+    keys = {
+        "sftp": ("host", "port", "username", "path"),
+        "s3": ("bucket", "region", "endpoint_url", "path"),
+    }.get(kind, ())
+    return (kind, *(dest.get(k) or "" for k in keys))
+
+
 def _remote_path(value: Any) -> str:
     """A path prefix on the remote side: relative parts only, no traversal."""
     text = _text(value, 200, "DESTINATION_INVALID", required=False).strip("/")
@@ -144,6 +173,13 @@ def _remote_path(value: Any) -> str:
     if any(p in (".", "..") or "\\" in p for p in parts):
         raise JobError("DESTINATION_INVALID")
     return "/".join(parts)
+
+
+def _region(value: Any) -> str:
+    text = _text(value, 32, "DESTINATION_INVALID", required=False)
+    if text and not REGION.match(text):
+        raise JobError("DESTINATION_INVALID")
+    return text
 
 
 def clean_destination(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
@@ -177,7 +213,7 @@ def clean_destination(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
             raise JobError("DESTINATION_INSECURE")  # S3-compatible endpoints must use TLS
         return {
             "bucket": bucket,
-            "region": _text(raw.get("region"), 32, "DESTINATION_INVALID", required=False),
+            "region": _region(raw.get("region")),
             "endpoint_url": endpoint,
             "path": _remote_path(raw.get("path")),
         }
@@ -190,8 +226,11 @@ def clean_credentials(kind: str, raw: dict[str, Any] | None) -> dict[str, str] |
         return None
     if kind == "sftp":
         out = {
-            k: _text(raw.get(k), 8192, "CREDENTIALS_INVALID", required=False)
-            for k in ("password", "private_key", "passphrase")
+            "password": _secret(raw.get("password"), 512, "CREDENTIALS_INVALID"),
+            "private_key": _secret(
+                raw.get("private_key"), 16384, "CREDENTIALS_INVALID", multiline=True
+            ),
+            "passphrase": _secret(raw.get("passphrase"), 512, "CREDENTIALS_INVALID"),
         }
         if not out["password"] and not out["private_key"]:
             raise JobError("CREDENTIALS_INVALID")
@@ -199,9 +238,14 @@ def clean_credentials(kind: str, raw: dict[str, Any] | None) -> dict[str, str] |
     if kind == "s3":
         return {
             "access_key_id": _text(raw.get("access_key_id"), 128, "CREDENTIALS_INVALID"),
-            "secret_access_key": _text(raw.get("secret_access_key"), 256, "CREDENTIALS_INVALID"),
+            "secret_access_key": _secret(raw.get("secret_access_key"), 256, "CREDENTIALS_INVALID")
+            or _bad("CREDENTIALS_INVALID"),
         }
     return None
+
+
+def _bad(code: str) -> str:
+    raise JobError(code)
 
 
 def int_in(value: Any, rng: tuple[int, int], code: str) -> int:
