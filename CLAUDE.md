@@ -1,6 +1,6 @@
 # Claude Code Repository Instructions — FileCanopy
 
-**FileCanopy is owner-selected (2026-11-03); external name clearance remains pending.** This is an open-source, Docker-hosted, real-folder file manager with optional AI. Do not report features as implemented until code and tests exist. Docker and native Proxmox helper-script LXC are deployment priorities; native LXC packaging/testing is not implemented yet. See M24's release packet before making support or publication claims.
+**FileCanopy is owner-selected (2026-11-03); external name clearance remains pending.** This is an open-source, Docker-hosted, real-folder file manager with optional AI. Do not report features as implemented until code and tests exist. Docker is the first-beta priority (owner decision 2026-11-04); native Proxmox helper-script LXC is deferred until later and unimplemented. See M24's release packet before making support or publication claims.
 
 ## Mandatory before every coding session
 

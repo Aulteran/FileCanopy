@@ -55,6 +55,25 @@ class Stack:
             "FILECANOPY_HTTP_PORT": str(self.port),
         }
         self.env.pop("FILECANOPY_REDIS_URL", None)
+        # Opt-in release acceptance: use only the downloaded bundle and exact local candidate.
+        # No dev-tag replacement, source build or existing installation is touched.
+        self.candidate = os.environ.get("FILECANOPY_TEST_CANDIDATE")
+        if self.candidate:
+            plan = json.loads(Path(self.candidate).read_text())
+            if not plan["built"] or not plan["sourceClean"]:
+                raise AssertionError("Candidate must be built from a clean commit")
+            bundle = Path(os.environ["FILECANOPY_TEST_BUNDLE"]).resolve()
+            self.files = [bundle / "compose.yaml"]
+            self.env["FILECANOPY_IMAGE_PREFIX"] = plan["prefix"]
+            self.env["FILECANOPY_VERSION"] = plan["version"]
+            for image in plan["images"]:
+                actual = subprocess.run(  # noqa: S603
+                    ["docker", "image", "inspect", "--format", "{{.Id}}", image["tag"]],  # noqa: S607
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                assert actual == image["imageId"], "Candidate tag changed"
         if hasattr(os, "getuid"):
             # Linux: the API must own the bind mounts, exactly as documented in deploy/.env.example.
             self.env["FILECANOPY_UID"] = str(os.getuid())
@@ -75,7 +94,12 @@ class Stack:
             *args,
         ]
         r = subprocess.run(  # noqa: S603
-            cmd, env=env or self.env, capture_output=True, text=True, timeout=600, check=False
+            cmd,
+            env=env or self.env,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
         )
         if check and r.returncode != 0:
             raise AssertionError(f"{' '.join(args)} failed:\n{r.stdout}\n{r.stderr}")
@@ -84,7 +108,11 @@ class Stack:
     def up(self, *extra: str) -> None:
         try:
             # CI pre-builds the images with a layer cache and sets FILECANOPY_COMPOSE_NO_BUILD.
-            build = [] if os.environ.get("FILECANOPY_COMPOSE_NO_BUILD") else ["--build"]
+            build = (
+                []
+                if self.candidate or os.environ.get("FILECANOPY_COMPOSE_NO_BUILD")
+                else ["--build"]
+            )
             self.compose(*extra, "up", "-d", *build, "--wait", "--wait-timeout", "180")
         except AssertionError as exc:
             logs = self.compose("--profile", "*", "logs", "--no-color", "--tail", "30", check=False)
@@ -112,7 +140,16 @@ class Stack:
 
     def sql(self, query: str) -> str:
         r = self.compose(
-            "exec", "-T", "postgres", "psql", "-U", "filecanopy", "-d", "filecanopy", "-tAc", query
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "filecanopy",
+            "-d",
+            "filecanopy",
+            "-tAc",
+            query,
         )
         return r.stdout.strip()
 

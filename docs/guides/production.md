@@ -8,6 +8,8 @@ For local release preparation see the [release packet](../release/README.md) and
 The plan derives full-commit tags and refuses a dirty tree when building. It never publishes.
 Name selection is owner-approved; external clearance and release gates remain pending.
 
+For the prepared no-checkout download bundle see [standalone Docker install](docker-install.md). Generate it locally with `node scripts/release-bundle.mjs NEW_OUTPUT_DIRECTORY`; basic installation needs only `compose.yaml` and `.env.example`, with recovery scripts available separately. Images are not public yet.
+
 ## 1. Install
 
 Two ways, same layout, same settings in `deploy/.env`:
@@ -96,7 +98,7 @@ Compose is the primary, best-tested way to run FileCanopy. If you already run Sw
 - The image names in the release override point to the project's planned registry path. Nothing is published there yet, so use `FILECANOPY_IMAGE_PREFIX` with images you built.
 - The disaster-recovery backup is a full copy each time (no incremental runs). The in-app backups are incremental.
 - Backup and restore are POSIX shell scripts for Linux and macOS hosts (and WSL); there is no web screen for them.
-- Docker is the available path; native Proxmox helper-script LXC is an owner priority with
+- Docker is the first-beta priority; native Proxmox helper-script LXC is deferred until later with
   [packaging and real-host testing pending](../release/proxmox-lxc.md). No native support or
   upstream helper availability is claimed.
 - The host/hypervisor administrator can inspect all plaintext files and state. Confidential is

@@ -1,0 +1,45 @@
+{
+  "accessed": "2026-11-04",
+  "schemaSource": "https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json",
+  "schemaSha256": "239208b7ac287b3cf5d9a9af23f9d69863971102a5e1587a27a398b43490b89b",
+  "validator": "Ajv 6.15.0",
+  "limits": "JSON schema, image identity, count and hash validation; not package completeness, SPDX expression legal analysis or licence compatibility clearance",
+  "results": [
+    {
+      "imageId": "sha256:4ae39d57cb88a620ca1e8e812afb5fa68fd367c999896b12125bf941d9608c96",
+      "file": "image-0.spdx.json.gz",
+      "packages": 80,
+      "valid": true
+    },
+    {
+      "imageId": "sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2",
+      "file": "image-1.spdx.json.gz",
+      "packages": 248,
+      "valid": true
+    },
+    {
+      "imageId": "sha256:93033b510af9014a1c40927d5e1e0a111788487692f260b1fca16527eb57ec38",
+      "file": "image-2.spdx.json.gz",
+      "packages": 100,
+      "valid": true
+    },
+    {
+      "imageId": "sha256:a2884e44f4c81e6249061b35b0d0d62d0ea8fef564a97fc460d0aff84130de43",
+      "file": "image-3.spdx.json.gz",
+      "packages": 503,
+      "valid": true
+    },
+    {
+      "imageId": "sha256:2ab147fef02372d362a91dce75c1002eac13be559b8d2d3cb79d2adb88fb3be0",
+      "file": "image-4.spdx.json.gz",
+      "packages": 350,
+      "valid": true
+    },
+    {
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "file": "image-5.spdx.json.gz",
+      "packages": 31,
+      "valid": true
+    }
+  ]
+}

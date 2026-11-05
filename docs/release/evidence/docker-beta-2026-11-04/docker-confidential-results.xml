@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="35.602" timestamp="2026-11-04T02:08:58.431097-05:00" hostname="Ault-GE68"><testcase classname="" name="test_confidential_password_lock_and_restart" time="35.583" /></testsuite></testsuites>

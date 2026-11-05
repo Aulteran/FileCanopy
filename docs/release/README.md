@@ -5,12 +5,16 @@ GitHub Release, announcement or helper-script submission has been made. M24 is i
 
 The owner has approved **FileCanopy** as the name, **beta** as the first release designation and
 GitHub issues for ordinary bug reports. External trademark/domain/namespace clearance evidence is
-still absent. Docker and **native Proxmox helper-script LXC** are owner deployment priorities;
+still absent. Docker is the first-beta priority (owner decision 2026-11-04); native Proxmox LXC is deferred until later;
 LXC packaging and real-host validation remain unfinished. Neither ARM64, multi-node Swarm nor a
 stable-support window is implicitly promised.
 
 ## Review packet
 
+- [Docker-first bundle and preliminary exact-candidate validation, 2026-11-04](docker-beta-validation-2026-11-04.md): current local evidence and integration gates; native LXC is deferred beyond first beta. Historical results below remain historical.
+
+- [2026-11-04 licensing findings and server recommendation](licensing-review-2026-11-04.md),
+  [exact-source/notice delivery queue](source-delivery.md), [complete policy approval package](policy-approval.md)
 - [Acceptance plan and evidence requirements](../milestones/M24-design-and-plan.md)
 - [Dependency audit and unresolved findings](dependency-audit.md), [application register](dependency-register.md),
   [container register](container-register.md), [application SBOM](evidence/application.cdx.json)
@@ -20,10 +24,28 @@ stable-support window is implicitly promised.
 - [Owner decisions](../../11_OPEN_DECISIONS.md), [milestone status](../../MILESTONES.json)
 
 Governance files are **drafts**, awaiting owner approval before root-level adoption. In particular
-there is no verified private security contact or response-time promise yet. Ordinary beta bugs go
+GitHub private vulnerability reporting was confirmed **disabled** by REST on 2026-11-04;
+enablement and reporter/maintainer verification remain pending owner approval. No response-time promise is made. Ordinary beta bugs go
 to [GitHub issues](https://github.com/Aulteran/FileCanopy/issues); do not post secrets or exploit details there.
 
-## Local image preparation
+## Licensing/policy verification — 2026-11-04
+
+The [investigation](licensing-review-2026-11-04.md) records all L1–L12 dispositions;
+the [approval package](policy-approval.md) records concrete owner decisions and
+route activation steps. No root policies or GitHub settings were changed.
+
+| Check | Result / bounds |
+|---|---|
+| Repository `npm run check` | Lint/format, 21 Node tests/zero skips, secret scan and local documentation links passed. Initial sandbox run could not create temporary Git configs; authorized unsandboxed rerun passed. |
+| Web `npm --prefix apps/web run check` / build | Typecheck, 73 tests and production build passed; existing font binaries unchanged. |
+| Local API/web image builds | Passed from this working tree, with added notices/source files; review images only, not clean-commit final candidates or byte-reproducibility evidence. |
+| `licensing-verify.mjs` | [Retained result](evidence/licensing-2026-11-04/verification.json): 218 browser files, font source hash/editable SFDs/scripts, copied PDF.js/React/AGPL notice bytes, no native canvas/QuickJS binaries, certifi source vs installed files, 293 pip vendor files vs exact pip source; API image source inclusion and nginx HTTP delivery of font source/README/licence passed. |
+| `licensing-server-probe.mjs` | [Valkey 9.0.6](evidence/licensing-2026-11-04/valkey-compatibility.json): real unchanged worker heartbeat, TTL/expiry, optional health states, stop/failure/restart recovery passed. No deployment dependency change. |
+| Native probe lint | Ruff lint and format checks passed after import/format corrections. Runtime inspection records Pillow's optional missing-Tk warning; Tk is not asserted present. |
+| Licensing/source inventory | [Six-image index](evidence/licensing-2026-11-04/inspection.json), [upstream materials](evidence/licensing-2026-11-04/upstream/sources.json), [244-entry historical unknown queue](evidence/licensing-2026-11-04/noassertion-review.json). Eight scanner entries identified manually; 236 remain pending, plus three missing register identifications resolved. This is not legal/vulnerability clearance or final-image SBOM regeneration. |
+| Not rerun for this notice/source-only change | Full backend application, Compose install/restore, browser e2e, Swarm, manual demo and final remote CI. Prior evidence remains historical. Final integrated release candidate must run its required suites. Root `npm ci` also reported five moderate development-tool advisories; no automatic dependency upgrades were applied. |
+
+## Local image preparation instructions
 
 From a reviewed clean commit:
 
@@ -207,9 +229,9 @@ output. Use an empty install and synthetic documents; retain no real credentials
 3. Approve the three governance drafts, select/configure/test a private security reporting route,
    and promote approved files to repository-root policies. Set beta maintenance/upgrade expectations
    and an evidence-backed OS/architecture/version matrix. Stable remains undefined.
-4. Implement and validate native LXC packaging on a real Proxmox host before claiming that target.
+4. Native LXC is deferred beyond the Docker-first beta by owner decision 2026-11-04. Implement and validate native LXC packaging on a real Proxmox host before claiming that target.
    Upstream helper inclusion needs its own review/submission; do not imply it already exists. If
-   LXC is to follow the first beta, the owner must explicitly approve that scope/deferment.
+   LXC is to follow the first beta, that scope/deferment is now explicitly owner-approved.
 5. Freeze remaining build inputs, commit/review the local changes, build all images from that clean
    commit, retain IDs and complete image SBOMs, and compare isolated rebuilds to close reproducibility.
    Verify an accessible source offer corresponds to the exact running app and native dependencies;

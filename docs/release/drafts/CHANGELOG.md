@@ -1,5 +1,8 @@
 # Changelog — draft for owner approval
 
+**Draft status:** Not adopted; see the [policy approval package](../policy-approval.md).
+The entries below describe implemented work and preparation, not a published release.
+
 ## Unreleased — intended first beta
 
 No version number, public tag, publication date or stable-support promise is assigned.
@@ -14,12 +17,20 @@ No version number, public tag, publication date or stable-support promise is ass
   and M23 isolation/logging/concurrency/accessibility hardening.
 - M24 preparation: exact dependency/artifact evidence, local commit-based Docker build planning,
   AGPL/MIT notices in web output and corrected privacy/release documentation.
+- M24 licensing follow-up: loaded native-library versions and six-image notice/source-package
+  evidence; Liberation Sans 1.07.4 editable sources beside browser fonts and certifi 2026.10.23
+  source inside the API image; partial libpq/OpenSSL notices. Valkey compatibility evaluated
+  without changing the deployed Redis dependency. Governance remains draft-only.
 
-Release gates remain open: dependency redistribution review (including Redis 7.4.12 and PDF.js
-Liberation fonts), native Proxmox LXC validation, external name clearance, supported-platform
+Release gates remain open: dependency redistribution/source review (including Redis 7.4.12,
+PDF.js Liberation fonts and native libraries), native Proxmox LXC validation or explicit scope
+decision, external name clearance, supported-platform
 matrix, private security reporting and governance approval, reproducibility evidence, final
-candidate CI and manual acceptance. See the release packet before using any release-readiness claim.
+candidate CI and manual acceptance. See [the release packet](../README.md) before using any
+release-readiness claim. GitHub private reporting was disabled at the 2026-11-04 read-only check.
 
 Known limitations include ADR-016 per-root backup keys not implemented, global backup recovery
 key scope, synchronous restore, parser sandbox follow-ups, process-local rate limits, bounded
 collection views, missing chat page citations and the documented M23 concurrency/performance gaps.
+See [known issues](../known-issues.md). No release version/date is assigned until an authorized
+publication; future entries should state upgrade/migration and backup/restore precautions.

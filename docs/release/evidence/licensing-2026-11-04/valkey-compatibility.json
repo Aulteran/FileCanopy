@@ -1,0 +1,19 @@
+{
+  "accessed": "2026-11-04T06:03:56.972Z",
+  "server": {
+    "imageId": "sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989",
+    "digests": [
+      "valkey/valkey@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989"
+    ],
+    "platform": "linux/amd64"
+  },
+  "api": "sha256:33c438eb8e6b1c50b357a49528662992b4de7b3f9a30e5ca7499f70452e2b2b9",
+  "checks": [
+    "PING and optional absent/no-heartbeat states pass",
+    "real worker SET EX, SCAN, TTL and application health pass",
+    "SIGTERM stops worker; actual 30-second heartbeat expiry detected",
+    "server unavailable is handled by bounded optional probe",
+    "restart and heartbeat recovery pass"
+  ],
+  "passed": true
+}

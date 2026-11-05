@@ -1,0 +1,2496 @@
+{
+  "accessed": "2026-11-04T07:14:04.781Z",
+  "scope": "Historical SBOM review queue; individual identities preserved, no new-image scanner success implied",
+  "count": 244,
+  "manuallyIdentified": 8,
+  "packages": [
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "filecanopy-m22test-api",
+      "version": "dev",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3cd69302188ba1aa89f1e2aef1a9bc2f",
+      "name": "debian-archive-keyring",
+      "version": "2025.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-26ab7fa49a859230998e229455240cb5",
+      "name": "gcc-14-base",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2a070e71af1113f30e48e5c2c91a329a",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cc3724fcfc9227e39985549f805819a9",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7dea6b5c026f8611f2bb22446ede8b84",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2bc5be2f0e082b2fed22ed8bc196c035",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8341623ee4bae47746631f18ceda8c57",
+      "name": "libcrypt1",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7757e41348fbb4eb165d971e24aefb74",
+      "name": "libgcc-s1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5bb59cc08e09d2d13581a4d6a603a8dd",
+      "name": "libstdc++6",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cb4eefb88ee7e7cb40918d848299286f",
+      "name": "libxcrypt",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-053212110c7e35d5f880d941673423a2",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-263925b31a6e94b3e0ed05ddd91f2fab",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7423b5fc4f1f4109838afc317437501d",
+      "name": "tzdata",
+      "version": "2026e-0+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d92c0918fcc0158d44cb78066f2376ec",
+      "name": "bash",
+      "version": "5.2.37",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-52127b23898131807cc345159d22cf91",
+      "name": "gzip",
+      "version": "1.13",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-14de8dec080db9dfd3cbd29ac23e5981",
+      "name": "openssl",
+      "version": "3.5.7",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-531698045d5a0e87239cc76798a05972",
+      "name": "python",
+      "version": "3.13.18",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3cbddd32d59dae40a83a0fe53b42320b",
+      "name": "cachecontrol",
+      "version": "0.14.4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a48bad34fbfdb040d85d2839f090ebe1",
+      "name": "certifi",
+      "version": "2026.10.19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0fe2d12a21ae3bca3de4bff7b0189eb0",
+      "name": "distlib",
+      "version": "0.4.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0988e4eefeede4115687955491d975af",
+      "name": "distro",
+      "version": "1.9.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-aefcd71e52cbea9b3d431da78c904a0a",
+      "name": "idna",
+      "version": "3.18",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-ab7fd9930bf21f032daf683e82dd7e14",
+      "name": "msgpack",
+      "version": "1.1.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d84b2b06d8550bc87a97c5b691378ddc",
+      "name": "packaging",
+      "version": "26.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3280dd70acbee99114d179dcf318376f",
+      "name": "platformdirs",
+      "version": "4.10.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-ea651e0715368fb31352489af12d9e5e",
+      "name": "pygments",
+      "version": "2.20.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c180ed5ef2e9fd5164d4374ffdb0c730",
+      "name": "pyproject-hooks",
+      "version": "1.2.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-29ebc507026f7851ff3937a54fd69c2a",
+      "name": "requests",
+      "version": "2.34.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cf20f52bd84961936003cd0e38e2b818",
+      "name": "resolvelib",
+      "version": "1.2.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2daa21a0a216884ac76b0a11fea14534",
+      "name": "rich",
+      "version": "14.2.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3d0dc01bc1e9552dc9451ebfb9055639",
+      "name": "setuptools",
+      "version": "70.3.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b57dfe76b41adb3374c0375dc11aa01d",
+      "name": "tomli-w",
+      "version": "1.2.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7a5cc2101f1ef66c958dd1d6a59ebf9c",
+      "name": "tomli",
+      "version": "2.4.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-e7a14644db972ff39b56e2d2d005c9f7",
+      "name": "truststore",
+      "version": "0.10.4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-eb9e498aa71117066b21ac66ab817923",
+      "name": "urllib3",
+      "version": "2.7.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-022d438f7f9e996d19c63b438e165ed1",
+      "name": "libXau",
+      "version": "1.0.9-3.el8",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-9a82b9b6a6d7a3ae6a8b478a204840c3",
+      "name": "cyrus-sasl-lib",
+      "version": "2.1.26-24.el7_9",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-6f1bc20620d01073d8eb07d51302a928",
+      "name": "keyutils-libs",
+      "version": "1.5.8-3.el7",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3d67082579a581e965b2d9ee888bdcd6",
+      "name": "krb5-libs",
+      "version": "1.15.1-55.el7_9",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3a3acfa2a34ebb43cae545c241c15a49",
+      "name": "krb5-libs",
+      "version": "1.15.1-55.el7_9",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d3e4a3ed2127bf7cdd19ec14fb99f5e5",
+      "name": "krb5-libs",
+      "version": "1.15.1-55.el7_9",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f387ff7404fab402e91ec2ae5ba448bb",
+      "name": "krb5-libs",
+      "version": "1.15.1-55.el7_9",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-6342c91a569e842fab852e564c64015f",
+      "name": "libcom_err",
+      "version": "1.42.9-19.el7",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-50c75f2ea229339db6d34d05cc30ad9a",
+      "name": "libselinux",
+      "version": "2.5-15.el7",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5",
+      "sbom": "image-0.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4a6c2d4fa8448f6090a00525c58cc378",
+      "name": "pcre",
+      "version": "8.32-17.el7",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "filecanopy-web",
+      "version": "citest",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-044d40c02924d256ac8f414592ffad9c",
+      "name": "nginx-module-geoip",
+      "version": "1.28.2-r1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-be87afcf31518c6a1dfcb3f4379103c6",
+      "name": "nginx-module-image-filter",
+      "version": "1.28.2-r1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-1976ad7fc9926589bfe957a279387399",
+      "name": "nginx-module-njs",
+      "version": "1.28.2.0.9.5-r1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cb602df9bfa0cc863e3e38d94191a3a9",
+      "name": "nginx-module-xslt",
+      "version": "1.28.2-r1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d22dfc26150141272f9311849a0f51f2",
+      "name": "nginx",
+      "version": "1.28.2-r1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:fcbaf924c624f2ecd0d62ac6f6d6547b2ea81cf256fed4cd9b107e817a7e602b",
+      "sbom": "image-1.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-ae475c04b957b005d9386daada5fc2e8",
+      "name": "tzdata",
+      "version": "2025c-r0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "filecanopy-postgres",
+      "version": "citest",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-04a7bb4d72476e59f2b8f6b617be950d",
+      "name": ".postgresql-rundeps",
+      "version": "20261021.225731",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8f265bdb4297813b2678c8b925c4c1f7",
+      "name": "tzdata",
+      "version": "2026e-r0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-85705bc9fb2b87d39c7044b113f8519a",
+      "name": "postgresql",
+      "version": "17.11",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cb14a1e34ca38634ea2fbdbe70c40aaf",
+      "name": "github.com/moby/sys/user",
+      "version": "0.1.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-6515457edcadd5538db5c85ab30fcb60",
+      "name": "github.com/tianon/gosu",
+      "version": "1.19.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c4adfad9db678388c5c7151ed7c1991a",
+      "name": "golang.org/x/sys",
+      "version": "0.1.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-433abc6cd17529dc3d5d3e2bcf98a9c9",
+      "name": "stdlib",
+      "version": "1.24.6",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-22c99503550631ccba5786e6b0998e36",
+      "name": "stdlib",
+      "version": "1.24.6",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-40edaaff6d72d2d85ef4e903ab8b4ac6",
+      "name": "stdlib",
+      "version": "1.24.6",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:6056494cdeeec900fa8a7429d0310352dc7fba09a461d4a6e5fd11bcbcbcccdb",
+      "sbom": "image-2.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-de8b206e8ec061c38cdb36da73d98863",
+      "name": "stdlib",
+      "version": "1.24.6",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "sbom": "image-3.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "redis",
+      "version": "7-alpine",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "sbom": "image-3.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-638b8bb9295bd5015c9857c413058bfc",
+      "name": ".redis-rundeps",
+      "version": "20261026.164019",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "sbom": "image-3.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5fc16e195939c4c1b0ca8b9490488660",
+      "name": "tzdata",
+      "version": "2026e-r0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+      "sbom": "image-3.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8fc8bb60b3d6926fc4c4b85de5ce04f5",
+      "name": "redis",
+      "version": "7.4.12",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "filecanopy-converter",
+      "version": "m24",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cbdc27a51fb652b6c6c9f7c5ed4f14dc",
+      "name": "avahi",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7d55620ba4133cdf81101bd30f144fa0",
+      "name": "avahi",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8b24a3359c3619084f15ecc53c013782",
+      "name": "avahi",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0244193f744a254d094292b2bf2763c1",
+      "name": "cairo",
+      "version": "1.18.4-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-84a310ee2ca04502fb06216593ac7cb7",
+      "name": "clucene-core",
+      "version": "2.3.3.4+dfsg-1.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0cbebf482e3db16dcd9fb347c2786121",
+      "name": "clucene-core",
+      "version": "2.3.3.4+dfsg-1.2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3cd69302188ba1aa89f1e2aef1a9bc2f",
+      "name": "debian-archive-keyring",
+      "version": "2025.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-26ab7fa49a859230998e229455240cb5",
+      "name": "gcc-14-base",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-fe23a51f1a5a2bbcc9897ee5b94b6a18",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2a070e71af1113f30e48e5c2c91a329a",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cc3724fcfc9227e39985549f805819a9",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a693313324623ee2f77617c83f46e0f9",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7dea6b5c026f8611f2bb22446ede8b84",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b365ae256a6d7cd43a4554413f2d35af",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-918dca6af1c6db662d3c8b109d386dd4",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-6ea1c51b45f5bb0ce9c23a29bf9d2551",
+      "name": "gnutls28",
+      "version": "3.8.9-3+deb13u4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f5d973e319b8b13687433dca9203a910",
+      "name": "hunspell",
+      "version": "1.7.2+really1.7.2-10",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-37e80ad27b8bdde43d95a6c39f83df91",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-31b481fd19c23de20a420e55da4bf140",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b58bd4f0e6010e0acfbb073e13679112",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-78168fd5d93306f6969cdaae7dd3faf6",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f892a2af0d3b42ad05c87c3bc7756288",
+      "name": "libatomic1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-1078d19dfd888d960f5e868b1fe08597",
+      "name": "libavahi-client3",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0a62b62288d1d1903d1ff7b129747b74",
+      "name": "libavahi-common-data",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4005049187e6acbdd3242be1adda3c58",
+      "name": "libavahi-common3",
+      "version": "0.8-16",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a8521ba8f05010a3067d13efb280bfa5",
+      "name": "libcairo2",
+      "version": "1.18.4-1+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0d770816f96a3654b80f56ce7c7241cf",
+      "name": "libclucene-contribs1t64",
+      "version": "2.3.3.4+dfsg-1.2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b91c06fb3ffe32575e781cc0d95eeb38",
+      "name": "libclucene-core1t64",
+      "version": "2.3.3.4+dfsg-1.2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-9a1cdabfa810d21ac7fb1f0ab0fea26d",
+      "name": "libcmis-0.6-6t64",
+      "version": "0.6.2-2.1+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f662266cf1525f5071fbe5dde6416211",
+      "name": "libcmis",
+      "version": "0.6.2-2.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8341623ee4bae47746631f18ceda8c57",
+      "name": "libcrypt1",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cba3a88984ef7db800d889245eb9a6a4",
+      "name": "libdeflate0",
+      "version": "1.23-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d1eb33b03677df8f796e79f6885179a6",
+      "name": "libdeflate",
+      "version": "1.23-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2fe2248966744074c0ed4b2c5a3c0389",
+      "name": "libepubgen-0.1-1",
+      "version": "0.1.1-1+b2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d08e400b89740cf50aedb44f2827823e",
+      "name": "libepubgen",
+      "version": "0.1.1-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f74b83301915976a969c2788be35f932",
+      "name": "libetonyek-0.1-1",
+      "version": "0.1.12-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c3db08ea7e897fb6656f4875125b08a9",
+      "name": "libetonyek",
+      "version": "0.1.12-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7757e41348fbb4eb165d971e24aefb74",
+      "name": "libgcc-s1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c617bd100fe62292e4317284703bfb2b",
+      "name": "libgcrypt20",
+      "version": "1.11.0-7+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f99c14e23b28c42ba9d820ee7f805c88",
+      "name": "libgfortran5",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-fee44d165770041470063297205e8c24",
+      "name": "libgnutls30t64",
+      "version": "3.8.9-3+deb13u4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3d585bdb930c7b1e176e687025468755",
+      "name": "libgomp1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3abfe06e9f889be45cf3189adc8817e7",
+      "name": "libgssapi-krb5-2",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-eeee02f3d2ca06b9c4c1495b94403e0a",
+      "name": "libhunspell-1.7-0",
+      "version": "1.7.2+really1.7.2-10+b4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-49745aa1bf95138ff8698380284f0136",
+      "name": "libk5crypto3",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-dd440a7444609d278216fe4be1d25aad",
+      "name": "libkrb5-3",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-397bb106588ecd545b8e8e73b6b6b138",
+      "name": "libkrb5support0",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5b912ce0ed1b56f360107a869372c817",
+      "name": "libksba8",
+      "version": "1.6.7-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-699bebee287aa2113f4af375d0fc931e",
+      "name": "libksba",
+      "version": "1.6.7-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-59b77cf82893a54a3dfe2c52df5acc6b",
+      "name": "libmhash2",
+      "version": "0.9.9.9-10",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-73b3fcbf769b173df76a24abb8efca26",
+      "name": "libmythes-1.2-0",
+      "version": "2:1.2.5-1+b2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-08fd838dab5cd026d404f92c4a627721",
+      "name": "libpixman-1-0",
+      "version": "0.44.0-3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libpixman-1-0/copyright",
+        "copyrightSha256": "1b3fb5690861e15ca4fd6640fd4def4b2576617942eec04b6fcb7d8bc6c4c9da",
+        "identification": "MIT-style full text including next-paragraph condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d358cf1a9cd054891e862ce2c2f7e9d8",
+      "name": "libpython3-stdlib",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-564258ad7d9ea253b4a3ba9cde6ae9a8",
+      "name": "libpython3.13-minimal",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-74fd59fa8853bdce72ce9b4e6ae224b7",
+      "name": "libpython3.13-stdlib",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5ff0ea2e8d4cc81c97b8672b2006bbfc",
+      "name": "librdf0t64",
+      "version": "1.0.17-4+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-9be9deed11fd6ba309f1b97142b6ed9f",
+      "name": "librtmp1",
+      "version": "2.4+20151223.gitfa8646d.1-2+b5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5bb59cc08e09d2d13581a4d6a603a8dd",
+      "name": "libstdc++6",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-14032920ea11f59762f79848c7583b2e",
+      "name": "libtasn1-6",
+      "version": "4.20.0-2+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-1ccefcb43862015f6a1f9c3f8bb886f6",
+      "name": "libtiff6",
+      "version": "4.7.0-3+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-29e0f83d94aafd2a0bfc560d9c062baa",
+      "name": "libxau6",
+      "version": "1:1.0.11-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libxau6/copyright",
+        "copyrightSha256": "118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a",
+        "identification": "X11-style permission with name-use/advertising condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-940868e037aa1b1866a6188aaacb64e5",
+      "name": "libxau",
+      "version": "1:1.0.11-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libxau6/copyright",
+        "copyrightSha256": "118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a",
+        "identification": "X11-style permission with name-use/advertising condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-31a19af26b790556dc7518ee07f1a238",
+      "name": "libxcb-render0",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-00bfd791a8a575deda211034426a0304",
+      "name": "libxcb-shm0",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-11751c0c496a59ede5461cd74526aaea",
+      "name": "libxcb1",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-425574f904cddf6bfda8401199d10d02",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a29052727cd43a65b18b30ba98393fed",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8c505ebc99c864b24dcb8478d83965fb",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cb4eefb88ee7e7cb40918d848299286f",
+      "name": "libxcrypt",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-73d335e890bf1cb5688dcd7b003618ce",
+      "name": "libxdmcp6",
+      "version": "1:1.1.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-e8d8b3cf5ae728f5f6286198b1a9db72",
+      "name": "libxdmcp",
+      "version": "1:1.1.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-265f5723506a3f18a1f767c5f92c7290",
+      "name": "libxext6",
+      "version": "2:1.3.4-1+b3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-70f6e8fa30d19c538b81c47cae4e5474",
+      "name": "libxext",
+      "version": "2:1.3.4-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3b796a5a56a30c645131247b63307ab8",
+      "name": "libxmlsec1t64-nss",
+      "version": "1.2.41-1+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b96a70b9adc96ae4e3115e63743a4e09",
+      "name": "libxmlsec1t64",
+      "version": "1.2.41-1+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b2db86c351665a3051b0068c25549d6c",
+      "name": "libxslt1.1",
+      "version": "1.1.35-1.2+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a9b32623e8044056aa91ec1ad16e806f",
+      "name": "libxslt",
+      "version": "1.1.35-1.2+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-053212110c7e35d5f880d941673423a2",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-263925b31a6e94b3e0ed05ddd91f2fab",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-18b6cd8be80800196855e30a6c8efe12",
+      "name": "media-types",
+      "version": "13.0.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-364e3181a414e2a117c6e120f949b8ef",
+      "name": "mhash",
+      "version": "0.9.9.9-10",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f3b4753a97e48268a49627618835751e",
+      "name": "mythes",
+      "version": "2:1.2.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c9a08facea760c384c103274d8aca353",
+      "name": "pixman",
+      "version": "0.44.0-3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libpixman-1-0/copyright",
+        "copyrightSha256": "1b3fb5690861e15ca4fd6640fd4def4b2576617942eec04b6fcb7d8bc6c4c9da",
+        "identification": "MIT-style full text including next-paragraph condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-e5172a0a56d80c86a45b5b6e7bef6f8d",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0ccbe2e9190eb283112ef7c8f1cae016",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8532cfdeb3a14ee925c37eb437595cc9",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7eda9c557d9a0e12b57d335a1ad128b2",
+      "name": "python3-minimal",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-38de663d557d4d604f9ccfbaefbd5196",
+      "name": "python3.13-minimal",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5d471522b39fc767709936b86517bd71",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7234704f5c64ab3134ccda71b1bec0a4",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4f8e6a4ff6bc1a7d346bc957a9b0a5ca",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4d998b0c9bdfc57df2a53efc25322cc3",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-28aae005decbeb3b4b13c61960970ba6",
+      "name": "python3",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2dc4e6bf9cf1e0d251cfd52ab11860e1",
+      "name": "redland",
+      "version": "1.0.17-4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c1a23a50a95132dfe2b06c2c6c2117bc",
+      "name": "rtmpdump",
+      "version": "2.4+20151223.gitfa8646d.1-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-30d8cdea223fb749157495bc0aa10b36",
+      "name": "tiff",
+      "version": "4.7.0-3+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7423b5fc4f1f4109838afc317437501d",
+      "name": "tzdata",
+      "version": "2026e-0+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d4e94e6395aeb36d5e6771e9c7042cac",
+      "name": "xmlsec1",
+      "version": "1.2.41-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0131d45fecbaaf964414ff006f33ab5b",
+      "name": "xmlsec1",
+      "version": "1.2.41-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d92c0918fcc0158d44cb78066f2376ec",
+      "name": "bash",
+      "version": "5.2.37",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-52127b23898131807cc345159d22cf91",
+      "name": "gzip",
+      "version": "1.13",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:e61cb164415db32512ab85ee223ccef6eedc24cbf0dc35edfe86a77340b161bd",
+      "sbom": "image-4.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-58730bc5a5ec8e1dae3c12e1c7ee4f29",
+      "name": "python",
+      "version": "3.13.5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-DocumentRoot",
+      "name": "filecanopy-ocr",
+      "version": "m24",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0244193f744a254d094292b2bf2763c1",
+      "name": "cairo",
+      "version": "1.18.4-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3cd69302188ba1aa89f1e2aef1a9bc2f",
+      "name": "debian-archive-keyring",
+      "version": "2025.1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-26ab7fa49a859230998e229455240cb5",
+      "name": "gcc-14-base",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-fe23a51f1a5a2bbcc9897ee5b94b6a18",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-2a070e71af1113f30e48e5c2c91a329a",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cc3724fcfc9227e39985549f805819a9",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-1a774966a81c7f8992acff178667664e",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a693313324623ee2f77617c83f46e0f9",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7dea6b5c026f8611f2bb22446ede8b84",
+      "name": "gcc-14",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-6ea1c51b45f5bb0ce9c23a29bf9d2551",
+      "name": "gnutls28",
+      "version": "3.8.9-3+deb13u4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-37e80ad27b8bdde43d95a6c39f83df91",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-31b481fd19c23de20a420e55da4bf140",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-b58bd4f0e6010e0acfbb073e13679112",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-78168fd5d93306f6969cdaae7dd3faf6",
+      "name": "krb5",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-437dd22c40f24b6095640ef193fca8e5",
+      "name": "libarchive",
+      "version": "3.7.4-4+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-68a9de95af2531141871ca1076a634ce",
+      "name": "libarchive",
+      "version": "3.7.4-4+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-f892a2af0d3b42ad05c87c3bc7756288",
+      "name": "libatomic1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a8521ba8f05010a3067d13efb280bfa5",
+      "name": "libcairo2",
+      "version": "1.18.4-1+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8341623ee4bae47746631f18ceda8c57",
+      "name": "libcrypt1",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cba3a88984ef7db800d889245eb9a6a4",
+      "name": "libdeflate0",
+      "version": "1.23-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d1eb33b03677df8f796e79f6885179a6",
+      "name": "libdeflate",
+      "version": "1.23-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7757e41348fbb4eb165d971e24aefb74",
+      "name": "libgcc-s1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c617bd100fe62292e4317284703bfb2b",
+      "name": "libgcrypt20",
+      "version": "1.11.0-7+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-fee44d165770041470063297205e8c24",
+      "name": "libgnutls30t64",
+      "version": "3.8.9-3+deb13u4",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3d585bdb930c7b1e176e687025468755",
+      "name": "libgomp1",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-3abfe06e9f889be45cf3189adc8817e7",
+      "name": "libgssapi-krb5-2",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-49745aa1bf95138ff8698380284f0136",
+      "name": "libk5crypto3",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-dd440a7444609d278216fe4be1d25aad",
+      "name": "libkrb5-3",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-397bb106588ecd545b8e8e73b6b6b138",
+      "name": "libkrb5support0",
+      "version": "1.21.3-5+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5b912ce0ed1b56f360107a869372c817",
+      "name": "libksba8",
+      "version": "1.6.7-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-699bebee287aa2113f4af375d0fc931e",
+      "name": "libksba",
+      "version": "1.6.7-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-08fd838dab5cd026d404f92c4a627721",
+      "name": "libpixman-1-0",
+      "version": "0.44.0-3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libpixman-1-0/copyright",
+        "copyrightSha256": "1b3fb5690861e15ca4fd6640fd4def4b2576617942eec04b6fcb7d8bc6c4c9da",
+        "identification": "MIT-style full text including next-paragraph condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d358cf1a9cd054891e862ce2c2f7e9d8",
+      "name": "libpython3-stdlib",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-564258ad7d9ea253b4a3ba9cde6ae9a8",
+      "name": "libpython3.13-minimal",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-74fd59fa8853bdce72ce9b4e6ae224b7",
+      "name": "libpython3.13-stdlib",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-9be9deed11fd6ba309f1b97142b6ed9f",
+      "name": "librtmp1",
+      "version": "2.4+20151223.gitfa8646d.1-2+b5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5bb59cc08e09d2d13581a4d6a603a8dd",
+      "name": "libstdc++6",
+      "version": "14.2.0-19",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-14032920ea11f59762f79848c7583b2e",
+      "name": "libtasn1-6",
+      "version": "4.20.0-2+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-1ccefcb43862015f6a1f9c3f8bb886f6",
+      "name": "libtiff6",
+      "version": "4.7.0-3+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-29e0f83d94aafd2a0bfc560d9c062baa",
+      "name": "libxau6",
+      "version": "1:1.0.11-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libxau6/copyright",
+        "copyrightSha256": "118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a",
+        "identification": "X11-style permission with name-use/advertising condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-940868e037aa1b1866a6188aaacb64e5",
+      "name": "libxau",
+      "version": "1:1.0.11-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libxau6/copyright",
+        "copyrightSha256": "118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a",
+        "identification": "X11-style permission with name-use/advertising condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-31a19af26b790556dc7518ee07f1a238",
+      "name": "libxcb-render0",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-00bfd791a8a575deda211034426a0304",
+      "name": "libxcb-shm0",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-11751c0c496a59ede5461cd74526aaea",
+      "name": "libxcb1",
+      "version": "1.17.0-2+b1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-425574f904cddf6bfda8401199d10d02",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-a29052727cd43a65b18b30ba98393fed",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8c505ebc99c864b24dcb8478d83965fb",
+      "name": "libxcb",
+      "version": "1.17.0-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-cb4eefb88ee7e7cb40918d848299286f",
+      "name": "libxcrypt",
+      "version": "1:4.4.38-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-73d335e890bf1cb5688dcd7b003618ce",
+      "name": "libxdmcp6",
+      "version": "1:1.1.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-e8d8b3cf5ae728f5f6286198b1a9db72",
+      "name": "libxdmcp",
+      "version": "1:1.1.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-265f5723506a3f18a1f767c5f92c7290",
+      "name": "libxext6",
+      "version": "2:1.3.4-1+b3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-70f6e8fa30d19c538b81c47cae4e5474",
+      "name": "libxext",
+      "version": "2:1.3.4-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-053212110c7e35d5f880d941673423a2",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-263925b31a6e94b3e0ed05ddd91f2fab",
+      "name": "libzstd",
+      "version": "1.5.7+dfsg-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-18b6cd8be80800196855e30a6c8efe12",
+      "name": "media-types",
+      "version": "13.0.0",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c9a08facea760c384c103274d8aca353",
+      "name": "pixman",
+      "version": "0.44.0-3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "manual-licence-identification; notice/source fulfilment still pending",
+      "evidence": {
+        "source": "licensing-2026-11-04/ocr-notices.tar.gz",
+        "path": "usr/share/doc/libpixman-1-0/copyright",
+        "copyrightSha256": "1b3fb5690861e15ca4fd6640fd4def4b2576617942eec04b6fcb7d8bc6c4c9da",
+        "identification": "MIT-style full text including next-paragraph condition",
+        "limitation": "Installed text from newer inspected image at same package version; not a regeneration or clearance of historical/final image"
+      }
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-e5172a0a56d80c86a45b5b6e7bef6f8d",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-0ccbe2e9190eb283112ef7c8f1cae016",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-8532cfdeb3a14ee925c37eb437595cc9",
+      "name": "python3-defaults",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7eda9c557d9a0e12b57d335a1ad128b2",
+      "name": "python3-minimal",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-38de663d557d4d604f9ccfbaefbd5196",
+      "name": "python3.13-minimal",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-5d471522b39fc767709936b86517bd71",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7234704f5c64ab3134ccda71b1bec0a4",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4f8e6a4ff6bc1a7d346bc957a9b0a5ca",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-4d998b0c9bdfc57df2a53efc25322cc3",
+      "name": "python3.13",
+      "version": "3.13.5-2+deb13u5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-28aae005decbeb3b4b13c61960970ba6",
+      "name": "python3",
+      "version": "3.13.5-1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-c1a23a50a95132dfe2b06c2c6c2117bc",
+      "name": "rtmpdump",
+      "version": "2.4+20151223.gitfa8646d.1-2",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-30d8cdea223fb749157495bc0aa10b36",
+      "name": "tiff",
+      "version": "4.7.0-3+deb13u3",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-7423b5fc4f1f4109838afc317437501d",
+      "name": "tzdata",
+      "version": "2026e-0+deb13u1",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-d92c0918fcc0158d44cb78066f2376ec",
+      "name": "bash",
+      "version": "5.2.37",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-52127b23898131807cc345159d22cf91",
+      "name": "gzip",
+      "version": "1.13",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    },
+    {
+      "imageId": "sha256:9bbbfaac63d7d7cba499691b98f007a50f6f983c789ccc3b1110db3b59846050",
+      "sbom": "image-5.spdx.json.gz",
+      "SPDXID": "SPDXRef-Package-58730bc5a5ec8e1dae3c12e1c7ee4f29",
+      "name": "python",
+      "version": "3.13.5",
+      "scannerDeclaration": "NOASSERTION",
+      "disposition": "pending; missing scanner metadata is not incompatibility",
+      "evidence": null
+    }
+  ]
+}

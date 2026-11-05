@@ -20,7 +20,7 @@ On 2026-11-03 the owner selected **FileCanopy**, chose **beta** for the first pu
 and requested GitHub issues for bug reports. External trademark, domain, package and registry
 clearance evidence has not been supplied. Name selection is not external clearance.
 
-Deployment priorities are Docker containers and **native installation inside a Proxmox helper-script
+As of 2026-11-04 Docker is the first-beta priority; native LXC is explicitly deferred until later. Historical deployment priorities were Docker containers and **native installation inside a Proxmox helper-script
 LXC** (explicitly clarified by the owner). This does not mean Docker nested in LXC. Exact supported
 versions/architectures and beta support/update expectations still require evidence and sign-off.
 No stable-release definition has been chosen. No permission to publish, push, tag, announce,
@@ -44,7 +44,7 @@ submit an upstream helper script, or contact maintainers is inferred.
    content, share/revoke, Confidential lock, upload/download, restart, backup/restore, all AI off;
    record operator, platform, image identities, steps and result. Automation is supporting evidence,
    not a substitute for a manual demo.
-8. On a real disposable Proxmox host, validate the **native** LXC path in
+8. Deferred beyond first beta by owner decision 2026-11-04: on a real disposable Proxmox host, validate the **native** LXC path in
    [the platform plan](../release/proxmox-lxc.md). No Proxmox host is connected in this session.
 
 Full e2e and real single-node Swarm remain existing CI gates for the final candidate. Historical
@@ -60,6 +60,21 @@ The Pages workflow is unchanged; no marketing-site edits or release triggers are
 
 Final evidence and blockers: [release README](../release/README.md),
 [dependency audit](../release/dependency-audit.md), [known issues](../release/known-issues.md).
+
+## Licensing/policy follow-up — 2026-11-04
+
+Acceptance for this subtask: preserve the original dirty checkout; investigate
+current main in a separate worktree; retain exact six-image/native/source evidence;
+distinguish shipped and build-only components; evaluate server alternatives without
+replacement; package concrete sources/notices and verify their delivery; finish
+policy drafts and exact adoption decisions without promoting them.
+
+[Finding dispositions and Valkey evaluation](../release/licensing-review-2026-11-04.md),
+[remaining source/notice queue](../release/source-delivery.md) and
+[policy approval package](../release/policy-approval.md) record this work.
+M24 remains in progress: native/vendor/OS sources and unknowns, font review,
+Redis decision, name/platform/manual/final-candidate gates and policy adoption
+remain unresolved. No M25 or native LXC implementation is included.
 
 ## Independent-review repair acceptance
 

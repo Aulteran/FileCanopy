@@ -1,3 +1,5 @@
+> Owner decision 2026-11-04: Docker is the first-beta priority. Native LXC is deferred until later; this is a future validation plan, not a first-beta gate or implemented support.
+
 # Native Proxmox helper-script LXC — release validation plan
 
 **Owner priority, not yet implemented or supported.** On 2026-11-03 the owner clarified native

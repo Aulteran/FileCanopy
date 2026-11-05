@@ -1,5 +1,10 @@
 # Dependency register — artifact declarations, not compatibility clearance
 
+Current scope corrections and native evidence: [2026-11-04 review](licensing-review-2026-11-04.md).
+In particular, optional canvas lock entries below are Node/build closure, not
+native binaries distributed by the final browser/nginx image. The historical
+application inventory is not a statement that every listed package ships to a browser.
+
 Inspected 2026-11-03. Python image: `sha256:44299f70c8b88b2a4894d57a024051d3935feac6a76ec37db4c24a15782d12c5` (linux/amd64).
 
 Every Python requirement matched the installed version. Sources below identify upstream versions; the evidence actually read is installed METADATA/licence text and local lockfiles, retained in evidence/. Registry pages were not individually fetched. Build/test dependencies are separately labelled. Optional npm platform packages are included even when absent on this host. Native bundled and OS components require the separate audit review.
