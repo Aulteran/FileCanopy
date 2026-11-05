@@ -1,7 +1,7 @@
 # MF — Branch model, CI promotion and registry publication
 
-**Status:** Not started. Planning only, added 2026-11-05 at the owner's request. Nothing is created,
-configured, pushed or published by this document. Publication still requires a separate explicit owner instruction.
+**Status:** Preparation in progress (2026-11-05, branch `mf-branch-promotion`). Added as planning at the owner's request. The
+prepared workflows and scripts are not run against GitHub or GHCR; no branch, ruleset, environment or publication exists yet. Publication still requires a separate explicit owner instruction.
 
 **Dependencies:** M22 (packaging, done) and M24 (release readiness cleared). M25 is independent.
 M22 built the Dockerfiles; M24 only prepares artifacts locally (`release-prepare` has no package-write permission).
@@ -50,3 +50,9 @@ Stable remains undefined in M24; MF cannot publish to `release` until the owner 
   recorded from a dry-run or an owner-authorised real run.
 - Published images have digests, SBOMs and provenance; an anonymous pull plus install test passes.
 - No secret in logs; no `latest` from beta; no publish on PR events.
+
+## Prep status (2026-11-05)
+
+- Done in the prep branch: `ci.yml` push checks also cover `dev`, `beta` and `release`; `publish.yml` (push to `beta` or `release` only, gated by the repository variable `MF_PUBLISH_ENABLED`, environment named after the branch, `GITHUB_TOKEN` as the only secret, buildx SBOM and provenance, beta never `latest`, release GitHub Release after images); `scripts/anonymous-pull-test.mjs` (pull by digest with an empty Docker config); tests in `tests/unit/api/test_mf_workflows.py` and `tests/unit/release-anonymous-pull.test.mjs`.
+- Owner setup still needed before any publish: create environments `beta` and `release` with required reviewers, set `MF_PUBLISH_ENABLED`, define the stable version, decide on arm64 (the workflow builds `linux/amd64,linux/arm64`, which no run has yet exercised).
+- Not done: branch rename, `dev`/`beta` creation, default branch change, rulesets, dry-run dispatch evidence, anonymous pull against GHCR, install test against the published images, independent review of workflow permissions.

@@ -1,0 +1,214 @@
+# Publishes container images to GHCR (MF). Runs only for pushes to the `beta` and `release`
+# branches, and only once the owner sets the repository variable MF_PUBLISH_ENABLED to "true".
+# A manual dispatch from beta or release is a dry run: it builds every image without pushing.
+#
+# - Each publishing job runs in an environment named after the branch (`beta` or `release`).
+#   Configure required reviewers on those environments in GitHub before enabling publication.
+#   An environment is never created implicitly for any other ref: the job `if` limits the ref.
+# - Only GITHUB_TOKEN is used. No other secret is referenced.
+# - Images carry SBOM and provenance attestations from buildx. Each image is also tagged with its
+#   full commit as `sha-<commit>`, which is never moved.
+# - beta: `beta`, `beta-<short sha>`. Never `latest`.
+# - release: `v<package.json version>` and `latest`, plus a GitHub Release for the same commit.
+name: publish
+
+on:
+  push:
+    branches: [beta, release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: >-
+      github.repository == 'Aulteran/FileCanopy' &&
+      (github.ref_name == 'beta' || github.ref_name == 'release') &&
+      ((github.event_name == 'push' && vars.MF_PUBLISH_ENABLED == 'true') ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      short_sha: ${{ steps.plan.outputs.short_sha }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: plan
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            dry=true
+          else
+            dry=false
+          fi
+          version=$(node -p "require('./package.json').version")
+          if [ "$REF_NAME" = "release" ]; then
+            if ! printf '%s' "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+              echo "package.json version must be a semantic version for release, found: $version" >&2
+              exit 1
+            fi
+            if [ "$version" = "0.0.0" ]; then
+              echo "release refuses the placeholder version 0.0.0" >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "version=$version"
+            echo "short_sha=${SHA:0:12}"
+            echo "dry_run=$dry"
+          } >> "$GITHUB_OUTPUT"
+
+  images:
+    needs: plan
+    # Environment protection (owner-configured required reviewers) applies to every publish.
+    environment: ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: postgres
+            file: deploy/postgres/Dockerfile
+            context: deploy/postgres
+            target: ""
+          - name: api
+            file: apps/api/Dockerfile
+            context: .
+            target: runtime
+          - name: web
+            file: apps/web/Dockerfile
+            context: .
+            target: ""
+          - name: converter
+            file: converter/Dockerfile
+            context: converter
+            target: ""
+          - name: ocr
+            file: ocr/Dockerfile
+            context: ocr
+            target: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: needs.plan.outputs.dry_run != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute tags
+        id: tags
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          SERVICE: ${{ matrix.name }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHORT_SHA: ${{ needs.plan.outputs.short_sha }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/aulteran/filecanopy-${SERVICE}"
+          if [ "$REF_NAME" = "beta" ]; then
+            tags="${image}:beta
+          ${image}:beta-${SHORT_SHA}
+          ${image}:sha-${SHA}"
+          else
+            tags="${image}:v${VERSION}
+          ${image}:latest
+          ${image}:sha-${SHA}"
+          fi
+          {
+            echo "tags<<TAGS_EOF"
+            printf '%s\n' "$tags"
+            echo "TAGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.plan.outputs.dry_run != 'true' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Aulteran/FileCanopy
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          provenance: mode=max
+          sbom: true
+          no-cache: true
+      - name: Record digest
+        env:
+          SERVICE: ${{ matrix.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          DRY_RUN: ${{ needs.plan.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: ${SERVICE} built, not pushed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "${SERVICE}: ${DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+            mkdir -p "$RUNNER_TEMP/digests"
+            printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/digests/${SERVICE}.digest"
+          fi
+      - name: Upload digest
+        if: needs.plan.outputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.name }}
+          path: ${{ runner.temp }}/digests/${{ matrix.name }}.digest
+          if-no-files-found: error
+
+  github-release:
+    needs: [plan, images]
+    if: github.ref_name == 'release' && needs.plan.outputs.dry_run != 'true'
+    environment: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "Container images for FileCanopy v${VERSION} (commit ${SHA})."
+            echo
+            echo "Image digests:"
+            for f in digests/*.digest; do
+              service=$(basename "$f" .digest)
+              echo "- filecanopy-${service}: $(cat "$f")"
+            done
+          } > "$notes"
+          gh release create "v${VERSION}" --target "$SHA" --title "FileCanopy v${VERSION}" --notes-file "$notes"
