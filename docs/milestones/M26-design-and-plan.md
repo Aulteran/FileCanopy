@@ -20,8 +20,11 @@ Stable remains undefined in M24; M26 cannot publish to `release` until the owner
 
 ## Plan items (to be approved before implementation)
 
-1. **Default branch:** recommend making `dev` the GitHub default so PRs target it. `main` is retired or kept as a mirror of
-   `release`; the owner decides. Migration renames/retargets open PRs and updates docs, site workflow and links.
+1. **Default branch and migration (owner decisions 2026-11-05):** `dev` becomes the GitHub default branch, and `main` is renamed to `release`.
+   GitHub supports branch renames (Settings → Branches, or `gh api repos/{owner}/{repo}/branches/main/rename`); it redirects web URLs and
+   retargets open PRs, but local clones need `git branch -m main release` plus upstream reset, and CI/workflow filters, rulesets and
+   hard-coded links must be updated. Order: rename `main` to `release`, create `dev` and `beta` from it, set `dev` as default, update
+   CI triggers, rulesets and docs. Because `release` then holds today's history, no release is published until M24 clears. Plan only; not done.
 2. **Rulesets** (owner enables in GitHub settings): `dev` requires PR plus all CI jobs; `beta` and `release` require PR, CI and
    owner review, block force-push and deletion; `release` allows only PRs from `beta` or `dev`; publish workflows run in a protected
    GitHub Environment with required reviewer.

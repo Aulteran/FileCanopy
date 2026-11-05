@@ -15,6 +15,8 @@ licensing and other release gates remain independent of policy approval.
 | P3 — policy text | Adopt all three linked drafts, including GitHub issues for ordinary bugs, synthetic/sanitized reports, AGPL contributions with preserved third-party terms, no new CLA/DCO, and an Unreleased changelog with no invented beta number/date. | Identify exact wording changes. No bounty, safe-harbour, audit certification or response-time promise is introduced. |
 | P4 — source/Redis follow-up | Approve the reviewed separate Valkey replacement recommendation or request specialist review of retaining Redis 7.4.12. Choose source-download ownership/location before publication. | This is dependency/publication preparation, not approval to replace Redis now, publish images or waive native/font source review. See [licensing report](licensing-review-2026-11-04.md) and [source queue](source-delivery.md). |
 
+**Owner decisions 2026-11-05 (via thread):** P4 — keep Redis 7.4.12, pending the specialist licence review above; Valkey remains a drop-in option later (probe passed, see licensing report) and this does not waive the Redis licence caveat or source-offer work. P1 — owner approved enabling GitHub private vulnerability reporting; enablement was not yet performed (blocked by tool permission) and verification and SECURITY promotion remain pending.
+
 P1–P3 form the policy adoption decision. P4 remains a separate licensing/release
 decision. No reply is inferred from elapsed time or from approval of PR #32.
 
