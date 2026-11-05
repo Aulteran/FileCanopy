@@ -318,13 +318,13 @@ def update_job(
     return _out(db, job, **extra)
 
 
-@router.delete("/{job_id}", status_code=204)
+@router.delete("/{job_id}")
 def delete_job(
     job_id: uuid.UUID,
     request: Request,
     admin: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> None:
+) -> dict[str, str]:
     """Only a job without stored backups can be removed: its archives and (remote) objects are
     never orphaned silently. Disable it instead, or let retention age its history out first."""
     job = _get(db, job_id)
@@ -349,6 +349,7 @@ def delete_job(
     )
     db.delete(job)
     db.commit()
+    return {"status": "deleted"}
 
 
 @router.post("/{job_id}/test", response_model=TestOut)

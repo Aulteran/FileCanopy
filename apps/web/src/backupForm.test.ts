@@ -4,7 +4,10 @@ import {
   bytesToGb,
   gbToBytes,
   hoursToMinutes,
+  jobBody,
+  jobWarningText,
   minutesToHours,
+  type JobForm,
   secretOf,
   warningText,
   wholeNumber,
@@ -68,5 +71,102 @@ describe("backup messages", () => {
     expect(backupError("KEY_CHANGED")).toMatch(/changed by someone/);
     expect(backupError("NO_PENDING_KEY")).toMatch(/not the key/);
     expect(backupError("NOPE")).toBeNull();
+  });
+});
+
+const FORM: JobForm = {
+  name: " Nightly ",
+  enabled: true,
+  scope: "all",
+  backupType: "chain",
+  chainLength: "7",
+  hours: "24",
+  keep: "2",
+  limitGb: "",
+  encrypt: true,
+  allowConfidential: true,
+  ackUnencrypted: true,
+  ackConfidential: true,
+  ackRemote: true,
+  destType: "local",
+  host: "",
+  port: "22",
+  username: "",
+  path: "",
+  hostKey: "",
+  bucket: "",
+  region: "",
+  endpoint: "",
+  password: "",
+  privateKey: "",
+  accessKeyId: "",
+  secretAccessKey: "",
+};
+
+describe("backup job form", () => {
+  it("builds the body and drops acknowledgements that do not apply", () => {
+    const body = jobBody(FORM);
+    expect(typeof body).toBe("object");
+    if (typeof body === "string") return;
+    expect(body.name).toBe("Nightly");
+    expect(body.interval_minutes).toBe(1440);
+    expect(body.encrypt).toBe(true);
+    // encrypted: nothing about unencrypted handling is sent as set
+    expect(body.allow_confidential).toBe(false);
+    expect(body.acknowledge_unencrypted).toBe(false);
+    expect(body.acknowledge_remote_unencrypted).toBe(false);
+    expect(body.credentials).toBeNull();
+  });
+  it("sends unencrypted acknowledgements only when they are needed", () => {
+    const body = jobBody({
+      ...FORM,
+      encrypt: false,
+      destType: "s3",
+      bucket: "my-bucket",
+      accessKeyId: "AKIAEXAMPLE",
+      secretAccessKey: "example-secret",
+    });
+    if (typeof body === "string") throw new Error(body);
+    expect(body.acknowledge_unencrypted).toBe(true);
+    expect(body.acknowledge_confidential).toBe(true);
+    expect(body.acknowledge_remote_unencrypted).toBe(true);
+    expect(body.credentials).toEqual({
+      access_key_id: "AKIAEXAMPLE",
+      secret_access_key: "example-secret",
+    });
+    const local = jobBody({
+      ...FORM,
+      encrypt: false,
+      allowConfidential: false,
+    });
+    if (typeof local === "string") throw new Error(local);
+    expect(local.acknowledge_confidential).toBe(false);
+    expect(local.acknowledge_remote_unencrypted).toBe(false);
+  });
+  it("keeps stored credentials when none are typed", () => {
+    const body = jobBody({
+      ...FORM,
+      destType: "sftp",
+      host: "backup.example.test",
+      username: "fc",
+    });
+    if (typeof body === "string") throw new Error(body);
+    expect(body.credentials).toBeNull();
+    expect(body.destination).toMatchObject({
+      host: "backup.example.test",
+      port: 22,
+    });
+  });
+  it("rejects bad input with a sentence", () => {
+    expect(jobBody({ ...FORM, name: " " })).toMatch(/name/i);
+    expect(jobBody({ ...FORM, chainLength: "0" })).toMatch(/numbers/i);
+    expect(jobBody({ ...FORM, destType: "sftp", port: "x" })).toMatch(/port/i);
+  });
+  it("explains the job warnings in plain words", () => {
+    expect(jobWarningText("confidential_excluded")).toMatch(/left out/i);
+    expect(jobWarningText("nope")).toBe("Check this job.");
+    expect(backupError("SECRETS_KEY_MISSING")).toMatch(
+      /FILECANOPY_SECRETS_KEY/,
+    );
   });
 });

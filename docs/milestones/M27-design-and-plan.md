@@ -1,6 +1,8 @@
-# M27 — Backup jobs, destinations and backup types (proposed)
+# M27 — Backup jobs, destinations and backup types
 
-**Status:** Proposed, planning only. Requested by the owner on 2026-11-05 while M25 was in progress.
+**Status (2026-11-05):** Implemented on `m27-backup-jobs` with local, SFTP and S3 destinations; decisions and gaps in [ADR-021](../adr/ADR-021-backup-jobs-and-destinations.md). FTP/FTPS is not built. Independent security review and CI pending. The text below is the original proposal.
+
+**Original status:** Proposed, planning only. Requested by the owner on 2026-11-05 while M25 was in progress.
 Nothing here is built or scheduled; it does not change M25, which keeps the current single global
 backup settings and adds only per-root keys (ADR-016).
 
@@ -36,6 +38,8 @@ backup settings and adds only per-root keys (ADR-016).
 | Tests (when built) | Job validation and migration of the global settings; per-job encryption with and without M25 keys; both backup types including the `full_every` boundary; Confidential handling for unencrypted jobs; each destination type against a local test server or emulator (SFTP server, S3-compatible server); credential redaction in logs and audit; interrupted-upload recovery; real PostgreSQL Compose drill. No live cloud calls in tests. |
 
 ## Open questions for the owner
+
+Answered provisionally in ADR-021 (owner may veto): 1. Confidential is left out of unencrypted jobs unless explicitly allowed with its own acknowledgement. 2. SFTP and S3-compatible first; FTP/FTPS later. 3. Credentials are stored by the app, sealed under `FILECANOPY_SECRETS_KEY`. 4. One destination per job.
 
 1. May Confidential content be written to an unencrypted job at all, or only with the owner's consent?
 2. Which remote types must the first version support (suggested: SFTP and S3-compatible first; plain FTP last or not at all)?

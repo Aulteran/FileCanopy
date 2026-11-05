@@ -584,7 +584,7 @@ def test_deleting_a_job_with_stored_backups_is_refused(fx: Fx) -> None:
     r = c.delete(f"{JOBS}/{job}", headers=h)
     assert (r.status_code, code(r)) == (409, "JOB_HAS_BACKUPS")
     empty = make_job(fx, name="Spare")
-    assert c.delete(f"{JOBS}/{empty}", headers=h).status_code == 204
+    assert c.delete(f"{JOBS}/{empty}", headers=h).status_code == 200
 
 
 def test_test_endpoint_returns_the_host_key_to_pin_without_secrets(
