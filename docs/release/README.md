@@ -5,11 +5,13 @@ GitHub Release, announcement or helper-script submission has been made. M24 is i
 
 The owner has approved **FileCanopy** as the name, **beta** as the first release designation and
 GitHub issues for ordinary bug reports. External trademark/domain/namespace clearance evidence is
-still absent. Docker and **native Proxmox helper-script LXC** are owner deployment priorities;
+still absent. Docker is the first-beta priority (owner decision 2026-11-04); native Proxmox LXC is deferred until later;
 LXC packaging and real-host validation remain unfinished. Neither ARM64, multi-node Swarm nor a
 stable-support window is implicitly promised.
 
 ## Review packet
+
+- [Docker-first bundle and preliminary exact-candidate validation, 2026-11-04](docker-beta-validation-2026-11-04.md): current local evidence and integration gates; native LXC is deferred beyond first beta. Historical results below remain historical.
 
 - [Acceptance plan and evidence requirements](../milestones/M24-design-and-plan.md)
 - [Dependency audit and unresolved findings](dependency-audit.md), [application register](dependency-register.md),
@@ -207,9 +209,9 @@ output. Use an empty install and synthetic documents; retain no real credentials
 3. Approve the three governance drafts, select/configure/test a private security reporting route,
    and promote approved files to repository-root policies. Set beta maintenance/upgrade expectations
    and an evidence-backed OS/architecture/version matrix. Stable remains undefined.
-4. Implement and validate native LXC packaging on a real Proxmox host before claiming that target.
+4. Native LXC is deferred beyond the Docker-first beta by owner decision 2026-11-04. Implement and validate native LXC packaging on a real Proxmox host before claiming that target.
    Upstream helper inclusion needs its own review/submission; do not imply it already exists. If
-   LXC is to follow the first beta, the owner must explicitly approve that scope/deferment.
+   LXC is to follow the first beta, that scope/deferment is now explicitly owner-approved.
 5. Freeze remaining build inputs, commit/review the local changes, build all images from that clean
    commit, retain IDs and complete image SBOMs, and compare isolated rebuilds to close reproducibility.
    Verify an accessible source offer corresponds to the exact running app and native dependencies;

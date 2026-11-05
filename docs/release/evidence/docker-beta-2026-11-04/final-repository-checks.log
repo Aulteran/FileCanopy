@@ -1,0 +1,62 @@
+
+> filecanopy@0.0.0 check
+> npm run lint && npm run format:check && npm run test && npm run secret-scan && npm run docs:links
+
+
+> filecanopy@0.0.0 lint
+> eslint .
+
+
+> filecanopy@0.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> filecanopy@0.0.0 test
+> node --test "tests/unit/**/*.test.mjs"
+
+✔ standalone bundle keeps maintained security settings without build or checkout paths (1.5512ms)
+✔ bundle is complete, has no credentials and refuses existing output (6.9671ms)
+✔ release identity is deterministic, covers optional images, and cannot publish (1.2289ms)
+✔ release plans reject ambiguous identities and platform defaults (0.45ms)
+Validated 6 image SBOMs against the official SPDX 2.3 schema, image inventory and SHA-256 records.
+✔ commit snapshot excludes ignored/untracked bytes and isolates concurrent checkout mutations (371.5807ms)
+✔ snapshot preserves committed bytes despite local info/attributes (318.6333ms)
+✔ snapshot preserves committed bytes despite external core.attributesFile (344.0779ms)
+✔ snapshot preserves committed bytes despite committed archive attributes (324.0933ms)
+✔ snapshot still rejects symlink entries before building (401.6865ms)
+✔ snapshot still rejects submodule entries before building (395.8309ms)
+✔ genuine SBOM subjects cover the exact six inventory images (72.617ms)
+✔ SBOM validation rejects swapped subject and removes stale success (23.2077ms)
+✔ SBOM validation rejects duplicate identities and removes stale success (16.2883ms)
+✔ SBOM validation rejects duplicate files and removes stale success (15.0125ms)
+✔ SBOM validation rejects wrong platform and removes stale success (10.4247ms)
+✔ SBOM validation rejects missing image and removes stale success (33.3154ms)
+✔ candidate artifact has fresh subjects and no historical scanner success; existing output is refused (5.1352ms)
+✔ repository contains the planned module-boundary skeleton (1.7013ms)
+warning: in the working copy of 'gone.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'kept.txt', LF will be replaced by CRLF the next time Git touches it
+✔ flags an Anthropic-style key (1.5234ms)
+✔ flags an AWS access key id (0.1847ms)
+✔ flags a private key block header (0.075ms)
+✔ passes ordinary text and placeholder configuration (0.0563ms)
+✔ skips tracked files that were deleted from the working tree (145.6119ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2451.0266
+
+> filecanopy@0.0.0 secret-scan
+> node scripts/secret-scan.mjs
+
+secret-scan: no high-confidence secret patterns found
+
+> filecanopy@0.0.0 docs:links
+> node scripts/docs-links.mjs
+
+docs-links: 126 local destinations checked in 17 release/deployment Markdown files

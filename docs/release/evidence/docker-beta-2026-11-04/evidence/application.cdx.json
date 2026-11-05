@@ -1,0 +1,985 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-04T07:07:12.342Z",
+    "properties": [
+      {
+        "name": "scope",
+        "value": "Application packages; not a complete container SBOM or legal opinion"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "alembic",
+      "version": "1.20.1",
+      "purl": "pkg:pypi/alembic@1.20.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "purl": "pkg:pypi/annotated-doc@0.0.5",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "purl": "pkg:pypi/annotated-types@0.8.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "anyio",
+      "version": "4.15.1",
+      "purl": "pkg:pypi/anyio@4.15.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "argon2-cffi",
+      "version": "25.1.0",
+      "purl": "pkg:pypi/argon2-cffi@25.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "argon2-cffi-bindings",
+      "version": "25.1.0",
+      "purl": "pkg:pypi/argon2-cffi-bindings@25.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "certifi",
+      "version": "2026.10.23",
+      "purl": "pkg:pypi/certifi@2026.10.23",
+      "licenses": [
+        {
+          "license": {
+            "name": "MPL-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "cffi",
+      "version": "2.1.1",
+      "purl": "pkg:pypi/cffi@2.1.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT-0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "click",
+      "version": "8.5.0",
+      "purl": "pkg:pypi/click@8.5.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "cryptography",
+      "version": "50.0.2",
+      "purl": "pkg:pypi/cryptography@50.0.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0 OR BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fastapi",
+      "version": "0.162.0",
+      "purl": "pkg:pypi/fastapi@0.162.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "h11",
+      "version": "0.16.0",
+      "purl": "pkg:pypi/h11@0.16.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "httpcore",
+      "version": "1.0.9",
+      "purl": "pkg:pypi/httpcore@1.0.9",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "httpx",
+      "version": "0.28.1",
+      "purl": "pkg:pypi/httpx@0.28.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "idna",
+      "version": "3.20",
+      "purl": "pkg:pypi/idna@3.20",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "Mako",
+      "version": "1.4.3",
+      "purl": "pkg:pypi/mako@1.4.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "MarkupSafe",
+      "version": "3.0.4",
+      "purl": "pkg:pypi/markupsafe@3.0.4",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "opentelemetry-api",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-api@1.45.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pillow",
+      "version": "13.0.0",
+      "purl": "pkg:pypi/pillow@13.0.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT-CMU"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pip",
+      "version": "26.2.2",
+      "purl": "pkg:pypi/pip@26.2.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "psycopg",
+      "version": "3.3.6",
+      "purl": "pkg:pypi/psycopg@3.3.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "LGPL-3.0-only"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "psycopg-binary",
+      "version": "3.3.6",
+      "purl": "pkg:pypi/psycopg-binary@3.3.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "LGPL-3.0-only"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pycparser",
+      "version": "3.12",
+      "purl": "pkg:pypi/pycparser@3.12",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pydantic",
+      "version": "2.14.2",
+      "purl": "pkg:pypi/pydantic@2.14.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pydantic-settings",
+      "version": "2.16.2",
+      "purl": "pkg:pypi/pydantic-settings@2.16.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pydantic_core",
+      "version": "2.50.2",
+      "purl": "pkg:pypi/pydantic-core@2.50.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "PyJWT",
+      "version": "2.10.1",
+      "purl": "pkg:pypi/pyjwt@2.10.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pypdf",
+      "version": "6.21.4",
+      "purl": "pkg:pypi/pypdf@6.21.4",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "purl": "pkg:pypi/python-dotenv@1.2.4",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "redis",
+      "version": "8.1.0",
+      "purl": "pkg:pypi/redis@8.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "SQLAlchemy",
+      "version": "2.1.6",
+      "purl": "pkg:pypi/sqlalchemy@2.1.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "starlette",
+      "version": "1.10.0",
+      "purl": "pkg:pypi/starlette@1.10.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "purl": "pkg:pypi/typing-inspection@0.4.4",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "PSF-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "uvicorn",
+      "version": "0.54.0",
+      "purl": "pkg:pypi/uvicorn@0.54.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "Installed dist-info METADATA and licence files in sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-android-arm64",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-android-arm64@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-android-arm64"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-darwin-arm64",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-darwin-arm64@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-darwin-arm64"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-darwin-x64",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-darwin-x64@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-darwin-x64"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm-gnueabihf@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-arm-gnueabihf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-arm64-gnu",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm64-gnu@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-arm64-gnu"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-arm64-musl",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm64-musl@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-arm64-musl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-riscv64-gnu",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-riscv64-gnu@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-riscv64-gnu"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-x64-gnu@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-x64-gnu"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-linux-x64-musl",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-x64-musl@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-linux-x64-musl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-win32-arm64-msvc",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-win32-arm64-msvc@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-win32-arm64-msvc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "version": "1.1.0",
+      "purl": "pkg:npm/%40napi-rs/canvas-win32-x64-msvc@1.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1@napi-rs~1canvas-win32-x64-msvc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pdfjs-dist",
+      "version": "6.4.299",
+      "purl": "pkg:npm/pdfjs-dist@6.4.299",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1pdfjs-dist"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react@19.3.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1react"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react-dom@19.3.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1react-dom"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "purl": "pkg:npm/scheduler@0.28.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "evidence",
+          "value": "apps/web/package-lock.json#/packages/node_modules~1scheduler"
+        }
+      ]
+    }
+  ]
+}

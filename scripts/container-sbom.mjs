@@ -9,10 +9,15 @@ import {
   rmdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 
-const evidence = new URL("../docs/release/evidence/", import.meta.url);
+const evidence = process.env.FILECANOPY_RELEASE_OUTPUT
+  ? pathToFileURL(
+      join(resolve(process.env.FILECANOPY_RELEASE_OUTPUT), "evidence") + "/",
+    )
+  : new URL("../docs/release/evidence/", import.meta.url);
 const inventory = JSON.parse(
   readFileSync(new URL("container-inventory.json", evidence), "utf8"),
 );

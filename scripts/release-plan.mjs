@@ -1,6 +1,8 @@
 // Local preparation only: no push, registry login, Git tag or public release operation.
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { withCommitSnapshot } from "./release-snapshot.mjs";
 
@@ -77,12 +79,35 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     platform: options.platform,
   });
   const dirty = git("status", "--porcelain", "--untracked-files=normal");
+  let buildEnvironment;
+  let buildInputs;
   if (options.build) {
     if (dirty)
       throw new Error(
         "Commit the reviewed changes first. Refusing to attach a commit tag to a dirty source tree.",
       );
     withCommitSnapshot(root, plan.revision, (snapshot) => {
+      buildEnvironment = Object.fromEntries(
+        [
+          ["docker", ["version", "--format", "{{json .}}"]],
+          ["buildx", ["buildx", "version"]],
+        ].map(([name, command]) => [
+          name,
+          execFileSync("docker", command, { encoding: "utf8" }).trim(),
+        ]),
+      );
+      const inputs = [
+        ...plan.images.map((i) => i.args[i.args.indexOf("-f") + 1]),
+        "apps/api/requirements.txt",
+        "apps/web/package-lock.json",
+        ".dockerignore",
+      ];
+      buildInputs = inputs.map((path) => ({
+        path,
+        sha256: createHash("sha256")
+          .update(readFileSync(join(snapshot, path)))
+          .digest("hex"),
+      }));
       for (const item of plan.images) {
         // Never silently replace an existing local tag: content cannot be assumed identical.
         let exists = false;
@@ -121,6 +146,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     contextSource:
       "raw Git tree/blob objects at the recorded commit; attributes, filters and live checkout excluded; blob hashes verified",
     built: !!options.build,
+    buildEnvironment,
+    buildInputs,
     limits:
       "Deterministic commit tags and recorded inputs; byte-identical rebuilds are not established. No publication performed.",
   };

@@ -16,9 +16,11 @@ FileCanopy is a self-hosted file manager for your documents. You run it yourself
 - **Document tools.** Sharing, Private/Confidential folders, previews, local text search, optional OCR and verified email intake are implemented. PDF split proposals preserve the source; collections reference files without moving them.
 - **No AI required.** Basic file work runs without AI. Optional providers, validated organisation proposals, local semantic search and single-turn document chat are implemented. MCP is optional, read-only and off by default. See [feature guides](docs/guides/ai.md).
 
+The prepared [standalone Docker bundle](docs/guides/docker-install.md) will let users install with two downloads and `docker compose up -d` once images are published and anonymous pulls pass acceptance. Today the source route below remains available.
+
 ## Quick start (Docker Compose)
 
-You need Docker with Docker Compose v2 (the release override requires 2.24+). The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the available deployment path. Native Proxmox helper-script LXC installation is an owner priority, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
+You need Docker with Docker Compose v2 (the release override requires 2.24+). The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the first-beta priority (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
 
 ```bash
 git clone https://github.com/Aulteran/FileCanopy.git

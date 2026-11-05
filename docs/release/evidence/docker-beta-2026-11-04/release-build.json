@@ -1,0 +1,173 @@
+{
+  "revision": "ab3f4815971894a8bc0193e210cec5e1174d953d",
+  "sourceDateEpoch": "1793772590",
+  "prefix": "local/filecanopy-docker-beta",
+  "platform": "linux/amd64",
+  "version": "sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+  "images": [
+    {
+      "service": "postgres",
+      "tag": "local/filecanopy-docker-beta-postgres:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+      "args": [
+        "buildx",
+        "build",
+        "--load",
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--build-arg",
+        "SOURCE_DATE_EPOCH=1793772590",
+        "--label",
+        "org.opencontainers.image.revision=ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "--label",
+        "org.opencontainers.image.licenses=AGPL-3.0-only",
+        "-f",
+        "deploy/postgres/Dockerfile",
+        "-t",
+        "local/filecanopy-docker-beta-postgres:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "deploy/postgres"
+      ],
+      "imageId": "sha256:4ae39d57cb88a620ca1e8e812afb5fa68fd367c999896b12125bf941d9608c96"
+    },
+    {
+      "service": "api",
+      "tag": "local/filecanopy-docker-beta-api:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+      "args": [
+        "buildx",
+        "build",
+        "--load",
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--build-arg",
+        "SOURCE_DATE_EPOCH=1793772590",
+        "--label",
+        "org.opencontainers.image.revision=ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "--label",
+        "org.opencontainers.image.licenses=AGPL-3.0-only",
+        "-f",
+        "apps/api/Dockerfile",
+        "--target",
+        "runtime",
+        "-t",
+        "local/filecanopy-docker-beta-api:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "."
+      ],
+      "imageId": "sha256:0a32cece4470b20c7d430ec032b2bb41861b758f61879b009843a53c5f36a1f2"
+    },
+    {
+      "service": "web",
+      "tag": "local/filecanopy-docker-beta-web:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+      "args": [
+        "buildx",
+        "build",
+        "--load",
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--build-arg",
+        "SOURCE_DATE_EPOCH=1793772590",
+        "--label",
+        "org.opencontainers.image.revision=ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "--label",
+        "org.opencontainers.image.licenses=AGPL-3.0-only",
+        "-f",
+        "apps/web/Dockerfile",
+        "-t",
+        "local/filecanopy-docker-beta-web:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "."
+      ],
+      "imageId": "sha256:93033b510af9014a1c40927d5e1e0a111788487692f260b1fca16527eb57ec38"
+    },
+    {
+      "service": "converter",
+      "tag": "local/filecanopy-docker-beta-converter:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+      "args": [
+        "buildx",
+        "build",
+        "--load",
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--build-arg",
+        "SOURCE_DATE_EPOCH=1793772590",
+        "--label",
+        "org.opencontainers.image.revision=ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "--label",
+        "org.opencontainers.image.licenses=AGPL-3.0-only",
+        "-f",
+        "converter/Dockerfile",
+        "-t",
+        "local/filecanopy-docker-beta-converter:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "converter"
+      ],
+      "imageId": "sha256:a2884e44f4c81e6249061b35b0d0d62d0ea8fef564a97fc460d0aff84130de43"
+    },
+    {
+      "service": "ocr",
+      "tag": "local/filecanopy-docker-beta-ocr:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+      "args": [
+        "buildx",
+        "build",
+        "--load",
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--build-arg",
+        "SOURCE_DATE_EPOCH=1793772590",
+        "--label",
+        "org.opencontainers.image.revision=ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "--label",
+        "org.opencontainers.image.licenses=AGPL-3.0-only",
+        "-f",
+        "ocr/Dockerfile",
+        "-t",
+        "local/filecanopy-docker-beta-ocr:sha-ab3f4815971894a8bc0193e210cec5e1174d953d",
+        "ocr"
+      ],
+      "imageId": "sha256:2ab147fef02372d362a91dce75c1002eac13be559b8d2d3cb79d2adb88fb3be0"
+    }
+  ],
+  "sourceClean": true,
+  "contextSource": "raw Git tree/blob objects at the recorded commit; attributes, filters and live checkout excluded; blob hashes verified",
+  "built": true,
+  "buildEnvironment": {
+    "docker": "{\"Client\":{\"Version\":\"29.9.2\",\"ApiVersion\":\"1.56\",\"DefaultAPIVersion\":\"1.56\",\"GitCommit\":\"a82e528\",\"GoVersion\":\"go1.26.10\",\"Os\":\"windows\",\"Arch\":\"amd64\",\"BuildTime\":\"Tue Oct 20 19:44:07 2026\",\"Context\":\"desktop-linux\"},\"Server\":{\"Platform\":{\"Name\":\"Docker Desktop 4.97.0 (244584)\"},\"Version\":\"29.9.2\",\"ApiVersion\":\"1.56\",\"MinAPIVersion\":\"1.40\",\"Os\":\"linux\",\"Arch\":\"amd64\",\"Components\":[{\"Name\":\"Engine\",\"Version\":\"29.9.2\",\"Details\":{\"ApiVersion\":\"1.56\",\"Arch\":\"amd64\",\"BuildTime\":\"Tue Oct 20 18:45:02 2026\",\"Experimental\":\"false\",\"GitCommit\":\"0367cbe\",\"GoVersion\":\"go1.26.10\",\"KernelVersion\":\"6.18.54.1-microsoft-standard-WSL2\",\"MinAPIVersion\":\"1.40\",\"Module\":\"github.com/moby/moby/v2\",\"ModuleVersion\":\"v2.0.0+unknown\",\"Os\":\"linux\"}},{\"Name\":\"containerd\",\"Version\":\"v2.4.2\",\"Details\":{\"GitCommit\":\"b7a25261e029d68978bbf290df0a62fc819b3c51\"}},{\"Name\":\"runc\",\"Version\":\"1.5.2\",\"Details\":{\"GitCommit\":\"v1.5.2-0-g29dd3dc2\"}},{\"Name\":\"docker-init\",\"Version\":\"0.19.0\",\"Details\":{\"GitCommit\":\"de40ad0\"}}],\"GitCommit\":\"0367cbe\",\"GoVersion\":\"go1.26.10\",\"KernelVersion\":\"6.18.54.1-microsoft-standard-WSL2\",\"BuildTime\":\"2026-10-20T18:45:02.000000000+00:00\"}}",
+    "buildx": "github.com/docker/buildx v0.38.1 0dbe87f36ed472fe36b6796c3f70b4210a731fc5"
+  },
+  "buildInputs": [
+    {
+      "path": "deploy/postgres/Dockerfile",
+      "sha256": "07e945297dbf625e1b5f61e1e4c2575c2a6a063c41bc740baa3d586d7b72a860"
+    },
+    {
+      "path": "apps/api/Dockerfile",
+      "sha256": "c1cbfc6629ed3fa4fd309854b7babf9ac39dd1a5898e5fa1b360f3186142c5da"
+    },
+    {
+      "path": "apps/web/Dockerfile",
+      "sha256": "7095a9e026db860d4b54540048aa76cc5aa614810e84a750eb0cca14b63f6db5"
+    },
+    {
+      "path": "converter/Dockerfile",
+      "sha256": "4a6b97e0c460194c94c189cd25946bc7ff825a0addbc9025dab011edf1e50fa3"
+    },
+    {
+      "path": "ocr/Dockerfile",
+      "sha256": "22c65b5833fb1a2858761335cb9bc491266583c0f2d2c639ed6e838cf1e67210"
+    },
+    {
+      "path": "apps/api/requirements.txt",
+      "sha256": "b18679eaa39dac5102066f6692a1957d01295aa0eefd35ee61e5a351c746ecbc"
+    },
+    {
+      "path": "apps/web/package-lock.json",
+      "sha256": "710b501561662bb829a087bf6bf67d29987ca399775dea269c995b89c1d6fae8"
+    },
+    {
+      "path": ".dockerignore",
+      "sha256": "f92631832d3da9639e5a1f3aec71a04e4846016629d86d947730d2cda19241c7"
+    }
+  ],
+  "limits": "Deterministic commit tags and recorded inputs; byte-identical rebuilds are not established. No publication performed."
+}
