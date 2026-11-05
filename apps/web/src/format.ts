@@ -141,6 +141,8 @@ const MESSAGES: Record<string, string> = {
     "An item can only be restored inside the area it was deleted from.",
   CONFIRMATION_REQUIRED:
     "The item changed since you looked. Review it and confirm again.",
+  INVALID_RETENTION:
+    "Choose 0 (never delete automatically) or a number of days from 7 to 3650.",
   CANNOT_TRASH_ROOT: "A top-level folder cannot be deleted.",
   NOT_REVERSIBLE: "That action cannot be undone.",
   OPERATION_IN_PROGRESS: "That is still running. Try again in a moment.",
