@@ -34,9 +34,12 @@ Stable remains undefined in M24; M26 cannot publish to `release` until the owner
    (`packages: write`, `contents: write` only in publish jobs, `id-token`/`attestations` for provenance). Multi-arch images,
    digests, SBOMs, provenance, source and notices attached. Tags: `beta` and `beta-<sha>`; `vX.Y.Z`, `latest` for release.
    Beta images are marked prerelease and never tagged `latest`. Checks that the published GHCR namespace is cleared.
-5. **Verification:** pull the published image anonymously and run the install test against it; document rollback and
+5. **Pre-publication gates moved from M24 (owner 2026-11-05):** build all images from one clean reviewed commit, retain image IDs and
+   complete SBOMs, compare isolated rebuilds, run install/upgrade/restore and final CI on that candidate, and check GHCR namespace
+   availability. Name clearance was waived by the owner; the owner has noted known issues will be fixed after M24/M25 before this.
+6. **Verification:** pull the published image anonymously and run the install test against it; document rollback and
    tag immutability. Cleanup of obsolete tags documented.
-6. **Conventions impact:** big work stays on a branch and merges via PR to `dev`; small doc edits may go straight to `dev`
+7. **Conventions impact:** big work stays on a branch and merges via PR to `dev`; small doc edits may go straight to `dev`
    (replacing "straight to main") unless rulesets forbid; update CLAUDE.md, CONTRIBUTING draft and docs accordingly, with owner approval.
 
 ## Acceptance criteria

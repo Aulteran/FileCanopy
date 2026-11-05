@@ -44,6 +44,7 @@ submit an upstream helper script, or contact maintainers is inferred.
    content, share/revoke, Confidential lock, upload/download, restart, backup/restore, all AI off;
    record operator, platform, image identities, steps and result. Automation is supporting evidence,
    not a substitute for a manual demo.
+9. Owner 2026-11-05: name clearance waived; clean-candidate rebuild and reproducibility comparison move to M26 pre-publication.
 8. Removed from M24 by owner decision 2026-11-05 (previously deferred 2026-11-04): native Proxmox LXC validation, see
    [the platform plan](../release/proxmox-lxc.md), is handled after the first published Docker version. It is unimplemented.
 
