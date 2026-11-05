@@ -217,7 +217,7 @@ output. Use an empty install and synthetic documents; retain no real credentials
 5. Restart and compare bytes, identities and permissions. Make a full backup, restore into an empty
    destroyed install, and compare account access, metadata and document bytes.
 6. Inspect logs for synthetic canaries, keyboard/focus behaviour and shipped licence/source links.
-7. Repeat appropriate installation/isolation/upgrade/restore checks on the proposed native LXC.
+7. (Removed from M24 2026-11-05: native LXC checks are deferred until after the first published version.)
 
 ## Exact steps before a public beta
 
@@ -229,9 +229,7 @@ output. Use an empty install and synthetic documents; retain no real credentials
 3. Approve the three governance drafts, select/configure/test a private security reporting route,
    and promote approved files to repository-root policies. Set beta maintenance/upgrade expectations
    and an evidence-backed OS/architecture/version matrix. Stable remains undefined.
-4. Native LXC is deferred beyond the Docker-first beta by owner decision 2026-11-04. Implement and validate native LXC packaging on a real Proxmox host before claiming that target.
-   Upstream helper inclusion needs its own review/submission; do not imply it already exists. If
-   LXC is to follow the first beta, that scope/deferment is now explicitly owner-approved.
+4. Native Proxmox LXC is **removed from M24 and is not a gate** (owner decision 2026-11-05); it will be revisited after the first Docker version is published and pullable. It remains unimplemented and unvalidated: do not claim LXC or helper-script support, and note that upstream helper inclusion would need its own review.
 5. Freeze remaining build inputs, commit/review the local changes, build all images from that clean
    commit, retain IDs and complete image SBOMs, and compare isolated rebuilds to close reproducibility.
    Verify an accessible source offer corresponds to the exact running app and native dependencies;
