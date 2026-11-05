@@ -46,9 +46,7 @@ def test_publish_is_gated_by_owner_variable_and_repository() -> None:
     gate = wf["jobs"]["plan"]["if"]
     assert "MF_PUBLISH_ENABLED" in gate
     assert "github.repository == 'Aulteran/FileCanopy'" in gate
-    assert (
-        "github.ref_name == 'beta'" in gate and "github.ref_name == 'release'" in gate
-    )
+    assert "github.ref_name == 'beta'" in gate and "github.ref_name == 'release'" in gate
 
 
 def test_default_permissions_are_read_only() -> None:
@@ -80,9 +78,7 @@ def test_dry_run_never_pushes_or_releases() -> None:
 
 def test_beta_never_gets_latest() -> None:
     text = PUBLISH.read_text()
-    beta_block = text.split('if [ "$REF_NAME" = "beta" ]; then', 1)[1].split("else", 1)[
-        0
-    ]
+    beta_block = text.split('if [ "$REF_NAME" = "beta" ]; then', 1)[1].split("else", 1)[0]
     assert "latest" not in beta_block
     assert "beta-${SHORT_SHA}" in beta_block
 
@@ -100,9 +96,7 @@ def test_images_matrix_matches_release_plan() -> None:
     specs = re.findall(r'\["(\w+)", "([^"]+)", "([^"]+)"(?:, "(\w+)")?\]', block)
     expected = {(s[0], s[1], s[2], s[3]) for s in specs}
     assert len(expected) == 5
-    actual = {
-        (m["name"], m["file"], m["context"], m.get("target") or "") for m in matrix
-    }
+    actual = {(m["name"], m["file"], m["context"], m.get("target") or "") for m in matrix}
     assert actual == expected
 
 
@@ -110,9 +104,7 @@ def test_every_publish_job_checks_out_without_persisted_credentials() -> None:
     wf = load(PUBLISH)
     for name, job in wf["jobs"].items():
         checkout = [
-            s
-            for s in job["steps"]
-            if str(s.get("uses", "")).startswith("actions/checkout")
+            s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout")
         ]
         assert checkout, name
         for step in checkout:
