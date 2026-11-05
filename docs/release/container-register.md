@@ -1,5 +1,11 @@
 # Container package register
 
+See the [2026-11-04 review](licensing-review-2026-11-04.md) for six newer offline
+image inspections, full notice bundles, exact Debian binary→source versions and
+manual identifications for Expat, pixman, Xau and ncurses. The generated historical
+rows below are retained verbatim; NOASSERTION labels do not override that manual
+evidence and do not mean incompatibility or publication clearance.
+
 Inspected 2026-11-03. Declarations from the exact installed images, not compatibility clearance.
 
 Alpine licences are verbatim L fields. Debian licence labels below are extracted from matching copyright documents where machine-readable; NOASSERTION means a manual review is needed. Copyright documents are retained losslessly in evidence/container-copyrights.json.gz. Versions of compiled components outside the package managers are in evidence/container-inventory.json and the audit report.

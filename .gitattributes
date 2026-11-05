@@ -3,3 +3,9 @@
 *.png binary
 *.jpg binary
 *.pdf binary
+
+# Audit hashes describe exact bytes, including upstream licence text and raw package databases.
+/docs/release/evidence/licensing-2026-11-04/** -text
+/apps/api/vendor-notices/** -text
+# Blank record separators at the end of apk databases are part of the retained primary artifact.
+/docs/release/evidence/licensing-2026-11-04/*-packages.txt whitespace=-blank-at-eof

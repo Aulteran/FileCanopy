@@ -61,6 +61,21 @@ The Pages workflow is unchanged; no marketing-site edits or release triggers are
 Final evidence and blockers: [release README](../release/README.md),
 [dependency audit](../release/dependency-audit.md), [known issues](../release/known-issues.md).
 
+## Licensing/policy follow-up — 2026-11-04
+
+Acceptance for this subtask: preserve the original dirty checkout; investigate
+current main in a separate worktree; retain exact six-image/native/source evidence;
+distinguish shipped and build-only components; evaluate server alternatives without
+replacement; package concrete sources/notices and verify their delivery; finish
+policy drafts and exact adoption decisions without promoting them.
+
+[Finding dispositions and Valkey evaluation](../release/licensing-review-2026-11-04.md),
+[remaining source/notice queue](../release/source-delivery.md) and
+[policy approval package](../release/policy-approval.md) record this work.
+M24 remains in progress: native/vendor/OS sources and unknowns, font review,
+Redis decision, name/platform/manual/final-candidate gates and policy adoption
+remain unresolved. No M25 or native LXC implementation is included.
+
 ## Independent-review repair acceptance
 
 PR #32 review 5760945917 requires commit-only Docker snapshots (ignored/untracked and concurrent

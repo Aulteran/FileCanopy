@@ -1,0 +1,17 @@
+{
+  "accessed": "2026-11-04T07:11:13.420Z",
+  "imageId": "sha256:cb3065b00ac1c1ef439a9c56048a54400137080079f9d24460adb611863f9de2",
+  "webImageId": "sha256:911be7d8dd124e2f6108c69f36fa862f249d8c3934e83bcda85a9d528ebe4640",
+  "nginx_http_source_and_licence_bytes_match": true,
+  "webAssets": 218,
+  "font_source_contents": "four editable Sans SFDs, Makefile version, licences and export script verified",
+  "browser_native_canvas_or_quickjs_binary": false,
+  "retained_notice_bytes_match": true,
+  "api": {
+    "certifi_source_matches_installed": true,
+    "source_archive_present_in_image": true,
+    "gpl_text_present": true,
+    "pip_vendor_files_matching_source": 293
+  },
+  "legal_clearance": false
+}

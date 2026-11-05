@@ -1,0 +1,163 @@
+{
+  "python": "3.13.18 (main, Oct 28 2026, 02:02:09) [GCC 14.2.0]",
+  "psycopg": "3.3.6",
+  "pip": "26.2.2",
+  "pip_certifi": "2026.10.19",
+  "libpq_version": 180006,
+  "cryptography": "50.0.2",
+  "cryptography_openssl": "OpenSSL 4.0.3 29 Sep 2026",
+  "pillow": "13.0.0",
+  "pillow_modules": {
+    "pil": "13.0.0",
+    "freetype2": "2.14.3",
+    "littlecms2": "2.19",
+    "webp": "1.6.0",
+    "avif": "1.4.2"
+  },
+  "pillow_codecs": {
+    "jpg": "6.2",
+    "jpg_2000": "2.5.4",
+    "zlib": "1.3.1",
+    "libtiff": "4.7.2"
+  },
+  "pillow_features": {
+    "libjpeg_turbo": "3.2.0",
+    "zlib_ng": "2.3.3",
+    "xcb": null
+  },
+  "vendored_libraries": [
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libcom_err-2abe824b.so.2.1",
+      "sha256": "5426dcb54dd01c9eedda05e2179f0e47114e8b48a534ffe9e94916e79471b257"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libcrypt-bc2db45e.so.1",
+      "sha256": "e2a6f6ff300e287a60dfc0c6fdb76ee01e333068df7c60b4e87453d942ccda65"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libcrypto-2d1629ee.so.3",
+      "sha256": "ac767da23afff24a34a1a86e6464f65ff45c8e3374850c117c1cffbfcd879da0"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libgssapi_krb5-497db0c6.so.2.2",
+      "sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libk5crypto-b1f99d5c.so.3.1",
+      "sha256": "bf04d7ebe3937aba3855c15acbd991482286a484aeea38bb9ced85e772ea2fb0"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libkeyutils-dfe70bd6.so.1.5",
+      "sha256": "c29e41b03cf4b2dffbfb4960946e2b42f82c0ca5d53d231d3f0fc597ba274488"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libkrb5-fcafa220.so.3.3",
+      "sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libkrb5support-d0bcff84.so.0.1",
+      "sha256": "0eb5322b05ac46e4db7ddb779ee0269006dd01801aaa67b84f8e7f753bfdddf2"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/liblber-a44a5afb.so.2.0.200",
+      "sha256": "862a4715f500831283bebf04347491b17a3adb93e56a335d00a6e1b278258929"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libldap-7c3a4b12.so.2.0.200",
+      "sha256": "1408b751ee5e666470af890e13a508b38a57870b6a261697e27f9c6493b645fc"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libpcre-9513aab5.so.1.2.0",
+      "sha256": "02eda850e04931656d8af81f5171bff74d8bec1553d3d85c3d32d7fc5efe8864"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libpq-e9b5c9ac.so.5.18",
+      "sha256": "adee4abe45a36e8f147b15e08aceca893c255dfd4133a047884807931ca8046d"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libsasl2-84219a89.so.3.0.0",
+      "sha256": "e84be55110f16f7ca930af373e9f41fa7f4ec60733c013d933d1443ae5056a98"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libselinux-0922c95c.so.1",
+      "sha256": "99e60178aed625f6d2e2af58bccf605b13619b1544058e9f985a2772affb4a88"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/psycopg_binary.libs/libssl-8bd944e8.so.3",
+      "sha256": "ef566b112dc7532a689c07de999c16efda3b4872df0c9d011bdcf00b94dd8a2e",
+      "openssl_version": "OpenSSL 3.5.8 25 Aug 2026"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libXau-154567c4.so.6.0.0",
+      "sha256": "8b5a93469805d3550471766696d4755f05bc6ca0587f22c03037ca7d12545c8b"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libavif-c6062d5f.so.16.4.2",
+      "sha256": "d12ec0b696860b292114b130ecac6082fc75c198c1b4fa57b26089e9b0a7eb6a"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libbrotlicommon-53534446.so.1.2.0",
+      "sha256": "72c1ab487e4bd44c906336747bf1926cbf5f164f9d05e0b4fd18b7d8d113b7fe"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libbrotlidec-7e5462ba.so.1.2.0",
+      "sha256": "1b497acc3d8d8e1fc286088f0c288be7c0c54bf5a8fa94b12b23e54de205d48c"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libfreetype-57f805ba.so.6.20.6",
+      "sha256": "5be086dea47fd1c3fadd431ee79fe0b5e5a0c6c38e78f1db55cf2dad17dea430"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libharfbuzz-fb49c9fc.so.0.61450.0",
+      "sha256": "4a30b9e3a12a72691b70b14945f3e8adaa8c2bc191bd8b706aae6ed0f0fa9fc0"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libjpeg-6dc8d115.so.62.4.0",
+      "sha256": "cc04bc42fd6296e81d24d13955fb95bd829624f6c74105eaf4a7fcf2ce42e048"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/liblcms2-88eaba2f.so.2.0.19",
+      "sha256": "4cf9f69016c7804bcb4fa56f5bbc55640cb1b7196ac7b93ba29ed9df9bd9ff4d"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/liblzma-de26b416.so.5.8.4",
+      "sha256": "ab4d2f260d6777088cc4bd96ce4997a5199d20b94e146a764b02c37d42477ce9"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libopenjp2-e530e1bf.so.2.5.4",
+      "sha256": "eea7a2058e0f2084d41ba88c561bddc866bd38e74f76b5ca4fccb965e2fb1c24"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libpng16-1d1ba958.so.16.58.0",
+      "sha256": "38d5a01026f61afba1bb94698846722840067fc87b2ee9003fe8dcccf1bc155f"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libsharpyuv-0066295b.so.0.1.2",
+      "sha256": "8abd5c39ee3b26330288b2e833d4d9b5d4b5ed4c881649057354df17326b6996"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libtiff-20b7e810.so.6.3.0",
+      "sha256": "729883f61144533eb3215d405e4daad528a68f89e9a1fccf51e9862819f30020"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libwebp-51b0b3f7.so.7.2.0",
+      "sha256": "6a97159a7c36acacb112618eb74720c97bbab4ecc499a8bfeb495dd726285259"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libwebpdemux-9fe2abcc.so.2.0.17",
+      "sha256": "5d728787db553c48c74dccd93d2763ec88234850a5f2f821df11483c8d28d2a7"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libwebpmux-8fb1c9f6.so.3.1.2",
+      "sha256": "6bdb41f738f088e7420374d67a4a6523cc4786f340d355d2bf4f124dcf3d5820"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libxcb-9065bb12.so.1.1.0",
+      "sha256": "f3707868b0b2e78dbdac0994d2977b0ec4303c9c6250f03576b1bd93c42cad63"
+    },
+    {
+      "path": "/usr/local/lib/python3.13/site-packages/pillow.libs/libzstd-40ad5e7e.so.1.5.7",
+      "sha256": "95a5af7845018639470635243c36b428f90af32b728804af6d951e7fcb08bbea"
+    }
+  ]
+}
