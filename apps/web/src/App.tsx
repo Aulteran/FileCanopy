@@ -21,6 +21,7 @@ import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import { AdminPage, ServerSetupStep } from "./AdminPage";
+import { ServerSettingsPage } from "./ServerSettings";
 import { ProfileMenu } from "./ProfileMenu";
 import {
   ADMIN_PATH,
@@ -225,6 +226,7 @@ function Shell({
     collectionId,
     mailbox,
     admin: adminRoute,
+    settings: settingsRoute,
     search,
     go,
   } = useRoute();
@@ -311,6 +313,7 @@ function Shell({
       !collections &&
       !mailbox &&
       !adminRoute &&
+      !settingsRoute &&
       search === null
     )
       go(folderPath(roots[0]!.node_id), true);
@@ -329,6 +332,7 @@ function Shell({
     collections,
     mailbox,
     adminRoute,
+    settingsRoute,
     search,
     go,
   ]);
@@ -418,7 +422,9 @@ function Shell({
         <a
           href={ADMIN_PATH}
           className="toplink"
-          aria-current={adminRoute || users || mailbox ? "page" : undefined}
+          aria-current={
+            adminRoute || users || mailbox || settingsRoute ? "page" : undefined
+          }
           onClick={(e) => {
             e.preventDefault();
             go(ADMIN_PATH);
@@ -752,6 +758,12 @@ function Shell({
             <AdminPage go={go} onAi={() => setAiSettings(true)} />
           ) : (
             <p>Only administrators can open the admin page.</p>
+          ))}
+        {settingsRoute &&
+          (admin ? (
+            <ServerSettingsPage onEnded={onEnded} />
+          ) : (
+            <p>Only administrators can open the server settings.</p>
           ))}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />

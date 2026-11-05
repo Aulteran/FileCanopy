@@ -316,6 +316,16 @@ export type ArchiveListing = {
   suspicious_ratio: boolean;
 };
 
+export type ServerStorage = {
+  shared_default_access: "none" | "viewer" | "editor";
+  trash_retention_days: number | null;
+};
+export type ServerPrivacy = {
+  labels_enabled: boolean;
+  private_folders: number;
+  confidential_folders: number;
+};
+
 export type PrivacyState = {
   own: Label;
   effective: Label;
@@ -1078,6 +1088,23 @@ export const api = {
       "/api/v1/auth/oidc/reauth/start",
       {},
     ),
+  serverStorage: () => call<ServerStorage>("GET", "/api/v1/admin/storage"),
+  setTrashRetention: (days: number) =>
+    call<{ days: number }>("PUT", "/api/v1/admin/storage/trash-retention", {
+      days,
+    }),
+  setSharedDefaultAccess: (value: ServerStorage["shared_default_access"]) =>
+    call<{ value: string }>(
+      "PUT",
+      "/api/v1/admin/storage/shared-default-access",
+      { value },
+    ),
+  serverPrivacy: () => call<ServerPrivacy>("GET", "/api/v1/admin/privacy"),
+  setLabelsEnabled: (labels_enabled: boolean, confirm_labels_stay = false) =>
+    call<ServerPrivacy>("PUT", "/api/v1/admin/privacy", {
+      labels_enabled,
+      confirm_labels_stay,
+    }),
   oidcOnly: () => call<OidcOnly>("GET", "/api/v1/admin/oidc-only"),
   setOidcOnly: (enabled: boolean, confirmUnlinked?: number) =>
     call<OidcOnly>("PUT", "/api/v1/admin/oidc-only", {

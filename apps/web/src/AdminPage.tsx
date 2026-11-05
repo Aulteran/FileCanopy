@@ -1,5 +1,5 @@
 import { Icon } from "./Icon";
-import { BACKUPS_PATH, MAILBOX_PATH, USERS_PATH } from "./route";
+import { BACKUPS_PATH, MAILBOX_PATH, SETTINGS_PATH, USERS_PATH } from "./route";
 
 // One place for server-wide administration, instead of separate top-bar links.
 export function AdminPage({
@@ -10,6 +10,12 @@ export function AdminPage({
   onAi: () => void;
 }) {
   const items = [
+    {
+      path: SETTINGS_PATH,
+      icon: "settings" as const,
+      title: "Server settings",
+      text: "Trash retention, default access for new accounts and privacy labels.",
+    },
     {
       path: USERS_PATH,
       icon: "users" as const,

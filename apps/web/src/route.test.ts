@@ -15,6 +15,8 @@ import {
   isSearchPath,
   isTrashPath,
   isUsersPath,
+  isSettingsPath,
+  isAdminPath,
   oneTimeLink,
   searchPath,
   searchQueryFrom,
@@ -131,5 +133,14 @@ describe("mail routes", () => {
     expect(isVerifyEmailPath("/verify-email")).toBe(true);
     expect(isVerifyEmailPath("/verify-email/x")).toBe(false);
     expect(tokenFromHash("#token=abc")).toBe("abc");
+  });
+});
+
+describe("server settings route", () => {
+  it("is its own page, apart from the admin home", () => {
+    expect(isSettingsPath("/admin/settings")).toBe(true);
+    expect(isSettingsPath("/admin/settings/")).toBe(true);
+    expect(isSettingsPath("/admin/settingsx")).toBe(false);
+    expect(isAdminPath("/admin/settings")).toBe(false);
   });
 });
