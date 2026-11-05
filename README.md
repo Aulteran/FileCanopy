@@ -2,7 +2,7 @@
 
 FileCanopy is a self-hosted file manager for your documents. You run it yourself with Docker, and it works on ordinary folders on your disk. Your files stay as normal files in a folder you choose, so you can always open them with any other program. The database only stores accounts, permissions and history. It is not a replacement for your files.
 
-> **Status: preparing the first beta.** FileCanopy is the owner-approved name, but external trademark/namespace clearance is still pending. No public release or published Docker images exist. Build from source and keep independent backups. [Release evidence and remaining gates](docs/release/README.md).
+> **Status: public beta.** Beta Docker images are published to GHCR under the `beta` tag (see the quick start below). FileCanopy is the owner-approved name, but external trademark/namespace clearance is still pending. There is no stable release yet. Keep independent backups. [Release evidence and remaining gates](docs/release/README.md).
 
 ## Key features
 
