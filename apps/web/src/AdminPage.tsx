@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Icon } from "./Icon";
+import { MailboxAdminPage } from "./MailPages";
 import { BACKUPS_PATH, MAILBOX_PATH, SETTINGS_PATH, USERS_PATH } from "./route";
+import { UsersPage } from "./Users";
 
 // One place for server-wide administration, instead of separate top-bar links.
 export function AdminPage({
@@ -69,42 +72,78 @@ export function AdminPage({
 
 // Shown to an administrator before the first file setup, so the server itself (AI, people,
 // email) can be configured first. Every part is optional and can be done later.
+// The order is fixed: AI, then your account, then other users, then the mail server, and only
+// then the file setup. Users and mail open inside this step and return to it, so nothing is
+// postponed to the Admin page. Every step is optional and can be changed later under Admin.
 export function ServerSetupStep({
+  me,
   onAi,
-  onAdmin,
+  onEnded,
   onContinue,
 }: {
+  me: string;
   onAi: () => void;
-  onAdmin: () => void;
+  onEnded: () => void;
   onContinue: () => void;
 }) {
+  const [view, setView] = useState<"steps" | "users" | "mail">("steps");
+  const back = (
+    <p>
+      <button type="button" onClick={() => setView("steps")}>
+        Back to setup steps
+      </button>
+    </p>
+  );
+  if (view === "users")
+    return (
+      <section aria-labelledby="server-users-h">
+        <h1 id="server-users-h">Step 3: Invite other users</h1>
+        {back}
+        <UsersPage me={me} onEnded={onEnded} />
+      </section>
+    );
+  if (view === "mail")
+    return (
+      <section aria-labelledby="server-mail-h">
+        <h1 id="server-mail-h">Step 4: Mail server</h1>
+        {back}
+        <MailboxAdminPage onEnded={onEnded} />
+      </section>
+    );
   return (
     <section aria-labelledby="server-step-h">
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
-        Before choosing which files to import, you can set up the server itself.
-        All of this is optional and can be changed later under Admin.
+        Set up the server in this order, then choose which files to import. Each
+        step is optional and can be changed later under Admin.
       </p>
-      <ul className="admin-cards">
+      <ol className="setup-steps">
         <li>
-          <button type="button" className="admin-card" onClick={onAi}>
-            <Icon name="sparkles" />
-            <strong>AI (optional)</strong>
-            <span>
-              Choose whether and how AI helps. FileCanopy works without it.
-            </span>
+          <strong>Step 1: AI (optional)</strong>
+          <p>Choose whether and how AI helps. FileCanopy works without it.</p>
+          <button type="button" onClick={onAi}>
+            Choose AI settings
           </button>
         </li>
         <li>
-          <button type="button" className="admin-card" onClick={onAdmin}>
-            <Icon name="users" />
-            <strong>People and email</strong>
-            <span>
-              Invite users and set up the mail server on the Admin page.
-            </span>
+          <strong>Step 2: Your account</strong>
+          <p>You are signed in as this administrator. Nothing to do here.</p>
+        </li>
+        <li>
+          <strong>Step 3: Other users (optional)</strong>
+          <p>Invite the people who will use this server.</p>
+          <button type="button" onClick={() => setView("users")}>
+            Invite users
           </button>
         </li>
-      </ul>
+        <li>
+          <strong>Step 4: Mail server (optional)</strong>
+          <p>Set up outgoing and incoming email.</p>
+          <button type="button" onClick={() => setView("mail")}>
+            Set up mail
+          </button>
+        </li>
+      </ol>
       <p>
         <button type="button" className="primary" onClick={onContinue}>
           Continue to file setup

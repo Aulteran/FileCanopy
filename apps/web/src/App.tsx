@@ -530,16 +530,9 @@ function Shell({
         {header(false)}
         <main id="main" tabIndex={-1} className="content">
           <ServerSetupStep
+            me={session.user.id}
             onAi={() => setAiSettings(true)}
-            onAdmin={() => {
-              // Postpone the file setup so the full app (with the Admin pages) opens first.
-              const next = new Set(deferred);
-              for (const r of roots) if (r.setup_open) next.add(r.node_id);
-              setDeferred(next);
-              writeDeferred(session.user.id, next);
-              finishServerStep();
-              go(ADMIN_PATH);
-            }}
+            onEnded={onEnded}
             onContinue={finishServerStep}
           />
         </main>
