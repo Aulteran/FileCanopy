@@ -27,7 +27,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth import clock
 from app.backup import crypto
+from app.backup.destinations import DestinationError, open_destination
 from app.backup.engine import DirCache, open_tar
+from app.backup.jobs import load_spec
 from app.backup.volume import backups_root
 from app.config import Settings
 from app.db.models import BackupRun, Node, StorageRoot
@@ -216,6 +218,38 @@ def _check_archive_file(path: Path, run: BackupRun) -> None:
         raise RestoreError("BACKUP_ARCHIVE_DAMAGED")
 
 
+def _fetch_remote(db: Session, settings: Settings, base: Path, chain: list[BackupRun]) -> None:
+    """Archives of a remote job that are no longer in the staging folder are downloaded first.
+    Each one is checked (size and SHA-256 against the database) before it is put in place, so a
+    damaged download is never kept; extraction follows the same rules as for local archives."""
+    missing = [
+        r for r in chain if r.remote and r.archive_name and not (base / r.archive_name).exists()
+    ]
+    if not missing:
+        return
+    spec = load_spec(db, missing[0].job_id)
+    try:
+        dest = open_destination(spec, settings) if spec else None
+        if dest is None:
+            raise RestoreError("BACKUP_REMOTE_UNAVAILABLE")
+        try:
+            for r in missing:
+                name = r.archive_name or ""
+                target = base / name
+                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                tmp = target.parent / f".tmp-{secrets.token_hex(8)}.part"
+                try:
+                    dest.get(name, tmp)
+                    _check_archive_file(tmp, r)
+                    os.replace(tmp, target)
+                finally:
+                    tmp.unlink(missing_ok=True)
+        finally:
+            dest.close()
+    except DestinationError as exc:
+        raise RestoreError("BACKUP_REMOTE_UNAVAILABLE") from exc
+
+
 def _check_run_json(
     tar: tarfile.TarFile, member: tarfile.TarInfo, root: StorageRoot, run: BackupRun
 ) -> str:
@@ -283,6 +317,7 @@ def restore(
         if any(r.key_fingerprint != fp for r in chain):
             raise RestoreError("BACKUP_KEY_MISMATCH")
     base = backups_root(settings)
+    _fetch_remote(db, settings, base, chain)
     for r in chain:
         if not r.archive_name:
             raise RestoreError("BACKUP_ARCHIVE_MISSING")

@@ -44,12 +44,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth import clock
 from app.auth.service import audit
 from app.backup import crypto, retention
-from app.backup.store import BackupConfig, KeyInfo, key_for_root, load_config
+from app.backup.destinations import DestinationError, open_destination
+from app.backup.jobs import JobSpec, load_spec
+from app.backup.store import KeyInfo, key_for_root
 from app.backup.volume import backups_root, inspect_volume
 from app.config import Settings
 from app.db.models import (
     HIDDEN_NODE_STATUSES,
     BackupChainState,
+    BackupJobChainState,
     BackupRun,
     FileEvent,
     Node,
@@ -206,15 +209,26 @@ class Tree:
     dirs: set[str] = field(default_factory=set)
     files: set[str] = field(default_factory=set)
     alive_prefixes: set[str] = field(default_factory=set)  # busy or reconcile_needed
+    excluded: set[str] = field(default_factory=set)  # left out by the job's privacy rule (M27)
     missing_prefixes: set[str] = field(default_factory=set)  # status missing
 
 
-def collect_tree(db: Session, root: StorageRoot) -> Tree:
+def collect_tree(
+    db: Session, root: StorageRoot, exclude_labels: frozenset[str] = frozenset()
+) -> Tree:
     """Eligible entries from the database. Names are checked again: a corrupted row cannot
-    become a traversal. Unsupported entries, special files and staging files are not eligible."""
+    become a traversal. Unsupported entries, special files and staging files are not eligible.
+    Entries whose effective privacy label (their own or inherited) is in `exclude_labels` are
+    left out with everything below them (an unencrypted job never copies Confidential files)."""
     rows = db.execute(
         select(
-            Node.id, Node.parent_id, Node.name, Node.kind, Node.status, Node.unsupported_reason
+            Node.id,
+            Node.parent_id,
+            Node.name,
+            Node.kind,
+            Node.status,
+            Node.unsupported_reason,
+            Node.privacy_label,
         ).where(Node.root_id == root.id)
     ).all()
     children: dict[uuid.UUID | None, list[Any]] = defaultdict(list)
@@ -222,9 +236,11 @@ def collect_tree(db: Session, root: StorageRoot) -> Tree:
         children[r.parent_id].append(r)
     tree = Tree()
     start = children.get(None, [])
-    stack: list[tuple[Any, str]] = [(child, "") for r in start for child in children[r.id]]
+    stack: list[tuple[Any, str, str]] = [
+        (child, "", r.privacy_label) for r in start for child in children[r.id]
+    ]
     while stack:
-        r, parent = stack.pop()
+        r, parent, inherited = stack.pop()
         try:
             name = existing_name(r.name)
         except InvalidName:
@@ -232,6 +248,10 @@ def collect_tree(db: Session, root: StorageRoot) -> Tree:
         if name.startswith(TMP_PREFIX) or name == ".":
             continue
         path = f"{parent}/{name}" if parent else name
+        label = privacy.stricter(inherited, r.privacy_label)
+        if label in exclude_labels:
+            tree.excluded.add(path)
+            continue
         if r.status in ("busy", "reconcile_needed"):
             tree.alive_prefixes.add(path)
             continue
@@ -242,7 +262,7 @@ def collect_tree(db: Session, root: StorageRoot) -> Tree:
             continue
         if r.kind == "dir":
             tree.dirs.add(path)
-            stack.extend((child, path) for child in children.get(r.id, []))
+            stack.extend((child, path, label) for child in children.get(r.id, []))
         elif r.kind == "file":
             tree.files.add(path)
     return tree
@@ -379,17 +399,25 @@ class BackupEngine:
             pass
 
     # -- the run
-    def run_root(self, root_id: uuid.UUID) -> RunResult:
+    def run_root(self, root_id: uuid.UUID, job_id: uuid.UUID | None = None) -> RunResult:
+        """One run of one root for one job (None = the default job, the global settings). Jobs
+        take turns on a root: it is read by one run at a time."""
         lock = self._root_locks[root_id]
         if not lock.acquire(blocking=False):
             return RunResult("skipped", code="RUN_IN_PROGRESS")
         try:
-            return self._run(root_id)
+            return self._run(root_id, job_id)
         finally:
             lock.release()
 
+    @staticmethod
+    def _state(db: Session, spec: JobSpec, root_id: uuid.UUID) -> Any:
+        if spec.job_id is None:
+            return db.get(BackupChainState, root_id)
+        return db.get(BackupJobChainState, (spec.job_id, root_id))
+
     def _refuse(
-        self, root_id: uuid.UUID, kind: str, code: str, cfg: BackupConfig, key: KeyInfo | None
+        self, root_id: uuid.UUID, kind: str, code: str, cfg: JobSpec, key: KeyInfo | None
     ) -> RunResult:
         now = clock.utcnow()
         with self.sessions() as db:
@@ -404,24 +432,36 @@ class BackupEngine:
                 error_code=code,
                 encrypted=cfg.encrypt,
                 key_fingerprint=key.fingerprint if key and cfg.encrypt else None,
+                job_id=cfg.job_id,
+                remote=cfg.remote,
             )
             db.add(run)
-            audit(db, "backup.refused", root_id=str(root_id), code=code)
+            audit(
+                db,
+                "backup.refused",
+                root_id=str(root_id),
+                code=code,
+                job_id=str(cfg.job_id) if cfg.job_id else None,
+            )
             db.commit()
             log.warning("backup of root %s refused: %s", root_id, code)
             return RunResult("refused", run.id, code)
 
-    def _run(self, root_id: uuid.UUID) -> RunResult:
+    def _run(self, root_id: uuid.UUID, job_id: uuid.UUID | None = None) -> RunResult:
         settings = self.settings
         with self.sessions() as db:
-            cfg = load_config(db)
+            cfg = load_spec(db, job_id)
+            if cfg is None:
+                return RunResult("skipped", code="JOB_NOT_FOUND")
             root = db.get(StorageRoot, root_id)
             if root is None or root.status != "active" or root.scan_state is not None:
                 return RunResult("skipped", code="ROOT_NOT_ACTIVE")
+            if cfg.scope != "all" and cfg.scope != root.kind:
+                return RunResult("skipped", code="OUT_OF_SCOPE")
             key = key_for_root(db, root)  # ADR-016: the owner's own key for a personal root
             if root.scan_paused_since is not None:
                 return RunResult("skipped", code="IMPORT_WRITING")
-            state = db.get(BackupChainState, root_id)
+            state = self._state(db, cfg, root_id)
             prior_files: dict[str, Fingerprint] = {}
             prior_dirs: set[str] = set()
             kind = "full"
@@ -448,8 +488,18 @@ class BackupEngine:
                     "BACKUP_OWNER_KEY_PENDING" if root.kind == "personal" else "BACKUP_KEY_MISSING"
                 )
                 return self._refuse(root_id, kind, no_key, cfg, key)
-            tree = collect_tree(db, root)
+            tree = collect_tree(db, root, cfg.excluded_labels)
+            if (
+                kind == "incremental"
+                and tree.excluded
+                and any(_under(p, tree.excluded) for p in (*prior_files, *prior_dirs))
+            ):
+                # something already in the chain is now excluded (its label was raised): a new
+                # full run, which no longer contains it, starts a chain without it
+                kind, prior_files, prior_dirs = "full", {}, set()
             relative_dir, label = root.relative_dir, root_label(root)
+            if cfg.prefix:
+                label = f"{cfg.prefix}/{label}"
             top = domain_nodes.root_node(db, root_id)
             recorded_identity = (
                 (top.fs_dev, top.fs_ino)
@@ -553,7 +603,7 @@ class BackupEngine:
         raw_bytes = sum(current[p][0] for p in include)
         now = clock.utcnow()
         with self.sessions() as db:
-            cfg = load_config(db)
+            cfg = load_spec(db, job_id) or cfg
             estimate = retention.estimate_run_bytes(
                 db, root_id, raw_bytes, len(include) + len(include_dirs)
             )
@@ -580,6 +630,8 @@ class BackupEngine:
                 archive_name=archive_rel,
                 encrypted=cfg.encrypt,
                 key_fingerprint=key.fingerprint if key and cfg.encrypt else None,
+                job_id=cfg.job_id,
+                remote=cfg.remote,
             )
             db.add(run)
             db.commit()
@@ -613,6 +665,8 @@ class BackupEngine:
             code = (
                 "VOLUME_FULL"
                 if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT)
+                else exc.code[:48]
+                if isinstance(exc, DestinationError)  # a fixed code, never a message
                 else "BACKUP_FAILED"
             )
             self._fail(run_id, archive_rel, code)
@@ -621,7 +675,9 @@ class BackupEngine:
         if outcome.status == "ok":
             if recorded_identity is None and identity is not None:  # first verified run
                 self._record_identity(root_id, identity)
-            self._prune(run_id)  # after the run is committed: its failure cannot undo the run
+            self._prune(run_id, cfg)  # after the run is committed: its failure cannot undo it
+            if cfg.remote:
+                self._trim_staging(cfg, root_id, archive_rel)
         return outcome
 
     def _record_identity(self, root_id: uuid.UUID, identity: tuple[int, int]) -> None:
@@ -634,12 +690,57 @@ class BackupEngine:
         except Exception as exc:  # the check is then skipped next time; never fails a good run
             log.warning("could not record the root identity: %s", type(exc).__name__)
 
-    def _prune(self, run_id: uuid.UUID) -> None:
+    def _trim_staging(self, spec: JobSpec, root_id: uuid.UUID, keep_rel: str) -> None:
+        """A remote job keeps only the newest archive locally (the base of the next run); the
+        rest lives at the destination and is fetched back when a restore needs it."""
+        try:
+            base = backups_root(self.settings)
+            with self.sessions() as db:
+                names = db.scalars(
+                    select(BackupRun.archive_name).where(
+                        BackupRun.job_id == spec.job_id,
+                        BackupRun.root_id == root_id,
+                        BackupRun.status == "ok",
+                        BackupRun.remote.is_(True),
+                        BackupRun.archive_name.is_not(None),
+                    )
+                ).all()
+            for name in names:
+                if name and name != keep_rel:
+                    archive = base / name
+                    for victim in (archive, archive.with_name(archive.name + ".json")):
+                        victim.unlink(missing_ok=True)
+                    with contextlib.suppress(OSError):
+                        archive.parent.rmdir()
+        except (OSError, RuntimeError) as exc:  # only wasted space; never fails a good run
+            log.warning("staging cleanup failed: %s", type(exc).__name__)
+
+    def _upload(self, spec: JobSpec, archive: Path, archive_rel: str, sha: str, size: int) -> None:
+        """Archive first, sidecar second; both verified. A failure removes what was uploaded."""
+        dest = open_destination(spec, self.settings)
+        if dest is None:
+            return
+        sidecar = archive.with_name(archive.name + ".json")
+        try:
+            dest.put(archive, archive_rel, sha, size)
+            try:
+                data = sidecar.read_bytes()
+                dest.put(
+                    sidecar, archive_rel + ".json", hashlib.sha256(data).hexdigest(), len(data)
+                )
+            except BaseException:
+                with contextlib.suppress(DestinationError):
+                    dest.delete(archive_rel)
+                raise
+        finally:
+            dest.close()
+
+    def _prune(self, run_id: uuid.UUID, spec: JobSpec) -> None:
         """Applies the size limit once the new run is verified and recorded. A failure here is
         audited and shown as a warning; the run stays `ok` and its archive stays in place."""
         try:
             with self.sessions() as db:
-                retention.prune_to_limit(db, self.settings, load_config(db))
+                retention.prune_to_limit(db, self.settings, load_spec(db, spec.job_id) or spec)
         except Exception as exc:
             log.error("backup pruning failed: %s", type(exc).__name__)  # no paths
             try:
@@ -753,7 +854,7 @@ class BackupEngine:
         run_id: uuid.UUID,
         root_id: uuid.UUID,
         relative_dir: str,
-        cfg: BackupConfig,
+        cfg: JobSpec,
         key: KeyInfo | None,
         kind: str,
         chain_id: str,
@@ -917,6 +1018,8 @@ class BackupEngine:
         side_tmp.write_text(json.dumps(sidecar), encoding="utf-8")
         os.rename(side_tmp, archive.with_name(archive.name + ".json"))
         self._fsync_dir(archive.parent)
+        if cfg.remote:  # the run is `ok` only once the verified upload is done
+            self._upload(cfg, archive, archive_rel, sink.sha.hexdigest(), sink.size)
 
         # -- record: the new snapshot replaces the old one only now
         new_files: dict[str, Fingerprint] = dict(carried_files)
@@ -943,9 +1046,13 @@ class BackupEngine:
             run.files_unstable = len(unstable)
             run.event_high_water = high_water
             snapshot = encode_snapshot(new_files, set(new_dirs))
-            st = db.get(BackupChainState, root_id)
+            st = self._state(db, cfg, root_id)
             if st is None:
-                st = BackupChainState(root_id=root_id)
+                st = (
+                    BackupChainState(root_id=root_id)
+                    if cfg.job_id is None
+                    else BackupJobChainState(job_id=cfg.job_id, root_id=root_id)
+                )
                 db.add(st)
             st.chain_id, st.seq, st.snapshot = chain_id, seq, snapshot
             st.encrypted = cfg.encrypt

@@ -90,12 +90,15 @@ def backups_root(settings: Settings, *, create: bool = False) -> Path:
     return root
 
 
-def folder_usage(root: Path) -> int:
-    """Bytes of everything the app keeps in its backup folder (archives, indexes, leftovers)."""
+def folder_usage(root: Path, skip_prefix: str | None = None) -> int:
+    """Bytes of everything the app keeps in its backup folder (archives, indexes, leftovers).
+    `skip_prefix` leaves out top-level folders with that name prefix (other jobs' folders)."""
     total = 0
     if not root.exists():
         return 0
-    for current, _dirs, names in os.walk(root, followlinks=False):
+    for current, dirs, names in os.walk(root, followlinks=False):
+        if skip_prefix and Path(current) == root:
+            dirs[:] = [d for d in dirs if not d.startswith(skip_prefix)]
         for name in names:
             try:
                 total += os.lstat(os.path.join(current, name)).st_size

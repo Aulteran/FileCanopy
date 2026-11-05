@@ -14,6 +14,7 @@ from app.ai.gateway import AiGateway
 from app.ai.secrets import SecretBox
 from app.api import admin_storage
 from app.api import ai as ai_routes
+from app.api import backup_jobs as backup_job_routes
 from app.api import backups as backup_routes
 from app.api import chat as chat_routes
 from app.api import collections as collections_routes
@@ -231,6 +232,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(import_routes.router)
     app.include_router(admin_storage.router)
     app.include_router(backup_routes.router)
+    app.include_router(backup_job_routes.router)
     app.include_router(ai_routes.router)
     app.include_router(organize_routes.router)
     app.include_router(chat_routes.router)

@@ -635,6 +635,56 @@ class BackupRun(Base):
     error_code: Mapped[str | None] = mapped_column(String(48), nullable=True)
     event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     pruned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # M27: the job that made the run (NULL = the default job, the global settings) and, for a
+    # remote destination, whether the verified upload finished (a run is `ok` only after it).
+    job_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True, nullable=True)
+    remote: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class BackupJob(Base):
+    """A configurable backup job (M27, ADR-021). Secrets live only in `credentials_sealed`
+    (AES-GCM under the operator's secrets key, never returned, never logged); `destination`
+    holds the non-secret parts (host, bucket, path). The default job is not a row: it is the
+    global backup settings."""
+
+    __tablename__ = "backup_job"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(60), unique=True, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    scope: Mapped[str] = mapped_column(String(10), nullable=False, default="all")
+    encrypt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_confidential: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    backup_type: Mapped[str] = mapped_column(String(8), nullable=False, default="chain")
+    interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=1440)
+    chain_length: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
+    min_chains_kept: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    max_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    destination_type: Mapped[str] = mapped_column(String(8), nullable=False, default="local")
+    destination: Mapped[dict[str, Any]] = mapped_column(Json, nullable=False, default=dict)
+    credentials_sealed: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class BackupJobChainState(Base):
+    """`BackupChainState` for jobs: one row per job and root."""
+
+    __tablename__ = "backup_job_chain_state"
+
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("storage_root.id"), primary_key=True
+    )
+    chain_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    encrypted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    last_archive: Mapped[str] = mapped_column(String(160), nullable=False)
+    event_high_water: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
 class BackupChainState(Base):

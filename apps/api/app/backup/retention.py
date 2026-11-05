@@ -14,17 +14,20 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth import clock
 from app.auth.service import audit
-from app.backup.store import BackupConfig
+from app.backup.destinations import DestinationError, open_destination
+from app.backup.jobs import JobSpec, load_spec
 from app.backup.volume import backups_root, folder_usage, inspect_volume
 from app.config import Settings
 from app.db.models import BackupRun, StorageRoot
 
 log = logging.getLogger("filecanopy.backup")
+
+BackupConfig = JobSpec  # retention works on a job's settings; the default job is a job too
 
 
 @dataclass
@@ -34,13 +37,16 @@ class Chain:
     started_at: datetime
     size_bytes: int
     runs: int
+    job_id: uuid.UUID | None = None
 
 
-def list_chains(db: Session) -> list[Chain]:
-    """Chains with a verified full run, from `ok` rows that were not pruned."""
+def list_chains(db: Session, job_id: uuid.UUID | None = None) -> list[Chain]:
+    """Chains with a verified full run, from `ok` rows that were not pruned. Of one job (None =
+    the default job): jobs keep and prune their own history."""
+    job_match = BackupRun.job_id.is_(None) if job_id is None else BackupRun.job_id == job_id
     rows = db.scalars(
         select(BackupRun)
-        .where(BackupRun.status == "ok", BackupRun.pruned_at.is_(None))
+        .where(BackupRun.status == "ok", BackupRun.pruned_at.is_(None), job_match)
         .order_by(BackupRun.finished_at, BackupRun.seq)
     ).all()
     by_key: dict[tuple[uuid.UUID, str], Chain] = {}
@@ -50,7 +56,9 @@ def list_chains(db: Session) -> list[Chain]:
         if chain is None:
             if r.kind != "full":  # an orphaned incremental is not a restorable chain
                 continue
-            chain = by_key[key] = Chain(r.root_id, r.chain_id, r.finished_at or r.started_at, 0, 0)
+            chain = by_key[key] = Chain(
+                r.root_id, r.chain_id, r.finished_at or r.started_at, 0, 0, r.job_id
+            )
         chain.size_bytes += r.size_bytes or 0
         chain.runs += 1
     return sorted(by_key.values(), key=lambda c: c.started_at)
@@ -112,6 +120,21 @@ def estimate_run_bytes(db: Session, root_id: uuid.UUID, raw_bytes: int, entries:
     return int(raw_bytes * ratio) + overhead
 
 
+def usage_bytes(db: Session, settings: Settings, cfg: BackupConfig) -> int:
+    """What the job holds. The default job: its part of the backup folder (the folders of other
+    jobs excluded). Another job: the sizes of its verified runs, wherever they are stored."""
+    if cfg.job_id is None:
+        return folder_usage(backups_root(settings), skip_prefix="j-")
+    total = db.scalar(
+        select(func.coalesce(func.sum(BackupRun.size_bytes), 0)).where(
+            BackupRun.job_id == cfg.job_id,
+            BackupRun.status == "ok",
+            BackupRun.pruned_at.is_(None),
+        )
+    )
+    return int(total or 0)
+
+
 def check_feasible(
     db: Session,
     settings: Settings,
@@ -122,9 +145,9 @@ def check_feasible(
     estimate_bytes: int,
 ) -> Feasibility:
     """Whether a run of this size can be written without breaking the minimum-chains floor."""
-    chains = list_chains(db)
+    chains = list_chains(db, cfg.job_id)
     if kind == "full":  # the new chain joins the protected set, which can free an older one
-        chains.append(Chain(root_id, "~new", clock.utcnow(), estimate_bytes, 1))
+        chains.append(Chain(root_id, "~new", clock.utcnow(), estimate_bytes, 1, cfg.job_id))
     keep = protected(chains, cfg.min_chains_kept, inactive_roots(db))
     prunable = sum(c.size_bytes for c in chains if (c.root_id, c.chain_id) not in keep)
     vol = inspect_volume(settings)
@@ -132,7 +155,7 @@ def check_feasible(
     if free + prunable < estimate_bytes + settings.backup_free_space_reserve_bytes:
         return Feasibility(False, "BACKUP_VOLUME_TOO_SMALL", estimate_bytes, prunable)
     if cfg.max_size_bytes is not None:
-        usage = folder_usage(backups_root(settings))
+        usage = usage_bytes(db, settings, cfg)
         if usage - prunable + estimate_bytes > cfg.max_size_bytes:
             return Feasibility(False, "BACKUP_VOLUME_TOO_SMALL", estimate_bytes, prunable)
     return Feasibility(True, None, estimate_bytes, prunable)
@@ -151,6 +174,7 @@ def _delete_chain(settings: Settings, db: Session, chain: Chain) -> tuple[int, i
             BackupRun.pruned_at.is_(None),
         )
     ).all()
+    remote_names = [r.archive_name for r in rows if r.archive_name and r.remote]
     names = [r.archive_name for r in rows if r.archive_name]
     db.execute(
         update(BackupRun)
@@ -178,7 +202,36 @@ def _delete_chain(settings: Settings, db: Session, chain: Chain) -> tuple[int, i
             d.rmdir()
         except OSError:  # not empty (foreign files or a failed unlink) or already gone
             pass
+    if remote_names:
+        errors += _delete_remote(settings, db, chain.job_id, remote_names)
     return freed, errors
+
+
+def _delete_remote(
+    settings: Settings, db: Session, job_id: uuid.UUID | None, names: list[str]
+) -> int:
+    """Removes the objects this job uploaded (only the names recorded in its own runs).
+    Returns how many could not be removed; the rows are already marked pruned."""
+    spec = load_spec(db, job_id)
+    if spec is None:
+        return len(names)
+    failed = 0
+    try:
+        dest = open_destination(spec, settings)
+    except DestinationError:
+        return len(names)
+    if dest is None:
+        return 0
+    try:
+        for name in names:
+            for key in (name, name + ".json"):
+                try:
+                    dest.delete(key)
+                except DestinationError:
+                    failed += 1
+    finally:
+        dest.close()
+    return failed
 
 
 def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[Chain]:
@@ -189,10 +242,10 @@ def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[C
     removed: list[Chain] = []
     base = backups_root(settings)
     while True:
-        usage = folder_usage(base)
+        usage = usage_bytes(db, settings, cfg)
         if usage <= cfg.max_size_bytes:
             break
-        chains = list_chains(db)
+        chains = list_chains(db, cfg.job_id)
         keep = protected(chains, cfg.min_chains_kept, inactive_roots(db))
         victims = [c for c in chains if (c.root_id, c.chain_id) not in keep]
         if not victims:
@@ -208,7 +261,7 @@ def prune_to_limit(db: Session, settings: Settings, cfg: BackupConfig) -> list[C
             reason="size_limit",
             bytes_removed=victim.size_bytes,
             usage_before=usage,
-            usage_after=folder_usage(base),
+            usage_after=usage_bytes(db, settings, cfg),
             free_before=free_before,
             free_after=shutil.disk_usage(base).free,
             unlink_errors=unlink_errors,

@@ -24,6 +24,7 @@ from app.auth.deps import Principal, client_ip, get_db, http_error, require_admi
 from app.auth.service import audit
 from app.backup import crypto, retention
 from app.backup import restore as restore_mod
+from app.backup.jobs import all_specs
 from app.backup.service import BackupService
 from app.backup.store import (
     FULL_EVERY_RANGE,
@@ -64,6 +65,7 @@ RESTORE_STATUS = {
     "LOCKED": 403,
     "RESTORE_NO_SPACE": 409,
     "RESTORE_FAILED": 500,
+    "BACKUP_REMOTE_UNAVAILABLE": 502,
 }
 
 
@@ -278,7 +280,11 @@ def build_status(
         runs = list(
             db.scalars(
                 select(BackupRun)
-                .where(BackupRun.root_id == root.id, BackupRun.pruned_at.is_(None))
+                .where(
+                    BackupRun.root_id == root.id,
+                    BackupRun.pruned_at.is_(None),
+                    BackupRun.job_id.is_(None),  # the default job; others have their own list
+                )
                 .order_by(BackupRun.started_at.desc())
             )
         )
@@ -345,12 +351,11 @@ def build_status(
         warnings.append("over_limit")
     if not cfg.encrypt:
         warnings.append("unencrypted")
-    if cfg.enabled and cfg.encrypt and key is None:
+    encrypted_active = any(sp.enabled and sp.encrypt for sp in all_specs(db))
+    if encrypted_active and key is None:
         warnings.append("key_missing")
-    if (
-        cfg.enabled
-        and cfg.encrypt
-        and any(r.key_state in ("none", "pending") for r in root_out if r.kind == "personal")
+    if encrypted_active and any(
+        r.key_state in ("none", "pending") for r in root_out if r.kind == "personal"
     ):
         warnings.append("owner_keys_pending")  # these roots wait for their owner's key
     latest = [r.last_run for r in root_out if r.last_run]
@@ -587,13 +592,14 @@ def _owner_key_out(
     recovery: str | None = None,
     recovery_fp: str | None = None,
 ) -> OwnerKeyOut:
-    cfg, admin = load_config(db), load_key(db)
+    admin = load_key(db)
+    specs = all_specs(db)  # the default job and the configured jobs
     active, pending = active_root_key(db, root.id), pending_root_key(db, root.id)
     has_escrow = active is not None and active.escrow_blob is not None
     return OwnerKeyOut(
         kind=root.kind,
-        backups_enabled=cfg.enabled,
-        encrypted=cfg.encrypt,
+        backups_enabled=any(sp.enabled for sp in specs),
+        encrypted=any(sp.enabled and sp.encrypt for sp in specs),
         state="active" if active else "pending" if pending else "none",
         fingerprint=active.fingerprint if active else None,
         pending_fingerprint=pending.fingerprint if pending else None,
@@ -638,8 +644,7 @@ def create_owner_key(
     nothing until the owner proves it is saved (confirm); an earlier unconfirmed key is replaced.
     Doing this when a key is active is a rotation: the old key keeps opening its old chains."""
     root = _personal_root(db, ctx.node)
-    cfg = load_config(db)
-    if not cfg.enabled or not cfg.encrypt:
+    if not any(sp.enabled and sp.encrypt for sp in all_specs(db)):
         raise http_error(409, "BACKUP_NOT_ENCRYPTED")
     _fresh(request, db, ctx, body)
     try:
