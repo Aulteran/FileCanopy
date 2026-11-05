@@ -287,3 +287,43 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
     assert w.alice.call("DELETE", f"/api/v1/nodes/{docs}/grants/{bob_id}")[0] == 200
     assert api_status(bob, "GET", f"/api/v1/nodes/{docs}/children") == 403
     bob.close()
+
+
+def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browser) -> None:
+    # The administrator's first-run server step runs in a fixed order (AI, account, users, mail),
+    # the users and mail screens open inside it and return to it, and only then the file setup.
+    stack = fresh_stack
+    base = f"http://127.0.0.1:{stack.port}"
+    page = browser.new_context().new_page()
+    page.goto(base + "/")
+    expect(page.get_by_role("heading", name="Create the administrator")).to_be_visible()
+    logs = stack.compose("logs", "--no-color", "api").stdout
+    token = re.findall(r"FIRST-RUN SETUP TOKEN[^:]*: ([\w-]+)", logs)[-1]
+    page.get_by_label("Setup token").fill(token)
+    page.get_by_label("Your name").fill("Ada")
+    page.get_by_label("Email").fill("admin@example.com")
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Create account").click()
+    expect(page.get_by_role("heading", name="Sign in")).to_be_visible()
+    page.get_by_label("Email").fill("admin@example.com")
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Sign in").click()
+
+    expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
+    expect(page.locator("ol.setup-steps > li > strong")).to_have_text(
+        [
+            "Step 1: AI (optional)",
+            "Step 2: Your account",
+            "Step 3: Other users (optional)",
+            "Step 4: Mail server (optional)",
+        ]
+    )
+    page.get_by_role("button", name="Invite users").click()
+    expect(page.get_by_role("heading", level=1, name="Step 3: Invite other users")).to_be_visible()
+    page.get_by_role("button", name="Back to setup steps").click()
+    expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
+    page.get_by_role("button", name="Set up mail").click()
+    expect(page.get_by_role("heading", level=1, name="Step 4: Mail server")).to_be_visible()
+    page.get_by_role("button", name="Back to setup steps").click()
+    page.get_by_role("button", name="Continue to file setup").click()
+    expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()

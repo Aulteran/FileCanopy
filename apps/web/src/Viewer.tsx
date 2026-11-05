@@ -769,6 +769,26 @@ function PdfView({
           ref={scroller}
           tabIndex={0}
           aria-label="Document pages"
+          onKeyDown={(e) => {
+            // Paperless-style keys: page by page, first and last page, and zoom.
+            if (e.altKey || e.ctrlKey || e.metaKey) return;
+            if (e.key === "PageDown" || e.key === "PageUp") {
+              e.preventDefault();
+              goTo(current + (e.key === "PageDown" ? 1 : -1));
+            } else if (e.key === "Home") {
+              e.preventDefault();
+              goTo(1);
+            } else if (e.key === "End") {
+              e.preventDefault();
+              goTo(doc.numPages);
+            } else if (e.key === "+" || e.key === "=") {
+              e.preventDefault();
+              setZoom((z) => Math.min(4, Math.round(z * 1.25 * 100) / 100));
+            } else if (e.key === "-") {
+              e.preventDefault();
+              setZoom((z) => Math.max(0.5, Math.round((z / 1.25) * 100) / 100));
+            }
+          }}
         >
           {pages.map((n) => (
             <PdfPage
