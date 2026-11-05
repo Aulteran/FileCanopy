@@ -2,6 +2,12 @@
 
 **FileCanopy is owner-selected (2026-11-03); external name clearance remains pending.** This is an open-source, Docker-hosted, real-folder file manager with optional AI. Do not report features as implemented until code and tests exist. Docker is the first-beta priority (owner decision 2026-11-04); native Proxmox helper-script LXC is deferred until later and unimplemented. See M24's release packet before making support or publication claims.
 
+## Branches
+
+- Feature branches open pull requests into `dev`, which runs full CI. `dev` is the default branch.
+- `beta` takes pull requests from `dev` and publishes the beta image. `release` takes pull requests from `beta` or `dev` and publishes the release image and GitHub Release.
+- Small documentation edits may go straight to `dev` unless rulesets forbid it. Nothing is published from a push that is not to `beta` or `release`.
+
 ## Mandatory before every coding session
 
 1. Read `PROJECT_STATUS.md`, `MILESTONES.json` and target section of `08_IMPLEMENTATION_PLAN.md`.

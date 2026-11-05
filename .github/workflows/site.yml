@@ -3,7 +3,7 @@ name: site
 
 on:
   push:
-    branches: [main]
+    branches: [release]
     paths: ["site/**", ".github/workflows/site.yml"]
   workflow_dispatch:
 
