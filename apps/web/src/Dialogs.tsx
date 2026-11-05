@@ -71,6 +71,15 @@ export function Modal({
         }
       }}
     >
+      <button
+        type="button"
+        className="modal-x"
+        aria-label="Dismiss dialog"
+        title="Close"
+        onClick={onClose}
+      >
+        ×
+      </button>
       <h2 id={titleId}>{title}</h2>
       {children}
     </dialog>

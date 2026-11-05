@@ -20,14 +20,16 @@ import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
+import { AdminPage } from "./AdminPage";
+import { ProfileMenu } from "./ProfileMenu";
 import {
+  ADMIN_PATH,
   BACKUPS_PATH,
   COLLECTIONS_PATH,
   DUPLICATES_PATH,
   INBOX_PATH,
   ORGANIZE_PATH,
   isVerifyEmailPath,
-  MAILBOX_PATH,
   NOTICES_PATH,
   RECENT_PATH,
   searchPath,
@@ -212,6 +214,7 @@ function Shell({
     collections,
     collectionId,
     mailbox,
+    admin: adminRoute,
     search,
     go,
   } = useRoute();
@@ -286,6 +289,7 @@ function Shell({
       !duplicates &&
       !collections &&
       !mailbox &&
+      !adminRoute &&
       search === null
     )
       go(folderPath(roots[0]!.node_id), true);
@@ -303,6 +307,7 @@ function Shell({
     duplicates,
     collections,
     mailbox,
+    adminRoute,
     search,
     go,
   ]);
@@ -350,51 +355,18 @@ function Shell({
 
   const header = (withBackups: boolean) => (
     <header className="topbar">
-      <span className="brand">
+      <a
+        href="/"
+        className="brand"
+        aria-label="FileCanopy home"
+        onClick={(e) => {
+          e.preventDefault();
+          if (roots[0]) go(folderPath(roots[0].node_id));
+          else go("/");
+        }}
+      >
         <Wordmark />
-      </span>
-      {withBackups && (
-        <a
-          href={BACKUPS_PATH}
-          className="toplink"
-          aria-current={backups ? "page" : undefined}
-          onClick={(e) => {
-            e.preventDefault();
-            go(BACKUPS_PATH);
-          }}
-        >
-          <Icon name="backup" />
-          <span className="lbl">Backups</span>
-        </a>
-      )}
-      {withBackups && admin && (
-        <a
-          href={USERS_PATH}
-          className="toplink"
-          aria-current={users ? "page" : undefined}
-          onClick={(e) => {
-            e.preventDefault();
-            go(USERS_PATH);
-          }}
-        >
-          <Icon name="users" />
-          <span className="lbl">Users</span>
-        </a>
-      )}
-      {withBackups && admin && (
-        <a
-          href={MAILBOX_PATH}
-          className="toplink"
-          aria-current={mailbox ? "page" : undefined}
-          onClick={(e) => {
-            e.preventDefault();
-            go(MAILBOX_PATH);
-          }}
-        >
-          <Icon name="mail" />
-          <span className="lbl">Mailbox</span>
-        </a>
-      )}
+      </a>
       {withBackups && (
         <form
           className="searchbox"
@@ -421,31 +393,100 @@ function Shell({
         </form>
       )}
       <span className="spacer" />
-      <button type="button" onClick={() => setPreviewSettings(true)}>
-        <Icon name="image" />
-        <span className="lbl">Preview settings</span>
-      </button>
-      <button type="button" onClick={() => setAiSettings(true)}>
-        <Icon name="sparkles" />
-        <span className="lbl">AI</span>
-      </button>
-      {pinSet && (
-        <button type="button" onClick={() => void lockNow()}>
-          <Icon name="lock" />
-          <span className="lbl">Lock</span>
-        </button>
+      {withBackups && admin && (
+        <a
+          href={ADMIN_PATH}
+          className="toplink"
+          aria-current={adminRoute || users || mailbox ? "page" : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            go(ADMIN_PATH);
+          }}
+        >
+          <Icon name="settings" />
+          <span className="lbl">Admin</span>
+        </a>
       )}
-      <button type="button" onClick={() => setAccount(true)}>
-        <Icon name="settings" />
-        <span className="lbl">Account</span>
-      </button>
-      <span className="who">
-        <span className="avatar" aria-hidden="true">
-          {initials(session.user.name)}
-        </span>
-        <span className="nm">{session.user.name}</span>
-      </span>
-      <button onClick={() => void logout()}>Sign out</button>
+      <ProfileMenu
+        name={session.user.name}
+        initials={initials(session.user.name)}
+      >
+        {(close) => (
+          <>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                setAccount(true);
+              }}
+            >
+              <Icon name="settings" />
+              Account
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                setPreviewSettings(true);
+              }}
+            >
+              <Icon name="image" />
+              Preview settings
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                setAiSettings(true);
+              }}
+            >
+              <Icon name="sparkles" />
+              AI
+            </button>
+            {withBackups && (
+              <a
+                href={BACKUPS_PATH}
+                role="menuitem"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                  go(BACKUPS_PATH);
+                }}
+              >
+                <Icon name="backup" />
+                Backups
+              </a>
+            )}
+            {pinSet && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  close();
+                  void lockNow();
+                }}
+              >
+                <Icon name="lock" />
+                Lock
+              </button>
+            )}
+            <hr />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                void logout();
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
+      </ProfileMenu>
     </header>
   );
 
@@ -659,6 +700,12 @@ function Shell({
             <MailboxAdminPage onEnded={onEnded} />
           ) : (
             <p>Only administrators can manage the mailbox.</p>
+          ))}
+        {adminRoute &&
+          (admin ? (
+            <AdminPage go={go} />
+          ) : (
+            <p>Only administrators can open the admin page.</p>
           ))}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />

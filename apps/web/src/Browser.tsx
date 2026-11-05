@@ -1,3 +1,4 @@
+import { readZip, ZipError } from "./zipRead";
 import { Icon } from "./Icon";
 import { loadDensity, saveDensity, type Density } from "./density";
 import { LabelBadge, LockCard, LockStrip, PrivacyDialog } from "./Privacy";
@@ -33,6 +34,7 @@ import {
   fileMap,
   forgetUpload,
   fromInput,
+  stripTopFolder,
   pendingFiles,
   readEntriesTree,
   rememberUpload,
@@ -127,6 +129,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Items ticked for a bulk action (separate from the one item shown in the details pane).
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [focusIx, setFocusIx] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState("");
@@ -278,6 +282,38 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           : fail(err),
       );
     }
+    await refresh();
+  }
+
+  function toggleChecked(id: string): void {
+    setChecked((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteChecked(): Promise<void> {
+    const targets = items.filter((c) => checked.has(c.id));
+    let moved = 0;
+    let lastOp: Operation | null = null;
+    for (const c of targets) {
+      try {
+        const r = await api.deleteNode(c.id, c.revision);
+        lastOp = r.operation;
+        moved++;
+      } catch (err) {
+        setErrorText(fail(err));
+        break;
+      }
+    }
+    setChecked(new Set());
+    setSelectedId(null);
+    if (moved > 0)
+      offerUndo(
+        `Moved ${moved} item${moved === 1 ? "" : "s"} to the Trash`,
+        moved === 1 ? undoableId(lastOp) : null,
+      );
     await refresh();
   }
 
@@ -469,6 +505,29 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   async function runUploads(files: File[]): Promise<void> {
     if (!canWrite) return;
+    // A .zip is unpacked into this folder (its contents, not the archive) unless the person
+    // asks to keep it as a file.
+    const zips = files.filter((f) => /\.zip$/i.test(f.name));
+    if (
+      zips.length === 1 &&
+      files.length === 1 &&
+      window.confirm(
+        `Unpack ${zips[0]!.name} into this folder?
+
+OK adds the files inside the zip. Cancel uploads the zip file itself.`,
+      )
+    ) {
+      try {
+        await runFolderUpload(stripTopFolder(await readZip(zips[0]!)));
+      } catch (err) {
+        setErrorText(
+          err instanceof ZipError
+            ? "That zip could not be unpacked here. Upload it as a file instead."
+            : fail(err),
+        );
+      }
+      return;
+    }
     for (const file of files) {
       const id = nextUpload.current++;
       setUploads((u) => [...u, { id, file, state: "uploading", loaded: 0 }]);
@@ -879,6 +938,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             <table role="grid" aria-label={`Contents of ${info.name}`}>
               <thead>
                 <tr>
+                  <th scope="col" className="pick">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all items"
+                      checked={
+                        items.length > 0 && checked.size === items.length
+                      }
+                      onChange={(e) =>
+                        setChecked(
+                          e.target.checked
+                            ? new Set(items.map((c) => c.id))
+                            : new Set(),
+                        )
+                      }
+                    />
+                  </th>
                   <th scope="col">Name</th>
                   <th scope="col" className="num">
                     Size
@@ -902,12 +977,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     onFocus={(e) => {
                       if (e.target === e.currentTarget) setFocusIx(ix);
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) toggleChecked(c.id);
                       setSelectedId(c.id);
                       setFocusIx(ix);
                     }}
                     onKeyDown={(e) => onGridKey(e, ix, c)}
                   >
+                    <td className="pick">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.name}`}
+                        checked={checked.has(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleChecked(c.id)}
+                      />
+                    </td>
                     <td>
                       <span
                         className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
@@ -1118,6 +1203,21 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           ) : (
             <>
               <h2>{info.name}</h2>
+              {checked.size > 0 && (
+                <div className="actions">
+                  <p className="hint">{checked.size} selected</p>
+                  <button
+                    disabled={!canWrite}
+                    title={noWrite}
+                    onClick={() => void deleteChecked()}
+                  >
+                    Move {checked.size} to Trash
+                  </button>
+                  <button onClick={() => setChecked(new Set())}>
+                    Clear selection
+                  </button>
+                </div>
+              )}
               <p className="hint">
                 {items.length} item{items.length === 1 ? "" : "s"}
                 {next ? "+" : ""}. Select an item for details.

@@ -16,6 +16,7 @@ const ORGANIZE = /^\/organize\/?$/;
 const DUPLICATES = /^\/duplicates\/?$/;
 const COLLECTIONS = /^\/collections(?:\/([0-9a-f-]{36}))?\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
+const ADMIN = /^\/admin\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
 export function folderIdFrom(pathname: string): string | null {
@@ -45,6 +46,11 @@ export const ORGANIZE_PATH = "/organize";
 export const DUPLICATES_PATH = "/duplicates";
 export const COLLECTIONS_PATH = "/collections";
 export const MAILBOX_PATH = "/admin/mail";
+export const ADMIN_PATH = "/admin";
+
+export function isAdminPath(pathname: string): boolean {
+  return ADMIN.test(pathname);
+}
 
 export function isInboxPath(pathname: string): boolean {
   return INBOX.test(pathname);
@@ -159,6 +165,7 @@ export function useRoute(): {
   collections: boolean;
   collectionId: string | null;
   mailbox: boolean;
+  admin: boolean;
   search: string | null;
   go: (path: string, replace?: boolean) => void;
 } {
@@ -193,6 +200,7 @@ export function useRoute(): {
     collections: isCollectionsPath(path),
     collectionId: collectionIdFrom(path),
     mailbox: isMailboxPath(path),
+    admin: isAdminPath(path),
     search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,
   };

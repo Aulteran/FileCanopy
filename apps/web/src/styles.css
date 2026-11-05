@@ -1303,3 +1303,118 @@ h1.brandh .c {
   background: var(--sel);
   color: var(--primary-strong);
 }
+
+/* ---- profile menu, admin page, dialog close (demo-issues) ---- */
+.profile {
+  position: relative;
+}
+.topbar .who {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.profile-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+}
+.profile-panel > button,
+.profile-panel > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.profile-panel > button:hover,
+.profile-panel > a:hover {
+  background: var(--sel);
+}
+.profile-panel hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 6px 0;
+}
+a.brand {
+  color: inherit;
+  text-decoration: none;
+}
+.admin-cards {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.admin-cards a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.admin-cards a:hover {
+  border-color: var(--primary);
+}
+dialog {
+  position: relative;
+}
+.modal-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+/* Checkboxes: normal size, aligned with their label text */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  min-height: 0;
+  margin: 0 0.5em 0 0;
+  padding: 0;
+  vertical-align: middle;
+  flex: none;
+}
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  display: flex;
+  align-items: center;
+  font-weight: 400;
+}
+.list th.pick,
+.list td.pick {
+  width: 36px;
+  padding-right: 0;
+  text-align: center;
+}
