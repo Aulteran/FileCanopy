@@ -652,6 +652,13 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/backups/run",
     "/api/v1/admin/backups/key/rotate",
     "/api/v1/admin/backups/roots/{root_id}/escrow",  # M25: admin-only, sealed blob, audited
+    # M27: backup jobs. Administrators only (`require_admin`; tests/unit/api/test_backup_jobs.py
+    # checks every route refuses a non-administrator). They address no node; the secrets they
+    # hold are sealed and never returned.
+    "/api/v1/admin/backups/jobs",
+    "/api/v1/admin/backups/jobs/{job_id}",
+    "/api/v1/admin/backups/jobs/{job_id}/test",
+    "/api/v1/admin/backups/jobs/{job_id}/run",
     "/api/v1/auth/lock",  # own session only; no node addressed
     "/api/v1/auth/oidc/reauth/start",  # M12b: own session only
     "/api/v1/auth/pin",  # M12b: own account only

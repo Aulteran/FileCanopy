@@ -208,8 +208,27 @@ def test_create_validates_and_labels_unencrypted_jobs(fx: Fx) -> None:
 
 
 def test_only_administrators_manage_jobs(fx: Fx) -> None:
+    job = make_job(fx)
     alice = Api(fx, "alice")
-    assert alice.post("/admin/backups/jobs", json=body()).status_code in (401, 403)
+    anonymous = fx.w.browser()
+    ghost = uuid.uuid4()
+    calls = [
+        ("GET", "/admin/backups/jobs", None),
+        ("POST", "/admin/backups/jobs", body(name="Other")),
+        ("PUT", f"/admin/backups/jobs/{job}", body()),
+        ("DELETE", f"/admin/backups/jobs/{job}", None),
+        ("POST", f"/admin/backups/jobs/{job}/test", None),
+        ("POST", f"/admin/backups/jobs/{job}/run", None),
+        ("POST", f"/admin/backups/jobs/{ghost}/run", None),
+    ]
+    for method, path, payload in calls:
+        url = f"/api/v1{path}"
+        r = alice.client.request(method, url, json=payload, headers=alice.headers)
+        assert r.status_code == 403, (method, path, r.status_code)
+        r = anonymous.request(method, url, json=payload)
+        assert r.status_code == 401, (method, path, r.status_code)
+    listing = fx.admin[0].get(JOBS, headers=fx.admin[1]).json()
+    assert [j["name"] for j in listing] == ["Nightly"]  # nothing changed or was removed
 
 
 def test_full_every_time_is_a_chain_of_one(fx: Fx) -> None:
