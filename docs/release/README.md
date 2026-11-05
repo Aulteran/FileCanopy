@@ -226,16 +226,16 @@ output. Use an empty install and synthetic documents; retain no real credentials
    native/vendor/OS NOASSERTION reviews, complete final-image SBOMs, source bundles and notices,
    and obtain accountable licence sign-off. See audit items L1–L12.
 2. **Waived by owner 2026-11-05:** external name clearance is not pursued for now; the name may be changed later if needed. No
-   legal clearance exists and none is claimed; GHCR namespace availability is still checked at M26 publication.
+   legal clearance exists and none is claimed; GHCR namespace availability is still checked at MF publication.
 3. Approve the three governance drafts, select/configure/test a private security reporting route,
    and promote approved files to repository-root policies. Set beta maintenance/upgrade expectations
    and an evidence-backed OS/architecture/version matrix. Stable remains undefined.
 4. Native Proxmox LXC is **removed from M24 and is not a gate** (owner decision 2026-11-05); it will be revisited after the first Docker version is published and pullable. It remains unimplemented and unvalidated: do not claim LXC or helper-script support, and note that upstream helper inclusion would need its own review.
-5. **Moved to M26 pre-publication (owner 2026-11-05: the clean rebuild is not part of M24, because known issues will be fixed after M24/M25).** Freeze remaining build inputs, commit/review the local changes, build all images from that clean
+5. **Moved to MF pre-publication (owner 2026-11-05: the clean rebuild is not part of M24, because known issues will be fixed after M24/M25).** Freeze remaining build inputs, commit/review the local changes, build all images from that clean
    commit, retain IDs and complete image SBOMs, and compare isolated rebuilds to close reproducibility.
    Verify an accessible source offer corresponds to the exact running app and native dependencies;
    a generic repository URL alone is not evidence for a modified running build.
-6. Run the release install/upgrade/restore tests and CI (final-candidate runs move to M26), conduct
+6. Run the release install/upgrade/restore tests and CI (final-candidate runs move to MF), conduct
    and record the manual demo, review known issues and obtain owner beta acceptance.
 7. Only with a separate explicit owner instruction: choose the beta version/tag, publish images
    and source/notices/SBOMs/digests, test pulling that published candidate, and create/announce the

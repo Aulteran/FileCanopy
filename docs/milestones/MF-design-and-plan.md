@@ -1,4 +1,4 @@
-# M26 — Branch model, CI promotion and registry publication
+# MF — Branch model, CI promotion and registry publication
 
 **Status:** Not started. Planning only, added 2026-11-05 at the owner's request. Nothing is created,
 configured, pushed or published by this document. Publication still requires a separate explicit owner instruction.
@@ -16,7 +16,7 @@ Publishing images to GHCR and creating a GitHub Release belong here.
 | `beta` | Working builds for early adopters | PR from `dev` | Publish **beta** image to GHCR (prerelease) |
 | `release` | Stable builds | PR from `beta` or `dev` | Publish **release** image to GHCR and create GitHub Release |
 
-Stable remains undefined in M24; M26 cannot publish to `release` until the owner defines it.
+Stable remains undefined in M24; MF cannot publish to `release` until the owner defines it.
 
 ## Plan items (to be approved before implementation)
 
