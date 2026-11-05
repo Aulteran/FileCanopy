@@ -33,6 +33,13 @@ def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ct
     page.get_by_label("Email").fill(email)
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Sign in").click()
+    # an administrator first gets the optional "Prepare your server" step
+    step = page.get_by_role("button", name="Continue to file setup")
+    page.get_by_role("region", name=re.compile("^Set up ")).or_(step).or_(
+        page.get_by_role("navigation", name="Locations")
+    ).first.wait_for()
+    if step.is_visible():
+        step.click()
     screen = page.get_by_role("region", name=re.compile("^Set up "))
     nav = page.get_by_role("navigation", name="Locations")
     if setup:
