@@ -76,6 +76,12 @@ def test_dry_run_never_pushes_or_releases() -> None:
     assert wf["jobs"]["github-release"]["if"].endswith("dry_run != 'true'")
 
 
+def test_first_beta_builds_amd64_only() -> None:
+    wf = load(PUBLISH)
+    build = next(s for s in wf["jobs"]["images"]["steps"] if s.get("id") == "build")
+    assert build["with"]["platforms"] == "linux/amd64"
+
+
 def test_beta_never_gets_latest() -> None:
     text = PUBLISH.read_text()
     beta_block = text.split('if [ "$REF_NAME" = "beta" ]; then', 1)[1].split("else", 1)[0]
