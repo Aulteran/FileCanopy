@@ -2,7 +2,7 @@
 
 **Prepared for review; no root policies adopted or repository settings changed.**
 Exact proposed documents: [CONTRIBUTING](drafts/CONTRIBUTING.md),
-[SECURITY](drafts/SECURITY.md), [CHANGELOG](drafts/CHANGELOG.md).
+[SECURITY](../../SECURITY.md), [CHANGELOG](drafts/CHANGELOG.md).
 The M24 acceptance plan requires owner approval before promotion. Public beta
 licensing and other release gates remain independent of policy approval.
 

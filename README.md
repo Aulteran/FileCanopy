@@ -193,7 +193,7 @@ Continuous integration runs on GitHub Actions. See `.github/workflows/ci.yml`.
 
 ## Contributing
 
-Report bugs in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues), using synthetic examples and sanitised diagnostics. Include your commit/image identity, deployment method and reproduction steps. Discuss large changes first. [CONTRIBUTING](docs/release/drafts/CONTRIBUTING.md), [SECURITY](docs/release/drafts/SECURITY.md) and [CHANGELOG](docs/release/drafts/CHANGELOG.md) are prepared as drafts pending owner approval. A private security-reporting route still needs configuration and verification; do not post secrets or vulnerability details in public issues.
+Report bugs in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues), using synthetic examples and sanitised diagnostics. Include your commit/image identity, deployment method and reproduction steps. Discuss large changes first. [CONTRIBUTING](docs/release/drafts/CONTRIBUTING.md), [SECURITY](SECURITY.md) and [CHANGELOG](docs/release/drafts/CHANGELOG.md) are prepared as drafts pending owner approval. A private security-reporting route still needs configuration and verification; do not post secrets or vulnerability details in public issues.
 
 ## License
 

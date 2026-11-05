@@ -1,18 +1,16 @@
-# Security policy — draft for owner approval
+# Security policy
 
-**Draft status:** Not adopted. GitHub private vulnerability reporting is available
-for this public repository but **disabled**, confirmed by REST GET on 2026-11-04
-(`{"enabled":false}`). The proposed policy below may be promoted only after owner
-approval, enablement and reporter/maintainer verification in the
-[approval package](../policy-approval.md). It is not an active reporting route yet.
+Reporting route verified: GitHub private vulnerability reporting was enabled by the owner and
+confirmed by REST GET on 2026-11-05 (`{"enabled":true}`). FileCanopy has no published release yet;
+this policy applies to the repository and to future betas.
 
 ## Reporting a suspected vulnerability
 
 Use [GitHub private vulnerability reporting](https://github.com/Aulteran/FileCanopy/security/advisories/new)
 to report a suspected vulnerability privately. A GitHub account is required.
 Keep exploit details, sensitive logs and affected documents out of public issues.
-If the form is unavailable, do not post those details publicly; wait for a verified
-private route in this policy. No alternative mailbox is currently designated.
+If the form is unavailable, do not post those details publicly; try again later. No alternative
+mailbox is designated.
 
 Include the affected version/commit, deployment and architecture, minimal synthetic reproduction,
 impact and any workaround. Do not send real documents, passwords, tokens or recovery keys. Avoid
@@ -42,7 +40,7 @@ Protect the host, disk and backups independently. Normal files may leave the hos
 is explicitly enabled. MCP clients may forward received data to their own providers.
 
 An evidence-backed deployment/version matrix must accompany the beta; a platform
-priority is not a support guarantee. [Release preparation](../README.md) and
-[known issues](../known-issues.md) record risks and coverage gaps, including the
+priority is not a support guarantee. [Release preparation](docs/release/README.md) and
+[known issues](docs/release/known-issues.md) record risks and coverage gaps, including the
 accepted but unimplemented ADR-016 backup-key design. Internal reviews and
 automated tests are not an external security audit or compliance certification.

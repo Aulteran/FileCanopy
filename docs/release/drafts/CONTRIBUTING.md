@@ -13,7 +13,7 @@ sanitised logs. State whether AI, OCR, email or MCP is enabled. Use synthetic fi
 real personal documents, provider keys, setup/invite/reset links or an unredacted `.env`.
 
 Discuss substantial changes in an issue first. Work one milestone or tested subtask at a time.
-For suspected vulnerabilities, follow [the security policy](SECURITY.md).
+For suspected vulnerabilities, follow [the security policy](../../../SECURITY.md).
 Do not post exploitation details publicly. The beta has no stable-support or
 response-time promise; proposed maintenance expectations are in that policy.
 
