@@ -3,14 +3,15 @@
 # - `check` (fast): lint, format, unit tests, secret scan. Runs on every push and pull request.
 # - `compose` (slow): the real Docker Compose suite, split into two parallel jobs. Runs on pull
 #   requests and manual runs, not again on the push that merges them (the merged tree was just
-#   tested). Run it by hand from the Actions tab (workflow_dispatch) after a direct push to main.
+#   tested). Run it by hand from the Actions tab (workflow_dispatch) after a direct push to a branch.
 # Docker layers are cached in the GitHub Actions cache; the images are pre-built here and the
 # tests are told not to rebuild them (FILECANOPY_SKIP_IMAGE_BUILD / FILECANOPY_COMPOSE_NO_BUILD).
 name: ci
 
 on:
   push:
-    branches: [main]
+    # main is the current default; dev, beta and release are the MF promotion branches.
+    branches: [main, dev, beta, release]
   pull_request:
   workflow_dispatch:
 
