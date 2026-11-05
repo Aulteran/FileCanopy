@@ -128,6 +128,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   >("loading");
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
+  const zipInput = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Items ticked for a bulk action (separate from the one item shown in the details pane).
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -503,31 +504,21 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
+  async function unpackZip(zip: File): Promise<void> {
+    if (!canWrite) return;
+    try {
+      await runFolderUpload(stripTopFolder(await readZip(zip)));
+    } catch (err) {
+      setErrorText(
+        err instanceof ZipError
+          ? "That zip could not be unpacked here. Use Upload here to add it as a file."
+          : fail(err),
+      );
+    }
+  }
+
   async function runUploads(files: File[]): Promise<void> {
     if (!canWrite) return;
-    // A .zip is unpacked into this folder (its contents, not the archive) unless the person
-    // asks to keep it as a file.
-    const zips = files.filter((f) => /\.zip$/i.test(f.name));
-    if (
-      zips.length === 1 &&
-      files.length === 1 &&
-      window.confirm(
-        `Unpack ${zips[0]!.name} into this folder?
-
-OK adds the files inside the zip. Cancel uploads the zip file itself.`,
-      )
-    ) {
-      try {
-        await runFolderUpload(stripTopFolder(await readZip(zips[0]!)));
-      } catch (err) {
-        setErrorText(
-          err instanceof ZipError
-            ? "That zip could not be unpacked here. Upload it as a file instead."
-            : fail(err),
-        );
-      }
-      return;
-    }
     for (const file of files) {
       const id = nextUpload.current++;
       setUploads((u) => [...u, { id, file, state: "uploading", loaded: 0 }]);
@@ -738,6 +729,26 @@ OK adds the files inside the zip. Cancel uploads the zip file itself.`,
         >
           <Icon name="upload" />
           Upload folder
+        </button>
+        <input
+          ref={zipInput}
+          type="file"
+          accept=".zip,application/zip"
+          hidden
+          data-testid="unpack-zip-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void unpackZip(file);
+          }}
+        />
+        <button
+          disabled={!canWrite}
+          title={noWrite || "Add the files inside a .zip to this folder"}
+          onClick={() => zipInput.current?.click()}
+        >
+          <Icon name="upload" />
+          Unpack zip here
         </button>
         <button
           disabled={!canWrite}
