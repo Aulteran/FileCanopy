@@ -145,7 +145,7 @@ class SftpDestination:
 
     @staticmethod
     def _authenticate(transport: Any, username: str, creds: dict[str, str]) -> None:
-        import paramiko  # type: ignore[import-untyped]
+        import paramiko
 
         try:
             if creds.get("private_key"):
