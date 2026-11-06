@@ -50,7 +50,10 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     _open_ai(page)
     dialog = page.get_by_role("dialog", name="AI")
     # the administrator turns AI on for the server, then starts adding a model
-    dialog.get_by_label("Enable AI on this server?").check()
+    # the box follows the server's answer, so click and wait rather than `check()`
+    switch = dialog.get_by_label("Enable AI on this server?")
+    switch.click()
+    expect(switch).to_be_checked()
     dialog.get_by_role("button", name="Add a model").click()
 
     # Anthropic is the first cloud provider, so the form starts on it.
