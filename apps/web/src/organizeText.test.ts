@@ -8,6 +8,8 @@ import {
   describeSplitWarning,
   pageRange,
   parseCuts,
+  DEFAULT_CONFIDENCE,
+  parseConfidence,
 } from "./organizeText";
 
 const base: OrganizeProposal = {
@@ -87,5 +89,24 @@ describe("split helpers (M17)", () => {
     );
     expect(describeSplitWarning("ai:whatever")).toContain("built-in rules");
     expect(describeSkipped("nothing_to_split")).toContain("single document");
+  });
+});
+
+describe("parseConfidence", () => {
+  it("accepts whole percents from the minimum to 100", () => {
+    expect(parseConfidence("50")).toBe(50);
+    expect(parseConfidence(" 90 ")).toBe(90);
+    expect(parseConfidence("100")).toBe(100);
+    expect(parseConfidence("70", 60)).toBe(70);
+  });
+  it("rejects anything else", () => {
+    for (const bad of ["", "49", "101", "90.5", "-90", "abc", "9e1", "60%"])
+      expect(parseConfidence(bad)).toBeNull();
+    expect(parseConfidence("55", 60)).toBeNull();
+  });
+  it("starts from a careful default", () => {
+    expect(parseConfidence(String(DEFAULT_CONFIDENCE))).toBe(
+      DEFAULT_CONFIDENCE,
+    );
   });
 });

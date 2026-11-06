@@ -537,7 +537,11 @@ function Shell({
           />
         </main>
         {aiSettings && (
-          <AiSettings admin={admin} onClose={() => setAiSettings(false)} />
+          <AiSettings
+            admin={admin}
+            serverSetup
+            onClose={() => setAiSettings(false)}
+          />
         )}
       </div>
     );
