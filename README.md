@@ -16,46 +16,21 @@ FileCanopy is a self-hosted file manager for your documents. You run it yourself
 - **Document tools.** Sharing, Private/Confidential folders, previews, local text search, optional OCR and verified email intake are implemented. PDF split proposals preserve the source; collections reference files without moving them.
 - **No AI required.** Basic file work runs without AI. Optional providers, validated organisation proposals, local semantic search and single-turn document chat are implemented. MCP is optional, read-only and off by default. See [feature guides](docs/guides/ai.md).
 
-The prepared [standalone Docker bundle](docs/guides/docker-install.md) will let users install with two downloads and `docker compose up -d` once images are published and anonymous pulls pass acceptance. Today the source route below remains available.
-
 ## Quick start (Docker Compose, published images)
 
 You need Docker with Docker Compose v2.24 or newer. Nothing is built on your machine: the images are pulled from GitHub Container Registry (`ghcr.io/aulteran/filecanopy-*`). The quick start uses the **beta** tag. The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the first-beta priority (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
 
-1. **Get the two files.** Make a folder and copy `compose.yaml` and `.env.example` into it. Both are in [`deploy/quickstart/`](deploy/quickstart/):
+```bash
+mkdir filecanopy && cd filecanopy
+curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
+docker compose up -d --wait
+```
 
-   ```bash
-   mkdir filecanopy && cd filecanopy
-   curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/beta/deploy/quickstart/compose.yaml
-   curl -fsSLo .env https://raw.githubusercontent.com/Aulteran/FileCanopy/beta/deploy/quickstart/.env.example
-   chmod 600 .env
-   ```
+Open **http://127.0.0.1:8080** and continue with [First-run setup](#first-run-setup). That is all: there is no password to choose (the stack generates the database password itself and keeps it in a Docker volume), and `library/` and `app-data/` are created next to `compose.yaml`. Your files are ordinary files in `library/`.
 
-2. **Edit `.env`.** Set `POSTGRES_PASSWORD` to a long random value (required). You can generate one with:
+Optional: to change the port, folders or version, download the six-line [`.env.example`](deploy/.env.example) as `.env` (`curl -fsSLo .env https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/.env.example`). Everything else (mail, single sign-on, limits, reverse proxy) is in [`.env.advanced.example`](deploy/.env.advanced.example). OCR, Office previews and workers are already in `compose.yaml`; switch them on with `COMPOSE_PROFILES` in `.env`. In-app backups and a proxy network are two small extra files in [`deploy/optional/`](deploy/optional/), added with a second `-f`.
 
-   ```bash
-   python -c "import secrets; print(secrets.token_urlsafe(32))"
-   ```
-
-   Every variable in `.env` is listed with a comment. Only `POSTGRES_PASSWORD` must be set; the rest have safe defaults.
-
-3. **Create the data folders.** `library/` holds your files and `app-data/` holds app-private working data. On Linux, make them owned by the user the app runs as (`FILECANOPY_UID`/`FILECANOPY_GID`, default `10001`):
-
-   ```bash
-   mkdir library app-data
-   sudo chown 10001:10001 library app-data   # Linux only; Docker Desktop needs no step
-   ```
-
-4. **Start it.**
-
-   ```bash
-   docker compose up -d --wait
-   curl http://127.0.0.1:8080/api/v1/health
-   ```
-
-   The health check should report `ok`. Then open **http://127.0.0.1:8080** in your browser and continue with [First-run setup](#first-run-setup).
-
-To update later, run `docker compose pull` and then `docker compose up -d --wait`. Back up first (see [Backups](#backups)). The beta tag moves when a new beta is published; to stay on one version, set `FILECANOPY_VERSION` in `.env` to that exact version.
+To update later, back up first (see [Backups](#backups)), then `docker compose pull && docker compose up -d --wait`. The `beta` tag moves when a new beta is published; to stay on one version set `FILECANOPY_VERSION` in `.env` to that exact version.
 
 <details>
 <summary>Build from source (developers)</summary>
@@ -63,18 +38,16 @@ To update later, run `docker compose pull` and then `docker compose up -d --wait
 ```bash
 git clone https://github.com/Aulteran/FileCanopy.git
 cd FileCanopy
-cp deploy/.env.example deploy/.env   # then set POSTGRES_PASSWORD in deploy/.env
-mkdir -p library app-data
-docker compose -f deploy/docker-compose.yml up -d --build --wait
+docker compose -f deploy/compose.yaml -f deploy/contrib/build.yaml up -d --build --wait
 ```
 
-The rest of this README uses `deploy/` paths for this route. Quick-start users keep `.env` and `compose.yaml` in their own folder and drop the `-f deploy/docker-compose.yml` part.
+Run the other commands in this README with `-f deploy/compose.yaml` (and the same build file).
 
 </details>
 
 ## First-run setup
 
-1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN`, the API prints a token to its log. Show it with (quick start: `docker compose logs api`; source build: add `-f deploy/docker-compose.yml`):
+1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN`, the API prints a token to its log. Show it with (source build: add `-f deploy/compose.yaml`):
 
    ```bash
    docker compose logs api | grep "SETUP TOKEN"
@@ -86,26 +59,25 @@ The rest of this README uses `deploy/` paths for this route. Quick-start users k
 
 ## Configuration
 
-All settings go in `deploy/.env`. The file `deploy/.env.example` lists every option with a comment. The most useful ones:
+All settings go in `.env` next to `compose.yaml`, and all are optional. [`deploy/.env.example`](deploy/.env.example) has the common ones and [`deploy/.env.advanced.example`](deploy/.env.advanced.example) lists every option with a comment. The most useful ones:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `POSTGRES_PASSWORD` | none (required) | Password for the database. Set it before the first start. |
-| `FILECANOPY_LIBRARY_PATH` | `../library` | Folder that holds your files. Relative paths are relative to `deploy/`. |
-| `FILECANOPY_APP_DATA_PATH` | `../app-data` | App-private working data. Must not be inside the library or the reverse. |
+| `FILECANOPY_LIBRARY_PATH` | `./library` | Folder that holds your files. Relative paths are relative to `compose.yaml`. |
+| `FILECANOPY_APP_DATA_PATH` | `./app-data` | App-private working data. Must not be inside the library or the reverse. |
 | `FILECANOPY_HTTP_PORT` | `8080` | Port on your own computer where the web app is published. |
 | `FILECANOPY_SETUP_TOKEN` | empty (generated) | Your own setup token, at least 32 characters. |
 | `FILECANOPY_COOKIE_SECURE` | `true` | Sign-in cookies are sent over HTTPS only. Browsers exempt `http://localhost`. |
 | `FILECANOPY_MAX_UPLOAD_BYTES` | 10 GiB | Largest single upload. |
 | `FILECANOPY_UID` / `FILECANOPY_GID` | `10001` | On Linux, the user the app runs as. Set these to the owner of `library/` and `app-data/` (see `id -u` and `id -g`). |
 
-The `.env.example` file also covers import limits, how long import reports are kept, and backups.
+The advanced file also covers import limits, how long import reports are kept, and backups.
 
 ### Remote access
 
 The web app listens only on `127.0.0.1`, so it is reachable only from the same machine. To use it from other devices, put a TLS reverse proxy in front of it and keep `FILECANOPY_COOKIE_SECURE=true`. Do not expose the plain HTTP port to a network.
 
-Working, tested setups for **Nginx Proxy Manager**, nginx, Caddy, Traefik and Cloudflare Tunnel are in [`deploy/proxy/`](deploy/proxy/README.md). In short, set these in `deploy/.env`:
+Working, tested setups for **Nginx Proxy Manager**, nginx, Caddy, Traefik and Cloudflare Tunnel are in [`deploy/proxy/`](deploy/proxy/README.md). In short, set these in `.env`:
 
 | Setting | Meaning |
 |---|---|
@@ -113,24 +85,24 @@ Working, tested setups for **Nginx Proxy Manager**, nginx, Caddy, Traefik and Cl
 | `FILECANOPY_TRUSTED_PROXIES` | The address of your reverse proxy as the app sees it (its own single address, not a whole network). Empty (default) trusts nobody, and then all users share the proxy's address for sign-in limits and the audit log. |
 | `FILECANOPY_HSTS` | `true` sends HSTS. Off by default. |
 
-If your proxy runs in Docker, add `-f deploy/docker-compose.proxy.yml` and set `FILECANOPY_PROXY_NETWORK` so the proxy can reach the app at `http://web:8080`. Uploads can be many GiB: the proxy must allow large bodies and long timeouts (the example files do). Cloudflare limits request bodies to 100 MB on the Free and Pro plans, which also applies to Cloudflare Tunnel; see the proxy guide.
+If your proxy runs in Docker, add `-f compose.proxy.yaml` (from `deploy/optional/`)` and set `FILECANOPY_PROXY_NETWORK` so the proxy can reach the app at `http://web:8080`. Uploads can be many GiB: the proxy must allow large bodies and long timeouts (the example files do). Cloudflare limits request bodies to 100 MB on the Free and Pro plans, which also applies to Cloudflare Tunnel; see the proxy guide.
 
 ## Where your data lives
 
 - **`library/`** is your files. Shared files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.
 - **`app-data/`** holds app-private working data, such as staged uploads during imports. Do not edit it by hand.
-- **The database** is a Docker volume named `pgdata`. It holds accounts, permissions, trash records and history. Your files do not depend on it: the project's tests check that documents survive a total database loss.
+- **The database** is a Docker volume named `pgdata`; its generated password is in the `secrets` volume (keep both together). It holds accounts, permissions, trash records and history. Your files do not depend on it: the project's tests check that documents survive a total database loss.
 
 ## Updating
 
 Back up your library first (see [Backups](#backups)). Then:
 
 ```bash
-git pull
-docker compose -f deploy/docker-compose.yml up -d --build --wait
+docker compose pull
+docker compose up -d --wait
 ```
 
-Database migrations run automatically on start. Your `deploy/.env` file is ignored by git, so `git pull` does not change it.
+Database migrations run automatically on start. (Building from source: `git pull`, then the build command above.)
 
 For a production setup (published images pinned to a version, whole-install backup and restore, HTTPS, the Docker Swarm variant) read the [production guide](docs/guides/production.md). What the containers log and the rate limits are in the [hardening guide](docs/guides/hardening.md).
 
@@ -140,11 +112,11 @@ There are two kinds. The **disaster-recovery backup** copies the database, `app-
 
 In-app backups are off by default, and the app does not need a backup disk to run. To turn them on:
 
-1. Set `FILECANOPY_BACKUP_PATH` in `deploy/.env` to a folder on a **separate disk or share**. It must not be inside `library/` or `app-data/`, and a copy on the same disk is not a real backup. The API user (`FILECANOPY_UID`/`FILECANOPY_GID`) must own that folder.
+1. Set `FILECANOPY_BACKUP_PATH` in `.env` to a folder on a **separate disk or share**. It must not be inside `library/` or `app-data/`, and a copy on the same disk is not a real backup. The API user (`FILECANOPY_UID`/`FILECANOPY_GID`) must own that folder.
 2. Start the stack with the backup override file:
 
    ```bash
-   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.backup.yml up -d --build --wait
+   docker compose -f compose.yaml -f compose.backup.yaml up -d --wait
    ```
 
 3. Sign in as an administrator, open **Backups**, and turn backups on. The defaults are a run every 24 hours, with a full backup every 7 runs and smaller changed-only runs in between. Backups are encrypted by default.
@@ -164,10 +136,10 @@ Things to know:
 ## Stopping
 
 ```bash
-docker compose -f deploy/docker-compose.yml down
+docker compose down
 ```
 
-This stops the containers and keeps your files and database. To start again, run `docker compose -f deploy/docker-compose.yml up -d --wait`.
+This stops the containers and keeps your files and database. To start again, run `docker compose up -d --wait`.
 
 Adding `-v` also deletes the database volume. That removes accounts, permissions, trash records and history, but it does not delete the files in `library/`.
 
@@ -202,7 +174,7 @@ Adding `-v` also deletes the database volume. That removes accounts, permissions
 | Optional MCP integration | Done (M21), scoped read-only Normal content |
 | Full UI redesign build | Done (M21b) |
 | Production packaging, single-node Stack example, hardening | Done (M22–M23), with documented follow-ups |
-| Public beta readiness | In progress (M24); release gates remain open |
+| Public beta readiness | Docker beta images published (M24, MF); stable release still gated |
 
 The full plan is in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`. The current state is recorded in `PROJECT_STATUS.md`, and design decisions are in `docs/adr/`.
 

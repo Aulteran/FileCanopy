@@ -4,7 +4,7 @@ import os
 import re
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,7 +19,10 @@ class ConfigError(ValueError):
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FILECANOPY_", extra="ignore")
 
-    database_url: SecretStr
+    # Either the full URL, or (Compose default) a file holding only the database password; the
+    # URL is then built for the bundled `postgres` service.
+    database_url: SecretStr = SecretStr("")
+    database_password_file: str = ""
     # Optional components. An empty value means "not configured".
     redis_url: str = ""
     # Ordinary, portable documents (bind mount). The API never writes here in M01.
@@ -329,6 +332,23 @@ class Settings(BaseSettings):
         return f"{self._public_origin()}/api/v1/auth/oidc/callback"
 
     @model_validator(mode="after")
+    def _database(self) -> "Settings":
+        if self.database_url.get_secret_value():
+            return self
+        if not self.database_password_file:
+            raise ConfigError("set FILECANOPY_DATABASE_URL or FILECANOPY_DATABASE_PASSWORD_FILE")
+        try:
+            password = Path(self.database_password_file).read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise ConfigError(f"cannot read the database password file: {exc.strerror}") from exc
+        if not password:
+            raise ConfigError("the database password file is empty")
+        self.database_url = SecretStr(
+            f"postgresql+psycopg://filecanopy:{quote(password, safe='')}@postgres:5432/filecanopy"
+        )
+        return self
+
+    @model_validator(mode="after")
     def _mail_and_oidc(self) -> "Settings":
         if self.smtp_host or self.smtp_from:
             if not self.smtp_configured:
@@ -442,4 +462,4 @@ def backup_dir(settings: Settings) -> Path | None:
 
 
 def load_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]  # values come from the environment
+    return Settings()  # values come from the environment

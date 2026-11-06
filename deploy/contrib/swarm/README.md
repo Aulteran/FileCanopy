@@ -26,19 +26,19 @@ chown 10001:10001 /srv/filecanopy/library /srv/filecanopy/app-data   # or your F
 # 2. The database password, as a secret (never stored in a file or in the stack spec).
 python3 -c "import secrets; print(secrets.token_urlsafe(32))" | docker secret create filecanopy_pg_password -
 
-# 3. Settings for the interpolated variables. docker stack deploy does not read deploy/.env,
+# 3. Settings for the interpolated variables. docker stack deploy does not read .env,
 #    so export it first.
-cat > deploy/stack/stack.env <<'ENV'
+cat > deploy/contrib/swarm/stack.env <<'ENV'
 FILECANOPY_VERSION=1.0.0
 FILECANOPY_IMAGE_PREFIX=ghcr.io/aulteran/filecanopy
 FILECANOPY_LIBRARY_PATH=/srv/filecanopy/library
 FILECANOPY_APP_DATA_PATH=/srv/filecanopy/app-data
 FILECANOPY_PUBLIC_URL=https://files.example.org
 ENV
-set -a; . deploy/stack/stack.env; set +a
+set -a; . deploy/contrib/swarm/stack.env; set +a
 
 # 4. Deploy.
-docker stack deploy --resolve-image never -c deploy/stack/docker-stack.yml filecanopy
+docker stack deploy --resolve-image never -c deploy/contrib/swarm/docker-stack.yml filecanopy
 docker service ls
 ```
 
@@ -56,7 +56,7 @@ networks:
     external: true
 ```
 
-Set `FILECANOPY_PUBLIC_URL`, and `FILECANOPY_TRUSTED_PROXIES` to the proxy's address as `web` sees it, as described in [`deploy/proxy/README.md`](../proxy/README.md). Do not publish port 8080 directly: Swarm's routing mesh would open it on every node's public interface.
+Set `FILECANOPY_PUBLIC_URL`, and `FILECANOPY_TRUSTED_PROXIES` to the proxy's address as `web` sees it, as described in [`deploy/proxy/README.md`](../../proxy/README.md). Do not publish port 8080 directly: Swarm's routing mesh would open it on every node's public interface.
 
 ## Upgrade, backup and restore
 

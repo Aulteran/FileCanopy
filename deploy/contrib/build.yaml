@@ -1,0 +1,19 @@
+# Developers only: build the images from a source checkout instead of pulling published ones.
+#   docker compose -f deploy/compose.yaml -f deploy/contrib/build.yaml up -d --build --wait
+# Tags default to filecanopy-<service>:<FILECANOPY_VERSION>; set FILECANOPY_IMAGE_PREFIX=filecanopy and
+# FILECANOPY_VERSION=dev for the local tags. FILECANOPY_SRC is the checkout root as seen from compose.yaml.
+x-api:
+  &api-build {
+    context: "${FILECANOPY_SRC:-..}",
+    dockerfile: apps/api/Dockerfile,
+    target: runtime,
+  }
+# init, migrate and api share one image, built once via migrate.
+services:
+  migrate: { build: *api-build }
+  postgres: { build: { context: "${FILECANOPY_SRC:-..}/deploy/postgres" } }
+  web:
+    {
+      build:
+        { context: "${FILECANOPY_SRC:-..}", dockerfile: apps/web/Dockerfile },
+    }

@@ -14,7 +14,7 @@ const out = process.env.FILECANOPY_RELEASE_OUTPUT
   : new URL("../docs/release/evidence/", import.meta.url);
 mkdirSync(out, { recursive: true });
 const compose = readFileSync(
-  new URL("../deploy/docker-compose.yml", import.meta.url),
+  new URL("../deploy/compose.yaml", import.meta.url),
   "utf8",
 );
 const redis = compose.match(/image: (redis:\S+)/)[1];

@@ -21,7 +21,7 @@ export function generateCandidate(plan, destination, execute = execFileSync) {
     });
   run("scripts/release-audit.mjs", [api.imageId]);
   const redis = readFileSync(
-    new URL("../deploy/docker-compose.yml", import.meta.url),
+    new URL("../deploy/compose.yaml", import.meta.url),
     "utf8",
   ).match(/image: (redis:\S+)/)[1];
   // Pull only the third-party pinned dependency; never push application images.

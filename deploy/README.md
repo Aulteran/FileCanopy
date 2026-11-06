@@ -1,17 +1,13 @@
 # deploy
 
-Docker Compose files and the optional Docker Stack variant. Compose is primary. The Stack variant is integration-tested on a single-node swarm only (M22). Start with [`docs/guides/production.md`](../docs/guides/production.md).
+Everything needed to run FileCanopy with Docker. Start with the root [`README.md`](../README.md) and [`docs/guides/production.md`](../docs/guides/production.md).
 
-- `docker-compose.yml`: core stack (`postgres`, `migrate`, `api`, `web`) plus the optional `workers` profile (`redis`, `worker`). No AI services; the embedding server for optional semantic search is yours to run.
-- `postgres` is built from `postgres/Dockerfile`: PostgreSQL 17 on Alpine (as before) plus the pgvector extension for the optional local semantic search (M19, `docs/guides/semantic-search.md`).
-- `converter` profile (in `docker-compose.yml`): optional sealed LibreOffice container for Office previews (M10, `converter/README.md`). Off by default; see `.env.example`.
-- `ocr` profile: optional sealed Tesseract container that makes scanned PDFs and pictures searchable (M11, `ocr/README.md`). Off by default; see `.env.example`.
-- `docker-compose.backup.yml`: optional override that mounts a separate backup directory at `/backups` (M06c, ADR-015). Add it with a second `-f`; without it the feature stays off.
-- `docker-compose.proxy.yml`: optional override that joins your reverse proxy's Docker network (`FILECANOPY_PROXY_NETWORK`) so a proxy container can reach the app at `http://web:8080` (M07c, ADR-018).
-- `docker-compose.release.yml`: optional override that runs published images (`FILECANOPY_VERSION` required, no build, no `latest`) instead of building from source (M22).
-- `scripts/`: `backup.sh` and `restore.sh`, the disaster-recovery backup of database + app-data + library, and its restore into an empty install (M22).
-- `stack/`: the Docker Swarm variant (`docker-stack.yml`) and its README (M22).
-- `proxy/`: tested reverse proxy setups (Nginx Proxy Manager, nginx, Caddy, Traefik, Cloudflare Tunnel). Start with `proxy/README.md`.
-- `.env.example`: copy to `.env` (git-ignored) and set `POSTGRES_PASSWORD`.
+- `compose.yaml`: the whole stack. Core (`init`, `postgres`, `migrate`, `api`, `web`) plus the profile-gated `ocr`, `converter` and `workers`. Published images; no build, no password to set.
+- `.env.example`: the optional six-line `.env`. `.env.advanced.example`: every other setting, all commented out.
+- `optional/`: two opt-in files added with a second `-f`: `compose.backup.yaml` (in-app backups) and `compose.proxy.yaml` (join your proxy's Docker network).
+- `scripts/`: `backup.sh` and `restore.sh`, whole-install disaster recovery.
+- `proxy/`: tested reverse proxy setups (Nginx Proxy Manager, nginx, Caddy, Traefik, Cloudflare Tunnel).
+- `postgres/`: PostgreSQL 17 plus pgvector, built into the `-postgres` image.
+- `contrib/`: not for normal installs. `build.yaml` builds the images from a checkout; `swarm/` is the single-node Docker Swarm variant.
 
-Design and rationale: `docs/adr/ADR-003-compose-layout-and-mounts.md`. Run instructions: root `README.md`.
+Defaults for every setting live in `apps/api/app/config.py`; `.env` only overrides them. Design and rationale: `docs/adr/ADR-003-compose-layout-and-mounts.md`.

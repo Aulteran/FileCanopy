@@ -308,7 +308,7 @@ export function MailboxAdminPage({ onEnded }: { onEnded: () => void }) {
       {status && !status.configured && (
         <p>
           No inbound mailbox is set up. See the FILECANOPY_IMAP_* settings in
-          deploy/.env.example.
+          .env.advanced.example.
         </p>
       )}
       {status && status.configured && (

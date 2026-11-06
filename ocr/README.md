@@ -20,4 +20,4 @@ only.
   characters before storing anything. Private and Confidential files are never sent here without the
   local-processing opt-in; Confidential files are not indexed at all.
 
-Turn it on in `deploy/.env`: `COMPOSE_PROFILES=ocr` and `FILECANOPY_OCR_URL=unix:///run/ocr/ocr.sock`.
+Turn it on in `.env`: `COMPOSE_PROFILES=ocr` and `FILECANOPY_OCR_URL=unix:///run/ocr/ocr.sock`.

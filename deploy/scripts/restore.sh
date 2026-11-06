@@ -60,7 +60,7 @@ refuse to run again until they are empty. To start over:
 The backup in $SRC is not changed by any of this.
 HELP
 }
-fc --profile '*' stop web api worker >/dev/null 2>&1 || true
+for s in web api worker; do fc stop "$s" >/dev/null 2>&1 || true; done
 echo "Starting the database ..."
 fc up -d --wait postgres >/dev/null
 tables=$(psql_value "select count(*) from information_schema.tables where table_schema = 'public'")

@@ -89,7 +89,7 @@ const manifests = [
   "deploy/postgres/LICENSE.pgvector",
   "converter/Dockerfile",
   "ocr/Dockerfile",
-  "deploy/docker-compose.yml",
+  "deploy/compose.yaml",
 ];
 save(
   "manifest-hashes.json",

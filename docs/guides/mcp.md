@@ -7,7 +7,7 @@ and threat model: `docs/milestones/M21-design-and-plan.md`.
 
 ## Turn it on (administrators)
 
-Set `FILECANOPY_MCP_ENABLED=true` in `deploy/.env` and restart. Nothing else changes for people who
+Set `FILECANOPY_MCP_ENABLED=true` in `.env` and restart. Nothing else changes for people who
 do not create a token. Behind a reverse proxy, set `FILECANOPY_PUBLIC_URL` so the app can show the
 right address. Use HTTPS: the token travels in a header.
 

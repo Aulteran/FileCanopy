@@ -1,59 +1,41 @@
-# Standalone Docker installation (beta preparation)
+# Standalone Docker installation
 
-No public images or release downloads exist yet. These instructions describe the prepared
-bundle; anonymous registry pulls and owner beta acceptance remain release gates.
-Docker is the first-beta target. Native Proxmox LXC is deferred until later.
+Docker is the first-beta target; native Proxmox LXC is deferred. You need Docker Engine with Linux
+containers and Docker Compose v2.24 or newer. No AI, mail, worker, Git checkout or image build is
+needed. The images are public on GitHub Container Registry (`ghcr.io/aulteran/filecanopy-*`).
 
 ## Install
 
-Use Docker Engine with Linux containers and Docker Compose v2.24 or newer. The preliminary
-candidate is tested on Docker Desktop Windows with Linux amd64 containers; this does not
-establish ARM64 or other host support. No AI, mail, worker, Git checkout, local image build
-or registry login is needed for the basic install once images are public.
-
-Download `compose.yaml` and `.env.example` from the **same release** into a new directory.
-For whole-install recovery also download `scripts/backup.sh`, `scripts/restore.sh` and
-`scripts/lib.sh`, preserving that layout (or extract the complete release bundle).
-Use the release's published checksums to verify downloads. Never download a moving main-branch
-file to upgrade an existing installation.
-
 ```sh
-cp .env.example .env
-chmod 600 .env
-mkdir library app-data
-# Linux: use the configured UID/GID; no recursive permission changes to an existing library.
-sudo chown 10001:10001 library app-data
+mkdir filecanopy && cd filecanopy
+curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
+docker compose up -d --wait
+docker compose logs api | grep "SETUP TOKEN"
 ```
 
-Edit `.env`: set `FILECANOPY_VERSION` to the explicit published version and `POSTGRES_PASSWORD`
-to a new URL-safe random secret (for example `openssl rand -hex 32`). Set a unique
-`COMPOSE_PROJECT_NAME` if another FileCanopy installation exists. Keep library and app-data
-separate, outside one another. The API must own both directories; app-data holds private
-state and secrets. Never use real documents for candidate validation.
+There is no password to set. On first start the `init` container generates the database password
+into the `secrets` volume and gives the app user the top-level `library/` and `app-data/` folders
+next to `compose.yaml` (not recursive: nothing inside your library is touched). Keep the two
+folders separate and outside one another. Never use real documents for candidate validation.
 
-```sh
-docker compose up -d
-docker compose ps -a
-docker compose logs api
-```
+Open `http://127.0.0.1:8080`, enter the one-time setup token from the log and create the
+administrator. There are no default credentials or open registration. Only the web port is
+published, on loopback. For remote access configure a TLS reverse proxy, `FILECANOPY_PUBLIC_URL`
+and the exact proxy address in `FILECANOPY_TRUSTED_PROXIES`; keep Secure cookies on, and enable HSTS
+only after HTTPS works.
 
-Wait for healthy API/web and successful `migrate` completion. Open `http://localhost:8080`,
-use the one-time FIRST-RUN SETUP TOKEN from the API log and create the administrator.
-There are no default credentials or open registration. Leave AI settings off.
-Only the web port is published, on loopback. For remote access configure a TLS reverse proxy
-to that port, `FILECANOPY_PUBLIC_URL` and the exact proxy address in `FILECANOPY_TRUSTED_PROXIES`.
-Keep Secure cookies enabled; enable HSTS only after HTTPS works.
-
-Optional converter/OCR profiles and socket URLs are shown in `.env.example`; they keep
-network isolation and resource limits. The optional workers profile adds a heartbeat tier.
-Profiles are not AI providers. Additional environment options are listed in `compose.yaml`.
+To change anything, save [`.env.example`](../../deploy/.env.example) as `.env` beside `compose.yaml`;
+every other option is in [`.env.advanced.example`](../../deploy/.env.advanced.example). A release
+bundle contains the same files: `compose.yaml`, `compose.backup.yaml`, `compose.proxy.yaml`, both env
+examples and `scripts/`, with `SHA256SUMS`. Optional containers (OCR, Office previews, workers) are
+profiles in `compose.yaml`: set `COMPOSE_PROFILES=ocr` (and the matching URL) in `.env`. They keep
+network isolation and resource limits and are not AI providers.
 
 ## Restart and upgrade
 
 `docker compose restart` preserves the library, app-data and project database volume.
-Back up before upgrading. Save the old bundle, version, `.env` and exact image digests privately.
-Download and verify the new matching bundle, review its release notes, change the explicit
-version in `.env`, then run:
+Back up before upgrading. Save `compose.yaml`, `.env` and the exact image digests privately.
+Review the release notes and, for a pinned install, change `FILECANOPY_VERSION` in `.env`, then run:
 
 ```sh
 docker compose pull
@@ -70,7 +52,8 @@ These scripts require POSIX sh, GNU tar and sha256sum (or shasum); use WSL on Wi
 Run as the storage owner or root, from the downloaded bundle directory. Backups contain
 everyone's plaintext files, password hashes and app-data secrets. Keep them private,
 encrypted when stored elsewhere, on a separate disk. Save `.env` separately and privately;
-the disaster backup does not include host configuration or externally supplied secrets.
+the disaster backup does not include host configuration or externally supplied secrets. The database
+password is regenerated for a new install, so it is not needed to restore.
 
 ```sh
 sh scripts/backup.sh /mnt/other-disk/backups

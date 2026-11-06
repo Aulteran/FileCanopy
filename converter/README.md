@@ -4,7 +4,7 @@ Optional sealed container that turns Word, Excel and PowerPoint (and OpenDocumen
 the viewer can show them (M10, ADR-019 section 5). Off unless the `converter` Compose profile is
 started and `FILECANOPY_CONVERTER_URL=unix:///run/converter/converter.sock` is set for the API.
 
-What seals it (see the `converter` service in `deploy/docker-compose.yml`): it has **no network at all**
+What seals it (see the `converter` service in `deploy/compose.yaml`): it has **no network at all**
 (`network_mode: none`); the API talks to it through a Unix socket in a volume shared by those two
 containers only, so it cannot reach the internet, the API's HTTP port, the database or DNS; it never
 sees the library, app data or secrets; read-only root with a small tmpfs;

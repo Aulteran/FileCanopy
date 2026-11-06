@@ -39,7 +39,7 @@ done
 [ "$library" = 0 ] || [ -d "$LIBRARY_DIR" ] || die "library folder $LIBRARY_DIR not found"
 
 fc ps --status running --services | grep -qx postgres || die "the database container is not running"
-running=$(fc --profile '*' ps --status running --services)
+running=$(fc ps --status running --services)
 
 umask 077
 OUT="$DEST/filecanopy-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -47,7 +47,7 @@ mkdir "$OUT"
 
 restart() {
   for s in api worker web; do
-    if echo "$running" | grep -qx "$s"; then fc --profile '*' start "$s" >/dev/null || true; fi
+    if echo "$running" | grep -qx "$s"; then fc start "$s" >/dev/null || true; fi
   done
 }
 if [ "$stop" = 1 ]; then
@@ -57,7 +57,7 @@ if [ "$stop" = 1 ]; then
   trap 'exit 143' TERM
   trap 'exit 129' HUP
   echo "Stopping web and API while copying ..."
-  fc --profile '*' stop web api worker >/dev/null
+  for s in web api worker; do echo "$running" | grep -qx "$s" && fc stop "$s" >/dev/null; done; true
 fi
 
 # A file that changes while being read makes tar exit with 1: fine for --no-stop, a failure otherwise.
