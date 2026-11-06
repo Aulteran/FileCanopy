@@ -219,7 +219,7 @@ def test_uvicorn_exception_stream_uses_the_redacting_formatter(
 
 def test_the_image_and_stack_switch_uvicorn_access_log_off() -> None:
     """uvicorn prints the full request line (with the query string) unless told not to."""
-    for path in ("apps/api/Dockerfile", "deploy/stack/docker-stack.yml"):
+    for path in ("apps/api/Dockerfile", "deploy/contrib/swarm/docker-stack.yml"):
         text = (ROOT / path).read_text(encoding="utf-8")
         starts = [ln for ln in text.splitlines() if "uvicorn" in ln and "app.main" in ln]
         assert starts, path

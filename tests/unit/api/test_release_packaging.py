@@ -43,46 +43,61 @@ def test_every_base_image_is_pinned_by_digest(dockerfile: Path) -> None:
         assert ":latest" not in image
 
 
+def deploy_compose_files() -> list[Path]:
+    return [DEPLOY / "compose.yaml", *sorted((DEPLOY / "optional").glob("compose.*.yaml"))]
+
+
 def test_third_party_compose_images_are_pinned_by_digest() -> None:
-    text = (DEPLOY / "docker-compose.yml").read_text()
-    for image in re.findall(r"^\s+image:\s+(\S+)", text, re.MULTILINE):
-        if image.startswith("filecanopy-"):
-            continue  # built from this repository
-        assert DIGEST.search(image), f"docker-compose.yml: {image} is not pinned"
+    for path in deploy_compose_files():
+        for image in re.findall(r"^\s+image:\s+(\S+)", path.read_text(), re.MULTILINE):
+            if "filecanopy" in image:
+                continue  # ours: tagged with the release version
+            assert DIGEST.search(image), f"{path.name}: {image} is not pinned"
 
 
-def services_with_our_images(text: str) -> set[str]:
-    """Top-level service names that build from this repository (and so need a release image)."""
-    services: set[str] = set()
-    current = None
-    in_services = False
-    for line in text.splitlines():
-        if line.startswith("services:"):
-            in_services = True
-        elif re.match(r"^\S", line) and in_services:
-            in_services = False
-        m = re.match(r"^  ([a-z][a-z0-9_-]*):\s*$", line)
-        if in_services and m:
-            current = m.group(1)
-        if in_services and current and re.search(r"image:\s+filecanopy-", line):
-            services.add(current)
-    return services
+def test_our_images_follow_one_prefix_and_version_and_never_latest() -> None:
+    for path in deploy_compose_files():
+        text = path.read_text()
+        for image in re.findall(r"^\s+image:\s+(\S+filecanopy\S*)", text, re.MULTILINE):
+            assert image.startswith("${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-"), (
+                image
+            )
+            assert image.endswith(":${FILECANOPY_VERSION:-beta}"), image
+        code = "\n".join(x for x in text.splitlines() if not x.lstrip().startswith("#"))
+        assert "latest" not in code
+        assert not re.search(r"^\s+build:", text, re.MULTILINE), "builds live in contrib/build.yaml"
 
 
-def test_release_override_covers_every_service_built_from_source() -> None:
-    ours = services_with_our_images((DEPLOY / "docker-compose.yml").read_text())
-    release = (DEPLOY / "docker-compose.release.yml").read_text()
-    assert ours >= {"postgres", "migrate", "api", "web", "converter", "ocr", "worker"}
-    for service in ours:
-        assert re.search(rf"^  {service}:\s*$", release, re.MULTILINE), f"{service} missing"
-    assert "${FILECANOPY_VERSION:?" in release, "the version must be required, never defaulted"
-    lines = [line for line in release.splitlines() if not line.lstrip().startswith("#")]
-    code = "\n".join(lines)
-    assert "latest" not in code
+def hardening_block(path: Path) -> str:
+    m = re.search(r"^x-hardening: &hardening\n((?:  .*\n)+)", path.read_text(), re.MULTILINE)
+    assert m, f"{path.name}: no x-hardening anchor"
+    return m.group(1)
+
+
+def test_compose_core_is_short_and_every_container_is_hardened() -> None:
+    text = (DEPLOY / "compose.yaml").read_text()
+    assert len(text.splitlines()) <= 110, "the part a beginner reads must stay short"
+    assert text.count("<<: *hardening") == 4  # init, migrate, api, web
+    assert "profiles:" not in text, "optional containers live in optional/compose.extras.yaml"
+    assert "POSTGRES_PASSWORD:" not in text, "the database password is generated, never typed"
+    assert text.count("FILECANOPY_") < 45, "defaults belong in apps/api/app/config.py"
+
+
+def test_optional_extras_are_profile_gated_and_hardened() -> None:
+    path = DEPLOY / "optional/compose.extras.yaml"
+    text = path.read_text()
+    assert text.count("<<: *hardening") == 3  # the sealed anchor, redis, worker
+    assert text.count("<<: *sealed") == 2  # converter, ocr
+    assert text.count("profiles: [") == 4  # converter, ocr, redis, worker
+    body = text.split("\nservices:")[1]
+    services = re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", body, re.MULTILINE)
+    assert services == ["converter", "ocr", "redis", "worker"]
+    # YAML anchors do not cross files, so the extras file carries its own copy of the core one.
+    assert hardening_block(path) == hardening_block(DEPLOY / "compose.yaml")
 
 
 def test_stack_file_uses_published_images_and_opens_no_ports() -> None:
-    stack = (DEPLOY / "stack/docker-stack.yml").read_text()
+    stack = (DEPLOY / "contrib/swarm/docker-stack.yml").read_text()
     code = "\n".join(line for line in stack.splitlines() if not line.lstrip().startswith("#"))
     assert not re.search(r"^\s+build:", code, re.MULTILINE)
     assert not re.search(r"^\s+ports:", code, re.MULTILINE)
@@ -139,23 +154,11 @@ def run_probe(deploy: Path, body: str, **env: str) -> str:
 
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
-def test_scripts_use_the_release_override_when_a_version_is_set(tmp_path: Path) -> None:
+def test_scripts_use_compose_yaml_unless_told_otherwise(tmp_path: Path) -> None:
     core = run_probe(stage_scripts(tmp_path / "a"), 'echo "$COMPOSE_FILE"')
-    assert core.endswith("deploy/docker-compose.yml")
-    from_env = run_probe(
-        stage_scripts(tmp_path / "b"), 'echo "$COMPOSE_FILE"', FILECANOPY_VERSION="1.2.3"
-    )
-    from_dotenv = run_probe(
-        stage_scripts(tmp_path / "c", "FILECANOPY_VERSION=1.2.3\n"), 'echo "$COMPOSE_FILE"'
-    )
-    for chosen in (from_env, from_dotenv):
-        files = chosen.split(":")
-        assert files[0].endswith("docker-compose.yml")
-        assert files[1].endswith("docker-compose.release.yml"), chosen
+    assert core.endswith("deploy/compose.yaml")
     explicit = run_probe(
-        stage_scripts(tmp_path / "d", "FILECANOPY_VERSION=1.2.3\n"),
-        'echo "$COMPOSE_FILE"',
-        COMPOSE_FILE="/x/mine.yml",
+        stage_scripts(tmp_path / "d"), 'echo "$COMPOSE_FILE"', COMPOSE_FILE="/x/mine.yml"
     )
     assert explicit == "/x/mine.yml"
 
@@ -240,7 +243,7 @@ def test_an_interrupted_backup_starts_the_app_again(tmp_path: Path, sig: signal.
     os.killpg(proc.pid, sig)
     proc.wait(timeout=20)
     calls = log.read_text()
-    assert "stop web api worker" in calls
+    assert "stop web" in calls and "stop api" in calls
     assert "start api" in calls and "start web" in calls, calls
 
 
@@ -312,3 +315,16 @@ def test_restore_into_a_live_database_gives_no_delete_advice(tmp_path: Path) -> 
     assert r.returncode != 0
     assert "already has tables" in r.stderr and "DELETES" in r.stderr
     assert "The restore did not finish" not in r.stderr, "nothing was written, so no cleanup advice"
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_scripts_also_load_the_extras_file_when_present(tmp_path: Path) -> None:
+    flat = stage_scripts(tmp_path / "a")
+    (flat / "compose.extras.yaml").write_text("services: {}\n")
+    files = run_probe(flat, 'echo "$COMPOSE_FILE"').split(":")
+    assert [Path(f).name for f in files] == ["compose.yaml", "compose.extras.yaml"]
+    repo = stage_scripts(tmp_path / "b")
+    (repo / "optional").mkdir()
+    (repo / "optional" / "compose.extras.yaml").write_text("services: {}\n")
+    files = run_probe(repo, 'echo "$COMPOSE_FILE"').split(":")
+    assert files[-1].endswith("optional/compose.extras.yaml")

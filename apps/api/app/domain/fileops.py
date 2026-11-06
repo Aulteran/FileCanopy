@@ -1,10 +1,11 @@
 """File operations: list, create folder, upload, download, copy, rename, move (ADR-013).
 
-Follows the action contract of `04_DATA_FILESYSTEM.md`: authorize every involved node through the
-policy engine, validate, journal, claim, act on the filesystem, then reconcile the database in one
-transaction. The filesystem action is atomic and never replaces an existing entry; if the database
-step fails the action is undone, and if it cannot be undone the node and journal row say
-`reconcile_needed` instead of claiming success. Callers pass an `OpCtx`; routes never build paths.
+Follows the action contract of `docs/04_DATA_FILESYSTEM.md`: authorize every involved
+node through the policy engine, validate, journal, claim, act on the filesystem, then reconcile the
+database in one transaction. The filesystem action is atomic and never replaces an existing entry;
+if the database step fails the action is undone, and if it cannot be undone the node and journal
+row say `reconcile_needed` instead of claiming success.
+Callers pass an `OpCtx`; routes never build paths.
 """
 
 import errno

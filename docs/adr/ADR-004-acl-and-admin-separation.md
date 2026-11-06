@@ -6,7 +6,7 @@
 
 ## Context
 
-M03 must give every account a personal root, provide a configurable shared (main) tree, evaluate folder grants centrally and guarantee that the web Administrator role never reads personal content without an explicit grant (`01_PRODUCT_SPEC.md`, `03_SECURITY_PRIVACY.md` "Access policy", trust boundary 2). Later milestones (file CRUD, search, previews, collections, AI, MCP) must all filter through the same decision function, so the shape chosen here is load-bearing. Full filesystem identity reconciliation (external moves, content-hash matching) is ADR-011 / M06 and is out of scope; this ADR fixes only the identity model those later pieces build on.
+M03 must give every account a personal root, provide a configurable shared (main) tree, evaluate folder grants centrally and guarantee that the web Administrator role never reads personal content without an explicit grant (`docs/01_PRODUCT_SPEC.md`, `docs/03_SECURITY_PRIVACY.md` "Access policy", trust boundary 2). Later milestones (file CRUD, search, previews, collections, AI, MCP) must all filter through the same decision function, so the shape chosen here is load-bearing. Full filesystem identity reconciliation (external moves, content-hash matching) is ADR-011 / M06 and is out of scope; this ADR fixes only the identity model those later pieces build on.
 
 ## Decision
 
@@ -83,7 +83,7 @@ A route-inventory unit test enumerates every `/api/v1` route and fails unless th
 - **Closure table for ancestry:** cheaper descendant queries on very deep trees but O(depth) rows per node and heavier moves; lineage strings are enough at family scale.
 - **Recursive CTE on `parent_id` only:** no denormalization, but every decision and every search filter becomes recursive; harder to make index-friendly for M11/M19.
 - **Admin implicitly reads the shared tree:** simpler, but contradicts "roles do not imply bypass" and makes the invariant test weaker.
-- **404 for invisible nodes:** conventional, but 403 for both cases is equally non-disclosing and matches `FORBIDDEN` in `02_ARCHITECTURE.md`.
+- **404 for invisible nodes:** conventional, but 403 for both cases is equally non-disclosing and matches `FORBIDDEN` in `docs/02_ARCHITECTURE.md`.
 - **Path-based APIs with server normalization:** rejected; ids only, paths only inside the storage module.
 - **`openat2(RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS)`:** ideal but not in the Python stdlib; per-component `O_NOFOLLOW` gives the same guarantee for our use.
 

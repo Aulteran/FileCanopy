@@ -6,11 +6,11 @@
 
 ## Context
 
-`02_ARCHITECTURE.md` recommends a modular monolith with a Python 3.13+ backend (FastAPI, Pydantic, SQLAlchemy 2, Alembic), PostgreSQL, Redis-backed workers (Dramatiq or Celery), and a React/TypeScript frontend. M00 creates the repository layout but does not implement any backend. Python is not installed on the M00 development machine, so the backend toolchain has not been verified there.
+`docs/02_ARCHITECTURE.md` recommends a modular monolith with a Python 3.13+ backend (FastAPI, Pydantic, SQLAlchemy 2, Alembic), PostgreSQL, Redis-backed workers (Dramatiq or Celery), and a React/TypeScript frontend. M00 creates the repository layout but does not implement any backend. Python is not installed on the M00 development machine, so the backend toolchain has not been verified there.
 
 ## Decision (proposed)
 
-Adopt the stack in `02_ARCHITECTURE.md` for the backend and workers: Python 3.13 (exact minor pinned when M01 starts), FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17, Redis, and Dramatiq unless a later ADR justifies Celery. The frontend (React, TypeScript, Vite) starts at M05.
+Adopt the stack in `docs/02_ARCHITECTURE.md` for the backend and workers: Python 3.13 (exact minor pinned when M01 starts), FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17, Redis, and Dramatiq unless a later ADR justifies Celery. The frontend (React, TypeScript, Vite) starts at M05.
 
 ## Consequences
 
@@ -20,7 +20,7 @@ Adopt the stack in `02_ARCHITECTURE.md` for the backend and workers: Python 3.13
 
 ## Alternatives considered
 
-- TypeScript end to end (Node backend): one language, but weaker fit with the document-parsing and OCR ecosystem recommended in `02_ARCHITECTURE.md`.
+- TypeScript end to end (Node backend): one language, but weaker fit with the document-parsing and OCR ecosystem recommended in `docs/02_ARCHITECTURE.md`.
 - Go or Rust backend: strong safety properties, but a higher cost for a small team and fewer parser libraries.
 
 ## Security and privacy impact

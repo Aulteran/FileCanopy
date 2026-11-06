@@ -16,7 +16,7 @@ python3 -m http.server 8000 --directory site
 
 ## Hosting
 
-**GitHub Pages (current).** `.github/workflows/site.yml` publishes `site/` whenever it changes on `main`. One-time setup: repository **Settings > Pages > Source: GitHub Actions**. The site appears at `https://<owner>.github.io/FileCanopy/`.
+**GitHub Pages (current).** `.github/workflows/site.yml` publishes `site/` whenever it changes on `dev` or `release`. One-time setup: repository **Settings > Pages > Source: GitHub Actions**. The site appears at `https://<owner>.github.io/FileCanopy/`.
 
 **Cloudflare Pages.** Connect the repository, set the build command to empty and the output directory to `site`.
 

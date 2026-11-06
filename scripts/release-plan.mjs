@@ -15,7 +15,8 @@ export function releasePlan({ revision, epoch, prefix, platform }) {
     !/^[a-z0-9]+(?:[._/-][a-z0-9]+)*$/.test(prefix)
   )
     throw new Error("Supply a lowercase image prefix without a tag");
-  if (!["linux/amd64", "linux/arm64"].includes(platform))
+  // Only linux/amd64 for now. linux/arm64 is deferred and will be re-added later with evidence.
+  if (!["linux/amd64"].includes(platform))
     throw new Error(
       "Select an explicit Linux build platform (this is not a support commitment)",
     );

@@ -8,6 +8,7 @@ no real documents, no network access beyond image pulls.
 import json
 import os
 import secrets
+import shutil
 import socket
 import subprocess
 import time
@@ -21,9 +22,12 @@ import pytest
 pytestmark = pytest.mark.compose
 
 REPO = Path(__file__).resolve().parents[3]
-COMPOSE_FILE = REPO / "deploy" / "docker-compose.yml"
+DEPLOY = REPO / "deploy"
+COMPOSE_FILE = DEPLOY / "compose.yaml"
+BUILD_FILE = DEPLOY / "contrib" / "build.yaml"
 CORE_SERVICES = {"postgres", "migrate", "api", "web"}
-ALL_SERVICES = CORE_SERVICES | {"redis", "worker"}
+CORE_SERVICES = CORE_SERVICES | {"init"}
+ALL_SERVICES = CORE_SERVICES | {"redis", "worker", "converter", "ocr"}
 
 
 def free_port() -> int:
@@ -38,18 +42,29 @@ class Stack:
         self.app_data = tmp / "app-data"
         self.library.mkdir()
         self.app_data.mkdir()
-        self.password = secrets.token_urlsafe(24)
         self.port = free_port()
         self.name = name
-        self.files = [COMPOSE_FILE]  # a suite may add override files (e.g. an outer proxy)
-        # Never load the operator's deploy/.env (setup token, real mail/AI settings, profiles).
-        self.env_file = tmp / "test.env"
-        self.env_file.write_text("", encoding="utf-8")
+        # The stack runs from its own copy of the deploy files, so the project's `.env` (read by
+        # the containers through env_file) is the test's own and never the operator's deploy/.env.
+        self.dir = tmp / "stack"
+        self.dir.mkdir()
+        shutil.copy(COMPOSE_FILE, self.dir / "compose.yaml")
+        for extra in (DEPLOY / "optional").glob("compose.*.yaml"):
+            shutil.copy(extra, self.dir / extra.name)
+        shutil.copy(BUILD_FILE, self.dir / "build.yaml")
+        # a suite may add override files (e.g. an outer proxy, optional containers)
+        self.files = [
+            self.dir / "compose.yaml",
+            self.dir / "build.yaml",
+            self.dir / "compose.extras.yaml",  # every service in it is behind a profile
+        ]
         self.env = {
             **{
                 k: v for k, v in os.environ.items() if not k.startswith(("FILECANOPY_", "COMPOSE_"))
             },
-            "POSTGRES_PASSWORD": self.password,
+            "FILECANOPY_IMAGE_PREFIX": "filecanopy",
+            "FILECANOPY_VERSION": "dev",
+            "FILECANOPY_SRC": str(REPO),
             "FILECANOPY_LIBRARY_PATH": str(self.library),
             "FILECANOPY_APP_DATA_PATH": str(self.app_data),
             "FILECANOPY_HTTP_PORT": str(self.port),
@@ -63,7 +78,10 @@ class Stack:
             if not plan["built"] or not plan["sourceClean"]:
                 raise AssertionError("Candidate must be built from a clean commit")
             bundle = Path(os.environ["FILECANOPY_TEST_BUNDLE"]).resolve()
-            self.files = [bundle / "compose.yaml"]
+            shutil.copy(bundle / "compose.yaml", self.dir / "compose.yaml")
+            for extra in bundle.glob("compose.*.yaml"):
+                shutil.copy(extra, self.dir / extra.name)
+            self.files = [self.dir / "compose.yaml", self.dir / "compose.extras.yaml"]
             self.env["FILECANOPY_IMAGE_PREFIX"] = plan["prefix"]
             self.env["FILECANOPY_VERSION"] = plan["version"]
             for image in plan["images"]:
@@ -75,7 +93,7 @@ class Stack:
                 ).stdout.strip()
                 assert actual == image["imageId"], "Candidate tag changed"
         if hasattr(os, "getuid"):
-            # Linux: the API must own the bind mounts, exactly as documented in deploy/.env.example.
+            # Linux: the API must own the bind mounts, as documented in .env.advanced.example.
             self.env["FILECANOPY_UID"] = str(os.getuid())
             self.env["FILECANOPY_GID"] = str(os.getgid())
 
@@ -83,11 +101,13 @@ class Stack:
         self, *args: str, check: bool = True, env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
         files = [arg for f in self.files for arg in ("-f", str(f))]
+        # Settings for the containers travel in the project's .env, exactly as for a user.
+        shown = env or self.env
+        dotenv = "".join(f"{k}='{v}'\n" for k, v in shown.items() if k.startswith("FILECANOPY_"))
+        (self.dir / ".env").write_text(dotenv, encoding="utf-8")
         cmd = [
             "docker",
             "compose",
-            "--env-file",
-            str(self.env_file),
             "-p",
             self.name,
             *files,
@@ -138,6 +158,11 @@ class Stack:
             time.sleep(1)
         raise AssertionError(f"health never became {status!r}; last: {body}")
 
+    @property
+    def password(self) -> str:
+        """The database password the stack generated for itself (never chosen by a person)."""
+        return self.compose("exec", "-T", "postgres", "cat", "/secrets/pg_password").stdout.strip()
+
     def sql(self, query: str) -> str:
         r = self.compose(
             "exec",
@@ -157,7 +182,6 @@ class Stack:
         return self.sql("select value #>> '{}' from app_setting where key='instance_id'")
 
     def down(self, volumes: bool = False) -> None:
-        # "*" also removes profiled services (else redis/worker leak).
         flags = ["--remove-orphans", *(["-v"] if volumes else [])]
         self.compose("--profile", "*", "down", *flags, check=False)
 
@@ -176,19 +200,21 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
     s.down(volumes=True)
 
 
-def test_compose_requires_database_password(tmp_path: Path) -> None:
-    s = Stack(tmp_path, "fctestnopw")
-    env = {k: v for k, v in s.env.items() if k != "POSTGRES_PASSWORD"}
-    r = s.compose("config", check=False, env=env)
-    assert r.returncode != 0
-    assert "POSTGRES_PASSWORD" in r.stderr
+def test_compose_needs_no_configuration_and_generates_its_own_password(stack: Stack) -> None:
+    assert len(stack.password) >= 32
+    env = {k: v for k, v in stack.env.items() if not k.startswith("FILECANOPY_")}
+    assert stack.compose("config", "--quiet", check=False, env=env).returncode == 0
+    # init keeps the password across restarts (it must never be regenerated under the database).
+    before = stack.password
+    stack.compose("run", "--rm", "init")
+    assert stack.password == before
 
 
 def test_no_ai_services_defined(stack: Stack) -> None:
-    services = set(stack.compose("--profile", "workers", "config", "--services").stdout.split())
+    services = set(stack.compose("--profile", "*", "config", "--services").stdout.split())
     assert services == ALL_SERVICES
     assert not [s for s in services if any(w in s for w in ("ai", "llama", "ollama", "embed"))]
-    image_lines = stack.compose("--profile", "workers", "config", "--images").stdout.lower()
+    image_lines = stack.compose("--profile", "*", "config", "--images").stdout.lower()
     assert not any(w in image_lines for w in ("llama", "ollama", "openai", "anthropic"))
 
 
@@ -221,12 +247,12 @@ def test_migration_idempotent_and_serialized(stack: Stack) -> None:
             [
                 "docker",
                 "compose",
-                "--env-file",
-                str(stack.env_file),
                 "-p",
                 stack.name,
                 "-f",
-                str(COMPOSE_FILE),
+                str(stack.files[0]),
+                "-f",
+                str(stack.files[1]),
                 "run",
                 "--rm",
                 "migrate",
@@ -315,23 +341,24 @@ def test_optional_workers_degrade_independently_of_core(
     s = Stack(tmp_path_factory.mktemp("workers"), f"fctest{secrets.token_hex(3)}")
     s.env["FILECANOPY_REDIS_URL"] = "redis://redis:6379/0"
     try:
-        s.up("--profile", "workers")
+        s.env["COMPOSE_PROFILES"] = "workers"
+        s.up()
         body = s.wait_health("ok", timeout=90)
         assert body["optional"] == {"redis": {"state": "ok"}, "worker": {"state": "ok"}}  # type: ignore[comparison-overlap]
 
-        s.compose("--profile", "workers", "stop", "worker")
+        s.compose("stop", "worker")
         # Heartbeat TTL is 30s; core stays up the whole time.
         body = s.wait_health("degraded", timeout=90)
         assert body["optional"]["worker"]["reason"] == "no_worker_heartbeat"  # type: ignore[index]
         assert all(c["state"] == "ok" for c in body["core"].values())  # type: ignore[attr-defined]
         assert s.get("/api/v1/health")[0] == 200
 
-        s.compose("--profile", "workers", "stop", "redis")
+        s.compose("stop", "redis")
         body = s.wait_health("degraded", timeout=30)
         assert body["optional"]["redis"]["state"] == "unavailable"  # type: ignore[index]
         assert s.get("/api/v1/health")[0] == 200
 
-        s.compose("--profile", "workers", "start", "redis", "worker")
+        s.compose("start", "redis", "worker")
         s.wait_health("ok", timeout=90)
     finally:
         s.down(volumes=True)

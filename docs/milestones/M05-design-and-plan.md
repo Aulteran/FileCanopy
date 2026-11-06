@@ -11,7 +11,7 @@ Out of scope (later milestones): delete/trash/undo (M07), sharing UI (M08), priv
 
 ## Acceptance checklist
 
-| # | Criterion (`MILESTONES.json`) | How M05 meets it | Evidence |
+| # | Criterion (`docs/MILESTONES.json`) | How M05 meets it | Evidence |
 |---|---|---|---|
 | 1 | Personal and shared roots visible according to ACL | navigation is built only from `GET /roots`; a shared-with-me grant shows as "folder (from owner)"; revoked grants disappear | `test_first_run_setup_and_sign_in`, `test_forbidden_ui_and_direct_api` |
 | 2 | Manual upload here, download, move, rename, create folder | toolbar and details panel; results asserted against the real files on the bind mount | `test_folder_crud_matches_real_files`, `test_move_between_folders` |

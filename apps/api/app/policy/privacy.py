@@ -1,4 +1,4 @@
-"""Privacy labels, Confidential unlocks and the AI routing rule (M09, 03_SECURITY_PRIVACY.md).
+"""Privacy labels, Confidential unlocks and the AI routing rule (M09, docs/03_SECURITY_PRIVACY.md).
 
 Labels sit on folders. The effective label of a node is the most restrictive label on the node or
 any ancestor. Confidential content needs an unlock: a row bound to one login session that the

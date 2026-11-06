@@ -1,8 +1,8 @@
-# FileCanopy as a Docker Swarm stack (M22). Docker Compose (deploy/docker-compose.yml) is the
+# FileCanopy as a Docker Swarm stack (M22). Docker Compose (deploy/compose.yaml) is the
 # primary, best-tested way to run FileCanopy; use this file only if you already run Swarm.
-# Step by step: deploy/stack/README.md.
+# Step by step: deploy/contrib/swarm/README.md.
 #
-#   docker stack deploy --resolve-image never -c deploy/stack/docker-stack.yml filecanopy
+#   docker stack deploy --resolve-image never -c deploy/contrib/swarm/docker-stack.yml filecanopy
 #
 # What differs from Compose, and why:
 #  - It runs PUBLISHED images only (no build). FILECANOPY_VERSION is required: pick a release.
@@ -11,15 +11,15 @@
 #    restarts until its neighbour is ready. Startup therefore looks like a few restarts at first.
 #  - The database password is a Swarm secret, not an environment variable.
 #  - ONE replica of each service. FileCanopy keeps its state in a folder and a database on one
-#    node; the database and the folders are pinned to the node you label (see the README), so a
+#    node; the database and the folders are pinned to the node you label (see README.md in this folder), so a
 #    reschedule can never start an empty database on another machine.
 #  - Nothing is published to the network. The web service joins the attachable `edge` network;
 #    your TLS reverse proxy joins it too and reaches the app at http://web:8080.
 #  - The optional converter, OCR and worker profiles of the Compose file are not part of this
 #    file; the core app is.
 #
-# Interpolated variables come from your shell (docker stack deploy does not read deploy/.env):
-#   set -a; . deploy/.env; set +a
+# Interpolated variables come from your shell (docker stack deploy does not read .env):
+#   set -a; . .env; set +a
 services:
   postgres:
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-postgres:${FILECANOPY_VERSION:?set FILECANOPY_VERSION to the release you run}
@@ -67,7 +67,7 @@ services:
       FILECANOPY_COOKIE_SECURE: ${FILECANOPY_COOKIE_SECURE:-true}
       FILECANOPY_SETUP_TOKEN: ${FILECANOPY_SETUP_TOKEN:-}
       FILECANOPY_MAX_UPLOAD_BYTES: ${FILECANOPY_MAX_UPLOAD_BYTES:-10737418240}
-      # Any other FILECANOPY_* setting from deploy/.env.example can be added here the same way.
+      # Any other FILECANOPY_* setting from .env.advanced.example can be added here the same way.
     secrets: [pg_password]
     volumes:
       - type: tmpfs

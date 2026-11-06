@@ -17,12 +17,12 @@ from typing import Any
 import pytest
 from test_auth_stack import Client
 from test_files_stack import js, raw
-from test_stack import COMPOSE_FILE, Stack
+from test_stack import Stack
 from test_storage_stack import root_node, setup_admin
 
 pytestmark = pytest.mark.compose
 
-OVERRIDE = COMPOSE_FILE.with_name("docker-compose.backup.yml")
+OVERRIDE = "compose.backup.yaml"
 
 
 class BackupStack(Stack):
@@ -33,7 +33,7 @@ class BackupStack(Stack):
         self.backups = tmp / "backups"
         self.backups.mkdir()
         self.env["FILECANOPY_BACKUP_PATH"] = str(self.backups)
-        self.files.append(OVERRIDE)
+        self.files.append(self.dir / OVERRIDE)
 
 
 @pytest.fixture(scope="module")

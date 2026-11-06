@@ -14,7 +14,7 @@ needs a Cloudflare account).
 
 ## The three settings that matter
 
-Put them in `deploy/.env`, then run `docker compose -f deploy/docker-compose.yml up -d`.
+Put them in `.env`, then run `docker compose -f deploy/compose.yaml up -d`.
 
 | Setting | What to put there |
 |---|---|
@@ -46,7 +46,7 @@ than in Docker, FileCanopy sees it at the gateway address of the `filecanopy_def
 **Do not** trust a wider range than your proxies. Anything in the range can pretend to be any
 visitor. Ranges wider than /8 (IPv4) or /16 (IPv6), such as `0.0.0.0/0`, `1.2.3.4/0` or `::/0`, are refused and the container will not start. After changing the
 setting, check it: sign in with a wrong password, then run
-`docker compose -f deploy/docker-compose.yml exec postgres psql -U filecanopy -d filecanopy -c "select at, action, ip from auth_audit order by id desc limit 3"`.
+`docker compose -f deploy/compose.yaml exec postgres psql -U filecanopy -d filecanopy -c "select at, action, ip from auth_audit order by id desc limit 3"`.
 The `ip` of the newest `login.failed` row should be your own address, not the proxy's.
 
 If a CDN sits in front of your proxy (Cloudflare, then Caddy), add the CDN's addresses as well,
@@ -60,11 +60,11 @@ If your proxy runs in Docker, the published `127.0.0.1:8080` port is not reachab
 container. Join the proxy's network instead:
 
 ```
-# deploy/.env
+# .env
 FILECANOPY_PROXY_NETWORK=proxy          # name from `docker network ls`
 FILECANOPY_TRUSTED_PROXIES=172.18.0.0/16  # that network's subnet
 
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.proxy.yml up -d
+docker compose -f deploy/compose.yaml -f deploy/optional/compose.proxy.yaml up -d
 ```
 
 The proxy then forwards to `http://web:8080`. The container name `filecanopy-web-1` also works. Only
@@ -96,7 +96,7 @@ default). A proxy has to let that through:
    NPM or with `FILECANOPY_HSTS=true`, not both (see below).
 4. **Advanced tab.** Paste the contents of [`npm-advanced.conf`](npm-advanced.conf). It also
    contains an important safety line, explained next.
-5. In `deploy/.env` set `FILECANOPY_PUBLIC_URL=https://files.example.org` and
+5. In `.env` set `FILECANOPY_PUBLIC_URL=https://files.example.org` and
    `FILECANOPY_TRUSTED_PROXIES` to NPM's address on the shared network. Then start FileCanopy
    with the proxy override.
 

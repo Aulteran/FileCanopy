@@ -80,5 +80,5 @@ ran).
 shown; raise it for fewer, closer matches), `FILECANOPY_SEMANTIC_CHUNK_CHARS`,
 `FILECANOPY_SEMANTIC_MAX_CHUNKS`, `FILECANOPY_SEMANTIC_EMBED_BATCH` and
 `FILECANOPY_SEMANTIC_TIMEOUT_SECONDS` (see `apps/api/app/config.py`). Only the first two and
-`FILECANOPY_AI_LOCAL_HOSTS` are passed through `deploy/docker-compose.yml`; add the others to the
+`FILECANOPY_AI_LOCAL_HOSTS` are passed through `deploy/compose.yaml`; add the others to the
 `api` service environment if you need them.

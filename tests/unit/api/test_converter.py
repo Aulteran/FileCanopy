@@ -299,7 +299,9 @@ def test_compose_converter_service_is_sealed() -> None:
             "docker",
             "compose",
             "-f",
-            str(ROOT / "deploy/docker-compose.yml"),  # noqa: S607
+            str(ROOT / "deploy/compose.yaml"),  # noqa: S607
+            "-f",
+            str(ROOT / "deploy/optional/compose.extras.yaml"),
             "--profile",
             "converter",
             "config",
@@ -308,7 +310,7 @@ def test_compose_converter_service_is_sealed() -> None:
         ],
         capture_output=True,
         text=True,
-        env={**os.environ, "POSTGRES_PASSWORD": "x"},
+        env={**os.environ},
         timeout=60,
     )
     if r.returncode != 0:
@@ -336,14 +338,16 @@ def test_compose_converter_service_is_sealed() -> None:
             "docker",
             "compose",
             "-f",
-            str(ROOT / "deploy/docker-compose.yml"),
+            str(ROOT / "deploy/compose.yaml"),
+            "-f",
+            str(ROOT / "deploy/optional/compose.extras.yaml"),
             "config",
             "--format",
             "json",
         ],  # noqa: S607
         capture_output=True,
         text=True,
-        env={**os.environ, "POSTGRES_PASSWORD": "x"},
+        env={**os.environ},
         timeout=60,
     )
     assert "converter" not in json.loads(plain.stdout)["services"]

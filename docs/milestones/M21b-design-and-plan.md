@@ -4,7 +4,7 @@ Added 2026-11-02 at the owner's request; acceptance plan approved the same day. 
 
 ## Scope
 
-Apply the approved 2026-11-01 design to the whole web app: brand system (`brand.html`), 14 screen mockups (`screens.html`), viewer mockup (`viewer.html`) and `07_UI_UX.md`. Visual and structural change only; no behaviour, API or privacy change.
+Apply the approved 2026-11-01 design to the whole web app: brand system (`brand.html`), 14 screen mockups (`screens.html`), viewer mockup (`viewer.html`) and `docs/07_UI_UX.md`. Visual and structural change only; no behaviour, API or privacy change.
 
 ## Design choices (approved)
 
@@ -12,7 +12,7 @@ Warm, friendly look with forest/leaf greens and rounded corners; light and dark 
 
 ## Acceptance plan
 
-See the criteria and tests in `MILESTONES.json` (M21b) and `08_IMPLEMENTATION_PLAN.md`.
+See the criteria and tests in `docs/MILESTONES.json` (M21b) and `docs/08_IMPLEMENTATION_PLAN.md`.
 
 ## Rules
 

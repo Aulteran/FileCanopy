@@ -6,7 +6,7 @@
 
 ## Context
 
-`02_ARCHITECTURE.md` defines a core profile (web, api, postgres, library and app-data mounts) and an optional document-processing profile (redis, worker). `04_DATA_FILESYSTEM.md` shows `app-data/database/` as an illustrative location for the database files and requires the document library to stay an ordinary bind-mounted tree.
+`docs/02_ARCHITECTURE.md` defines a core profile (web, api, postgres, library and app-data mounts) and an optional document-processing profile (redis, worker). `docs/04_DATA_FILESYSTEM.md` shows `app-data/database/` as an illustrative location for the database files and requires the document library to stay an ordinary bind-mounted tree.
 
 ## Decision
 
@@ -35,4 +35,4 @@
 
 ## Security and privacy impact
 
-No default credentials; secrets only via environment (`deploy/.env` is git-ignored); logs carry exception types only and a test asserts the database password never appears in logs or health output. Health output exposes no paths, hosts or exception text. Web admin/host-admin boundaries are untouched in M01 (no users yet; M02/M03 add authentication and ACLs). The health endpoint is currently unauthenticated and returns only component states; revisit when authentication exists (M02).
+No default credentials; secrets only via environment (`.env` is git-ignored); logs carry exception types only and a test asserts the database password never appears in logs or health output. Health output exposes no paths, hosts or exception text. Web admin/host-admin boundaries are untouched in M01 (no users yet; M02/M03 add authentication and ACLs). The health endpoint is currently unauthenticated and returns only component states; revisit when authentication exists (M02).

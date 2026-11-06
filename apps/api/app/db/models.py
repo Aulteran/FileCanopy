@@ -244,7 +244,7 @@ class Node(Base):
 
 
 class FileOperation(Base):
-    """Journal row for one mutating file action (04_DATA_FILESYSTEM.md, action contract step 5).
+    """Journal row for one mutating file action (docs/04_DATA_FILESYSTEM.md, contract step 5).
     `detail` holds ids, names, step names and error codes: never file content or absolute paths."""
 
     __tablename__ = "file_operation"

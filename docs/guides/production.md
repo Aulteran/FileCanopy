@@ -8,25 +8,25 @@ For local release preparation see the [release packet](../release/README.md) and
 The plan derives full-commit tags and refuses a dirty tree when building. It never publishes.
 Name selection is owner-approved; external clearance and release gates remain pending.
 
-For the prepared no-checkout download bundle see [standalone Docker install](docker-install.md). Generate it locally with `node scripts/release-bundle.mjs NEW_OUTPUT_DIRECTORY`; basic installation needs only `compose.yaml` and `.env.example`, with recovery scripts available separately. Images are not public yet.
+See [standalone Docker install](docker-install.md) for the no-checkout route: one `compose.yaml`, nothing to build.
 
 ## 1. Install
 
-Two ways, same layout, same settings in `deploy/.env`:
+One compose file, two ways to get the images, same settings in `.env`:
 
-| | From source (today) | From published images |
+| | Published images (default) | From source (developers) |
 |---|---|---|
-| Command | `docker compose -f deploy/docker-compose.yml up -d --build --wait` | `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.release.yml up -d --wait` |
-| Needs | the repository | only `deploy/` and `FILECANOPY_VERSION` |
-| Images | built on your machine | `${FILECANOPY_IMAGE_PREFIX}-{postgres,api,web}:${FILECANOPY_VERSION}` |
+| Command | `docker compose up -d --wait` (in the folder with `compose.yaml`) | `docker compose -f deploy/compose.yaml -f deploy/contrib/build.yaml up -d --build --wait` |
+| Needs | only `compose.yaml` | the repository |
+| Images | `${FILECANOPY_IMAGE_PREFIX}-{postgres,api,web}:${FILECANOPY_VERSION}` | built on your machine |
 
-The release override needs Docker Compose 2.24 or newer. `FILECANOPY_VERSION` has no default, on purpose: you choose the release, and there is no floating `latest`. Every base image inside the images is pinned by digest, so two builds of one release start from the same bytes.
+Needs Docker Compose 2.24 or newer. `FILECANOPY_VERSION` defaults to `beta`; for production set it in `.env` to an exact release so an upgrade is a deliberate edit. There is no floating `latest`. Every base image inside the images is pinned by digest.
 
 Fresh install checklist:
 
-1. `cp deploy/.env.example deploy/.env` and set `POSTGRES_PASSWORD` (and `FILECANOPY_VERSION` for published images).
-2. Create `library/` and `app-data/` as two separate folders. On Linux make them owned by the user in `FILECANOPY_UID`/`FILECANOPY_GID` (default 10001).
-3. Start the stack, then create the first administrator from the one-time setup token in the API log (see the README). Nothing else is needed: no AI, no mail, no workers.
+1. Optional: `cp .env.example .env` and change what you need (see `.env.advanced.example` for everything else). There is no database password to set: the stack generates it into the `secrets` volume on first start.
+2. `library/` and `app-data/` are created next to `compose.yaml`, and the `init` container hands them to the app user (`FILECANOPY_UID`/`FILECANOPY_GID`, default 10001; top-level folder only, nothing inside is touched).
+3. Start the stack, then create the first administrator from the one-time setup token in the API log (see [First-run setup](first-run-setup.md)). Nothing else is needed: no AI, no mail, no workers.
 
 ## 2. Containers run without privileges
 
@@ -60,7 +60,7 @@ It writes one new folder holding the database dump, `app-data/` and `library/`, 
 
 Run it as the user that owns `library/` and `app-data/` (or root). It needs GNU `tar`; on Windows run it inside WSL.
 
-If `FILECANOPY_VERSION` is set in `deploy/.env` the scripts use the release images (`docker-compose.release.yml`), the same as your install does. On a source-built install leave it unset: no release images are published yet, so the scripts would look for images that do not exist.
+The scripts use the same `compose.yaml` and `.env` as your install does. On a source-built install leave it unset: no release images are published yet, so the scripts would look for images that do not exist.
 
 **Keep the result private.** It contains everyone's files, including Private and Confidential ones, password hashes, sealed provider keys and the secret kept in `app-data/`. Put it on another disk, and encrypt that disk or the copy if it leaves your hands. A backup on the same disk as the library is not a backup. Schedule it with cron or a systemd timer and prune old folders yourself.
 
@@ -69,7 +69,7 @@ If `FILECANOPY_VERSION` is set in `deploy/.env` the scripts use the release imag
 A restore goes into an **empty** install and never overwrites anything.
 
 ```bash
-# on the new (or wiped) machine, with deploy/.env in place
+# on the new (or wiped) machine, with .env in place
 deploy/scripts/restore.sh /mnt/other-disk/filecanopy-backups/filecanopy-20261102T120000Z
 ```
 
@@ -87,7 +87,7 @@ The web container listens on `127.0.0.1` only. For access from other devices, pu
 
 ## 7. Docker Swarm (the Stack variant)
 
-Compose is the primary, best-tested way to run FileCanopy. If you already run Swarm, [`deploy/stack/`](../../deploy/stack/README.md) has a stack file that uses published images, a Swarm secret for the database password, and one replica of each service pinned to one labelled node. It was tested by deploying it on a real single-node swarm in CI. It was **not** tested on a multi-node swarm; the data node constraint exists so a reschedule cannot start an empty database elsewhere, but treat multi-node as unverified.
+Compose is the primary, best-tested way to run FileCanopy. If you already run Swarm, [`deploy/contrib/swarm/`](../../deploy/contrib/swarm/README.md) has a stack file that uses published images, a Swarm secret for the database password, and one replica of each service pinned to one labelled node. It was tested by deploying it on a real single-node swarm in CI. It was **not** tested on a multi-node swarm; the data node constraint exists so a reschedule cannot start an empty database elsewhere, but treat multi-node as unverified.
 
 ## 8. Known limits
 

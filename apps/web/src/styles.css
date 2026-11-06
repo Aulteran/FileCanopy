@@ -599,7 +599,12 @@ tbody tr:focus-visible {
 
 /* dialogs */
 dialog {
-  width: min(480px, calc(100vw - 32px));
+  /* Size to the content; only a tall one stops at the screen edge and scrolls inside. */
+  width: min(620px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px 24px;
   border: 1px solid var(--line);
   border-radius: var(--r-l);
@@ -763,9 +768,36 @@ tbody tr.unsupported .flag {
 .shell.setup-only {
   display: block;
 }
-.setup-screen {
-  max-width: 760px;
+.setup-screen,
+section[aria-labelledby="server-step-h"] {
+  max-width: 720px;
   margin: 0 auto;
+  text-align: center;
+}
+.shell.setup-only .content {
+  padding-top: clamp(24px, 6vh, 72px);
+}
+.setup-steps {
+  list-style: none;
+  margin: 24px 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+.setup-steps li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  padding: 14px 18px;
+}
+.setup-steps li p {
+  margin: 4px 0 10px;
+  color: var(--muted);
+}
+.setup-screen .plan,
+.setup-screen .report {
+  text-align: left;
 }
 .setup-screen h1 {
   margin-top: 0;
@@ -1409,8 +1441,13 @@ input[type="radio"] {
 label:has(> input[type="checkbox"]),
 label:has(> input[type="radio"]) {
   display: flex;
-  align-items: center;
+  /* Long text (the cloud consent notice) wraps: the box stays level with the first line. */
+  align-items: flex-start;
   font-weight: 400;
+}
+label:has(> input[type="checkbox"]) > input,
+label:has(> input[type="radio"]) > input {
+  margin-top: calc((1lh - 1rem) / 2);
 }
 .list th.pick,
 .list td.pick {

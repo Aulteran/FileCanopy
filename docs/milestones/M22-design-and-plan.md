@@ -92,7 +92,7 @@ incremental layer); multi-node Swarm; Kubernetes/Helm.
 CI: `test_release_stack.py` joins the `app` compose suite; a new `stack` job runs
 `test_swarm_stack.py` with `FILECANOPY_TEST_SWARM=1`.
 
-## Known limits (also in PROJECT_STATUS.md)
+## Known limits (also in docs/PROJECT_STATUS.md)
 
 - Nothing is published to a registry yet; image names are a placeholder path.
 - Backup/restore scripts need a POSIX shell and GNU tar (Linux, macOS with GNU tar, WSL).

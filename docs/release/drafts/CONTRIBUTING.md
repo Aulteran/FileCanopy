@@ -19,7 +19,7 @@ response-time promise; proposed maintenance expectations are in that policy.
 
 ## Development
 
-Read `CLAUDE.md`, `PROJECT_STATUS.md`, `MILESTONES.json`, the relevant plan and security/storage
+Read `CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/MILESTONES.json`, the relevant plan and security/storage
 specifications. Node.js 22+ and Docker are used by the check harness. Use `npm ci` and
 `npm ci --prefix apps/web`. Run `npm run check`, `npm run check:web`, `npm run check:api`,
 `npm run test:compose` and `npm run test:e2e` as appropriate; changes to isolation or release

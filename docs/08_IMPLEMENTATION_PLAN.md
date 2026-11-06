@@ -114,7 +114,7 @@
 
 ### M06 — Initial import and reconciliation
 
-> Split across sessions on one branch: **M06a** (reconciler, mount refusal, file events; implemented 2026-10-31, [design](docs/milestones/M06a-design-and-plan.md)) and **M06b** (setup window, setup import, folder upload, setup and state screens; implemented 2026-10-31, [design](docs/milestones/M06b-design-and-plan.md)). All criteria are met and tested; the Opus 5.5 security review of M06b was done 2026-10-31 and its findings are fixed (see the "Security review and fixes" section of the M06b design note: zip central-directory walk, authentication before manifest bodies, window closure by folder upload, destination re-check, bounded reconciler pause, one open setup batch per root, retention of import reports, full-page setup screen, resume of interrupted folder uploads). Owner sign-off of M06 is still pending.
+> Split across sessions on one branch: **M06a** (reconciler, mount refusal, file events; implemented 2026-10-31, [design](milestones/M06a-design-and-plan.md)) and **M06b** (setup window, setup import, folder upload, setup and state screens; implemented 2026-10-31, [design](milestones/M06b-design-and-plan.md)). All criteria are met and tested; the Opus 5.5 security review of M06b was done 2026-10-31 and its findings are fixed (see the "Security review and fixes" section of the M06b design note: zip central-directory walk, authentication before manifest bodies, window closure by folder upload, destination re-check, bounded reconciler pause, one open setup batch per root, retention of import reports, full-page setup screen, resume of interrupted folder uploads). Owner sign-off of M06 is still pending.
 
 **Phase:** foundation · **Dependencies:** M05 · **Suggested Claude Code model:** Sonnet 5.5
 
@@ -134,9 +134,9 @@
 
 ### M06c — Optional backups
 
-**Phase:** foundation · **Dependencies:** M06 (M06a and M06b done) · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of key handling, pruning floor and restore authorization · **Decision:** [ADR-015](docs/adr/ADR-015-optional-backups.md) (Accepted)
+**Phase:** foundation · **Dependencies:** M06 (M06a and M06b done) · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 review of key handling, pruning floor and restore authorization · **Decision:** [ADR-015](adr/ADR-015-optional-backups.md) (Accepted)
 
-> Implemented 2026-10-31 (Sonnet 5.5), see [design, deviations and open questions](docs/milestones/M06c-design-and-plan.md). The Opus 5.5 review (key handling, pruning floor, restore authorization) is still to do.
+> Implemented 2026-10-31 (Sonnet 5.5), see [design, deviations and open questions](milestones/M06c-design-and-plan.md). The Opus 5.5 review (key handling, pruning floor, restore authorization) is still to do.
 
 **Goal:** Optional, admin-configured backup of the whole library to a separate mounted volume: periodic full backups with changed-only backups in between, compressed (and encrypted by default), with a size limit that prunes the oldest whole chains.
 
@@ -156,7 +156,7 @@
 
 **Phase:** foundation · **Dependencies:** M06 · **Suggested Claude Code model:** Sonnet 5.5
 
-> Implemented 2026-10-31, see [design and evidence](docs/milestones/M06d-design-and-plan.md). UI only; the M02 API is unchanged.
+> Implemented 2026-10-31, see [design and evidence](milestones/M06d-design-and-plan.md). UI only; the M02 API is unchanged.
 
 **Goal:** Close the UI gaps carried over from M06 before M07.
 
@@ -199,7 +199,7 @@
 
 ### M07d — In-app document viewer (PDF, images, text)
 
-**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 security review · **Design:** [ADR-019](docs/adr/ADR-019-in-app-document-viewer.md) (Accepted 2026-11-01) and the viewer mockup. Added 2026-11-01 at the owner's request.
+**Phase:** foundation · **Dependencies:** M07 · **Suggested Claude Code model:** Sonnet 5.5; Opus 5.5 security review · **Design:** [ADR-019](adr/ADR-019-in-app-document-viewer.md) (Accepted 2026-11-01) and the viewer mockup. Added 2026-11-01 at the owner's request.
 
 **Goal:** Click a file and read it in the app: a full-page viewer with scrolling, zoom and Download. PDF through self-hosted PDF.js, images, and text/CSV, all served through an access-checked `Range` endpoint. Word, Excel and PowerPoint follow in M10 through a sandboxed converter.
 
@@ -478,7 +478,7 @@
 
 **M24 checkpoint (2026-11-03):** FileCanopy is now owner-selected and the first public release
 will be beta; external clearance evidence remains pending. Two checked criteria have evidence in
-the [M24 release packet](docs/release/README.md): consistent declarations and shipped licence
+the [M24 release packet](release/README.md): consistent declarations and shipped licence
 texts, and corrected privacy/host/backup/cloud/MCP limits. The runtime audit records unresolved
 licence/source cases, governance files remain approval drafts, byte-identical reproducibility is
 not demonstrated, and manual/native-LXC/final-candidate gates remain open. M24 is not complete.
@@ -490,7 +490,7 @@ not demonstrated, and manual/native-LXC/final-candidate gates remain open. M24 i
 
 **Phase:** release · **Dependencies:** M06c, M09, M23 (all complete) · **Review:** independent security review before completion
 
-**Goal:** Implement [accepted ADR-016](docs/adr/ADR-016-per-root-backup-keys.md): independent keys per storage root, personal owner recovery, default-off administrator escrow, per-root rotation and safe legacy archive handling.
+**Goal:** Implement [accepted ADR-016](adr/ADR-016-per-root-backup-keys.md): independent keys per storage root, personal owner recovery, default-off administrator escrow, per-root rotation and safe legacy archive handling.
 
 **Acceptance criteria:**
 - [ ] Each root has independent keys; one owner's key cannot decrypt another root's backups
@@ -504,7 +504,7 @@ not demonstrated, and manual/native-LXC/final-candidate gates remain open. M24 i
 
 **Tests/evidence:** cross-root/wrong-key tests; owner/admin authorization; key display and loss UX; escrow consent/recovery; concurrent creation/rotation; interrupted operations; legacy/new archive coexistence and CLI restore; privacy/lock enforcement; secret/plaintext leak checks; PostgreSQL Compose recovery drill; browser flows; independent review.
 
-**Ordering:** M25 can run before M24 closes; it does not depend on M24. Any release advertising owner self-restore must complete this work first. Adding M25 does not select beta scope or claim implementation. Detailed scope, boundaries and acceptance plan: [M25 plan](docs/milestones/M25-design-and-plan.md).
+**Ordering:** M25 can run before M24 closes; it does not depend on M24. Any release advertising owner self-restore must complete this work first. Adding M25 does not select beta scope or claim implementation. Detailed scope, boundaries and acceptance plan: [M25 plan](milestones/M25-design-and-plan.md).
 
 ## End-of-session rule
 

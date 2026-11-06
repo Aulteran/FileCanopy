@@ -55,17 +55,17 @@ class ProxyStack(Stack):
         self.setup_token = secrets.token_urlsafe(32)
         self.env["FILECANOPY_SETUP_TOKEN"] = self.setup_token
         self.ports = {n: free_port() for n in (*PROXIES, STOCK, NOHOST)}
-        self.dir = tmp / "proxy"
-        self.dir.mkdir()
+        self.pdir = tmp / "proxy"
+        self.pdir.mkdir()
         self.files.append(self._write_override(tmp))
-        self.cert = self.dir / "cert.pem"
+        self.cert = self.pdir / "cert.pem"
         self.ssl = ssl.create_default_context(cafile=str(self.cert))
 
     def ip(self, proxy: str) -> str:
         return f"{self.subnet}.{PROXIES.get(proxy, 10)}"
 
     def _write_override(self, tmp: Path) -> Path:
-        d = self.dir
+        d = self.pdir
         key = d / "key.pem"
         cert = d / "cert.pem"
         subprocess.run(  # noqa: S603
@@ -296,9 +296,16 @@ def ps(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ProxyStack]:
 
 
 def test_compose_passes_the_proxy_settings_through(ps: ProxyStack) -> None:
-    cfg = json.loads(ps.compose("config", "--format", "json").stdout)["services"]
-    assert "FILECANOPY_PUBLIC_URL" in cfg["api"]["environment"]
-    assert "FILECANOPY_ALLOWED_ORIGINS" in cfg["api"]["environment"]
+    env = {
+        **ps.env,
+        "FILECANOPY_PUBLIC_URL": "https://files.example.org",
+        "FILECANOPY_ALLOWED_ORIGINS": "https://other.example.org",
+    }
+    cfg = json.loads(ps.compose("config", "--format", "json", env=env).stdout)["services"]
+    # The API reads both from the project's .env; the web container never receives them.
+    assert cfg["api"]["environment"]["FILECANOPY_PUBLIC_URL"] == "https://files.example.org"
+    assert cfg["api"]["environment"]["FILECANOPY_ALLOWED_ORIGINS"] == "https://other.example.org"
+    assert "FILECANOPY_PUBLIC_URL" not in cfg["web"]["environment"]
     assert cfg["web"]["environment"]["FILECANOPY_TRUSTED_PROXIES"] == ""
     assert cfg["web"]["environment"]["FILECANOPY_HSTS"] == "false"
 
@@ -390,7 +397,8 @@ def test_sign_in_cookie_and_origin_over_https_on_every_proxy(ps: ProxyStack) -> 
         "password": PASSWORD,
         "setup_token": ps.setup_token,
     }
-    assert ps.post_json("nginx", "/api/v1/setup/admin", setup)[0] == 201
+    created = ps.post_json("nginx", "/api/v1/setup/admin", setup)
+    assert created[0] == 201, created[1]
     for proxy in PROXIES:
         status, body, headers = ps.post_json(
             proxy,

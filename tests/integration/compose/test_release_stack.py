@@ -20,12 +20,11 @@ from pathlib import Path
 import pytest
 from test_auth_stack import PASSWORD, Client
 from test_files_stack import js, raw
-from test_stack import COMPOSE_FILE, REPO, Stack
+from test_stack import REPO, Stack
 from test_storage_stack import invite_and_login, root_node, setup_admin, user_id
 
 pytestmark = pytest.mark.compose
 
-RELEASE_FILE = COMPOSE_FILE.with_name("docker-compose.release.yml")
 SCRIPTS = REPO / "deploy" / "scripts"
 PREFIX = "filecanopy-m22test"
 VERSION = "citest"
@@ -47,7 +46,7 @@ def _image_present(name: str) -> bool:
 
 
 class ReleaseStack(Stack):
-    """The standard stack plus the release override: images by name and version, no build."""
+    """The published-image deploy: compose.yaml alone (no build file), versioned images."""
 
     def __init__(self, tmp: Path, name: str) -> None:
         super().__init__(tmp, name)
@@ -56,7 +55,7 @@ class ReleaseStack(Stack):
             self.env["COMPOSE_PROJECT_NAME"] = name
             self.env["COMPOSE_FILE"] = str(self.files[0])
             return
-        self.files = [COMPOSE_FILE, RELEASE_FILE]
+        self.files = [self.dir / "compose.yaml", self.dir / "compose.extras.yaml"]
         self.env["FILECANOPY_IMAGE_PREFIX"] = PREFIX
         self.env["FILECANOPY_VERSION"] = VERSION
         self.env["COMPOSE_PROJECT_NAME"] = name
@@ -70,7 +69,15 @@ class ReleaseStack(Stack):
         if not all(_image_present(local) for local in LOCAL_TO_RELEASE):
             base = Stack(self.tmp / "build", "fctestbuild")
             subprocess.run(  # noqa: S603
-                ["docker", "compose", "-f", str(COMPOSE_FILE), "build"],  # noqa: S607
+                [  # noqa: S607
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(base.files[0]),
+                    "-f",
+                    str(base.files[1]),
+                    "build",
+                ],  # fmt: skip
                 env=base.env,
                 check=True,
                 capture_output=True,
@@ -83,7 +90,7 @@ class ReleaseStack(Stack):
         env = dict(self.env)
         for key in ("FILECANOPY_LIBRARY_PATH", "FILECANOPY_APP_DATA_PATH"):
             env[key] = Path(env[key]).as_posix()  # the scripts are POSIX sh, also under Git Bash
-        # No COMPOSE_FILE: the scripts must pick the release override from FILECANOPY_VERSION.
+        # No COMPOSE_FILE: the scripts fall back to deploy/compose.yaml like a user's checkout.
         env.pop("COMPOSE_FILE")
         scripts = self.files[0].parent / "scripts" if self.candidate else SCRIPTS
         r = subprocess.run(  # noqa: S603
@@ -124,17 +131,21 @@ def tree(root: Path) -> dict[str, str]:
 def test_release_override_has_no_build_and_requires_a_version(
     release: ReleaseStack,
 ) -> None:
-    config = release.compose("--profile", "*", "config").stdout
+    config = release.compose("config").stdout
     assert "build:" not in config, "a release deploy must never build on the user's machine"
-    images = release.compose("--profile", "*", "config", "--images").stdout.split()
+    images = release.compose("config", "--images").stdout.split()
     prefix = release.env["FILECANOPY_IMAGE_PREFIX"]
     version = release.env["FILECANOPY_VERSION"]
     ours = [i for i in images if i.startswith(prefix)]
     assert ours and all(i.endswith(f":{version}") for i in ours)
     assert not [i for i in images if i.endswith((":latest", ":dev"))], images
+    # With no version at all the tag follows the public beta; an install can pin an exact one.
     env = {k: v for k, v in release.env.items() if k != "FILECANOPY_VERSION"}
-    r = release.compose("config", check=False, env=env)
-    assert r.returncode != 0 and "FILECANOPY_VERSION" in r.stderr
+    (release.dir / ".env").write_text("", encoding="utf-8")
+    shown = release.compose("config", "--images", env=env).stdout.split()
+    assert [i for i in shown if i.startswith(prefix)] and all(
+        i.endswith(":beta") for i in shown if i.startswith(prefix)
+    )
 
 
 def test_fresh_release_deploy_runs_without_ai(release: ReleaseStack) -> None:
@@ -152,21 +163,6 @@ def test_fresh_release_deploy_runs_without_ai(release: ReleaseStack) -> None:
         assert image.startswith(release.env["FILECANOPY_IMAGE_PREFIX"]), image
     admin = setup_admin(release)  # first-run setup works on a fresh, AI-less install
     assert admin.call("GET", "/api/v1/auth/session")[0] == 200
-
-
-def test_standalone_matches_maintained_release_settings(release: ReleaseStack) -> None:
-    if not release.candidate:
-        pytest.skip("standalone candidate mode only")
-    standalone = json.loads(release.compose("--profile", "*", "config", "--format", "json").stdout)
-    files = release.files
-    try:
-        release.files = [COMPOSE_FILE, RELEASE_FILE]
-        maintained = json.loads(
-            release.compose("--profile", "*", "config", "--format", "json").stdout
-        )
-    finally:
-        release.files = files
-    assert standalone["services"] == maintained["services"]
 
 
 # ------------------------------------------------------------------- non-root permissions

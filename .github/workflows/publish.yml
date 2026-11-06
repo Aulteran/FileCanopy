@@ -146,6 +146,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
+          # Only linux/amd64 is published for now. ARM64 (linux/arm64) is deferred and will be
+          # brought back later, with its own build and smoke-test evidence.
           platforms: linux/amd64
           push: ${{ needs.plan.outputs.dry_run != 'true' }}
           tags: ${{ steps.tags.outputs.tags }}

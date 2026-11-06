@@ -11,11 +11,11 @@ without a mailbox.
 - Two recipient addresses that deliver into that mailbox, for example `personaldocs@example.org`
   (a person's own intake) and `ingest@example.org` (the shared intake). Aliases of one mailbox are
   fine.
-- Outbound mail (SMTP) if people should add extra sender addresses; see the main README.
+- Outbound mail (SMTP) if people should add extra sender addresses; see the [configuration guide](configuration.md).
 
 ## Settings
 
-Put these in `deploy/.env` (see `deploy/.env.example`):
+Put these in `.env` (see `.env.advanced.example`):
 
 | Setting | Meaning |
 |---|---|

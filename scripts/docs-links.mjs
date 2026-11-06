@@ -16,10 +16,12 @@ const files = execFileSync(
     (p) =>
       p.endsWith(".md") &&
       (p.startsWith("docs/release/") ||
+        p.startsWith("docs/guides/") ||
+        /^docs\/[^/]+\.md$/.test(p) ||
         p.startsWith("deploy/") ||
         [
           "README.md",
-          "PROJECT_STATUS.md",
+          "docs/PROJECT_STATUS.md",
           "docs/guides/production.md",
           "docs/milestones/M24-design-and-plan.md",
         ].includes(p)),

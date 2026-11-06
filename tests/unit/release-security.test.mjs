@@ -207,7 +207,7 @@ for (const kind of [
       });
     if (kind === "duplicate identities") index.images.fill(index.images[0]);
     if (kind === "duplicate files") index.images[1].file = index.images[0].file;
-    if (kind === "wrong platform") index.images[0].platform = "linux/arm64";
+    if (kind === "wrong platform") index.images[0].platform = "linux/386";
     if (kind === "missing image") index.images.pop();
     writeFileSync(join(dir, "sbom-index.json"), JSON.stringify(index));
     writeFileSync(join(dir, "sbom-validation.json"), '{"oldSuccess":true}');

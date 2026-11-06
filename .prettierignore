@@ -1,7 +1,7 @@
 # Planning documents are maintained by hand and are not reformatted.
 *.md
 # Milestone status is hand-maintained with its own layout.
-MILESTONES.json
+docs/MILESTONES.json
 # Approved design mockups are reference-only and kept as delivered.
 docs/design/
 node_modules/
@@ -17,3 +17,5 @@ package-lock.json
 *.lock
 # Generated primary-source audit snapshots retain their generator's layout and licence texts.
 docs/release/evidence/
+# Hand-formatted so a beginner can read it top to bottom.
+deploy/compose.yaml

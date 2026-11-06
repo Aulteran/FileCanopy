@@ -26,9 +26,14 @@ jobs:
         run: node scripts/release-evidence.mjs "$RUNNER_TEMP/release-build.json" "$RUNNER_TEMP/release-candidate"
       - name: Prepare standalone download bundle (no publication)
         run: |
-          node scripts/release-bundle.mjs "$RUNNER_TEMP/docker-bundle"
-          cd "$RUNNER_TEMP/docker-bundle"
-          sha256sum compose.yaml .env.example INSTALL.md scripts/*.sh > SHA256SUMS
+          # The bundle is the deploy files themselves, copied unchanged (nothing is generated).
+          b="$RUNNER_TEMP/docker-bundle"
+          mkdir -p "$b/scripts"
+          cp deploy/compose.yaml deploy/optional/compose.*.yaml deploy/.env.example deploy/.env.advanced.example "$b/"
+          cp docs/guides/docker-install.md "$b/INSTALL.md"
+          cp deploy/scripts/*.sh "$b/scripts/"
+          cd "$b"
+          sha256sum compose*.yaml .env.example .env.advanced.example INSTALL.md scripts/*.sh > SHA256SUMS
           tar -czf "$RUNNER_TEMP/filecanopy-docker-bundle.tar.gz" .
       - uses: actions/upload-artifact@v4
         with:

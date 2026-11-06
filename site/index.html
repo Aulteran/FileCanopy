@@ -4,12 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>
-      FileCanopy: a self-hosted file manager that keeps your files as normal
-      files
+      FileCanopy: AI that organizes and searches your self-hosted files
     </title>
     <meta
       name="description"
-      content="FileCanopy is a free, open-source file manager you run yourself with Docker. It works on ordinary folders on your disk, with sharing, trash and undo, previews and search. No AI required."
+      content="FileCanopy is a free, open-source file library you run yourself with Docker. Let AI organize your files, chat with them and search them by meaning, while they stay normal files in a folder you own."
     />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
@@ -32,7 +31,8 @@
           ></a
         >
         <nav class="main" aria-label="Main">
-          <a href="#features">Features</a><a href="#screens">Screens</a
+          <a href="#ai">AI</a><a href="#use-cases">Use cases</a
+          ><a href="#features">Features</a><a href="#screens">Screens</a
           ><a href="#quick-start">Quick start</a><a href="#status">Status</a
           ><a href="#links">Docs</a>
           <a href="https://github.com/Aulteran/FileCanopy">GitHub</a>
@@ -43,15 +43,18 @@
     <main id="main">
       <div class="hero">
         <div class="wrap">
-          <span class="pill">Early development · open source · AGPL-3.0</span>
-          <h1>Your files, in a folder you own.</h1>
+          <span class="pill">AI file library · public beta · open source</span>
+          <h1>AI that organizes, searches and answers from your files.</h1>
           <p class="lede">
-            FileCanopy is a self-hosted file manager. You run it with Docker,
-            and it works on ordinary folders on your disk. Your files stay
-            normal files, so you can always open them with any other program.
+            FileCanopy is an AI-powered, self-hosted file library. Point it at a
+            messy folder and it proposes names, folders and collections. Ask it
+            a question and it answers from your own documents. Search by
+            meaning, with a cloud model or one running on your own network. Your
+            files stay ordinary files in a folder you own.
           </p>
           <div class="cta">
-            <a class="btn primary" href="#quick-start">Quick start</a>
+            <a class="btn primary" href="#use-cases">See what AI can do</a>
+            <a class="btn" href="#quick-start">Quick start</a>
             <a class="btn" href="https://github.com/Aulteran/FileCanopy"
               >View on GitHub</a
             >
@@ -77,11 +80,132 @@
         </div>
       </div>
 
+      <section id="ai">
+        <div class="wrap">
+          <div class="head">
+            <div class="eyebrow">AI at the centre</div>
+            <h2>A library that helps you keep it tidy</h2>
+            <p>
+              AI proposes, you decide. Nothing is renamed, moved or split until
+              you press Apply, and every change can be undone.
+            </p>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>Organize with AI</h3>
+              <p>
+                Get a better name and the right folder for a file. Split a long
+                PDF into its real documents, spot duplicates, and group files
+                into collections.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Chat with your files</h3>
+              <p>
+                Ask a question and get an answer written from your own
+                documents, with the source files listed so you can check them.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Search by meaning</h3>
+              <p>
+                Run a local embedding model such as EmbeddingGemma and find the
+                note about a holiday trip by searching “vacation”. It stays on
+                your own network.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Local or cloud</h3>
+              <p>
+                Use Anthropic, OpenAI or Gemini with monthly spending caps, or
+                Ollama and llama.cpp on your own hardware. Private and
+                Confidential files never go to a cloud AI.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Connect your AI tools</h3>
+              <p>
+                An optional read-only MCP endpoint lets an AI assistant look at
+                the files it is allowed to see.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Safe by design</h3>
+              <p>
+                AI follows the same permissions as you do. It cannot change who
+                can see a file, lower a privacy label or delete anything.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="use-cases" class="alt">
+        <div class="wrap">
+          <div class="head">
+            <div class="eyebrow">Use cases</div>
+            <h2>What you can do with it</h2>
+            <p>
+              Real jobs people put off for years. AI does the legwork, you
+              review it, and nothing changes until you press Apply.
+            </p>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>Tidy a messy import</h3>
+              <p>
+                Import years of "scan0042.pdf" and "New folder (3)". AI proposes
+                clear names and the right folders, and you accept or skip each
+                suggestion.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Split a scanned stack</h3>
+              <p>
+                One scan of ten different letters becomes ten separate
+                documents. AI finds where each one starts and ends, and you
+                approve the split.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Find a document by meaning</h3>
+              <p>
+                Search "the letter about the roof leak" without knowing the file
+                name. A local embedding model such as EmbeddingGemma runs on
+                your own hardware, so nothing leaves your network.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Ask your files a question</h3>
+              <p>
+                "When does my car insurance renew?" Get an answer written from
+                your documents, with the source files listed so you can check.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Collections and duplicates</h3>
+              <p>
+                Let AI gather everything about a house purchase or a trip into a
+                collection, and point out duplicate files so you can clear them
+                out.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Use your own AI tools</h3>
+              <p>
+                Turn on the optional read-only MCP endpoint so an AI assistant
+                you already use can look up the files it is allowed to see.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="features">
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">What it does</div>
-            <h2>A file manager that stays out of your way</h2>
+            <h2>Everything around the AI, done properly</h2>
             <p>
               The database only keeps accounts, permissions and history. It
               never replaces your files.
@@ -145,18 +269,11 @@
                 default.
               </p>
             </div>
-            <div class="card">
-              <h3>No AI required</h3>
-              <p>
-                FileCanopy runs fully without any AI service. AI features are on
-                the roadmap and will be optional.
-              </p>
-            </div>
           </div>
         </div>
       </section>
 
-      <section id="screens" class="alt">
+      <section id="screens">
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">Screens</div>
@@ -304,33 +421,22 @@
             <div class="eyebrow">Quick start</div>
             <h2>Running in a few minutes</h2>
             <p>
-              You need Docker with Docker Compose v2. There are no published
-              Docker images yet, so you build from the repository.
+              You need Docker with Docker Compose v2.24 or newer. The images are
+              pulled from GitHub Container Registry; nothing is built on your
+              machine and there is no password to choose.
             </p>
           </div>
           <ol class="steps">
             <li>
-              <h3>Get the code and create your settings file</h3>
+              <h3>Download one file and start</h3>
               <p>
-                Then open <code>deploy/.env</code> and set
-                <code>POSTGRES_PASSWORD</code> to a long random value.
+                This creates the <code>library</code> folder next to it and
+                starts everything.
               </p>
               <pre>
-git clone https://github.com/Aulteran/FileCanopy.git
-cd FileCanopy
-cp deploy/.env.example deploy/.env
-python -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
-            </li>
-            <li>
-              <h3>Start the stack</h3>
-              <p>
-                This creates the folders for your files and app data, then
-                builds and starts everything.
-              </p>
-              <pre>
-mkdir -p library app-data
-docker compose -f deploy/docker-compose.yml up -d --build --wait
-curl http://127.0.0.1:8080/api/v1/health</pre>
+mkdir filecanopy &amp;&amp; cd filecanopy
+curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
+docker compose up -d --wait</pre>
             </li>
             <li>
               <h3>Open the app and finish setup</h3>
@@ -340,8 +446,16 @@ curl http://127.0.0.1:8080/api/v1/health</pre>
                 Then create the administrator account and, if you like, import
                 an existing folder or zip.
               </p>
-              <pre>
-docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
+              <pre>docker compose logs api | grep "SETUP TOKEN"</pre>
+            </li>
+            <li>
+              <h3>Turn on AI</h3>
+              <p>
+                As an administrator, add a provider in the AI settings: an
+                Anthropic, OpenAI or Gemini key, or a model on your own network
+                through Ollama or llama.cpp. Add a local embedding model for
+                search by meaning.
+              </p>
             </li>
           </ol>
           <p style="margin-top: 28px" class="callout">
@@ -350,11 +464,20 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
             setups for Nginx Proxy Manager, nginx, Caddy, Traefik and Cloudflare
             Tunnel are in the
             <a
-              href="https://github.com/Aulteran/FileCanopy/blob/main/deploy/proxy/README.md"
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/deploy/proxy/README.md"
               >proxy guide</a
             >. The
-            <a href="https://github.com/Aulteran/FileCanopy#readme">README</a>
+            <a
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/docs/README.md"
+              >documentation</a
+            >
             covers configuration, updating, backups and where your data lives.
+            For provider setup and semantic search, see the
+            <a
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/docs/guides/ai.md"
+              >AI guide</a
+            >. Optional services (OCR, converter, backups) are separate switches
+            described there. FileCanopy also runs without an AI provider.
           </p>
         </div>
       </section>
@@ -363,80 +486,51 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">Status</div>
-            <h2>Early development</h2>
+            <h2>First public beta is out</h2>
             <p>
-              There is no public release yet, and no external security audit.
-              Keep a separate copy of anything important. Anyone with access to
-              the server’s disk can read the library, like any other folder on
-              that machine.
+              The beta Docker images are published on GitHub Container Registry
+              and the quick start above installs them. A stable 1.0.0 release is
+              still to come.
             </p>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Area</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Docker stack, sign-in, administrator, invitations</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>
-                  Personal and shared folders, permissions, file operations,
-                  browser interface
-                </td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Import, change detection, optional backups</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Trash, undo, activity log</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Sharing between people</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Privacy levels and Confidential unlock</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Document viewer, previews, OCR and full-text search</td>
-                <td><span class="tag done">Built</span></td>
-              </tr>
-              <tr>
-                <td>Redesigned interface (the screens above)</td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-              <tr>
-                <td>
-                  Email invitations, SMTP, OpenID Connect sign-in; email intake
-                </td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-              <tr>
-                <td>PDF splitting, duplicate detection, collections</td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-              <tr>
-                <td>
-                  Optional AI (organization proposals, semantic search, chat)
-                  and optional MCP
-                </td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-              <tr>
-                <td>Production packaging and public release</td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="grid">
+            <div class="card">
+              <h3>What beta means here</h3>
+              <p>
+                Everything described on this page is built. There is no external
+                security audit yet, so keep a separate copy of anything
+                important.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Know the limits</h3>
+              <p>
+                Docker is the supported way to run it, and the beta images are
+                for amd64 only. Proxmox LXC is not available yet. Anyone with
+                access to the server's disk can read the library, like any other
+                folder.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Screens are previews</h3>
+              <p>
+                The screenshots on this page are design previews while the
+                interface is being finished.
+              </p>
+            </div>
+          </div>
+          <p class="callout" style="margin-top: 28px">
+            Details are in the
+            <a
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/docs/release/known-issues.md"
+              >known issues</a
+            >
+            and the
+            <a
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/docs/roadmap.md"
+              >roadmap</a
+            >.
+          </p>
         </div>
       </section>
 
@@ -449,7 +543,7 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
           <div class="links">
             <a class="card" href="https://github.com/Aulteran/FileCanopy"
               ><b>GitHub repository</b>
-              <p>Source code, issues and the full README.</p></a
+              <p>Source code, issues and the documentation.</p></a
             >
             <a class="card" href="https://github.com/Aulteran/FileCanopy/wiki"
               ><b>Wiki</b>
@@ -460,7 +554,7 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
             >
             <a
               class="card"
-              href="https://github.com/Aulteran/FileCanopy/tree/main/docs/adr"
+              href="https://github.com/Aulteran/FileCanopy/tree/HEAD/docs/adr"
               ><b>Design decisions</b>
               <p>
                 The reasoning behind how FileCanopy works, written down as short
@@ -482,7 +576,7 @@ docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
       <div class="wrap">
         <span
           >FileCanopy is free software under the
-          <a href="https://github.com/Aulteran/FileCanopy/blob/main/LICENSE"
+          <a href="https://github.com/Aulteran/FileCanopy/blob/HEAD/LICENSE"
             >AGPL-3.0</a
           >.</span
         >

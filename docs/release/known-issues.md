@@ -26,4 +26,4 @@ retain the historical detail. Listing an issue here does not decide that it is a
 | Trust/privacy | Plaintext host/storage/backup access; cloud transmissions cannot be recalled; no external security audit | Disclose plainly; no host-confidentiality or compliance guarantee. |
 
 Baseline: [M23 closure](../milestones/M23-design-and-plan.md),
-[open decisions](../../11_OPEN_DECISIONS.md), [current status](../../PROJECT_STATUS.md).
+[open decisions](../11_OPEN_DECISIONS.md), [current status](../PROJECT_STATUS.md).
