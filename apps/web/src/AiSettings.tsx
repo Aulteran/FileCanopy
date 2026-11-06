@@ -22,6 +22,7 @@ import {
   modelChoice,
 } from "./aiModels";
 import { Modal } from "./Dialogs";
+import { DEFAULT_CONFIDENCE, parseConfidence } from "./organizeText";
 import { describeError } from "./format";
 
 // Optional AI (M15). Nothing here is needed to use the app. Private and Confidential files are
@@ -353,31 +354,55 @@ const ORGANIZE_LABELS: Record<string, string> = {
   auto: "Suggest, and do the safest ones automatically",
 };
 
-function OrganizeSection({ admin }: { admin: boolean }) {
+function OrganizeSection({
+  admin,
+  serverSetup,
+}: {
+  admin: boolean;
+  serverSetup: boolean;
+}) {
   const [mine, setMine] = useState<OrganizeSettings | null>(null);
   const [inst, setInst] = useState<OrganizeInstance | null>(null);
-  const [bar, setBar] = useState("");
+  // What the administrator is choosing for the shared files; nothing changes until Save.
+  const [shared, setShared] = useState("off");
+  const [autoOn, setAutoOn] = useState(false);
+  const [bar, setBar] = useState(String(DEFAULT_CONFIDENCE));
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
   const load = useCallback(() => {
-    api
-      .organizeSettings()
-      .then(setMine)
-      .catch(() => setError(describeError("UNKNOWN")));
+    // Personal choices belong to each person's own settings, not to server setup.
+    if (!serverSetup)
+      api
+        .organizeSettings()
+        .then(setMine)
+        .catch(() => setError(describeError("UNKNOWN")));
     if (admin)
       api
         .organizeInstance()
         .then((i) => {
           setInst(i);
-          setBar(
-            i.auto_min_per_mille === null
-              ? ""
-              : String(i.auto_min_per_mille / 10),
-          );
+          const fresh =
+            i.auto_min_per_mille === null && i.shared_mode === "off";
+          if (serverSetup && fresh) {
+            // Never set before: offer the safest automatic changes, which still need Save.
+            setShared("auto");
+            setAutoOn(true);
+            setBar(String(DEFAULT_CONFIDENCE));
+          } else {
+            setShared(i.shared_mode);
+            setAutoOn(i.auto_min_per_mille !== null);
+            setBar(
+              String(
+                i.auto_min_per_mille === null
+                  ? DEFAULT_CONFIDENCE
+                  : Math.round(i.auto_min_per_mille / 10),
+              ),
+            );
+          }
         })
         .catch(() => setError(describeError("UNKNOWN")));
-  }, [admin]);
+  }, [admin, serverSetup]);
   useEffect(load, [load]);
 
   async function run(fn: () => Promise<unknown>, done: string): Promise<void> {
@@ -392,115 +417,182 @@ function OrganizeSection({ admin }: { admin: boolean }) {
     }
   }
 
-  if (!mine) return null;
+  if (!mine && !(admin && inst)) return null;
+  const min = inst ? Math.ceil(inst.min_allowed / 10) : 50;
+  const percent = parseConfidence(bar, min);
+  const savedBar =
+    inst?.auto_min_per_mille == null
+      ? null
+      : Math.round(inst.auto_min_per_mille / 10);
+  const unsaved =
+    inst !== null &&
+    (shared !== inst.shared_mode ||
+      autoOn !== (savedBar !== null) ||
+      (autoOn && percent !== savedBar));
   return (
     <section>
       <h3>Organization suggestions</h3>
       <p className="muted">
-        AI can suggest clearer names and folders for your files. It can never
-        change who has access, lower a privacy label, replace a file or delete.
-        Applied changes can be undone.
+        AI can suggest clearer names and folders for{" "}
+        {serverSetup ? "the shared files" : "your files"}. It can never change
+        who has access, lower a privacy label, replace a file or delete. Applied
+        changes can be undone.
       </p>
-      <label>
-        For my personal files
-        <select
-          value={mine.mode}
-          onChange={(e) =>
-            void run(() => api.organizeSetMode(e.target.value), "Saved.")
-          }
-        >
-          {mine.modes.map((m) => (
-            <option
-              key={m}
-              value={m}
-              disabled={m === "auto" && !mine.auto_available}
-            >
-              {ORGANIZE_LABELS[m] ?? m}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!mine.auto_available && (
+      {serverSetup && (
         <p className="muted">
-          Automatic changes are unavailable until an administrator sets a
-          confidence bar, based on how many suggestions people accepted.
+          Each person chooses this for their own personal files later, in their
+          own AI settings.
         </p>
       )}
-      {admin && inst && (
+      {mine && (
         <>
           <label>
-            For the shared files
+            For my personal files
             <select
-              value={inst.shared_mode}
+              value={mine.mode}
               onChange={(e) =>
-                void run(
-                  () =>
-                    api.organizeSetInstance({ shared_mode: e.target.value }),
-                  "Saved.",
-                )
+                void run(() => api.organizeSetMode(e.target.value), "Saved.")
               }
             >
               {mine.modes.map((m) => (
-                <option key={m} value={m}>
+                <option
+                  key={m}
+                  value={m}
+                  disabled={m === "auto" && !mine.auto_available}
+                >
+                  {ORGANIZE_LABELS[m] ?? m}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!mine.auto_available && (
+            <p className="muted">
+              {admin
+                ? "Automatic changes are switched off on this server. Switch them on below to use them here too."
+                : "Automatic changes are not available yet: an administrator has not switched them on."}
+            </p>
+          )}
+        </>
+      )}
+      {admin && inst && (
+        <form
+          className="organize-shared"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (autoOn && percent === null) return;
+            void run(
+              () =>
+                api.organizeSetInstance({
+                  shared_mode: shared,
+                  auto_min_per_mille:
+                    autoOn && percent !== null ? percent * 10 : 0,
+                }),
+              "Saved.",
+            );
+          }}
+        >
+          <label>
+            For the shared files
+            <select value={shared} onChange={(e) => setShared(e.target.value)}>
+              {(mine?.modes ?? ["off", "review", "auto"]).map((m) => (
+                <option key={m} value={m} disabled={m === "auto" && !autoOn}>
                   {ORGANIZE_LABELS[m] ?? m}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Do things automatically only when the AI says it is at least this
-            sure (percent, {inst.min_allowed / 10} or more, empty to switch
-            automatic changes off)
             <input
-              inputMode="decimal"
-              value={bar}
-              onChange={(e) => setBar(e.target.value)}
+              type="checkbox"
+              checked={autoOn}
+              onChange={(e) => {
+                setAutoOn(e.target.checked);
+                if (!e.target.checked && shared === "auto") setShared("review");
+              }}
             />
+            Allow automatic changes on this server
           </label>
-          <button
-            type="button"
-            onClick={() =>
-              void run(
-                () =>
-                  api.organizeSetInstance({
-                    auto_min_per_mille:
-                      bar.trim() === ""
-                        ? 0
-                        : Math.round(Number.parseFloat(bar) * 10),
-                  }),
-                "Saved.",
-              )
-            }
-          >
-            Save
-          </button>
-          <table>
-            <caption>
-              What people did with suggestions, by how sure the AI said it was
-              (counts only). Use this to choose the bar.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">AI said</th>
-                <th scope="col">Applied by hand</th>
-                <th scope="col">Done automatically</th>
-                <th scope="col">Dismissed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inst.stats.map((b) => (
-                <tr key={b.from}>
-                  <td>
-                    {b.from / 10}–{b.to / 10}%
-                  </td>
-                  <td>{b.accepted}</td>
-                  <td>{b.auto}</td>
-                  <td>{b.dismissed}</td>
+          {autoOn && (
+            <div className="confidence">
+              <label htmlFor="organize-bar" id="organize-bar-label">
+                Only when the AI is at least this sure
+              </label>
+              <div className="confidence-row">
+                <input
+                  type="range"
+                  min={min}
+                  max={100}
+                  step={1}
+                  value={percent ?? DEFAULT_CONFIDENCE}
+                  aria-labelledby="organize-bar-label"
+                  onChange={(e) => setBar(e.target.value)}
+                />
+                <span className="percent-field">
+                  <input
+                    id="organize-bar"
+                    type="number"
+                    inputMode="numeric"
+                    min={min}
+                    max={100}
+                    step={1}
+                    value={bar}
+                    aria-invalid={percent === null}
+                    aria-describedby="organize-bar-hint"
+                    onChange={(e) => setBar(e.target.value)}
+                  />
+                  <span aria-hidden="true">%</span>
+                </span>
+              </div>
+              <p className="hint" id="organize-bar-hint">
+                From {min}% to 100%. Anything less sure waits for someone to
+                review it. {DEFAULT_CONFIDENCE}% is a careful start.
+              </p>
+              {percent === null && (
+                <p className="error" role="alert">
+                  Enter a whole number from {min} to 100.
+                </p>
+              )}
+            </div>
+          )}
+          <div className="actions">
+            <button
+              type="submit"
+              className="primary"
+              disabled={!unsaved || (autoOn && percent === null)}
+            >
+              Save
+            </button>
+            {unsaved && <span className="hint">Not saved yet.</span>}
+          </div>
+          {!serverSetup && (
+            <table>
+              <caption>
+                What people did with suggestions, by how sure the AI said it was
+                (counts only). Use this to choose the bar.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">AI said</th>
+                  <th scope="col">Applied by hand</th>
+                  <th scope="col">Done automatically</th>
+                  <th scope="col">Dismissed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
+              </thead>
+              <tbody>
+                {inst.stats.map((b) => (
+                  <tr key={b.from}>
+                    <td>
+                      {b.from / 10}–{b.to / 10}%
+                    </td>
+                    <td>{b.accepted}</td>
+                    <td>{b.auto}</td>
+                    <td>{b.dismissed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </form>
       )}
       {msg && <p role="status">{msg}</p>}
       {error && (
@@ -524,7 +616,13 @@ const SEMANTIC_STATES: Record<string, string> = {
 
 /** Optional meaning-based search (M19). It needs a model server on your own network; nothing is
  * sent to a cloud service, and ordinary search keeps working whatever happens here. */
-function SemanticSection({ admin }: { admin: boolean }) {
+function SemanticSection({
+  admin,
+  serverSetup,
+}: {
+  admin: boolean;
+  serverSetup: boolean;
+}) {
   const [mine, setMine] = useState<SemanticMe | null>(null);
   const [inst, setInst] = useState<SemanticAdmin | null>(null);
   const [form, setForm] = useState({
@@ -581,22 +679,24 @@ function SemanticSection({ admin }: { admin: boolean }) {
         words. Nothing is sent to a cloud service, Confidential files are never
         used, and ordinary search works with or without it.
       </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={mine.opt_out}
-          onChange={(e) =>
-            void run(
-              () => api.semanticSetMe(e.target.checked),
-              e.target.checked
-                ? "Your files will not be used for meaning-based search."
-                : "Saved.",
-            )
-          }
-        />
-        Do not use my files for meaning-based search
-      </label>
-      {mine.available && !mine.opt_out && (
+      {!serverSetup && (
+        <label>
+          <input
+            type="checkbox"
+            checked={mine.opt_out}
+            onChange={(e) =>
+              void run(
+                () => api.semanticSetMe(e.target.checked),
+                e.target.checked
+                  ? "Your files will not be used for meaning-based search."
+                  : "Saved.",
+              )
+            }
+          />
+          Do not use my files for meaning-based search
+        </label>
+      )}
+      {!serverSetup && mine.available && !mine.opt_out && (
         <p className="muted">
           {mine.indexed_files} of your files are ready
           {mine.waiting_files > 0
@@ -711,9 +811,12 @@ function SemanticSection({ admin }: { admin: boolean }) {
 export function AiSettings({
   admin,
   onClose,
+  serverSetup = false,
 }: {
   admin: boolean;
   onClose: () => void;
+  /** First-time server setup: server-wide choices only; personal ones come later. */
+  serverSetup?: boolean;
 }) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [instance, setInstance] = useState<AiInstance | null>(null);
@@ -756,7 +859,7 @@ export function AiSettings({
           models still work.
         </p>
       )}
-      {status && (
+      {status && !serverSetup && (
         <section>
           <h3>My files</h3>
           <label>
@@ -813,8 +916,8 @@ export function AiSettings({
           />
         </section>
       )}
-      <OrganizeSection admin={admin} />
-      <SemanticSection admin={admin} />
+      <OrganizeSection admin={admin} serverSetup={serverSetup} />
+      <SemanticSection admin={admin} serverSetup={serverSetup} />
       {admin && instance && (
         <section>
           <h3>Server AI (shared files)</h3>

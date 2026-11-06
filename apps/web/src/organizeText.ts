@@ -110,3 +110,14 @@ export function parseCuts(text: string, pageCount: number): number[] | null {
   if (sorted[0] !== 1 || sorted[sorted.length - 1]! > pageCount) return null;
   return sorted.length >= 2 ? sorted : null;
 }
+
+// A careful starting bar for automatic changes, in percent. The server refuses anything below 50.
+export const DEFAULT_CONFIDENCE = 90;
+
+/** The typed bar as a whole percent from `min` to 100, or null when it is not one. */
+export function parseConfidence(text: string, min = 50): number | null {
+  const t = text.trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const v = Number(t);
+  return v >= min && v <= 100 ? v : null;
+}
