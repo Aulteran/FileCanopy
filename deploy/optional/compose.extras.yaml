@@ -52,7 +52,8 @@ services:
     restart: unless-stopped
     user: redis # the entrypoint cannot drop privileges itself once capabilities are dropped
     command: [redis-server, --save, "", --appendonly, "no"]
-    healthcheck: { test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10 }
+    healthcheck:
+      { test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10 }
     <<: *hardening
 
   worker:
