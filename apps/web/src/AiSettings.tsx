@@ -22,7 +22,13 @@ import {
   modelChoice,
 } from "./aiModels";
 import { Modal } from "./Dialogs";
-import { OWN_AI, kindsFor, personalChoices } from "./aiChoices";
+import {
+  OWN_AI,
+  SERVER_AI,
+  kindsFor,
+  personalChoices,
+  serverAiIsCloud,
+} from "./aiChoices";
 import { DEFAULT_CONFIDENCE, parseConfidence } from "./organizeText";
 import { describeError } from "./format";
 
@@ -957,6 +963,8 @@ export function AiSettings({
   const [instance, setInstance] = useState<AiInstance | null>(null);
   const [error, setError] = useState("");
   const [ack, setAck] = useState(false);
+  // The person picked the cloud server AI and has not agreed yet: nothing is saved until they do.
+  const [pending, setPending] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -972,10 +980,22 @@ export function AiSettings({
   }, [admin]);
   useEffect(load, [load]);
 
+  function pick(preference: string): void {
+    const needsConsent =
+      preference === SERVER_AI &&
+      status !== null &&
+      serverAiIsCloud(status) &&
+      (status.preference !== SERVER_AI || status.instance_needs_ack);
+    setPending(needsConsent);
+    if (needsConsent) setAck(false);
+    else void choose(preference);
+  }
+
   async function choose(preference: string): Promise<void> {
     try {
       await api.aiSetPreference(preference, ack);
       setError("");
+      setPending(false);
       load();
     } catch (err) {
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
@@ -1018,8 +1038,12 @@ export function AiSettings({
                   <input
                     type="radio"
                     name="ai-choice"
-                    checked={status.preference === c.value}
-                    onChange={() => void choose(c.value)}
+                    checked={
+                      pending
+                        ? c.value === SERVER_AI
+                        : status.preference === c.value
+                    }
+                    onChange={() => pick(c.value)}
                   />
                   {c.label}
                   {c.note && <span className="muted"> {c.note}</span>}
@@ -1033,9 +1057,10 @@ export function AiSettings({
             </p>
           )}
           {enabled &&
-            status.instance_mode === "cloud" &&
-            (status.preference === "instance_default" ||
-              status.instance_needs_ack) && (
+            serverAiIsCloud(status) &&
+            (pending ||
+              (status.preference === SERVER_AI &&
+                status.instance_needs_ack)) && (
               <>
                 <label>
                   <input
@@ -1045,14 +1070,13 @@ export function AiSettings({
                   />
                   {status.notice}
                 </label>
-                {status.instance_needs_ack && (
-                  <button
-                    type="button"
-                    onClick={() => void choose("instance_default")}
-                  >
-                    Agree and use the default server AI
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={!ack}
+                  onClick={() => void choose(SERVER_AI)}
+                >
+                  Agree and use the default server AI
+                </button>
               </>
             )}
           {enabled && (
@@ -1093,6 +1117,12 @@ export function AiSettings({
             />
             Enable AI on this server?
           </label>
+          {instance.enabled && instance.needs_default && (
+            <p role="alert" className="error">
+              Choose a default model: there is none now, so AI on shared files
+              is off. Open a model below and press "Make this the default".
+            </p>
+          )}
           {instance.enabled && (
             <ModelsSection instance={instance} onChanged={load} />
           )}

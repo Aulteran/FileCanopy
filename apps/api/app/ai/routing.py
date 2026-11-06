@@ -18,8 +18,7 @@ from app.policy import privacy
 PREFERENCES = ("off", "instance_default", "instance_default_local_only", "my_provider")
 # The server's default model (the pointer into `ai_provider`); several instance models may exist.
 INSTANCE_PROVIDER_KEY = "ai.instance_provider_id"
-# The server-wide "Enable AI on this server?" switch. Absent on an install that never set it:
-# then AI counts as enabled exactly when a provider already exists (the pre-0026 behaviour).
+# The server-wide "Enable AI on this server?" switch. Absent means off.
 AI_ENABLED_KEY = "ai.enabled"
 MAX_INSTANCE_MODELS = 8
 # Bump when the wording shown before cloud AI is enabled changes; consent must match.
@@ -42,10 +41,10 @@ class Route:
 
 
 def server_ai_enabled(db: Session) -> bool:
+    """The server-wide switch. Off until an administrator turns it on (or adds the first server
+    model); migration 0026 writes it for installs that already used AI."""
     row = db.get(AppSetting, AI_ENABLED_KEY)
-    if row is not None and isinstance(row.value, bool):
-        return row.value
-    return db.scalar(select(AiProvider.id).limit(1)) is not None
+    return bool(row is not None and row.value is True)
 
 
 def instance_models(db: Session) -> list[AiProvider]:
@@ -60,14 +59,15 @@ def instance_models(db: Session) -> list[AiProvider]:
 
 
 def default_instance_model(db: Session) -> AiProvider | None:
-    """The marked default, enabled or not; the oldest model when the mark is missing."""
-    models = instance_models(db)
+    """The marked default, enabled or not. None when no model is marked: never a guess, so that
+    removing a local default cannot quietly move shared files to a cloud model."""
     row = db.get(AppSetting, INSTANCE_PROVIDER_KEY)
-    if row is not None and isinstance(row.value, str):
-        for m in models:
-            if str(m.id) == row.value:
-                return m
-    return models[0] if models else None
+    if row is None or not isinstance(row.value, str):
+        return None
+    for m in instance_models(db):
+        if str(m.id) == row.value:
+            return m
+    return None
 
 
 def instance_provider(db: Session) -> AiProvider | None:

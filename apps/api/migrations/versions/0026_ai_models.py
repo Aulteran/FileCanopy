@@ -6,7 +6,11 @@ Revises: 0025
 The server may now hold several AI models, one of them the default (the existing
 `ai.instance_provider_id` setting), so the one-instance-model unique index goes. Installs that
 already have a server model keep working: the new `ai.enabled` setting is written as true for
-them. People's stored AI choices (`app_user.ai_preference`) keep their values and meaning.
+them (and for installs with only a personal provider, which was usable before), false
+otherwise. People's stored AI choices (`app_user.ai_preference`) keep their values and meaning.
+
+Downgrade keeps only the oldest server model (the old schema allows one) and does NOT switch AI
+off: the old code simply uses that model if it is enabled.
 """
 
 import sqlalchemy as sa
@@ -29,9 +33,9 @@ def upgrade() -> None:
         bind.execute(sa.text("select 1 from app_setting where key = 'ai.enabled'")).first()
         is not None
     )
-    if has_any and not has_flag:
+    if not has_flag:
         setting = sa.table("app_setting", sa.column("key", sa.String), sa.column("value", sa.JSON))
-        op.bulk_insert(setting, [{"key": "ai.enabled", "value": True}])
+        op.bulk_insert(setting, [{"key": "ai.enabled", "value": has_any}])
 
 
 def downgrade() -> None:

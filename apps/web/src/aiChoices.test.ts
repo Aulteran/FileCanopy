@@ -7,13 +7,27 @@ const base = {
   default_model: "Claude Sonnet",
   local_model: null,
   local_available: false,
+  instance_kind: "anthropic",
+  instance_mode: "cloud" as "cloud" | "local" | null,
 };
 
 describe("personalChoices", () => {
   it("offers No and the default server AI with its name", () => {
     const c = personalChoices(base);
     expect(c.map((x) => x.value)).toEqual(["off", "instance_default"]);
-    expect(c[1]?.label).toBe("Yes, use the default server AI (Claude Sonnet)");
+    expect(c[1]?.label).toBe(
+      "Yes, use the default server AI (Claude Sonnet, cloud: Anthropic)",
+    );
+  });
+  it("says a local default is local", () => {
+    const c = personalChoices({
+      ...base,
+      instance_kind: "ollama",
+      instance_mode: "local",
+    });
+    expect(c[1]?.label).toBe(
+      "Yes, use the default server AI (Claude Sonnet, local)",
+    );
   });
   it("offers local AI only when the admin set up a local model", () => {
     const c = personalChoices({

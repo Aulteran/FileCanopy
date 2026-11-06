@@ -17,7 +17,28 @@ type Facts = Pick<
   | "default_model"
   | "local_model"
   | "local_available"
+  | "instance_kind"
+  | "instance_mode"
 >;
+
+const VENDORS: Record<string, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  gemini: "Google Gemini",
+};
+
+/** Says where the default model runs, so a person knows when their files would leave the server. */
+function where(s: Facts): string {
+  if (s.instance_mode === "cloud") {
+    const vendor = s.instance_kind ? VENDORS[s.instance_kind] : undefined;
+    return `cloud${vendor ? `: ${vendor}` : ""}`;
+  }
+  return "local";
+}
+
+/** True when choosing the server's AI sends eligible files to a cloud service. */
+export const serverAiIsCloud = (s: Pick<Facts, "instance_mode">): boolean =>
+  s.instance_mode === "cloud";
 
 /** "Do you want to use AI?" options. The server and local choices appear only when the server
  * has a model for them; the person's current choice is always shown so it can be seen. */
@@ -26,7 +47,7 @@ export function personalChoices(s: Facts): Choice[] {
   if (s.server_ai_enabled && s.default_model) {
     out.push({
       value: SERVER_AI,
-      label: `Yes, use the default server AI (${s.default_model})`,
+      label: `Yes, use the default server AI (${s.default_model}, ${where(s)})`,
     });
   } else if (s.preference === SERVER_AI) {
     out.push({ value: SERVER_AI, label: "Yes, use the default server AI" });

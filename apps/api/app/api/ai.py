@@ -210,11 +210,13 @@ def _save_instance(
     """Create or update one server model; the first one becomes the default."""
     if existing is None and len(instance_models(db)) >= MAX_INSTANCE_MODELS:
         raise http_error(409, "TOO_MANY_MODELS")
-    had_default = default_instance_model(db)
+    first = existing is None and default_instance_model(db) is None
     provider = _save(request, db, principal, existing, body, scope="instance")
     _commit_provider(db, flush=True)
-    if had_default is None:
+    if first:  # adding a model when none is marked default makes it the default
         _set_default(db, provider)
+    if db.get(AppSetting, AI_ENABLED_KEY) is None:  # the first model switches AI on, once
+        db.add(AppSetting(key=AI_ENABLED_KEY, value=True))
     audit(
         db,
         "ai.provider_set",
@@ -233,8 +235,13 @@ def _delete_instance(request: Request, db: Session, principal: Principal, p: AiP
     db.delete(p)
     db.flush()
     if was_default is not None and was_default.id == p.id:
-        rest = instance_models(db)
-        _set_default(db, rest[0] if rest else None)
+        # Promote only an enabled model of the same kind of provider (local stays local, cloud
+        # stays cloud); otherwise leave no default and let the administrator choose.
+        heir = next(
+            (m for m in instance_models(db) if m.enabled and m.privacy_mode == p.privacy_mode),
+            None,
+        )
+        _set_default(db, heir)
     audit(
         db,
         "ai.provider_removed",
@@ -389,6 +396,8 @@ def put_my_provider(
     db: Session = Depends(get_db),
 ) -> ProviderOut:
     user = principal.user
+    if body.enabled and not server_ai_enabled(db):
+        raise http_error(409, "AI_NOT_ENABLED")
     provider = _save(request, db, principal, _mine(db, user), body, scope="user")
     audit(
         db,
@@ -460,6 +469,7 @@ def get_instance(
         "notice": NOTICE,
         "consent_version": CONSENT_VERSION,
         "enabled": server_ai_enabled(db),
+        "needs_default": default is None and bool(instance_models(db)),
         "models": [_out(m, default_id) for m in instance_models(db)],
         "max_models": MAX_INSTANCE_MODELS,
         # The default model, for single-model callers.
@@ -552,8 +562,8 @@ def test_instance_model(
     return _probe(request, principal, _instance_model(db, model_id), body)
 
 
-# Single-model shortcuts: the default model (created and made default when there is none).
-@router.put("/instance/provider", response_model=ProviderOut)
+# Deprecated single-model shortcuts (use /instance/models): act on the default model.
+@router.put("/instance/provider", response_model=ProviderOut, deprecated=True)
 def put_instance_provider(
     body: ProviderBody,
     request: Request,
@@ -564,7 +574,7 @@ def put_instance_provider(
     return _out(provider, provider.id)
 
 
-@router.delete("/instance/provider", response_model=Ok)
+@router.delete("/instance/provider", response_model=Ok, deprecated=True)
 def delete_instance_provider(
     request: Request,
     principal: Principal = Depends(require_admin),

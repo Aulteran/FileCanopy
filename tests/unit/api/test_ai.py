@@ -25,7 +25,14 @@ from test_files import Api, code
 from app.ai import budget
 from app.ai.gateway import AiCaller, AiError
 from app.ai.providers import EndpointError
-from app.ai.routing import AiRefused, ClearedInput, assert_deliverable, clear, resolve_route
+from app.ai.routing import (
+    AiRefused,
+    ClearedInput,
+    assert_deliverable,
+    clear,
+    resolve_route,
+    server_ai_enabled,
+)
 from app.ai.secrets import SecretBox, SecretsError, aad_for, parse_key
 from app.db.models import (
     AiBudget,
@@ -321,6 +328,7 @@ def test_cloud_needs_secrets_key_consent_prices_and_a_key(
 
 def test_people_may_not_add_local_endpoints_and_admin_cannot_see_theirs(fx: Fx) -> None:
     alice, admin = Api(fx, "alice"), Api(fx, "admin")
+    assert put(admin, "/instance/enabled", {"enabled": True}).status_code == 200
     assert code(put(alice, "/me/provider", local_body())) == "LOCAL_ENDPOINT_ADMIN_ONLY"
     assert put(alice, "/me/provider", cloud_body()).status_code == 200
     assert put(admin, "/instance/provider", local_body()).status_code == 200
@@ -771,10 +779,11 @@ def test_several_models_one_default_and_promotion(fx: Fx) -> None:
     assert all("api_key" not in m for m in models)
     assert put(admin, "/instance/default", {"id": b.json()["id"]}).status_code == 200
     assert admin.get("/ai/instance").json()["provider"]["label"] == "Home"
-    # removing the default promotes the next model
+    # removing a local default does not promote the cloud model (M2): nobody is default
     assert delete(admin, f"/instance/models/{b.json()['id']}").status_code == 200
     inst = admin.get("/ai/instance").json()
-    assert [m["label"] for m in inst["models"]] == ["Claude"] and inst["provider"]["is_default"]
+    assert [m["label"] for m in inst["models"]] == ["Claude"]
+    assert inst["provider"] is None and inst["needs_default"] is True
     assert delete(admin, f"/instance/models/{a.json()['id']}").status_code == 200
     assert admin.get("/ai/instance").json()["provider"] is None
     assert put(Api(fx, "alice"), "/instance/default", {"id": a.json()["id"]}).status_code == 403
@@ -836,7 +845,7 @@ def test_server_switch_turns_everything_off(fx: Fx, net: Net) -> None:
     admin, alice = Api(fx, "admin"), Api(fx, "alice")
     assert admin.get("/ai/instance").json()["enabled"] is False  # nothing set up yet
     post(admin, "/instance/models", local_body(label="Home"))
-    assert admin.get("/ai/instance").json()["enabled"] is True  # legacy rule: a model exists
+    assert admin.get("/ai/instance").json()["enabled"] is True  # the first model switches it on
     set_pref(alice, "instance_default")
     f = file_in(alice, fx.y2026)
     assert run(fx, caller(fx, "alice"), f).value.ok is True
@@ -886,3 +895,43 @@ def test_migration_0026_enables_existing_installs_and_drops_the_index(tmp_path: 
         flag = conn.execute(sa.text("select value from app_setting where key = 'ai.enabled'"))
         assert flag.scalar() in (1, True, "true")
         conn.execute(sa.text("insert into ai_provider values (2, 'instance', null)"))
+
+
+def test_removing_a_local_default_does_not_move_shared_files_to_cloud(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    cloud = post(admin, "/instance/models", cloud_body(label="Claude")).json()
+    home = post(admin, "/instance/models", local_body(label="Home")).json()
+    assert put(admin, "/instance/default", {"id": home["id"]}).status_code == 200
+    assert delete(admin, f"/instance/models/{home['id']}").status_code == 200
+    with fx.w.ctx.sessions() as db:
+        assert resolve_route(db, root_kind="shared", owner=None).provider is None
+    assert alice.get("/ai/status").json()["default_model"] is None
+    f = file_in(alice, fx.y2026)
+    set_pref(alice, "instance_default")
+    with pytest.raises(AiRefused):
+        run(fx, caller(fx, "alice"), f)
+    assert not net.requests
+    # a same-kind enabled model is promoted; a missing mark is never guessed
+    home2 = post(admin, "/instance/models", local_body(label="Home 2")).json()
+    assert admin.get("/ai/instance").json()["provider"]["id"] == home2["id"]
+    home3 = post(admin, "/instance/models", local_body(label="Home 3")).json()
+    assert delete(admin, f"/instance/models/{home2['id']}").status_code == 200
+    assert admin.get("/ai/instance").json()["provider"]["id"] == home3["id"]
+    assert cloud["id"] != home3["id"]
+
+
+def test_a_person_saving_their_own_provider_cannot_switch_ai_on(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    r = put(alice, "/me/provider", cloud_body())
+    assert code(r) == "AI_NOT_ENABLED"
+    assert put(alice, "/me/provider", cloud_body(enabled=False)).status_code == 200  # saved off
+    with fx.w.ctx.sessions() as db:
+        assert server_ai_enabled(db) is False
+        a = db.get(User, alice.uid)
+        assert a is not None
+        assert resolve_route(db, root_kind="personal", owner=a).reason == "ai_off"
+        a.ai_preference = "my_provider"
+        assert resolve_route(db, root_kind="personal", owner=a).reason == "ai_not_configured"
+        assert resolve_route(db, root_kind="shared", owner=None).reason == "ai_not_configured"
+    assert admin.get("/ai/instance").json()["enabled"] is False
+    assert not net.requests

@@ -9,7 +9,7 @@ import re
 import pytest
 from playwright.sync_api import Browser, Locator, Page, expect
 from support import World, sign_in
-from test_auth_stack import PASSWORD
+from test_auth_stack import PASSWORD, Client
 
 pytestmark = pytest.mark.e2e
 
@@ -122,3 +122,46 @@ def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, wo
     assert first is not None
     assert first["width"] > box["width"] * 0.9, "each step is a card as wide as the column"
     page.context.close()
+
+
+def test_first_time_choosing_a_cloud_server_ai_shows_the_notice_first(
+    browser: Browser, world: World
+) -> None:
+    """Choosing the server's cloud AI shows the notice and waits for the person to agree; nothing
+    is saved before that."""
+    admin = Client(world.stack)
+    assert admin.login("admin@example.com") == 200
+    model = {
+        "kind": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "label": "Cloud Test",
+        "api_key": "sk-test-not-a-real-key",
+        "price_in_micro": 2_000_000,
+        "price_out_micro": 10_000_000,
+        "enabled": True,
+        "acknowledge_cloud": True,
+    }
+    status, created, _ = admin.call("POST", "/api/v1/ai/instance/models", model)
+    assert status == 200, created
+    assert admin.call("PUT", "/api/v1/ai/instance/enabled", {"enabled": True})[0] == 200
+    try:
+        page = sign_in(browser, world, world.alice_mail)
+        _open_ai(page)
+        dialog = page.get_by_role("dialog", name="AI")
+        radio = dialog.get_by_role("radio", name=re.compile("default server AI"))
+        expect(dialog.get_by_text("Cloud Test, cloud: Anthropic")).to_be_visible()
+        radio.check()
+        agree = dialog.get_by_role("button", name="Agree and use the default server AI")
+        expect(dialog.get_by_text("never sent to a cloud provider").last).to_be_visible()
+        expect(agree).to_be_disabled()
+        assert world.alice.call("GET", "/api/v1/ai/status")[1]["preference"] == "off"
+        dialog.get_by_label(re.compile("^Cloud AI sends")).check()
+        agree.click()
+        expect(radio).to_be_checked()
+        expect(agree).to_be_hidden()
+        assert world.alice.call("GET", "/api/v1/ai/status")[1]["preference"] == "instance_default"
+        page.context.close()
+    finally:
+        world.alice.call("PUT", "/api/v1/ai/me/preference", {"preference": "off"})
+        admin.call("DELETE", f"/api/v1/ai/instance/models/{created['id']}")
+        admin.call("PUT", "/api/v1/ai/instance/enabled", {"enabled": False})

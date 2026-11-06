@@ -290,6 +290,7 @@ export type AiInstance = {
   secrets_key_configured: boolean;
   notice: string;
   enabled: boolean;
+  needs_default: boolean;
   models: AiProvider[];
   max_models: number;
   provider: AiProvider | null;
