@@ -13,7 +13,7 @@ x-hardening: &hardening
   security_opt: ["no-new-privileges:true"]
 
 services:
-  # First start only: creates the database password (kept in the `secrets` volume) and hands the app user
+  # First start only: creates the database password and the key that encrypts stored AI API keys (both kept in the `secrets` volume) and hands the app user
   # the top-level library and app-data folders. Nothing inside your library is touched.
   init:
     image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
@@ -64,6 +64,7 @@ services:
     env_file: [{ path: .env, required: false }] # all other FILECANOPY_* settings, defaults in apps/api/app/config.py
     environment: # fixed here on purpose: .env cannot change these
       FILECANOPY_DATABASE_PASSWORD_FILE: /secrets/pg_password
+      FILECANOPY_SECRETS_KEY_FILE: /secrets/secrets_key # created by init; FILECANOPY_SECRETS_KEY in .env overrides it
       FILECANOPY_LIBRARY_PATH: /library
       FILECANOPY_APP_DATA_PATH: /app-data
       FILECANOPY_TRUSTED_PROXY_HOPS: "1" # the web container is the API's only peer (deploy/proxy/README.md)
@@ -99,7 +100,7 @@ services:
 
 volumes:
   pgdata:
-  secrets: # the generated database password
+  secrets: # the generated database password and secrets key (back this up with your other keys)
   converter-socket: # the converter's Unix socket, shared with the API and nothing else (converter: compose.extras.yaml)
   ocr-socket: # the OCR container's Unix socket, shared with the API and nothing else
   library: # used only if FILECANOPY_LIBRARY_PATH is set to the name "library" instead of a folder

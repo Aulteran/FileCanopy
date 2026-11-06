@@ -751,8 +751,9 @@ export function AiSettings({
       </p>
       {status && !status.secrets_key_configured && (
         <p className="muted">
-          This server has no secrets key set, so cloud API keys cannot be
-          stored. Local providers still work.
+          This server has no key to encrypt API keys with, so cloud API keys
+          cannot be saved. Set FILECANOPY_SECRETS_KEY (see the AI guide). Local
+          models still work.
         </p>
       )}
       {status && (
