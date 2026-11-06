@@ -37,3 +37,11 @@ test("compose.yaml generates its own database password", () => {
   assert.match(text, /POSTGRES_PASSWORD_FILE/);
   assert.match(text, /app\.bootstrap/);
 });
+
+test("both compose files point the API at the generated secrets key", () => {
+  for (const f of ["compose.yaml", "compose-clean.yaml"])
+    assert.match(
+      read(`../../deploy/${f}`),
+      /FILECANOPY_SECRETS_KEY_FILE: \/secrets\/secrets_key/,
+    );
+});
