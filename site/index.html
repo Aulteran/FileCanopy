@@ -3,13 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>
-      FileCanopy: a self-hosted file manager that keeps your files as normal
-      files
-    </title>
+    <title>FileCanopy: a self-hosted file library built around AI</title>
     <meta
       name="description"
-      content="FileCanopy is a free, open-source file manager you run yourself with Docker. It works on ordinary folders on your disk, with sharing, trash and undo, previews and search. No AI required."
+      content="FileCanopy is a free, open-source file library you run yourself with Docker. Let AI organize your files, chat with them and search them by meaning, while they stay normal files in a folder you own."
     />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
@@ -32,9 +29,9 @@
           ></a
         >
         <nav class="main" aria-label="Main">
-          <a href="#features">Features</a><a href="#screens">Screens</a
-          ><a href="#quick-start">Quick start</a><a href="#status">Status</a
-          ><a href="#links">Docs</a>
+          <a href="#ai">AI</a><a href="#features">Features</a
+          ><a href="#screens">Screens</a><a href="#quick-start">Quick start</a
+          ><a href="#status">Status</a><a href="#links">Docs</a>
           <a href="https://github.com/Aulteran/FileCanopy">GitHub</a>
         </nav>
       </div>
@@ -43,12 +40,14 @@
     <main id="main">
       <div class="hero">
         <div class="wrap">
-          <span class="pill">Early development · open source · AGPL-3.0</span>
-          <h1>Your files, in a folder you own.</h1>
+          <span class="pill">Public beta · open source · AGPL-3.0</span>
+          <h1>Your files, organized by AI. In a folder you own.</h1>
           <p class="lede">
-            FileCanopy is a self-hosted file manager. You run it with Docker,
-            and it works on ordinary folders on your disk. Your files stay
-            normal files, so you can always open them with any other program.
+            FileCanopy is a self-hosted file library built around AI. Let it
+            suggest names and folders, answer questions from your documents and
+            find files by meaning, using a cloud model or one running on your
+            own network. Your files stay normal files on your disk, so you can
+            always open them with any other program.
           </p>
           <div class="cta">
             <a class="btn primary" href="#quick-start">Quick start</a>
@@ -77,11 +76,71 @@
         </div>
       </div>
 
-      <section id="features">
+      <section id="ai">
+        <div class="wrap">
+          <div class="head">
+            <div class="eyebrow">AI at the centre</div>
+            <h2>A library that helps you keep it tidy</h2>
+            <p>
+              AI proposes, you decide. Nothing is renamed, moved or split until
+              you press Apply, and every change can be undone.
+            </p>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>Organize with AI</h3>
+              <p>
+                Get a better name and the right folder for a file. Split a long
+                PDF into its real documents, spot duplicates, and group files
+                into collections.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Chat with your files</h3>
+              <p>
+                Ask a question and get an answer written from your own
+                documents, with the source files listed so you can check them.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Search by meaning</h3>
+              <p>
+                Run a local embedding model such as EmbeddingGemma and find the
+                note about a holiday trip by searching “vacation”. It stays on
+                your own network.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Local or cloud</h3>
+              <p>
+                Use Anthropic, OpenAI or Gemini with monthly spending caps, or
+                Ollama and llama.cpp on your own hardware. Private and
+                Confidential files never go to a cloud AI.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Connect your AI tools</h3>
+              <p>
+                An optional read-only MCP endpoint lets an AI assistant look at
+                the files it is allowed to see.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Safe by design</h3>
+              <p>
+                AI follows the same permissions as you do. It cannot change who
+                can see a file, lower a privacy label or delete anything.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="alt">
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">What it does</div>
-            <h2>A file manager that stays out of your way</h2>
+            <h2>Everything around the AI, done properly</h2>
             <p>
               The database only keeps accounts, permissions and history. It
               never replaces your files.
@@ -145,18 +204,11 @@
                 default.
               </p>
             </div>
-            <div class="card">
-              <h3>No AI required</h3>
-              <p>
-                FileCanopy runs fully without any AI service. AI features are on
-                the roadmap and will be optional.
-              </p>
-            </div>
           </div>
         </div>
       </section>
 
-      <section id="screens" class="alt">
+      <section id="screens">
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">Screens</div>
@@ -346,6 +398,11 @@ docker compose up -d --wait</pre>
               >documentation</a
             >
             covers configuration, updating, backups and where your data lives.
+            To turn on AI, start with the
+            <a
+              href="https://github.com/Aulteran/FileCanopy/blob/HEAD/docs/guides/ai.md"
+              >AI guide</a
+            >. FileCanopy also runs without AI if you prefer.
           </p>
         </div>
       </section>
@@ -354,9 +411,9 @@ docker compose up -d --wait</pre>
         <div class="wrap">
           <div class="head">
             <div class="eyebrow">Status</div>
-            <h2>Early development</h2>
+            <h2>Public beta</h2>
             <p>
-              There is no public release yet, and no external security audit.
+              There is no stable release yet, and no external security audit.
               Keep a separate copy of anything important. Anyone with access to
               the server’s disk can read the library, like any other folder on
               that machine.
@@ -403,27 +460,28 @@ docker compose up -d --wait</pre>
               </tr>
               <tr>
                 <td>Redesigned interface (the screens above)</td>
-                <td><span class="tag plan">Planned</span></td>
+                <td><span class="tag plan">In progress</span></td>
               </tr>
               <tr>
                 <td>
-                  Email invitations, SMTP, OpenID Connect sign-in; email intake
+                  AI providers (cloud and local), usage caps, organization
+                  suggestions
                 </td>
-                <td><span class="tag plan">Planned</span></td>
-              </tr>
-              <tr>
-                <td>PDF splitting, duplicate detection, collections</td>
-                <td><span class="tag plan">Planned</span></td>
+                <td><span class="tag done">Built</span></td>
               </tr>
               <tr>
                 <td>
-                  Optional AI (organization proposals, semantic search, chat)
-                  and optional MCP
+                  PDF splitting, duplicate detection, AI collections, semantic
+                  search, document chat, MCP
                 </td>
-                <td><span class="tag plan">Planned</span></td>
+                <td><span class="tag done">Built</span></td>
               </tr>
               <tr>
-                <td>Production packaging and public release</td>
+                <td>Production packaging and beta images</td>
+                <td><span class="tag done">Built</span></td>
+              </tr>
+              <tr>
+                <td>Stable release and Proxmox LXC</td>
                 <td><span class="tag plan">Planned</span></td>
               </tr>
             </tbody>

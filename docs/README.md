@@ -14,7 +14,11 @@
 | [Production guide](guides/production.md), [hardening](guides/hardening.md) | Pinned versions, restore, HTTPS, Docker Swarm, logging. |
 | [What is built and what is next](roadmap.md) | Feature status. |
 
-Optional features: [AI](guides/ai.md), [AI organize](guides/ai-organize.md), [PDF split](guides/ai-split.md), [semantic search](guides/semantic-search.md), [document chat](guides/document-chat.md), [collections](guides/collections.md), [MCP](guides/mcp.md), [inbound mailbox](guides/inbound-mailbox.md), [Google sign-in](guides/google-sign-in.md).
+## AI features
+
+FileCanopy is built around AI. Start with [Set up AI](guides/ai.md), then [AI organize](guides/ai-organize.md), [PDF split](guides/ai-split.md), [semantic search](guides/semantic-search.md), [document chat](guides/document-chat.md), [collections](guides/collections.md), and [MCP](guides/mcp.md).
+
+Also optional: [inbound mailbox](guides/inbound-mailbox.md), [Google sign-in](guides/google-sign-in.md).
 
 ## Release status
 
