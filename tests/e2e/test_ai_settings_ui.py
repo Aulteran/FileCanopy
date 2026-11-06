@@ -49,6 +49,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     page = sign_in(browser, world, world.alice_mail)
     _open_ai(page)
     dialog = page.get_by_role("dialog", name="AI")
+
     # Anthropic is the first cloud provider, so the form starts on it.
     def field(label: str, tag: str) -> Locator:
         return dialog.locator("label").filter(has_text=re.compile(f"^{label}")).locator(tag)
