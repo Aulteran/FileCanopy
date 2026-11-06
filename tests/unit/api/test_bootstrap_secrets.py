@@ -3,15 +3,14 @@ import os
 from pathlib import Path
 
 import pytest
+
 from app import bootstrap
 from app.config import Settings
 
 DSN = "postgresql+psycopg://u:p@h/db"
 
 
-def test_key_created_once_and_valid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_key_created_once_and_valid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FILECANOPY_SECRETS_KEY", raising=False)
     assert bootstrap.ensure_secrets_key(tmp_path, os.getuid(), os.getgid())
     first = (tmp_path / "secrets_key").read_text()
@@ -21,9 +20,7 @@ def test_key_created_once_and_valid(
     assert (tmp_path / "secrets_key").read_text() == first
 
 
-def test_explicit_key_means_no_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_explicit_key_means_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FILECANOPY_SECRETS_KEY", "x")
     assert not bootstrap.ensure_secrets_key(tmp_path, os.getuid(), os.getgid())
     assert not (tmp_path / "secrets_key").exists()
