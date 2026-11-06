@@ -15,7 +15,7 @@ without a mailbox.
 
 ## Settings
 
-Put these in `deploy/.env` (see `deploy/.env.example`):
+Put these in `.env` (see `.env.advanced.example`):
 
 | Setting | Meaning |
 |---|---|

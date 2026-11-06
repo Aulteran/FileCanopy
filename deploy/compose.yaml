@@ -1,0 +1,158 @@
+# FileCanopy: a file manager for your own folders.   Start:  docker compose up -d --wait
+# Then open http://127.0.0.1:8080 . No settings are required. To change something, copy .env.example to .env;
+# every other option is in .env.advanced.example. Optional parts (OCR, Office previews, workers) are at the
+# bottom of this file and off until you name their profile: COMPOSE_PROFILES=ocr,converter in .env.
+name: filecanopy
+
+# Applied to every container: read-only filesystem, no capabilities, no privilege escalation.
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+# The optional containers are also sealed: no network at all, a Unix socket shared only with the API.
+x-sealed: &sealed
+  <<: *hardening
+  network_mode: none
+  restart: unless-stopped
+
+services:
+  # First start only: creates the database password (kept in the `secrets` volume) and hands the app user
+  # the top-level library and app-data folders. Nothing inside your library is touched.
+  init:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
+    command: [python, -m, app.bootstrap]
+    user: "0:0"
+    restart: "no"
+    env_file: [{ path: .env, required: false }]
+    environment: # the same user the API runs as (also when set in the shell instead of .env)
+      FILECANOPY_UID: ${FILECANOPY_UID:-10001}
+      FILECANOPY_GID: ${FILECANOPY_GID:-10001}
+    volumes:
+      - secrets:/secrets
+      - ${FILECANOPY_LIBRARY_PATH:-./library}:/library
+      - ${FILECANOPY_APP_DATA_PATH:-./app-data}:/app-data
+    <<: *hardening
+    cap_add: [CHOWN]
+
+  # PostgreSQL 17 with the pgvector extension (used only by optional semantic search).
+  postgres:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-postgres:${FILECANOPY_VERSION:-beta}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: filecanopy
+      POSTGRES_USER: filecanopy
+      POSTGRES_PASSWORD_FILE: /secrets/pg_password
+    volumes: [pgdata:/var/lib/postgresql/data, "secrets:/secrets:ro"]
+    depends_on: { init: { condition: service_completed_successfully } }
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U filecanopy -d filecanopy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot database upgrade; running it again is a no-op.
+  migrate:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
+    command: [python, -m, app.db.migrate]
+    restart: "no"
+    environment: { FILECANOPY_DATABASE_PASSWORD_FILE: /secrets/pg_password }
+    volumes: ["secrets:/secrets:ro"]
+    depends_on: { postgres: { condition: service_healthy } }
+    <<: *hardening
+
+  api:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
+    restart: unless-stopped
+    user: "${FILECANOPY_UID:-10001}:${FILECANOPY_GID:-10001}"
+    env_file: [{ path: .env, required: false }] # all other FILECANOPY_* settings, defaults in apps/api/app/config.py
+    environment: # fixed here on purpose: .env cannot change these
+      FILECANOPY_DATABASE_PASSWORD_FILE: /secrets/pg_password
+      FILECANOPY_LIBRARY_PATH: /library
+      FILECANOPY_APP_DATA_PATH: /app-data
+      FILECANOPY_TRUSTED_PROXY_HOPS: "1" # the web container is the API's only peer (deploy/proxy/README.md)
+    volumes:
+      - ${FILECANOPY_LIBRARY_PATH:-./library}:/library
+      - ${FILECANOPY_APP_DATA_PATH:-./app-data}:/app-data
+      - secrets:/secrets:ro
+      - converter-socket:/run/converter
+      - ocr-socket:/run/ocr
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    <<: *hardening
+
+  web:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-web:${FILECANOPY_VERSION:-beta}
+    restart: unless-stopped
+    ports: ["127.0.0.1:${FILECANOPY_HTTP_PORT:-8080}:8080"] # this computer only; use a TLS reverse proxy for other devices
+    environment: # only these two settings reach this container
+      FILECANOPY_TRUSTED_PROXIES: ${FILECANOPY_TRUSTED_PROXIES:-}
+      FILECANOPY_HSTS: ${FILECANOPY_HSTS:-false}
+    depends_on: { api: { condition: service_healthy } }
+    healthcheck:
+      test: [CMD, wget, -qO-, "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    <<: *hardening
+
+  # ---- Optional, off by default (enable with COMPOSE_PROFILES in .env) ------------------------------------
+
+  # Office previews (Word, Excel, PowerPoint -> PDF). Also set FILECANOPY_CONVERTER_URL=unix:///run/converter/converter.sock
+  converter:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-converter:${FILECANOPY_VERSION:-beta}
+    profiles: [converter]
+    user: "10002:10002"
+    tmpfs: ["/tmp:size=768m,mode=1777,noexec,nosuid,nodev"]
+    volumes: ["converter-socket:/run/converter"]
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2
+    pids_limit: 256
+    <<: *sealed
+
+  # OCR for scanned PDFs and pictures (Tesseract). Also set FILECANOPY_OCR_URL=unix:///run/ocr/ocr.sock
+  ocr:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-ocr:${FILECANOPY_VERSION:-beta}
+    profiles: [ocr]
+    user: "10003:10003"
+    tmpfs: ["/tmp:size=1g,mode=1777,noexec,nosuid,nodev"]
+    volumes: ["ocr-socket:/run/ocr"]
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: 2
+    pids_limit: 128
+    <<: *sealed
+
+  # Heartbeat worker tier, so the health page can report worker status. Also set FILECANOPY_REDIS_URL=redis://redis:6379/0
+  redis:
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    profiles: [workers]
+    restart: unless-stopped
+    user: redis # the entrypoint cannot drop privileges itself once capabilities are dropped
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck: { test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10 }
+    <<: *hardening
+
+  worker:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
+    profiles: [workers]
+    restart: unless-stopped
+    command: [python, -m, workers.heartbeat]
+    environment: { FILECANOPY_REDIS_URL: "redis://redis:6379/0" }
+    depends_on: { redis: { condition: service_healthy } }
+    <<: *hardening
+
+volumes:
+  pgdata:
+  secrets: # the generated database password
+  converter-socket: # the converter's Unix socket, shared with the API and nothing else
+  ocr-socket: # the OCR container's Unix socket, shared with the API and nothing else
+  library: # used only if FILECANOPY_LIBRARY_PATH is set to the name "library" instead of a folder
+  app-data:

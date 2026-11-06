@@ -26,7 +26,7 @@ pytestmark = [
     ),
 ]
 
-STACK_FILE = REPO / "deploy" / "stack" / "docker-stack.yml"
+STACK_FILE = REPO / "deploy" / "contrib" / "swarm" / "docker-stack.yml"
 PREFIX = "filecanopy-m22test"
 VERSION = "citest"
 IMAGES = {
@@ -143,8 +143,20 @@ def instance_id(swarm: Swarm) -> str:
 def swarm(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Swarm]:
     if any(docker("image", "inspect", local, check=False).returncode != 0 for local in IMAGES):
         subprocess.run(  # noqa: S603
-            ["docker", "compose", "-f", str(REPO / "deploy" / "docker-compose.yml"), "build"],  # noqa: S607
-            env={**os.environ, "POSTGRES_PASSWORD": "build-only"},
+            [  # noqa: S607
+                "docker",
+                "compose",
+                "-f",
+                str(REPO / "deploy" / "compose.yaml"),
+                "-f",
+                str(REPO / "deploy" / "contrib" / "build.yaml"),
+                "build",
+            ],  # fmt: skip
+            env={
+                **os.environ,
+                "FILECANOPY_IMAGE_PREFIX": "filecanopy",
+                "FILECANOPY_VERSION": "dev",
+            },
             check=True,
             capture_output=True,
             timeout=1800,

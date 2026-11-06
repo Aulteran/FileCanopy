@@ -36,7 +36,7 @@ FastAPI application ──────── PostgreSQL (+ pgvector only if need
 - **Other text:** python-docx, openpyxl/read-only parsers, CSV/text; sandbox/remove active content. Image previews via safe decoding and thumbnailing, optional OCR.
 - **Auth:** built-in Argon2id email/password and signed session cookies, configurable OIDC. Use maintained libraries; don't implement crypto protocols from scratch.
 - **Observability:** structured JSON logs with aggressive data redaction, separate security audit, health probes, correlation IDs.
-- **Packaging:** multi-stage Docker builds; docker-compose.yml; `.env.example`; pinned dependencies and automated image build/publish workflows.
+- **Packaging:** multi-stage Docker builds; compose.yaml; `.env.example`; pinned dependencies and automated image build/publish workflows.
 - **Tests:** pytest incl. integration with ephemeral Postgres/Redis, Playwright for web workflows, fixture-based scanner tests, security regression suite.
 
 ## Repository skeleton (proposed)

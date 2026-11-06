@@ -21,21 +21,10 @@ env_value() {
   echo "${val:-$default}"
 }
 
-# Compose picks up COMPOSE_FILE, COMPOSE_PROJECT_NAME and COMPOSE_PROFILES from the environment
-# (or deploy/.env), so a setup with its own override files keeps using them. Without COMPOSE_FILE
-# we use the core file, plus the release override when FILECANOPY_VERSION is set: an install run
-# from published images must also be restored and checked with those images, not rebuilt.
+# Compose picks up COMPOSE_FILE, COMPOSE_PROJECT_NAME and .env from the install folder, so a setup
+# with optional files (compose.backup.yaml ...) keeps using them. Without COMPOSE_FILE: compose.yaml.
 COMPOSE_FILE=$(env_value COMPOSE_FILE "")
-if [ -z "$COMPOSE_FILE" ]; then
-  if [ -f "$DEPLOY_DIR/compose.yaml" ]; then
-    COMPOSE_FILE="$NATIVE_DIR/compose.yaml"
-  else
-    COMPOSE_FILE="$NATIVE_DIR/docker-compose.yml"
-  fi
-  if [ ! -f "$DEPLOY_DIR/compose.yaml" ] && [ -n "$(env_value FILECANOPY_VERSION "")" ]; then
-    COMPOSE_FILE="$COMPOSE_FILE${COMPOSE_PATH_SEPARATOR:-:}$NATIVE_DIR/docker-compose.release.yml"
-  fi
-fi
+[ -n "$COMPOSE_FILE" ] || COMPOSE_FILE="$NATIVE_DIR/compose.yaml"
 export COMPOSE_FILE
 
 fc() { docker compose --project-directory "$NATIVE_DIR" "$@"; }
@@ -46,11 +35,7 @@ abs_path() {
   if [ -d "$p" ]; then (CDPATH= cd -- "$p" && pwd -P); else echo "$p"; fi
 }
 
-if [ -f "$DEPLOY_DIR/compose.yaml" ]; then
-  LIBRARY_DEFAULT=./library APP_DATA_DEFAULT=./app-data
-else
-  LIBRARY_DEFAULT=../library APP_DATA_DEFAULT=../app-data
-fi
+LIBRARY_DEFAULT=./library APP_DATA_DEFAULT=./app-data
 LIBRARY_DIR=$(abs_path "$(env_value FILECANOPY_LIBRARY_PATH "$LIBRARY_DEFAULT")")
 APP_DATA_DIR=$(abs_path "$(env_value FILECANOPY_APP_DATA_PATH "$APP_DATA_DEFAULT")")
 

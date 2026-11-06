@@ -22,7 +22,7 @@ invitation through it).
 
 ## 2. Configure FileCanopy
 
-In `deploy/.env`:
+In `.env`:
 
 ```
 FILECANOPY_PUBLIC_URL=https://files.example.org
@@ -35,7 +35,7 @@ FILECANOPY_OIDC_LABEL=Google
 ```
 
 The issuer must be written exactly like that (no trailing slash). Restart the API:
-`docker compose -f deploy/docker-compose.yml up -d`. The Users page now shows "Single sign-on with
+`docker compose -f deploy/compose.yaml up -d`. The Users page now shows "Single sign-on with
 Google is on" and the redirect address you registered.
 
 ## 3. Link accounts
@@ -81,10 +81,10 @@ safety nets:
 - **If Google is down or misconfigured**, bring passwords back with either:
 
   ```
-  docker compose -f deploy/docker-compose.yml exec api python -m app.auth.cli oidc-only off
+  docker compose -f deploy/compose.yaml exec api python -m app.auth.cli oidc-only off
   ```
 
-  or set `FILECANOPY_FORCE_LOCAL_LOGIN=true` in `deploy/.env` and restart. Removing the
+  or set `FILECANOPY_FORCE_LOCAL_LOGIN=true` in `.env` and restart. Removing the
   `FILECANOPY_OIDC_*` variables also turns the mode off by itself.
 
 ## Not tested against the real Google

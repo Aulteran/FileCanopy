@@ -126,7 +126,7 @@ def test_compose_ocr_service_is_sealed() -> None:
             "docker",  # noqa: S607
             "compose",
             "-f",
-            str(ROOT / "deploy/docker-compose.yml"),
+            str(ROOT / "deploy/compose.yaml"),
             "--profile",
             "ocr",
             "config",
@@ -135,7 +135,7 @@ def test_compose_ocr_service_is_sealed() -> None:
         ],
         capture_output=True,
         text=True,
-        env={**os.environ, "POSTGRES_PASSWORD": "x"},
+        env={**os.environ},
         timeout=60,
     )
     if r.returncode != 0:

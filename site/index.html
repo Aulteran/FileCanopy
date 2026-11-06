@@ -304,33 +304,22 @@
             <div class="eyebrow">Quick start</div>
             <h2>Running in a few minutes</h2>
             <p>
-              You need Docker with Docker Compose v2. There are no published
-              Docker images yet, so you build from the repository.
+              You need Docker with Docker Compose v2.24 or newer. The images are
+              pulled from GitHub Container Registry; nothing is built on your
+              machine and there is no password to choose.
             </p>
           </div>
           <ol class="steps">
             <li>
-              <h3>Get the code and create your settings file</h3>
+              <h3>Download one file and start</h3>
               <p>
-                Then open <code>deploy/.env</code> and set
-                <code>POSTGRES_PASSWORD</code> to a long random value.
+                This creates the <code>library</code> and
+                <code>app-data</code> folders next to it and starts everything.
               </p>
               <pre>
-git clone https://github.com/Aulteran/FileCanopy.git
-cd FileCanopy
-cp deploy/.env.example deploy/.env
-python -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
-            </li>
-            <li>
-              <h3>Start the stack</h3>
-              <p>
-                This creates the folders for your files and app data, then
-                builds and starts everything.
-              </p>
-              <pre>
-mkdir -p library app-data
-docker compose -f deploy/docker-compose.yml up -d --build --wait
-curl http://127.0.0.1:8080/api/v1/health</pre>
+mkdir filecanopy &amp;&amp; cd filecanopy
+curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
+docker compose up -d --wait</pre>
             </li>
             <li>
               <h3>Open the app and finish setup</h3>
@@ -340,8 +329,7 @@ curl http://127.0.0.1:8080/api/v1/health</pre>
                 Then create the administrator account and, if you like, import
                 an existing folder or zip.
               </p>
-              <pre>
-docker compose -f deploy/docker-compose.yml logs api | grep "SETUP TOKEN"</pre>
+              <pre>docker compose logs api | grep "SETUP TOKEN"</pre>
             </li>
           </ol>
           <p style="margin-top: 28px" class="callout">

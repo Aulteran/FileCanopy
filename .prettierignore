@@ -17,3 +17,5 @@ package-lock.json
 *.lock
 # Generated primary-source audit snapshots retain their generator's layout and licence texts.
 docs/release/evidence/
+# Hand-formatted so a beginner can read it top to bottom.
+deploy/compose.yaml

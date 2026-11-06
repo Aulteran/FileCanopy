@@ -1,0 +1,13 @@
+# In-app backups (M06c, ADR-015). Off unless you add this file:
+#   docker compose -f compose.yaml -f compose.backup.yaml up -d
+# then switch backups on in the web app (Settings, Backups).
+#
+# FILECANOPY_BACKUP_PATH (in .env) is a folder on a SEPARATE disk or share. It must not be, contain or sit
+# inside the library or the app-data folder: a backup on the library's disk is not a backup. The API runs
+# as FILECANOPY_UID:FILECANOPY_GID, so that user must own it.
+services:
+  api:
+    environment:
+      FILECANOPY_BACKUP_PATH: /backups
+    volumes:
+      - ${FILECANOPY_BACKUP_PATH:?set FILECANOPY_BACKUP_PATH in .env to the backup folder}:/backups
