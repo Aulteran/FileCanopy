@@ -26,6 +26,9 @@ services:
     user: "0:0"
     restart: "no"
     env_file: [{ path: .env, required: false }]
+    environment: # the same user the API runs as (also when set in the shell instead of .env)
+      FILECANOPY_UID: ${FILECANOPY_UID:-10001}
+      FILECANOPY_GID: ${FILECANOPY_GID:-10001}
     volumes:
       - secrets:/secrets
       - ${FILECANOPY_LIBRARY_PATH:-./library}:/library
