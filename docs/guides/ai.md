@@ -1,6 +1,6 @@
 # Optional AI
 
-FileCanopy works fully with no AI. This guide covers turning it on. Design and threat model:
+This guide covers setting up the AI behind FileCanopy's organizing, chat and search features. (FileCanopy still runs if you skip it.) Design and threat model:
 `docs/milestones/M15-design-and-plan.md`.
 
 ## What exists

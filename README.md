@@ -1,19 +1,21 @@
 # FileCanopy
 
-**A self-hosted file manager that keeps your files as normal files, in a folder you own.**
+**A self-hosted file library built around AI: let AI organize your files, search them by meaning and answer questions about them, while everything stays as normal files in a folder you own.**
 
 [![FileCanopy browsing a folder](site/assets/shots/browser-desktop-light.png)](site/index.html)
 
 *Design preview of the interface.*
 
-FileCanopy runs on your own server with Docker and works on ordinary folders on your disk. You can always open your files with any other program, because nothing is converted, hidden or locked in.
+FileCanopy runs on your own server with Docker and works on ordinary folders on your disk. Connect an AI provider, a cloud one or a model running on your own network, and your library starts to help you. Your files are never converted, hidden or locked in, so you can always open them with any other program.
 
-- **Your files stay normal files.** The library is a plain folder tree. The database only keeps accounts, permissions and history.
-- **Personal and shared folders.** Everyone gets a private folder, and a shared folder gives others viewer or editor access. Administrators cannot open anyone's personal files.
-- **Everyday file work.** Browse, upload whole folders, download, rename, move and copy, from the keyboard or on your phone's browser.
-- **Trash, undo and history.** Restore deleted items, undo recent actions and see who did what.
-- **Private and Confidential folders.** Confidential folders ask for your password again and lock when you step away.
-- **Search, previews and optional extras.** Find files by name or content (OCR for scans is optional), preview PDFs, images and Office documents, and back up to a separate disk with encryption. AI is optional and off by default.
+- **AI that organizes for you.** Ask for a better name and the right folder for a file, split a long PDF into its real documents, find duplicates, and group files into collections. AI only proposes; nothing changes until you press Apply.
+- **Chat with your files.** Ask a question and get an answer written from your own documents, with the source files listed so you can check them.
+- **Search by meaning.** Run a local embedding model such as EmbeddingGemma on your own hardware and find "the holiday trip note" without remembering its name. Nothing leaves your network.
+- **Local or cloud, your choice.** Use Anthropic, OpenAI or Gemini with monthly spending caps, or Ollama and llama.cpp at no cost. Private and Confidential files never go to a cloud AI.
+- **Your AI tools can connect too.** An optional read-only MCP endpoint lets an AI assistant look at the files it is allowed to see.
+- **Built for sharing safely.** Personal and shared folders with viewer and editor access, trash, undo and an activity log. Administrators cannot open anyone's personal files.
+
+*FileCanopy also runs without an AI provider, if you prefer.*
 
 ## Install in three steps
 
@@ -36,17 +38,18 @@ You need Docker with Docker Compose v2.24 or newer. Nothing is built on your mac
 
 Your files are ordinary files in the `library/` folder next to `compose.yaml`.
 
+**Then turn on AI:** as an administrator, add a provider in the AI settings. The [AI guide](docs/guides/ai.md) covers cloud keys, local models and [semantic search](docs/guides/semantic-search.md).
+
 **[Read the documentation](docs/README.md)** for configuration, remote access, backups and updating.
 
 ## What's included
 
-- Accounts, invitations, password reset, optional single sign-on (OpenID Connect, Google)
-- Personal and shared folders with viewer and editor access
+- **AI:** organization proposals, PDF splitting, duplicate and collection suggestions, document chat, optional local semantic search, cloud (Anthropic, OpenAI, Gemini) or local (Ollama, llama.cpp) providers, usage caps, and an optional read-only MCP endpoint
+- Personal and shared folders with viewer and editor access; accounts, invitations, password reset, optional single sign-on (OpenID Connect, Google)
 - Upload, download, rename, move, copy, trash, undo and an activity log
 - Import an existing folder or zip during first setup, and detection of changes made outside the app
 - Private and Confidential labels with a re-authentication lock
-- Previews, full-text search and optional OCR; PDF splitting and collections
-- Optional encrypted backups, email intake, AI organisation proposals, semantic search, document chat and a read-only MCP endpoint (all off by default)
+- Previews, full-text search and optional OCR; optional encrypted backups and email intake
 
 ## Known limits
 
