@@ -313,17 +313,18 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
     expect(page.locator("ol.setup-steps > li > strong")).to_have_text(
         [
             "Step 1: AI (optional)",
-            "Step 2: Your account",
-            "Step 3: Other users (optional)",
-            "Step 4: Mail server (optional)",
+            "Step 2: Meaning-based search (optional)",
+            "Step 3: Your account",
+            "Step 4: Other users (optional)",
+            "Step 5: Mail server (optional)",
         ]
     )
     page.get_by_role("button", name="Invite users").click()
-    expect(page.get_by_role("heading", level=1, name="Step 3: Invite other users")).to_be_visible()
+    expect(page.get_by_role("heading", level=1, name="Step 4: Invite other users")).to_be_visible()
     page.get_by_role("button", name="Back to setup steps").click()
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
     page.get_by_role("button", name="Set up mail").click()
-    expect(page.get_by_role("heading", level=1, name="Step 4: Mail server")).to_be_visible()
+    expect(page.get_by_role("heading", level=1, name="Step 5: Mail server")).to_be_visible()
     page.get_by_role("button", name="Back to setup steps").click()
     page.get_by_role("button", name="Continue to file setup").click()
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()

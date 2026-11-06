@@ -72,17 +72,19 @@ export function AdminPage({
 
 // Shown to an administrator before the first file setup, so the server itself (AI, people,
 // email) can be configured first. Every part is optional and can be done later.
-// The order is fixed: AI, then your account, then other users, then the mail server, and only
+// The order is fixed: AI, meaning-based search, then your account, then other users, then the mail server, and only
 // then the file setup. Users and mail open inside this step and return to it, so nothing is
 // postponed to the Admin page. Every step is optional and can be changed later under Admin.
 export function ServerSetupStep({
   me,
   onAi,
+  onSemantic,
   onEnded,
   onContinue,
 }: {
   me: string;
   onAi: () => void;
+  onSemantic: () => void;
   onEnded: () => void;
   onContinue: () => void;
 }) {
@@ -97,7 +99,7 @@ export function ServerSetupStep({
   if (view === "users")
     return (
       <section aria-labelledby="server-users-h">
-        <h1 id="server-users-h">Step 3: Invite other users</h1>
+        <h1 id="server-users-h">Step 4: Invite other users</h1>
         {back}
         <UsersPage me={me} onEnded={onEnded} />
       </section>
@@ -105,7 +107,7 @@ export function ServerSetupStep({
   if (view === "mail")
     return (
       <section aria-labelledby="server-mail-h">
-        <h1 id="server-mail-h">Step 4: Mail server</h1>
+        <h1 id="server-mail-h">Step 5: Mail server</h1>
         {back}
         <MailboxAdminPage onEnded={onEnded} />
       </section>
@@ -126,18 +128,28 @@ export function ServerSetupStep({
           </button>
         </li>
         <li>
-          <strong>Step 2: Your account</strong>
+          <strong>Step 2: Meaning-based search (optional)</strong>
+          <p>
+            Connect a model server on your own network so search can find files
+            by meaning.
+          </p>
+          <button type="button" onClick={onSemantic}>
+            Set up meaning-based search
+          </button>
+        </li>
+        <li>
+          <strong>Step 3: Your account</strong>
           <p>You are signed in as this administrator. Nothing to do here.</p>
         </li>
         <li>
-          <strong>Step 3: Other users (optional)</strong>
+          <strong>Step 4: Other users (optional)</strong>
           <p>Invite the people who will use this server.</p>
           <button type="button" onClick={() => setView("users")}>
             Invite users
           </button>
         </li>
         <li>
-          <strong>Step 4: Mail server (optional)</strong>
+          <strong>Step 5: Mail server (optional)</strong>
           <p>Set up outgoing and incoming email.</p>
           <button type="button" onClick={() => setView("mail")}>
             Set up mail

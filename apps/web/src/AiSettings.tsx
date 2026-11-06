@@ -1105,7 +1105,9 @@ export function AiSettings({
         </section>
       )}
       {enabled && <OrganizeSection admin={admin} serverSetup={serverSetup} />}
-      <SemanticSection admin={admin} serverSetup={serverSetup} />
+      {!serverSetup && (
+        <SemanticSection admin={admin} serverSetup={serverSetup} />
+      )}
       {admin && instance && (
         <section>
           <h3>AI on this server</h3>
@@ -1138,6 +1140,21 @@ export function AiSettings({
           Close
         </button>
       </div>
+    </Modal>
+  );
+}
+
+/** First-time server setup, its own step: only the meaning-based search choices. */
+export function SemanticSettings({
+  admin,
+  onClose,
+}: {
+  admin: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal title="Meaning-based search" onClose={onClose}>
+      <SemanticSection admin={admin} serverSetup />
     </Modal>
   );
 }
