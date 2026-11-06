@@ -8,8 +8,8 @@
 
 M07 adds delete-to-trash, restore, undo and the cross-root move rule that ADR-013 section 7 already fixed (copy, then the source goes to the source owner's trash with a `moved_out` event). Three things are not yet decided:
 
-1. **Where trashed bytes live.** `03_SECURITY_PRIVACY.md` says staging and trash belong in the app-private volume (`/app-data`), not inside the user's portable document folders. Roots must be on the same device as the library mount (ADR-011 section 3), but `/app-data` is normally a different Docker volume, often a different disk. Moving into `/app-data` is then a full copy, verify and unlink (the ADR-013 `EXDEV` path): deleting a 40 GB folder copies 40 GB, needs that much free space on the app-data disk, takes minutes, and a crash in the middle leaves a half-copied tree to recover.
-2. **Who can see a trash item.** `04_DATA_FILESYSTEM.md` asks to "restrict who can see trash metadata"; ADR-004 says the web administrator has no personal-folder bypass.
+1. **Where trashed bytes live.** `docs/03_SECURITY_PRIVACY.md` says staging and trash belong in the app-private volume (`/app-data`), not inside the user's portable document folders. Roots must be on the same device as the library mount (ADR-011 section 3), but `/app-data` is normally a different Docker volume, often a different disk. Moving into `/app-data` is then a full copy, verify and unlink (the ADR-013 `EXDEV` path): deleting a 40 GB folder copies 40 GB, needs that much free space on the app-data disk, takes minutes, and a crash in the middle leaves a half-copied tree to recover.
+2. **Who can see a trash item.** `docs/04_DATA_FILESYSTEM.md` asks to "restrict who can see trash metadata"; ADR-004 says the web administrator has no personal-folder bypass.
 3. **How long items stay** (open decision 9: "conservative defaults, configurable, avoid irreversible silent deletion").
 
 ## Decision
@@ -18,7 +18,7 @@ M07 adds delete-to-trash, restore, undo and the cross-root move rule that ADR-01
 
 Trashed entries are renamed into `<library>/.filecanopy-trash/<root_id>/<trash_id>/<original name>`. This directory is a sibling of the root directories, so it is on the library device (O(1) `renameat2(RENAME_NOREPLACE)`, no copy, no extra space), but it is **not inside any root**: no user sees it in the app, the reconciler never scans it, and backups do not include it (they archive roots only). It is created `0700`, opened through the no-symlink resolver like roots, and refused (trash disabled, deletes return `503 TRASH_UNAVAILABLE`) if it is a symlink, not a directory, or on another device. A trash failure never falls back to a hard delete.
 
-This **amends `03_SECURITY_PRIVACY.md` line 65** for trash only (staging, previews, indexes and the database stay in `/app-data`). The trade-off: someone with host access to the library folder sees `.filecanopy-trash` and its contents, but host access is already outside the trust model and the same person can read every root anyway.
+This **amends `docs/03_SECURITY_PRIVACY.md` line 65** for trash only (staging, previews, indexes and the database stay in `/app-data`). The trade-off: someone with host access to the library folder sees `.filecanopy-trash` and its contents, but host access is already outside the trust model and the same person can read every root anyway.
 
 **Owner decision (2026-10-31):** the owner chose this library-level location over trash in `/app-data`.
 
@@ -84,7 +84,7 @@ Small choices made while implementing; none changes a decision above.
 
 ## Alternatives considered
 
-- **Trash in `/app-data` (as `03_SECURITY_PRIVACY.md` reads today):** keeps every app-managed file out of the library mount, but every delete becomes a cross-device copy with a free-space requirement, slow for large folders, with a larger crash-recovery surface. Acceptable if the owner prefers strict separation; the plan's tests would then add free-space refusal and interrupted-copy recovery.
+- **Trash in `/app-data` (as `docs/03_SECURITY_PRIVACY.md` reads today):** keeps every app-managed file out of the library mount, but every delete becomes a cross-device copy with a free-space requirement, slow for large folders, with a larger crash-recovery surface. Acceptable if the owner prefers strict separation; the plan's tests would then add free-space refusal and interrupted-copy recovery.
 - **A hidden `.trash` folder inside each root:** visible to users and to every tool that walks their folder, gets backed up, collides with user names, and breaks "portable plain files". Rejected.
 - **Hard delete with only backups for recovery:** contradicts the product spec (trash and restore are required). Rejected.
 - **Purge by space pressure (oldest first):** silent irreversible deletion. Rejected.

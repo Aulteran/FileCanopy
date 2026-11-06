@@ -1,7 +1,7 @@
 # Planning documents are maintained by hand and are not reformatted.
 *.md
 # Milestone status is hand-maintained with its own layout.
-MILESTONES.json
+docs/MILESTONES.json
 # Approved design mockups are reference-only and kept as delivered.
 docs/design/
 node_modules/

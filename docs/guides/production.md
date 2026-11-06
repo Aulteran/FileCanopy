@@ -26,7 +26,7 @@ Fresh install checklist:
 
 1. Optional: `cp .env.example .env` and change what you need (see `.env.advanced.example` for everything else). There is no database password to set: the stack generates it into the `secrets` volume on first start.
 2. `library/` and `app-data/` are created next to `compose.yaml`, and the `init` container hands them to the app user (`FILECANOPY_UID`/`FILECANOPY_GID`, default 10001; top-level folder only, nothing inside is touched).
-3. Start the stack, then create the first administrator from the one-time setup token in the API log (see the README). Nothing else is needed: no AI, no mail, no workers.
+3. Start the stack, then create the first administrator from the one-time setup token in the API log (see [First-run setup](first-run-setup.md)). Nothing else is needed: no AI, no mail, no workers.
 
 ## 2. Containers run without privileges
 

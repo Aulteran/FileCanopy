@@ -157,7 +157,7 @@ def current_principal(principal: Principal = Depends(principal_even_if_locked)) 
 
 
 def require_admin(principal: Principal = Depends(current_principal)) -> Principal:
-    """Instance administration only. Role grants no content access (see 03_SECURITY_PRIVACY.md)."""
+    """Instance administration only. Role grants no content access (docs/03_SECURITY_PRIVACY.md)."""
     if principal.user.role != "admin":
         raise http_error(403, "FORBIDDEN")
     return principal

@@ -21,7 +21,7 @@ ADRs record cross-cutting technical decisions. Each one is written as **Proposed
 | [ADR-019](ADR-019-in-app-document-viewer.md) | In-app document viewer: PDF.js, images, text, Office via a sandboxed converter | Accepted |
 | [ADR-021](ADR-021-backup-jobs-and-destinations.md) | Backup jobs, destinations and backup types | Accepted (implemented in M27, pending independent review) |
 
-Planned ADRs (from `02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-005 privacy labels, ADR-006 AI providers, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
+Planned ADRs (from `docs/02_ARCHITECTURE.md`) are created when their milestone needs them: ADR-005 privacy labels, ADR-006 AI providers, ADR-008 collections, ADR-009 MCP, ADR-010 Compose vs Stack.
 
 ## Template
 

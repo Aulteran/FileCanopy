@@ -15,7 +15,7 @@ M07 turns the minimal `file_event` log from M06 into a per-file activity history
 
 ## Acceptance checklist
 
-From `MILESTONES.json` M07, with how each is shown:
+From `docs/MILESTONES.json` M07, with how each is shown:
 
 1. **Views/downloads/moves/AI actions have actor and event metadata.** Every app action writes a `file_event` with actor kind (`user`, `external_filesystem`, `system`, `ai_agent` acting for a user), actor id where known, action, time, source and safe details, in the same transaction as the change. New actions: `downloaded`, `folder_created`, `uploaded`, `renamed`, `moved`, `copied` (on the copy, with `copied_from`), `moved_out` / `moved_in` (cross-root), `trashed`, `restored`, `purged`, `undone` (pointing at the event it reverses). Downloads are recorded after the response starts; a failed or refused download is not recorded as a download. AI events carry `ai_agent` plus the user on whose behalf it acted and a proposal id; a stub caller test proves the schema and the policy check, since there is no AI yet.
 2. **File history persists across renames and moves.** Events hang on node ids; renames and same-root moves keep the id; cross-root moves link the copy and the original with `moved_out`/`moved_in` pointing at each other, so both histories show the step. Trashed and purged nodes keep their rows.
@@ -54,7 +54,7 @@ Additional checks this plan commits to:
 - **Undo** toast after rename, move, copy, delete and import, and an Undo button on the caller's recent actions; conflicts shown with the reason and the safe alternative.
 - Move dialog allows other roots and states that the original goes to its owner's trash; the "use Copy instead" message is removed.
 
-## Required tests (from MILESTONES.json, mapped)
+## Required tests (from docs/MILESTONES.json, mapped)
 
 | Required test | Where |
 |---|---|
@@ -68,13 +68,13 @@ Additional checks this plan commits to:
 
 ## Behaviour worth knowing
 
-- Trash is not version history: a file edited on the host and then deleted is restored as it was when deleted. External edits stay unrecoverable without backups (`01_PRODUCT_SPEC.md`).
+- Trash is not version history: a file edited on the host and then deleted is restored as it was when deleted. External edits stay unrecoverable without backups (`docs/01_PRODUCT_SPEC.md`).
 - Trashed content keeps using library disk space until restored or purged.
 - Undo has no time limit; the preconditions decide. An undo of an old operation is refused as soon as anything relevant changed.
 
 ## Decisions for the owner
 
-1. **ADR-017 section 1, trash location:** decided by the owner 2026-10-31: library-level `.filecanopy-trash` outside every root (amends `03_SECURITY_PRIVACY.md` for trash only; the amendment is made when M07a lands).
+1. **ADR-017 section 1, trash location:** decided by the owner 2026-10-31: library-level `.filecanopy-trash` outside every root (amends `docs/03_SECURITY_PRIVACY.md` for trash only; the amendment is made when M07a lands).
 2. **ADR-017 section 4, retention defaults:** 30 days, admin-configurable 7 to 3650 or never, no space-pressure purge, deadline fixed at trash time.
 3. **Split and branch:** M07a and M07b on one branch and one PR, as M06 was.
 4. **Download events:** decided by the owner 2026-11-01: every successful download is logged (not listings or metadata reads; failed or refused downloads are not logged). Visible to anyone with `read` on the file.
@@ -92,7 +92,7 @@ What was built, and where it differs from the plan above in detail (none of it c
 - **Downloads** are written after the response body starts; a failure to write the event never blocks the download.
 - **Recovery** covers trash, restore, purge and cross-root move (see `tests/unit/api/test_trash_recovery.py`). A cross-root crash always leaves the source usable and reports `reconcile_needed` when a copy exists at the destination.
 - **Review follow-up (2026-11-01):** an item in `reconcile_needed` gets a check-and-release action in M07b (ADR-017, decision addendum). Until it exists, only permanent deletion is offered for such items.
-- **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).
+- **Not done in M07a (as planned):** UI (M07b), compose-stack tests for trash on PostgreSQL behind nginx (see docs/PROJECT_STATUS.md for what was run), real AI callers (only the stub-tested `ai_agent` actor).
 
 ## M07b implementation notes (2026-11-01)
 

@@ -11,14 +11,14 @@ Out of scope: trash/delete/undo, replacing existing files, `Range` downloads, ex
 
 ## Acceptance checklist
 
-| # | Criterion (`MILESTONES.json`) | How M04 meets it | Evidence |
+| # | Criterion (`docs/MILESTONES.json`) | How M04 meets it | Evidence |
 |---|---|---|---|
 | 1 | All file payloads remain real native files | Bytes are written to ordinary files at `library/<root>/<names>`; DB holds identity, size, revision only | `test_folder_upload_download_roundtrip_uses_real_files`, copy test (`samefile` is false), compose test reads host bind mount |
 | 2 | Path escape, overwrite, conflict checks effective | ids only; `validate_name` + reserved prefix; `O_NOFOLLOW` walk; no-replace rename/publish; `reject`/`keep_both` | names, symlink, hardlink, FIFO, `test_nothing_is_ever_overwritten`, host-created file tests |
 | 3 | Idempotent and revision-checked operations | `Idempotency-Key` + request hash; `expected_revision` + claim CAS | idempotency, revision, concurrent rename tests; compose test with 4 real concurrent renames |
 | 4 | Partial failure exposes reconcile status; does not silently lose source | journal states, undo of filesystem step, verified cross-device move, `reconcile_needed` node/row, recovery pass | cross-device and failure-injection tests, recovery tests |
 
-Required tests from `MILESTONES.json`: atomic write (failed publish, failed DB step, size limit leave nothing behind), cross-device copy (faked `EXDEV` for files and trees, verify failure, DB failure, source changed mid-move), concurrent rename (interleaved second caller, CAS, name stolen on disk, real concurrency on PostgreSQL), symlinks (file, tree, directory component, hardlink, FIFO), large file (96 MiB streamed round trip in unit tests, 5 MiB through nginx in Compose), unauthorized download (uniform 403 for stranger, admin, nonexistent id).
+Required tests from `docs/MILESTONES.json`: atomic write (failed publish, failed DB step, size limit leave nothing behind), cross-device copy (faked `EXDEV` for files and trees, verify failure, DB failure, source changed mid-move), concurrent rename (interleaved second caller, CAS, name stolen on disk, real concurrency on PostgreSQL), symlinks (file, tree, directory component, hardlink, FIFO), large file (96 MiB streamed round trip in unit tests, 5 MiB through nginx in Compose), unauthorized download (uniform 403 for stranger, admin, nonexistent id).
 
 ## Data model (migration `0004_file_operations`)
 

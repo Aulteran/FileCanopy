@@ -6,7 +6,7 @@
 
 ## Context
 
-M05 adds the first user interface. `02_ARCHITECTURE.md` recommends React, TypeScript, Vite, Tailwind, an accessible component library, TanStack Query and Playwright, and says not to over-engineer global UI state. ADR-001 fixed React/TypeScript/Vite and deferred the frontend toolchain to M05. The API is cookie-authenticated with CSRF (ADR-012) and addresses everything by node id (ADR-013).
+M05 adds the first user interface. `docs/02_ARCHITECTURE.md` recommends React, TypeScript, Vite, Tailwind, an accessible component library, TanStack Query and Playwright, and says not to over-engineer global UI state. ADR-001 fixed React/TypeScript/Vite and deferred the frontend toolchain to M05. The API is cookie-authenticated with CSRF (ADR-012) and addresses everything by node id (ADR-013).
 
 ## Decision
 

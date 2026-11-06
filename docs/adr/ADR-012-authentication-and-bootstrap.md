@@ -6,7 +6,7 @@
 
 ## Context
 
-M02 needs email/password accounts, sessions, throttling, and invitation/reset primitives with no default credentials and no open registration (`03_SECURITY_PRIVACY.md`, "Authentication").
+M02 needs email/password accounts, sessions, throttling, and invitation/reset primitives with no default credentials and no open registration (`docs/03_SECURITY_PRIVACY.md`, "Authentication").
 
 ## Decision
 

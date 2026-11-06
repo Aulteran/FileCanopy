@@ -7,7 +7,7 @@
 
 In scope: migrations 0006 (`storage_root.setup_state`, `import_batch`, `import_entry`) and 0007 (review fixes: one open setup batch per root, scan-pause tracking, report retention), the setup window and its closure, setup import from a folder manifest and from a server-extracted zip, the plan and pre-checks, resume, folder upload after setup, the setup screens, drag and drop, and the UI for the M06a states (missing, greyed-out unsupported, name-collision, suspended scan).
 
-Out of scope: M06c (backups), undo of a whole batch (M07 trash), previews and search, a bulk-import CLI (post-M06 to-do in `PROJECT_STATUS.md`).
+Out of scope: M06c (backups), undo of a whole batch (M07 trash), previews and search, a bulk-import CLI (post-M06 to-do in `docs/PROJECT_STATUS.md`).
 
 ## Acceptance checklist (M06 criteria that M06b covers)
 
@@ -120,7 +120,7 @@ An independent Opus 5.5 review produced proofs of concept for five findings and 
 | C1 | Owner decision: first-sign-in setup is a full-page screen. | See the UI section; Playwright tests updated (`sign_in` presses "Decide later" unless a test wants the screen). | e2e `test_setup_offer_start_empty_and_who_sees_it` and the other setup tests |
 | C2 | Owner decision: retention. | `prune_import_reports` (see Behaviour). | `test_import_entries_are_pruned_ninety_days_after_completion_and_batches_are_kept`, `test_pruning_runs_with_the_periodic_work_and_the_period_is_a_setting`; compose (restart prunes a backdated batch) |
 | C3 | Owner decision: recovery of an interrupted folder upload. | `GET /imports`; local-storage batch ids; the "Unfinished upload" banner. | `test_unfinished_batches_are_listed_for_their_own_actor_only`; web `remembered unfinished uploads`; e2e `test_an_interrupted_folder_upload_is_offered_again_after_a_reload` |
-| C4 | Owner decision: no CLI now. | Recorded as a post-M06 to-do in `PROJECT_STATUS.md`. | n/a |
+| C4 | Owner decision: no CLI now. | Recorded as a post-M06 to-do in `docs/PROJECT_STATUS.md`. | n/a |
 
 Also fixed on the way: a folder upload whose files never reached the server (a lost connection) was shown as "Done"; it now reports the failure.
 
@@ -140,7 +140,7 @@ Also fixed on the way: a folder upload whose files never reached the server (a l
 
 ### Evidence
 
-`npm run check` clean; `npm run check:web` tsc strict + 11 vitest tests; `npm run check:api` ruff, format, mypy strict clean, 328 passed / 1 skipped; `npm run test:compose` 23 passed; `npm run test:e2e` 17 passed. See `PROJECT_STATUS.md` for the dated record.
+`npm run check` clean; `npm run check:web` tsc strict + 11 vitest tests; `npm run check:api` ruff, format, mypy strict clean, 328 passed / 1 skipped; `npm run test:compose` 23 passed; `npm run test:e2e` 17 passed. See `docs/PROJECT_STATUS.md` for the dated record.
 
 
 ## Opus 5.5 review: where to look (done 2026-10-31, see the next section)

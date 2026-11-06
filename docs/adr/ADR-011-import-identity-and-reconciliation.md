@@ -6,7 +6,7 @@
 
 ## Context
 
-M06 was planned as "register an existing host directory as a live root" plus watcher/rescan reconciliation (`08_IMPLEMENTATION_PLAN.md`). ADR-004 and ADR-013 deferred node identity across external changes, case-collision policy and rescan rules to this ADR, and the M06 notes asked how an admin-only mount picker would fit ADR-004's rule that the Administrator role never reads personal content.
+M06 was planned as "register an existing host directory as a live root" plus watcher/rescan reconciliation (`docs/08_IMPLEMENTATION_PLAN.md`). ADR-004 and ADR-013 deferred node identity across external changes, case-collision policy and rescan rules to this ADR, and the M06 notes asked how an admin-only mount picker would fit ADR-004's rule that the Administrator role never reads personal content.
 
 **Owner decisions (2026-10-31), recorded here:**
 
@@ -25,7 +25,7 @@ M06 was planned as "register an existing host directory as a live root" plus wat
 10. **Missing nodes are kept until dismissed**, never silently forgotten.
 11. **Unsupported entries are shown, not hidden:** symlinks, special files and mounted drives appear greyed out, with a reason.
 
-The live-import default in `11_OPEN_DECISIONS.md` ("Existing folder import works on live directories") is withdrawn. Reconciliation is needed regardless of how content arrived: the library is a real bind-mounted directory that host users, SMB shares and backup tools can change without the app (`01_PRODUCT_SPEC.md`: "do not assume all changes pass through the web UI").
+The live-import default in `docs/11_OPEN_DECISIONS.md` ("Existing folder import works on live directories") is withdrawn. Reconciliation is needed regardless of how content arrived: the library is a real bind-mounted directory that host users, SMB shares and backup tools can change without the app (`docs/01_PRODUCT_SPEC.md`: "do not assume all changes pass through the web UI").
 
 ## Decision
 
@@ -189,7 +189,7 @@ Folders without an inode match are not inferred from their children.
 
 **No identity across roots.** A file moved on the host from the shared tree into a personal folder (or between personal folders) becomes `missing` in the source and new in the destination. Carrying identity across roots would carry history and collection membership across owners, and ADR-013 §7 forbids root-changing moves.
 
-**Missing nodes.** They are shown as "missing — rescan needed" (`07_UI_UX.md`), keep their grants and history, and are never reported as deleted by anyone. A later match by rule 1 or 2 makes the node active again (`reappeared`). Anyone with `write` on the parent (or the owner of a personal root) can **dismiss** a missing node: its status becomes `dismissed`, it is hidden from listings, the row stays for audit, and its grants are removed with an audit event. Content operations on a missing node return `409 CONTENT_MISSING`.
+**Missing nodes.** They are shown as "missing — rescan needed" (`docs/07_UI_UX.md`), keep their grants and history, and are never reported as deleted by anyone. A later match by rule 1 or 2 makes the node active again (`reappeared`). Anyone with `write` on the parent (or the owner of a personal root) can **dismiss** a missing node: its status becomes `dismissed`, it is hidden from listings, the row stays for audit, and its grants are removed with an audit event. Content operations on a missing node return `409 CONTENT_MISSING`.
 
 **`reconcile_needed` nodes** (ADR-013). The scanner resolves such a node when the disk state is unambiguous: it matches exactly the pre-operation or the post-operation state recorded in the journal, or the entry is gone (then `missing`). Otherwise the node is left for an administrator.
 
@@ -219,7 +219,7 @@ Folders without an inode match are not inferred from their children.
   | `undecodable_name` | a name that is not valid UTF-8 |
 
   For `undecodable_name`, the displayed name replaces the bad bytes with U+FFFD, the node is matched by `raw_name_digest`, and a keep-both suffix keeps the displayed name unique. These nodes are listed greyed out with their reason. They have no content, preview, download, copy or move (`409 UNSUPPORTED_ENTRY`). Hardlinked regular files (`nlink > 1`) are ordinary file nodes whose content stays blocked by ADR-013 §5, with the reason shown.
-- **Events.** M06 adds a minimal append-only `file_event` table: `id, node_id, at, actor_kind (user|external_filesystem|system), actor_user_id null, action, source (ui|import|scan|watcher), details_json`, where details hold ids, safe names and an uncertainty flag. Actions written in M06: `created`, `imported`, `external_created`, `external_modified`, `external_moved` (certain or inferred), `missing`, `reappeared` and `dismissed`. External changes never name a user (`01_PRODUCT_SPEC.md`). M07 builds the activity history and its UI on this table.
+- **Events.** M06 adds a minimal append-only `file_event` table: `id, node_id, at, actor_kind (user|external_filesystem|system), actor_user_id null, action, source (ui|import|scan|watcher), details_json`, where details hold ids, safe names and an uncertainty flag. Actions written in M06: `created`, `imported`, `external_created`, `external_modified`, `external_moved` (certain or inferred), `missing`, `reappeared` and `dismissed`. External changes never name a user (`docs/01_PRODUCT_SPEC.md`). M07 builds the activity history and its UI on this table.
 
 ### 10. Migration
 
@@ -235,12 +235,12 @@ It backfills `name_key`. For roots that exist when the migration runs, `setup_st
 
 - A setup import copies data, so users need space for a second copy. Multi-terabyte archives must be copied into the library on the host (picked up by the reconciler) until mounts return.
 - After setup, no bulk import exists. Users add content with file and folder uploads, which merge and keep both. Zips are stored as files.
-- M06 acceptance criteria change (see `08_IMPLEMENTATION_PLAN.md`). "Existing files remain in place (no forced copy)" is dropped.
+- M06 acceptance criteria change (see `docs/08_IMPLEMENTATION_PLAN.md`). "Existing files remain in place (no forced copy)" is dropped.
 - The admin gets no new access to personal content: no picker, no mounts, and personal setup is owner-only.
 - Reconciliation cost is one `stat` per entry per pass, every 15 minutes, plus throttled hashing. Passes on a slow library mount can take minutes; this is recorded in `scan_run`, and passes never overlap.
 - An inferred move can be wrong (two identical copies, or inode reuse). It is flagged uncertain and never crosses roots, so the worst case is history attached to the wrong one of two identical files in one tree.
 - External changes take up to 15 minutes to appear where no watcher runs.
-- M06 is large: setup import (API, zip, SPA, resume), folder upload, and reconciliation (scanner, watcher, matching, guard, events). Splitting it is proposed in `PROJECT_STATUS.md`.
+- M06 is large: setup import (API, zip, SPA, resume), folder upload, and reconciliation (scanner, watcher, matching, guard, events). Splitting it is proposed in `docs/PROJECT_STATUS.md`.
 - The single-process assumption (ADR-013 §6a) is kept. The per-root advisory lock is the first step toward more than one process.
 
 ## Implementation notes (M06a, 2026-10-31)

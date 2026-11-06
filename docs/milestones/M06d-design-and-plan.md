@@ -6,7 +6,7 @@
 
 ## Scope
 
-In scope: the UI gaps listed as "carry-over for later UI work" in `PROJECT_STATUS.md`, apart from restore:
+In scope: the UI gaps listed as "carry-over for later UI work" in `docs/PROJECT_STATUS.md`, apart from restore:
 
 1. An administrator **Users** page, plus the **invitation-accept** and **password-reset** pages. The API has existed since M02, but there was no screen to issue a token, so accept and reset pages alone would have been unreachable.
 2. **Upload byte progress** for file uploads and folder uploads, with Cancel for a file upload.

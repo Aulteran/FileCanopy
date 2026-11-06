@@ -3,7 +3,7 @@
 `resolve_route` returns exactly one provider or none; there is no fallback list, so an outage can
 never move a request from a local provider to a cloud one. `clear` is the one place that applies
 `privacy.ai_route_allowed` and it is the only way to build a `ClearedInput`; adapters refuse
-anything else and re-check the label themselves (defence in depth, 03_SECURITY_PRIVACY.md).
+anything else and re-check the label themselves (defence in depth, docs/03_SECURITY_PRIVACY.md).
 """
 
 import uuid
