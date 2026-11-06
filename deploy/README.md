@@ -2,9 +2,9 @@
 
 Everything needed to run FileCanopy with Docker. Start with the root [`README.md`](../README.md) and [`docs/guides/production.md`](../docs/guides/production.md).
 
-- `compose.yaml`: the whole stack. Core (`init`, `postgres`, `migrate`, `api`, `web`) plus the profile-gated `ocr`, `converter` and `workers`. Published images; no build, no password to set.
+- `compose.yaml`: the whole stack. Core only (`init`, `postgres`, `migrate`, `api`, `web`). Published images; no build, no password to set.
 - `.env.example`: the optional six-line `.env`. `.env.advanced.example`: every other setting, all commented out.
-- `optional/`: two opt-in files added with a second `-f`: `compose.backup.yaml` (in-app backups) and `compose.proxy.yaml` (join your proxy's Docker network).
+- `optional/`: opt-in files added with a second `-f`: `compose.extras.yaml` (the profile-gated `ocr`, `converter`, and `redis` + `worker`), `compose.backup.yaml` (in-app backups) and `compose.proxy.yaml` (join your proxy's Docker network).
 - `scripts/`: `backup.sh` and `restore.sh`, whole-install disaster recovery.
 - `proxy/`: tested reverse proxy setups (Nginx Proxy Manager, nginx, Caddy, Traefik, Cloudflare Tunnel).
 - `postgres/`: PostgreSQL 17 plus pgvector, built into the `-postgres` image.

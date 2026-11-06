@@ -53,7 +53,11 @@ class Stack:
             shutil.copy(extra, self.dir / extra.name)
         shutil.copy(BUILD_FILE, self.dir / "build.yaml")
         # a suite may add override files (e.g. an outer proxy, optional containers)
-        self.files = [self.dir / "compose.yaml", self.dir / "build.yaml"]
+        self.files = [
+            self.dir / "compose.yaml",
+            self.dir / "build.yaml",
+            self.dir / "compose.extras.yaml",  # every service in it is behind a profile
+        ]
         self.env = {
             **{
                 k: v for k, v in os.environ.items() if not k.startswith(("FILECANOPY_", "COMPOSE_"))
@@ -77,7 +81,7 @@ class Stack:
             shutil.copy(bundle / "compose.yaml", self.dir / "compose.yaml")
             for extra in bundle.glob("compose.*.yaml"):
                 shutil.copy(extra, self.dir / extra.name)
-            self.files = [self.dir / "compose.yaml"]
+            self.files = [self.dir / "compose.yaml", self.dir / "compose.extras.yaml"]
             self.env["FILECANOPY_IMAGE_PREFIX"] = plan["prefix"]
             self.env["FILECANOPY_VERSION"] = plan["version"]
             for image in plan["images"]:

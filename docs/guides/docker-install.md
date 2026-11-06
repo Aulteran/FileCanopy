@@ -26,9 +26,9 @@ only after HTTPS works.
 
 To change anything, save [`.env.example`](../../deploy/.env.example) as `.env` beside `compose.yaml`;
 every other option is in [`.env.advanced.example`](../../deploy/.env.advanced.example). A release
-bundle contains the same files: `compose.yaml`, `compose.backup.yaml`, `compose.proxy.yaml`, both env
+bundle contains the same files: `compose.yaml`, `compose.extras.yaml`, `compose.backup.yaml`, `compose.proxy.yaml`, both env
 examples and `scripts/`, with `SHA256SUMS`. Optional containers (OCR, Office previews, workers) are
-profiles in `compose.yaml`: set `COMPOSE_PROFILES=ocr` (and the matching URL) in `.env`. They keep
+profiles in `compose.extras.yaml`: add it with a second `-f` (`docker compose -f compose.yaml -f compose.extras.yaml up -d`) or set `COMPOSE_FILE=compose.yaml:compose.extras.yaml`, then set `COMPOSE_PROFILES=ocr` (and the matching URL) in `.env`. They keep
 network isolation and resource limits and are not AI providers.
 
 ## Restart and upgrade

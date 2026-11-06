@@ -1,6 +1,6 @@
 # Sealed Office-to-PDF converter (M10, ADR-019 section 5). Build: docker build -f converter/Dockerfile converter
 # No network (a Unix socket in a volume shared with the API), read-only root: see the
-# `converter` service in deploy/compose.yaml.
+# `converter` service in deploy/optional/compose.extras.yaml.
 FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update \

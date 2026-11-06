@@ -55,7 +55,7 @@ class ReleaseStack(Stack):
             self.env["COMPOSE_PROJECT_NAME"] = name
             self.env["COMPOSE_FILE"] = str(self.files[0])
             return
-        self.files = [self.dir / "compose.yaml"]
+        self.files = [self.dir / "compose.yaml", self.dir / "compose.extras.yaml"]
         self.env["FILECANOPY_IMAGE_PREFIX"] = PREFIX
         self.env["FILECANOPY_VERSION"] = VERSION
         self.env["COMPOSE_PROJECT_NAME"] = name

@@ -1,0 +1,66 @@
+# Optional containers: Office previews (converter), OCR, and the Redis + worker heartbeat tier.
+# They only add to the core stack, so always use this file together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.extras.yaml up -d --wait
+# Every service here sits behind a profile, so adding the file starts nothing by itself. Name the ones you
+# want in .env: COMPOSE_PROFILES=ocr,converter,workers (or set COMPOSE_FILE=compose.yaml:compose.extras.yaml).
+# The Unix-socket volumes (converter-socket, ocr-socket) are declared in compose.yaml.
+
+# Same as the anchor in compose.yaml (YAML anchors do not cross files; a test keeps the two identical).
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+# The optional containers are also sealed: no network at all, a Unix socket shared only with the API.
+x-sealed: &sealed
+  <<: *hardening
+  network_mode: none
+  restart: unless-stopped
+
+services:
+  # Office previews (Word, Excel, PowerPoint -> PDF). Also set FILECANOPY_CONVERTER_URL=unix:///run/converter/converter.sock
+  converter:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-converter:${FILECANOPY_VERSION:-beta}
+    profiles: [converter]
+    user: "10002:10002"
+    tmpfs: ["/tmp:size=768m,mode=1777,noexec,nosuid,nodev"]
+    volumes: ["converter-socket:/run/converter"]
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2
+    pids_limit: 256
+    <<: *sealed
+
+  # OCR for scanned PDFs and pictures (Tesseract). Also set FILECANOPY_OCR_URL=unix:///run/ocr/ocr.sock
+  ocr:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-ocr:${FILECANOPY_VERSION:-beta}
+    profiles: [ocr]
+    user: "10003:10003"
+    tmpfs: ["/tmp:size=1g,mode=1777,noexec,nosuid,nodev"]
+    volumes: ["ocr-socket:/run/ocr"]
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: 2
+    pids_limit: 128
+    <<: *sealed
+
+  # Heartbeat worker tier, so the health page can report worker status. Also set FILECANOPY_REDIS_URL=redis://redis:6379/0
+  redis:
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    profiles: [workers]
+    restart: unless-stopped
+    user: redis # the entrypoint cannot drop privileges itself once capabilities are dropped
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      { test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10 }
+    <<: *hardening
+
+  worker:
+    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
+    profiles: [workers]
+    restart: unless-stopped
+    command: [python, -m, workers.heartbeat]
+    environment: { FILECANOPY_REDIS_URL: "redis://redis:6379/0" }
+    depends_on: { redis: { condition: service_healthy } }
+    <<: *hardening
