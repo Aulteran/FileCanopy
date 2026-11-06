@@ -16,8 +16,10 @@ python3 -m http.server 8000 --directory site
 
 ## Hosting
 
-**GitHub Pages (current).** `.github/workflows/site.yml` publishes `site/` whenever it changes on `dev` or `release`. One-time setup: repository **Settings > Pages > Source: GitHub Actions**. The site appears at `https://<owner>.github.io/FileCanopy/`.
+**GitHub Pages (current).** `.github/workflows/site.yml` publishes `site/` whenever it changes on `dev`. One-time setup: repository **Settings > Pages > Source: GitHub Actions**. The site appears at `https://<owner>.github.io/FileCanopy/`.
 
 **Cloudflare Pages.** Connect the repository, set the build command to empty and the output directory to `site`.
 
 **Your own domain or a subdomain.** Upload the contents of `site/` to any static host (or point a subdomain at Cloudflare Pages or GitHub Pages and add a `CNAME`). Nothing in the files needs to change. For GitHub Pages with a custom domain, add the domain under Settings > Pages.
+
+If a deployment ever hangs in the "queued" state, push a new commit to `dev`; Pages deployments are keyed by commit, so re-running the same commit can stay stuck.

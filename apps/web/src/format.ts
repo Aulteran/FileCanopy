@@ -35,7 +35,7 @@ const MESSAGES: Record<string, string> = {
   API_KEY_REQUIRED: "Enter an API key first.",
   INVALID_PROVIDER: "The model name or address is not valid.",
   SECRETS_KEY_NOT_CONFIGURED:
-    "This server has no secrets key, so API keys cannot be stored. See the AI guide.",
+    "This server has no key to encrypt API keys with, so it cannot save yours. Ask the administrator to set FILECANOPY_SECRETS_KEY (see the AI guide), or use a local model, which needs no key.",
   LOCAL_ENDPOINT_ADMIN_ONLY:
     "Only an administrator can add a local AI address.",
   BILLING_CONFIRMATION_REQUIRED: "Confirm that the test may be billed.",
