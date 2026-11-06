@@ -9,6 +9,7 @@ import re
 import pytest
 from playwright.sync_api import Browser, Locator, Page, expect
 from support import World, sign_in
+from test_auth_stack import PASSWORD
 
 pytestmark = pytest.mark.e2e
 
@@ -90,4 +91,25 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     )
     assert gap[2] > gap[1] * 2, "the notice is expected to wrap onto several lines"
     assert gap[0] < gap[1], "checkbox must align with the first line of the text"
+    page.context.close()
+
+
+def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, world: World) -> None:
+    page = browser.new_context().new_page()
+    page.goto(world.base + "/")
+    page.get_by_label("Email").fill("admin@example.com")
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Sign in").click()
+    screen = page.get_by_role("region", name="Prepare your server")
+    expect(screen).to_be_visible()
+    viewport = page.viewport_size
+    assert viewport is not None
+    box = screen.bounding_box()
+    assert box is not None
+    assert box["width"] <= 740, "a readable column, not the full page width"
+    middle = box["x"] + box["width"] / 2
+    assert abs(middle - viewport["width"] / 2) < 40, "the column sits in the middle"
+    first = screen.get_by_role("listitem").first.bounding_box()
+    assert first is not None
+    assert first["width"] > box["width"] * 0.9, "each step is a card as wide as the column"
     page.context.close()
