@@ -320,13 +320,11 @@ def test_restore_into_a_live_database_gives_no_delete_advice(tmp_path: Path) -> 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
 def test_scripts_also_load_the_extras_file_when_present(tmp_path: Path) -> None:
     flat = stage_scripts(tmp_path / "a")
-    (flat / "compose.extras.yaml").write_text("services: {}
-")
+    (flat / "compose.extras.yaml").write_text("services: {}\n")
     files = run_probe(flat, 'echo "$COMPOSE_FILE"').split(":")
     assert [Path(f).name for f in files] == ["compose.yaml", "compose.extras.yaml"]
     repo = stage_scripts(tmp_path / "b")
     (repo / "optional").mkdir()
-    (repo / "optional" / "compose.extras.yaml").write_text("services: {}
-")
+    (repo / "optional" / "compose.extras.yaml").write_text("services: {}\n")
     files = run_probe(repo, 'echo "$COMPOSE_FILE"').split(":")
     assert files[-1].endswith("optional/compose.extras.yaml")
