@@ -258,6 +258,8 @@ class Settings(BaseSettings):
     # 32 random bytes, base64 (url-safe or standard). Seals provider API keys stored in the
     # database. Empty = keys cannot be stored; local providers (no key) still work.
     secrets_key: SecretStr = SecretStr("")
+    # File holding the key above (the Docker `init` service creates it). An explicit key wins.
+    secrets_key_file: str = ""
     # Operator allow-list of hosts local AI providers may use (comma separated names or IPs).
     # Empty = any host that resolves only to loopback or private addresses. The web administrator
     # role is not trusted to widen this; link-local and metadata addresses are refused either way.
@@ -330,6 +332,19 @@ class Settings(BaseSettings):
     @property
     def oidc_redirect_uri(self) -> str:
         return f"{self._public_origin()}/api/v1/auth/oidc/callback"
+
+    @model_validator(mode="after")
+    def _secrets_key_from_file(self) -> "Settings":
+        if self.secrets_key.get_secret_value() or not self.secrets_key_file:
+            return self
+        try:
+            value = Path(self.secrets_key_file).read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            return self  # not created yet: API keys simply cannot be stored
+        except OSError as exc:
+            raise ConfigError(f"cannot read the secrets key file: {exc.strerror}") from exc
+        self.secrets_key = SecretStr(value)
+        return self
 
     @model_validator(mode="after")
     def _database(self) -> "Settings":

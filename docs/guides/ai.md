@@ -13,11 +13,19 @@ the same gateway (`app/ai/gateway.py`); it is single-turn with file/excerpt cita
 
 ## Storing cloud API keys
 
-Set `FILECANOPY_SECRETS_KEY` to 32 random bytes in base64, for example
-`openssl rand -base64 32`. Keep it outside the library and the database dump (a `.env` file or a
-secret manager). Without it cloud keys cannot be stored; local providers still work. Losing the key
-means re-entering the API keys; nothing else is lost. Rotation is the same: set a new key, re-enter
-keys.
+With the Docker quick start you do nothing: on first start the `init` container creates a random
+secrets key (32 bytes, base64) in the `secrets` volume, next to the generated database password, and the API
+reads it from there. Provider API keys are encrypted with it before they reach the database.
+
+To use your own key instead, set `FILECANOPY_SECRETS_KEY` (for example the output of
+`openssl rand -base64 32`) in `.env`; it always wins over the generated one. Keep it outside the library and
+the database dump. Without any key, cloud keys cannot be stored; local providers still work.
+
+**Back this key up.** It is not in the library or the database, and `deploy/scripts/backup.sh` does not
+include the `secrets` volume. If you lose it (for example by deleting the volume), the stored API keys
+can no longer be read and must be entered again; nothing else is lost. To copy the generated key:
+`docker compose run --rm --no-deps -T --entrypoint cat api /secrets/secrets_key`. Rotation is the same
+as loss: set a new key, re-enter the keys.
 
 ## Providers
 
