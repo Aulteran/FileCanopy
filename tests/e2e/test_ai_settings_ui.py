@@ -55,10 +55,12 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     switch.click()
     expect(switch).to_be_checked()
     dialog.get_by_role("button", name="Add a model").click()
+    # an administrator also has "my own provider" further up: work inside the new model's form
+    form = dialog.locator("form").filter(has_text="Name (optional)")
 
     # Anthropic is the first cloud provider, so the form starts on it.
     def field(label: str, tag: str) -> Locator:
-        return dialog.locator("label").filter(has_text=re.compile(f"^{label}")).locator(tag)
+        return form.locator("label").filter(has_text=re.compile(f"^{label}")).locator(tag)
 
     model = field("Model", "select")
     expect(model).to_have_value("claude-sonnet-5-5")
@@ -67,7 +69,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     price_in = field("Price per million input tokens", "input")
     price_out = field("Price per million output tokens", "input")
     expect(price_in).to_be_hidden()
-    dialog.get_by_text("Advanced: prices used for the monthly limit").click()
+    form.get_by_text("Advanced: prices used for the monthly limit").click()
     expect(price_in).to_have_value("2")
     expect(price_out).to_have_value("10")
 
@@ -78,15 +80,15 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
 
     # "Other" lets an advanced user type a name and the prices to go with it
     model.select_option(label="Other model (type its name)")
-    name = dialog.get_by_label("Model name")
+    name = form.get_by_label("Model name")
     expect(name).to_be_visible()
     expect(price_in).to_be_visible()
     name.fill("claude-experimental")
     expect(price_in).to_have_value("4")  # not wiped while typing
 
     # the long cloud notice wraps; its checkbox sits level with the first line, not mid-paragraph
-    dialog.get_by_label("Turn this model on").check()
-    consent = dialog.locator("label").filter(has_text="Files in Private and Confidential").last
+    form.get_by_label("Turn this model on").check()
+    consent = form.locator("label").filter(has_text="Files in Private and Confidential").last
     expect(consent).to_be_visible()
     gap = consent.evaluate(
         """(l) => {
