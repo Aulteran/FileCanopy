@@ -48,14 +48,14 @@ def test_budget_reservations_never_pass_the_cap_on_postgres(stack: Stack) -> Non
     assert out["wins"] == 6  # six times 150k fit in 1M; a seventh would pass the cap
     reserved = stack.sql("select reserved_micro from ai_budget where scope_key = 'race-test'")
     assert int(reserved) == 900_000
-    # the database refuses a second instance provider whatever the application does
+    # several server models are allowed (0026); the database still refuses a second own provider
     q = (
         "insert into ai_provider (id, scope, kind, privacy_mode, label, endpoint, model, "
         "price_in_micro, price_out_micro, enabled, created_at) values "
         "(gen_random_uuid(), 'instance', 'ollama', 'local', '', '', 'm', 0, 0, false, now())"
     )
     stack.sql(q)
-    with pytest.raises(AssertionError):
-        stack.sql(q)
+    stack.sql(q)
+    assert int(stack.sql("select count(*) from ai_provider where scope = 'instance'")) == 2
     stack.sql("delete from ai_provider where scope = 'instance'")
     stack.sql("delete from ai_budget where scope_key = 'race-test'")
