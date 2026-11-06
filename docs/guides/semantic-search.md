@@ -7,6 +7,9 @@ finds a note about a holiday trip). Design and threat model: `docs/milestones/M1
 Nothing is sent to a cloud service, ever: the address must be on your own network, and there is no
 cloud option for this feature. Confidential files are never used.
 
+In the first-time server setup this is its own step, **Step 2: Meaning-based search (optional)**,
+separate from **Step 1: AI** (see `ai.md`). Later it lives at the bottom of the AI dialog.
+
 ## What you need
 
 1. The database must have pgvector. The bundled Compose stack builds PostgreSQL with it

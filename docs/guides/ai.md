@@ -53,7 +53,7 @@ default" changes it. Removing the default promotes another enabled model of the 
 stays local, cloud stays cloud); if there is none, no model is the default, AI on shared files stays
 off, and the dialog asks you to choose one. Adding the first model switches AI on; turning the
 switch off stops every model and every own provider (models and keys are kept). Optional
-meaning-based search (`semantic-search.md`) is separate: it never uses these models and has its own
+meaning-based search (`semantic-search.md`) is separate (its own step in the first-time setup): it never uses these models and has its own
 settings.
 
 ## Who uses what
