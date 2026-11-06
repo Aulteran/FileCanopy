@@ -32,7 +32,18 @@ def ensure_password(directory: Path) -> bool:
 def ensure_secrets_key(directory: Path, uid: int, gid: int) -> bool:
     """Create `secrets_key` once. Skipped when FILECANOPY_SECRETS_KEY is set explicitly."""
     target = directory / "secrets_key"
-    if target.exists() or os.environ.get("FILECANOPY_SECRETS_KEY", "").strip():
+    explicit = os.environ.get("FILECANOPY_SECRETS_KEY", "").strip()
+    if target.exists() and explicit:
+        try:
+            if target.read_text(encoding="utf-8").strip() != explicit:
+                print(
+                    "warning: FILECANOPY_SECRETS_KEY differs from the generated key file; "
+                    "keys saved under one will not open with the other",
+                    file=sys.stderr,
+                )
+        except OSError:
+            pass
+    if target.exists() or explicit:
         return False
     temp = directory / ".secrets_key.tmp"
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o400)
@@ -42,6 +53,11 @@ def ensure_secrets_key(directory: Path, uid: int, gid: int) -> bool:
         os.chown(temp, uid, gid)  # readable by the API's user only (the volume is read-only there)
     except OSError:
         temp.chmod(0o444)  # cannot hand it over (unusual file system): fall back to world-readable
+        print(
+            "warning: could not give the secrets key to the API's user; it is readable by "
+            "every process that mounts this volume (the database container does)",
+            file=sys.stderr,
+        )
     temp.replace(target)
     return True
 

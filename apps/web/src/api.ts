@@ -111,6 +111,8 @@ export type NodeInfo = {
 };
 export type AiProvider = {
   id: string;
+  label: string;
+  is_default: boolean;
   kind: string;
   mode: "local" | "cloud";
   model: string;
@@ -137,6 +139,10 @@ export type AiStatus = {
   instance_host: string | null;
   instance_needs_ack: boolean;
   instance_mode: "local" | "cloud" | null;
+  server_ai_enabled: boolean;
+  default_model: string | null;
+  local_model: string | null;
+  local_available: boolean;
   personal_tree_ai: boolean;
   personal_tree_reason: string;
   my_provider: AiProvider | null;
@@ -283,6 +289,10 @@ export type DuplicateGroup = {
 export type AiInstance = {
   secrets_key_configured: boolean;
   notice: string;
+  enabled: boolean;
+  needs_default: boolean;
+  models: AiProvider[];
+  max_models: number;
   provider: AiProvider | null;
   usage: AiUsage;
   kinds: string[];
@@ -290,6 +300,7 @@ export type AiInstance = {
 export type AiProviderInput = {
   kind: string;
   model: string;
+  label?: string;
   endpoint: string;
   api_key?: string;
   price_in_micro: number;
@@ -1272,16 +1283,22 @@ export const api = {
   aiTestMine: (confirm_billed: boolean) =>
     call<unknown>("POST", "/api/v1/ai/me/provider/test", { confirm_billed }),
   aiInstance: () => call<AiInstance>("GET", "/api/v1/ai/instance"),
-  aiPutInstance: (body: AiProviderInput) =>
-    call<AiProvider>("PUT", "/api/v1/ai/instance/provider", body),
-  aiDeleteInstance: () =>
-    call<unknown>("DELETE", "/api/v1/ai/instance/provider"),
-  aiSetInstanceCap: (cap_micro: number) =>
-    call<AiUsage>("PUT", "/api/v1/ai/instance/cap", { cap_micro }),
-  aiTestInstance: (confirm_billed: boolean) =>
-    call<unknown>("POST", "/api/v1/ai/instance/provider/test", {
+  aiSetServerEnabled: (enabled: boolean) =>
+    call<unknown>("PUT", "/api/v1/ai/instance/enabled", { enabled }),
+  aiAddModel: (body: AiProviderInput) =>
+    call<AiProvider>("POST", "/api/v1/ai/instance/models", body),
+  aiPutModel: (id: string, body: AiProviderInput) =>
+    call<AiProvider>("PUT", `/api/v1/ai/instance/models/${id}`, body),
+  aiDeleteModel: (id: string) =>
+    call<unknown>("DELETE", `/api/v1/ai/instance/models/${id}`),
+  aiSetDefaultModel: (id: string) =>
+    call<unknown>("PUT", "/api/v1/ai/instance/default", { id }),
+  aiTestModel: (id: string, confirm_billed: boolean) =>
+    call<unknown>("POST", `/api/v1/ai/instance/models/${id}/test`, {
       confirm_billed,
     }),
+  aiSetInstanceCap: (cap_micro: number) =>
+    call<AiUsage>("PUT", "/api/v1/ai/instance/cap", { cap_micro }),
 
   // AI organization proposals (M16)
   organizeSettings: () =>

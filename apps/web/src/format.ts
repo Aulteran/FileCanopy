@@ -169,6 +169,8 @@ const MESSAGES: Record<string, string> = {
     "An import for this folder is already in progress. Finish or cancel it first.",
   INSUFFICIENT_SPACE: "There is not enough free space for this import.",
   TOO_MANY_ENTRIES: "That folder or archive has too many items.",
+  AI_NOT_ENABLED: "AI is not turned on for this server.",
+  TOO_MANY_MODELS: "This server has as many AI models as allowed.",
   ZIP_TOO_LARGE: "That archive is larger than the configured limit.",
   INVALID_ZIP: "That file is not a valid zip archive.",
   INVALID_MANIFEST: "The folder listing was not valid.",

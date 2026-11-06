@@ -700,6 +700,11 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/ai/instance/provider",
     "/api/v1/ai/instance/provider/test",
     "/api/v1/ai/instance/cap",
+    "/api/v1/ai/instance/enabled",
+    "/api/v1/ai/instance/models",
+    "/api/v1/ai/instance/models/{model_id}",
+    "/api/v1/ai/instance/models/{model_id}/test",
+    "/api/v1/ai/instance/default",
     # M16: organization proposals. Settings and the queue address no node. "suggest" takes node ids
     # in the body and the service authorises each one (write access, Normal label, own tree);
     # proposals are scoped to the requester, and apply re-checks access on the file itself.

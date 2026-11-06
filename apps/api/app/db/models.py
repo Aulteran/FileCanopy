@@ -951,13 +951,6 @@ class AiProvider(Base):
     __tablename__ = "ai_provider"
     __table_args__ = (
         Index(
-            "uq_ai_provider_instance",
-            "scope",
-            unique=True,
-            sqlite_where=text("scope = 'instance'"),
-            postgresql_where=text("scope = 'instance'"),
-        ),
-        Index(
             "uq_ai_provider_user",
             "owner_user_id",
             unique=True,

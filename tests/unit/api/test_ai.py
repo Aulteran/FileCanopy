@@ -25,7 +25,14 @@ from test_files import Api, code
 from app.ai import budget
 from app.ai.gateway import AiCaller, AiError
 from app.ai.providers import EndpointError
-from app.ai.routing import AiRefused, ClearedInput, assert_deliverable, clear, resolve_route
+from app.ai.routing import (
+    AiRefused,
+    ClearedInput,
+    assert_deliverable,
+    clear,
+    resolve_route,
+    server_ai_enabled,
+)
 from app.ai.secrets import SecretBox, SecretsError, aad_for, parse_key
 from app.db.models import (
     AiBudget,
@@ -321,6 +328,7 @@ def test_cloud_needs_secrets_key_consent_prices_and_a_key(
 
 def test_people_may_not_add_local_endpoints_and_admin_cannot_see_theirs(fx: Fx) -> None:
     alice, admin = Api(fx, "alice"), Api(fx, "admin")
+    assert put(admin, "/instance/enabled", {"enabled": True}).status_code == 200
     assert code(put(alice, "/me/provider", local_body())) == "LOCAL_ENDPOINT_ADMIN_ONLY"
     assert put(alice, "/me/provider", cloud_body()).status_code == 200
     assert put(admin, "/instance/provider", local_body()).status_code == 200
@@ -720,7 +728,7 @@ def test_reservation_estimate_is_a_byte_bound() -> None:
     assert budget.estimate_tokens(0) > 0
 
 
-def test_one_provider_per_scope_is_enforced_by_the_database(fx: Fx) -> None:
+def test_one_provider_per_person_is_enforced_by_the_database(fx: Fx) -> None:
     from sqlalchemy.exc import IntegrityError
 
     from app.auth import clock
@@ -736,8 +744,10 @@ def test_one_provider_per_scope_is_enforced_by_the_database(fx: Fx) -> None:
         )
 
     uid = fx.uid("alice@example.com")
+    with fx.w.ctx.sessions() as db:  # several server models are allowed (0026)
+        db.add_all([row("instance", None), row("instance", None)])
+        db.commit()
     for bad in (
-        [row("instance", None), row("instance", None)],
         [row("user", uid), row("user", uid)],
         [row("instance", uid)],
         [row("user", None)],
@@ -747,3 +757,181 @@ def test_one_provider_per_scope_is_enforced_by_the_database(fx: Fx) -> None:
         with fx.w.ctx.sessions() as db, pytest.raises(IntegrityError):
             db.add_all(bad)
             db.commit()
+
+
+# --- several server models and the server switch (0026) -------------------------------------
+def post(api: Api, path: str, body: dict[str, Any]) -> Any:
+    return api.client.post(f"/api/v1/ai{path}", json=body, headers=api.headers)
+
+
+def delete(api: Api, path: str) -> Any:
+    return api.client.delete(f"/api/v1/ai{path}", headers=api.headers)
+
+
+def test_several_models_one_default_and_promotion(fx: Fx) -> None:
+    admin = Api(fx, "admin")
+    a = post(admin, "/instance/models", cloud_body(label="Claude"))
+    assert a.status_code == 200 and a.json()["is_default"] is True  # the first is the default
+    b = post(admin, "/instance/models", local_body(label="Home"))
+    assert b.status_code == 200 and b.json()["is_default"] is False
+    models = admin.get("/ai/instance").json()["models"]
+    assert {m["label"] for m in models} == {"Claude", "Home"}
+    assert all("api_key" not in m for m in models)
+    assert put(admin, "/instance/default", {"id": b.json()["id"]}).status_code == 200
+    assert admin.get("/ai/instance").json()["provider"]["label"] == "Home"
+    # removing a local default does not promote the cloud model (M2): nobody is default
+    assert delete(admin, f"/instance/models/{b.json()['id']}").status_code == 200
+    inst = admin.get("/ai/instance").json()
+    assert [m["label"] for m in inst["models"]] == ["Claude"]
+    assert inst["provider"] is None and inst["needs_default"] is True
+    assert delete(admin, f"/instance/models/{a.json()['id']}").status_code == 200
+    assert admin.get("/ai/instance").json()["provider"] is None
+    assert put(Api(fx, "alice"), "/instance/default", {"id": a.json()["id"]}).status_code == 403
+
+
+def test_model_limit_and_unknown_ids(fx: Fx) -> None:
+    from app.ai.routing import MAX_INSTANCE_MODELS
+
+    admin = Api(fx, "admin")
+    for i in range(MAX_INSTANCE_MODELS):
+        assert post(admin, "/instance/models", local_body(label=f"m{i}")).status_code == 200
+    assert code(post(admin, "/instance/models", local_body())) == "TOO_MANY_MODELS"
+    nobody = "00000000-0000-0000-0000-000000000001"
+    assert code(put(admin, f"/instance/models/{nobody}", local_body())) == "NO_PROVIDER"
+    assert code(put(admin, "/instance/default", {"id": nobody})) == "NO_PROVIDER"
+
+
+def test_default_and_local_only_choose_different_models(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    post(admin, "/instance/models", cloud_body(label="Claude"))
+    post(admin, "/instance/models", local_body(label="Home"))
+    st = alice.get("/ai/status").json()
+    assert (st["default_model"], st["local_model"], st["local_available"]) == (
+        "Claude",
+        "Home",
+        True,
+    )
+    set_pref(alice, "instance_default_local_only")
+    with fx.w.ctx.sessions() as db:
+        a = db.get(User, alice.uid)
+        assert a is not None
+        r = resolve_route(db, root_kind="personal", owner=a)
+        assert r.provider is not None and r.provider.label == "Home"
+        assert r.provider.privacy_mode == "local"
+    # protected content still never reaches the cloud model, whichever one is default
+    set_pref(alice, "instance_default")
+    folder = fx.folder(fx.alice_root, "priv")
+    label(alice, folder, "private")
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), file_in(alice, folder), text="secret")
+    assert e.value.reason == "protected_never_cloud"
+    assert not net.requests
+
+
+def test_local_only_without_local_model_is_refused(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    post(admin, "/instance/models", cloud_body(label="Claude"))
+    st = alice.get("/ai/status").json()
+    assert st["local_available"] is False and st["local_model"] is None
+    set_pref(alice, "instance_default_local_only")
+    f = file_in(alice, fx.y2026)
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), f)
+    assert e.value.reason == "instance_not_local"
+    assert not net.requests
+
+
+def test_server_switch_turns_everything_off(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    assert admin.get("/ai/instance").json()["enabled"] is False  # nothing set up yet
+    post(admin, "/instance/models", local_body(label="Home"))
+    assert admin.get("/ai/instance").json()["enabled"] is True  # the first model switches it on
+    set_pref(alice, "instance_default")
+    f = file_in(alice, fx.y2026)
+    assert run(fx, caller(fx, "alice"), f).value.ok is True
+    sent = len(net.requests)
+    assert put(admin, "/instance/enabled", {"enabled": False}).status_code == 200
+    st = alice.get("/ai/status").json()
+    assert st["server_ai_enabled"] is False and st["instance_available"] is False
+    assert st["default_model"] is None and st["local_available"] is False
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), f)
+    assert e.value.reason == "ai_not_configured"
+    put(alice, "/me/provider", cloud_body())
+    set_pref(alice, "off")
+    assert code(put(alice, "/me/preference", {"preference": "my_provider"})) == "AI_NOT_ENABLED"
+    assert len(net.requests) == sent
+    assert put(alice, "/instance/enabled", {"enabled": True}).status_code == 403
+    assert put(admin, "/instance/enabled", {"enabled": True}).status_code == 200
+    assert alice.get("/ai/status").json()["server_ai_enabled"] is True
+
+
+def test_migration_0026_enables_existing_installs_and_drops_the_index(tmp_path: Path) -> None:
+    import importlib.util
+
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    path = Path(__file__).parents[3] / "apps/api/migrations/versions/0026_ai_models.py"
+    spec = importlib.util.spec_from_file_location("m0026", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    eng = sa.create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    ddl = [
+        "create table app_setting (key varchar primary key, value json, updated_at timestamp)",
+        "create table ai_provider (id integer primary key, scope varchar, created_at timestamp)",
+        "create unique index uq_ai_provider_instance on ai_provider (scope)"
+        " where scope = 'instance'",
+        "insert into ai_provider values (1, 'instance', null)",
+    ]
+    with eng.begin() as conn:
+        for stmt in ddl:
+            conn.execute(sa.text(stmt))
+        with Operations.context(MigrationContext.configure(conn)):
+            mod.upgrade()
+            mod.upgrade()  # idempotent
+        flag = conn.execute(sa.text("select value from app_setting where key = 'ai.enabled'"))
+        assert flag.scalar() in (1, True, "true")
+        conn.execute(sa.text("insert into ai_provider values (2, 'instance', null)"))
+
+
+def test_removing_a_local_default_does_not_move_shared_files_to_cloud(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    cloud = post(admin, "/instance/models", cloud_body(label="Claude")).json()
+    home = post(admin, "/instance/models", local_body(label="Home")).json()
+    assert put(admin, "/instance/default", {"id": home["id"]}).status_code == 200
+    assert delete(admin, f"/instance/models/{home['id']}").status_code == 200
+    with fx.w.ctx.sessions() as db:
+        assert resolve_route(db, root_kind="shared", owner=None).provider is None
+    assert alice.get("/ai/status").json()["default_model"] is None
+    f = file_in(alice, fx.y2026)
+    set_pref(alice, "instance_default")
+    with pytest.raises(AiRefused):
+        run(fx, caller(fx, "alice"), f)
+    assert not net.requests
+    # a same-kind enabled model is promoted; a missing mark is never guessed
+    home2 = post(admin, "/instance/models", local_body(label="Home 2")).json()
+    assert admin.get("/ai/instance").json()["provider"]["id"] == home2["id"]
+    home3 = post(admin, "/instance/models", local_body(label="Home 3")).json()
+    assert delete(admin, f"/instance/models/{home2['id']}").status_code == 200
+    assert admin.get("/ai/instance").json()["provider"]["id"] == home3["id"]
+    assert cloud["id"] != home3["id"]
+
+
+def test_a_person_saving_their_own_provider_cannot_switch_ai_on(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    r = put(alice, "/me/provider", cloud_body())
+    assert code(r) == "AI_NOT_ENABLED"
+    assert put(alice, "/me/provider", cloud_body(enabled=False)).status_code == 200  # saved off
+    with fx.w.ctx.sessions() as db:
+        assert server_ai_enabled(db) is False
+        a = db.get(User, alice.uid)
+        assert a is not None
+        assert resolve_route(db, root_kind="personal", owner=a).reason == "ai_off"
+        a.ai_preference = "my_provider"
+        assert resolve_route(db, root_kind="personal", owner=a).reason == "ai_not_configured"
+        assert resolve_route(db, root_kind="shared", owner=None).reason == "ai_not_configured"
+    assert admin.get("/ai/instance").json()["enabled"] is False
+    assert not net.requests
