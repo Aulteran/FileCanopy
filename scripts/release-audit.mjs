@@ -90,6 +90,7 @@ const manifests = [
   "converter/Dockerfile",
   "ocr/Dockerfile",
   "deploy/compose.yaml",
+  "deploy/optional/compose.extras.yaml",
 ];
 save(
   "manifest-hashes.json",

@@ -127,6 +127,8 @@ def test_compose_ocr_service_is_sealed() -> None:
             "compose",
             "-f",
             str(ROOT / "deploy/compose.yaml"),
+            "-f",
+            str(ROOT / "deploy/optional/compose.extras.yaml"),
             "--profile",
             "ocr",
             "config",

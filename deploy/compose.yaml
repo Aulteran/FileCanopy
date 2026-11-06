@@ -1,7 +1,8 @@
 # FileCanopy: a file manager for your own folders.   Start:  docker compose up -d --wait
 # Then open http://127.0.0.1:8080 . No settings are required. To change something, copy .env.example to .env;
-# every other option is in .env.advanced.example. Optional parts (OCR, Office previews, workers) are at the
-# bottom of this file and off until you name their profile: COMPOSE_PROFILES=ocr,converter in .env.
+# every other option is in .env.advanced.example. Optional parts (OCR, Office previews, workers) are in
+# optional/compose.extras.yaml: add it with a second -f and name their profile, e.g.
+#   docker compose -f compose.yaml -f compose.extras.yaml up -d --wait     (with COMPOSE_PROFILES=ocr in .env)
 name: filecanopy
 
 # Applied to every container: read-only filesystem, no capabilities, no privilege escalation.
@@ -10,12 +11,6 @@ x-hardening: &hardening
   tmpfs: [/tmp]
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
-
-# The optional containers are also sealed: no network at all, a Unix socket shared only with the API.
-x-sealed: &sealed
-  <<: *hardening
-  network_mode: none
-  restart: unless-stopped
 
 services:
   # First start only: creates the database password (kept in the `secrets` volume) and hands the app user
@@ -102,57 +97,10 @@ services:
       retries: 6
     <<: *hardening
 
-  # ---- Optional, off by default (enable with COMPOSE_PROFILES in .env) ------------------------------------
-
-  # Office previews (Word, Excel, PowerPoint -> PDF). Also set FILECANOPY_CONVERTER_URL=unix:///run/converter/converter.sock
-  converter:
-    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-converter:${FILECANOPY_VERSION:-beta}
-    profiles: [converter]
-    user: "10002:10002"
-    tmpfs: ["/tmp:size=768m,mode=1777,noexec,nosuid,nodev"]
-    volumes: ["converter-socket:/run/converter"]
-    mem_limit: 2g
-    memswap_limit: 2g
-    cpus: 2
-    pids_limit: 256
-    <<: *sealed
-
-  # OCR for scanned PDFs and pictures (Tesseract). Also set FILECANOPY_OCR_URL=unix:///run/ocr/ocr.sock
-  ocr:
-    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-ocr:${FILECANOPY_VERSION:-beta}
-    profiles: [ocr]
-    user: "10003:10003"
-    tmpfs: ["/tmp:size=1g,mode=1777,noexec,nosuid,nodev"]
-    volumes: ["ocr-socket:/run/ocr"]
-    mem_limit: 3g
-    memswap_limit: 3g
-    cpus: 2
-    pids_limit: 128
-    <<: *sealed
-
-  # Heartbeat worker tier, so the health page can report worker status. Also set FILECANOPY_REDIS_URL=redis://redis:6379/0
-  redis:
-    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
-    profiles: [workers]
-    restart: unless-stopped
-    user: redis # the entrypoint cannot drop privileges itself once capabilities are dropped
-    command: [redis-server, --save, "", --appendonly, "no"]
-    healthcheck: { test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10 }
-    <<: *hardening
-
-  worker:
-    image: ${FILECANOPY_IMAGE_PREFIX:-ghcr.io/aulteran/filecanopy}-api:${FILECANOPY_VERSION:-beta}
-    profiles: [workers]
-    restart: unless-stopped
-    command: [python, -m, workers.heartbeat]
-    environment: { FILECANOPY_REDIS_URL: "redis://redis:6379/0" }
-    depends_on: { redis: { condition: service_healthy } }
-    <<: *hardening
-
 volumes:
   pgdata:
   secrets: # the generated database password
-  converter-socket: # the converter's Unix socket, shared with the API and nothing else
+  converter-socket: # the converter's Unix socket, shared with the API and nothing else (converter: compose.extras.yaml)
   ocr-socket: # the OCR container's Unix socket, shared with the API and nothing else
   library: # used only if FILECANOPY_LIBRARY_PATH is set to the name "library" instead of a folder
   app-data:

@@ -68,17 +68,32 @@ def test_our_images_follow_one_prefix_and_version_and_never_latest() -> None:
         assert not re.search(r"^\s+build:", text, re.MULTILINE), "builds live in contrib/build.yaml"
 
 
+def hardening_block(path: Path) -> str:
+    m = re.search(r"^x-hardening: &hardening\n((?:  .*\n)+)", path.read_text(), re.MULTILINE)
+    assert m, f"{path.name}: no x-hardening anchor"
+    return m.group(1)
+
+
 def test_compose_core_is_short_and_every_container_is_hardened() -> None:
     text = (DEPLOY / "compose.yaml").read_text()
-    core = text.split("# ---- Optional")[0]
-    assert len(core.splitlines()) <= 110, "the part a beginner reads must stay short"
-    assert (
-        text.count("<<: *hardening") == 7
-    )  # init, migrate, api, web, redis, worker + the sealed anchor
-    assert text.count("<<: *sealed") == 2  # converter, ocr
+    assert len(text.splitlines()) <= 110, "the part a beginner reads must stay short"
+    assert text.count("<<: *hardening") == 4  # init, migrate, api, web
+    assert "profiles:" not in text, "optional containers live in optional/compose.extras.yaml"
     assert "POSTGRES_PASSWORD:" not in text, "the database password is generated, never typed"
     assert text.count("FILECANOPY_") < 45, "defaults belong in apps/api/app/config.py"
+
+
+def test_optional_extras_are_profile_gated_and_hardened() -> None:
+    path = DEPLOY / "optional/compose.extras.yaml"
+    text = path.read_text()
+    assert text.count("<<: *hardening") == 3  # the sealed anchor, redis, worker
+    assert text.count("<<: *sealed") == 2  # converter, ocr
     assert text.count("profiles: [") == 4  # converter, ocr, redis, worker
+    body = text.split("\nservices:")[1]
+    services = re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", body, re.MULTILINE)
+    assert services == ["converter", "ocr", "redis", "worker"]
+    # YAML anchors do not cross files, so the extras file carries its own copy of the core one.
+    assert hardening_block(path) == hardening_block(DEPLOY / "compose.yaml")
 
 
 def test_stack_file_uses_published_images_and_opens_no_ports() -> None:
@@ -300,3 +315,18 @@ def test_restore_into_a_live_database_gives_no_delete_advice(tmp_path: Path) -> 
     assert r.returncode != 0
     assert "already has tables" in r.stderr and "DELETES" in r.stderr
     assert "The restore did not finish" not in r.stderr, "nothing was written, so no cleanup advice"
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no POSIX shell")
+def test_scripts_also_load_the_extras_file_when_present(tmp_path: Path) -> None:
+    flat = stage_scripts(tmp_path / "a")
+    (flat / "compose.extras.yaml").write_text("services: {}
+")
+    files = run_probe(flat, 'echo "$COMPOSE_FILE"').split(":")
+    assert [Path(f).name for f in files] == ["compose.yaml", "compose.extras.yaml"]
+    repo = stage_scripts(tmp_path / "b")
+    (repo / "optional").mkdir()
+    (repo / "optional" / "compose.extras.yaml").write_text("services: {}
+")
+    files = run_probe(repo, 'echo "$COMPOSE_FILE"').split(":")
+    assert files[-1].endswith("optional/compose.extras.yaml")

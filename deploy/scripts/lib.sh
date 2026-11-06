@@ -22,9 +22,19 @@ env_value() {
 }
 
 # Compose picks up COMPOSE_FILE, COMPOSE_PROJECT_NAME and .env from the install folder, so a setup
-# with optional files (compose.backup.yaml ...) keeps using them. Without COMPOSE_FILE: compose.yaml.
+# with optional files (compose.backup.yaml ...) keeps using them. Without COMPOSE_FILE: compose.yaml,
+# plus compose.extras.yaml when it is there (its services all sit behind profiles, so loading it starts
+# nothing; it lets the scripts see and stop the worker of an install that uses it).
 COMPOSE_FILE=$(env_value COMPOSE_FILE "")
-[ -n "$COMPOSE_FILE" ] || COMPOSE_FILE="$NATIVE_DIR/compose.yaml"
+if [ -z "$COMPOSE_FILE" ]; then
+  COMPOSE_FILE="$NATIVE_DIR/compose.yaml"
+  for extras in compose.extras.yaml optional/compose.extras.yaml; do
+    if [ -f "$DEPLOY_DIR/$extras" ]; then
+      COMPOSE_FILE="$COMPOSE_FILE${COMPOSE_PATH_SEPARATOR:-:}$NATIVE_DIR/$extras"
+      break
+    fi
+  done
+fi
 export COMPOSE_FILE
 
 fc() { docker compose --project-directory "$NATIVE_DIR" "$@"; }

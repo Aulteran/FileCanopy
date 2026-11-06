@@ -1,6 +1,6 @@
 # Sealed OCR container (M11). Build: docker build -f ocr/Dockerfile ocr
 # No network (a Unix socket in a volume shared with the API), read-only root: see the `ocr`
-# service in deploy/compose.yaml. More languages: --build-arg OCR_LANG_PACKAGES="tesseract-ocr-deu"
+# service in deploy/optional/compose.extras.yaml. More languages: --build-arg OCR_LANG_PACKAGES="tesseract-ocr-deu"
 FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 ARG OCR_LANG_PACKAGES=""
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
