@@ -1,6 +1,6 @@
-# Optional AI
+# AI
 
-This guide covers setting up the AI behind FileCanopy's organizing, chat and search features. (FileCanopy still runs if you skip it.) Design and threat model:
+This guide covers setting up the AI behind FileCanopy's organizing, chat and search features. Design and threat model:
 `docs/milestones/M15-design-and-plan.md`.
 
 ## What exists
@@ -35,15 +35,27 @@ keys.
   are still refused. The web administrator cannot change this list. People cannot add local addresses (the server would otherwise act as a proxy to your
   network).
 
+## Turning AI on and adding models
+
+An administrator opens the AI dialog and ticks **Enable AI on this server?** Until then no AI
+runs for anyone. Then, under **Models**, add one or more (up to 8): each is a cloud service
+(Anthropic, OpenAI, Gemini) or, with **This is a local model** ticked, Ollama or another
+OpenAI-compatible server on your network. The first model is the **default**; "Make this the
+default" changes it, and removing the default promotes the next one. Turning the switch off stops
+all AI again (models and keys are kept).
+
 ## Who uses what
 
-- Shared files: the server's provider only.
-- A person's personal files: Off (default), the server's provider, the server's provider only if
-  it is local, or their own cloud provider and budget. A file in someone else's personal folder is
-  never sent on your account, even if it was shared with you.
-- Choosing "Use the server's AI" while it is a cloud service asks the person to agree first; if the
-  administrator later changes the provider or vendor, their files stop using it until they agree
-  again (the AI dialog shows this).
+- Shared files: the server's default model.
+- A person's personal files: each person answers "Do you want to use AI?" in the AI dialog:
+  **No** (the default); **Yes, use the default server AI** (the default model's name is shown); or
+  **Yes, use local AI only** (shown only when a local model exists; it uses the default if that
+  is local, else the oldest enabled local model). Under Advanced a person can instead use their own
+  cloud provider and budget. A file in someone else's personal folder is never sent on your
+  account, even if it was shared with you.
+- Choosing the default server AI while it is a cloud service asks the person to agree first; if the
+  administrator later changes the default model or its vendor, their files stop using it until
+  they agree again (the AI dialog shows this).
 - Everyone on the server's AI shares one budget, so one person can use it up; set the cap with that
   in mind.
 - Private and Confidential files never go to a cloud provider. A local provider needs the person's

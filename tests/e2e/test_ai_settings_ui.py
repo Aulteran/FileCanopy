@@ -46,9 +46,12 @@ def test_dialogs_fit_their_content_and_scroll_when_tall(browser: Browser, world:
 
 
 def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world: World) -> None:
-    page = sign_in(browser, world, world.alice_mail)
+    page = sign_in(browser, world, "admin@example.com")
     _open_ai(page)
     dialog = page.get_by_role("dialog", name="AI")
+    # the administrator turns AI on for the server, then starts adding a model
+    dialog.get_by_label("Enable AI on this server?").check()
+    dialog.get_by_role("button", name="Add a model").click()
 
     # Anthropic is the first cloud provider, so the form starts on it.
     def field(label: str, tag: str) -> Locator:
@@ -79,7 +82,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     expect(price_in).to_have_value("4")  # not wiped while typing
 
     # the long cloud notice wraps; its checkbox sits level with the first line, not mid-paragraph
-    dialog.get_by_label("Turn this provider on").check()
+    dialog.get_by_label("Turn this model on").check()
     consent = dialog.locator("label").filter(has_text="Files in Private and Confidential").last
     expect(consent).to_be_visible()
     gap = consent.evaluate(

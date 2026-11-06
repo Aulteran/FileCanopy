@@ -22,18 +22,12 @@ import {
   modelChoice,
 } from "./aiModels";
 import { Modal } from "./Dialogs";
+import { OWN_AI, kindsFor, personalChoices } from "./aiChoices";
 import { describeError } from "./format";
 
-// Optional AI (M15). Nothing here is needed to use the app. Private and Confidential files are
-// never sent to a cloud provider; the server enforces that, not this screen.
+// AI settings (M15, redesigned in 0026). Private and Confidential files are never sent to a cloud
+// provider; the server enforces that, not this screen.
 
-const PREFERENCE_LABELS: Record<string, string> = {
-  off: "Off for my files",
-  instance_default: "Use the server's AI",
-  instance_default_local_only:
-    "Use the server's AI only if it runs on this server",
-  my_provider: "Use my own provider",
-};
 const KIND_LABELS: Record<string, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI",
@@ -65,6 +59,7 @@ function ProviderForm({
   usage,
   scope,
   onChanged,
+  onDone,
 }: {
   kinds: string[];
   current: AiProvider | null;
@@ -72,8 +67,15 @@ function ProviderForm({
   usage: AiUsage | null;
   scope: "me" | "instance";
   onChanged: () => void;
+  onDone?: () => void;
 }) {
-  const initialKind = current?.kind ?? kinds[0] ?? "anthropic";
+  // A server model may be local (its own checkbox picks the kinds); a person's own is cloud only.
+  const [local, setLocal] = useState(
+    current ? current.mode === "local" : false,
+  );
+  const shownKinds = scope === "instance" ? kindsFor(local, kinds) : kinds;
+  const initialKind = current?.kind ?? shownKinds[0] ?? "anthropic";
+  const [label, setLabel] = useState(current?.label ?? "");
   const [kind, setKind] = useState(initialKind);
   const [model, setModel] = useState(
     current ? current.model : defaultModel(initialKind),
@@ -109,6 +111,11 @@ function ProviderForm({
   // The prices are only ever typed by hand for a model we have no list price for.
   const pricesKnown = !!findModel(kind, model) && !custom;
 
+  function changeLocal(next: boolean) {
+    setLocal(next);
+    changeKind(kindsFor(next, kinds)[0] ?? "anthropic");
+  }
+
   function changeKind(next: string) {
     setKind(next);
     const first = defaultModel(next);
@@ -140,10 +147,11 @@ function ProviderForm({
           test: api.aiTestMine,
         }
       : {
-          put: api.aiPutInstance,
-          del: api.aiDeleteInstance,
+          put: (b: AiProviderInput) =>
+            current ? api.aiPutModel(current.id, b) : api.aiAddModel(b),
+          del: () => api.aiDeleteModel(current?.id ?? ""),
           cap: api.aiSetInstanceCap,
-          test: api.aiTestInstance,
+          test: (billed: boolean) => api.aiTestModel(current?.id ?? "", billed),
         };
 
   async function attempt(work: () => Promise<unknown>, done: string) {
@@ -152,6 +160,7 @@ function ProviderForm({
       setError("");
       setMsg(done);
       onChanged();
+      onDone?.();
     } catch (err) {
       setMsg("");
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
@@ -163,6 +172,7 @@ function ProviderForm({
     const body: AiProviderInput = {
       kind,
       model,
+      label: label.trim(),
       endpoint: cloud ? "" : endpoint,
       price_in_micro: cloud ? toMicro(priceIn) : 0,
       price_out_micro: cloud ? toMicro(priceOut) : 0,
@@ -175,10 +185,32 @@ function ProviderForm({
 
   return (
     <form onSubmit={save}>
+      {scope === "instance" && (
+        <>
+          <label>
+            Name (optional)
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              maxLength={80}
+              placeholder="Shown to people choosing AI"
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={local}
+              disabled={!!current}
+              onChange={(e) => changeLocal(e.target.checked)}
+            />
+            This is a local model (runs on your own hardware)
+          </label>
+        </>
+      )}
       <label>
         Provider
         <select value={kind} onChange={(e) => changeKind(e.target.value)}>
-          {kinds.map((k) => (
+          {shownKinds.map((k) => (
             <option key={k} value={k}>
               {KIND_LABELS[k] ?? k}
             </option>
@@ -269,7 +301,7 @@ function ProviderForm({
           checked={enabled}
           onChange={(e) => setEnabled(e.target.checked)}
         />
-        Turn this provider on
+        Turn this {scope === "instance" ? "model" : "provider"} on
       </label>
       {cloud && enabled && !current?.consent_ok && (
         <label>
@@ -286,7 +318,7 @@ function ProviderForm({
         {current && (
           <button
             type="button"
-            onClick={() => void attempt(fns.del, "Provider removed.")}
+            onClick={() => void attempt(fns.del, "Removed.")}
           >
             Remove
           </button>
@@ -708,6 +740,109 @@ function SemanticSection({ admin }: { admin: boolean }) {
   );
 }
 
+function ModelsSection({
+  instance,
+  onChanged,
+}: {
+  instance: AiInstance;
+  onChanged: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
+  const [cap, setCap] = useState(String(instance.usage.cap_micro / 1_000_000));
+  const [msg, setMsg] = useState("");
+
+  async function run(work: () => Promise<unknown>, done = "") {
+    try {
+      await work();
+      setError("");
+      setMsg(done);
+      onChanged();
+    } catch (err) {
+      setMsg("");
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
+
+  return (
+    <>
+      <h4>Models</h4>
+      <p className="muted">
+        Add the models people can use. One is the default; people who choose the
+        server's AI get the default, and "local AI only" uses a local model.
+      </p>
+      {instance.models.length === 0 && (
+        <p className="muted">No models yet. Add one to start.</p>
+      )}
+      {instance.models.map((m) => (
+        <details key={m.id}>
+          <summary>
+            {m.label || m.model} ({m.mode === "local" ? "local" : "cloud"}
+            {m.is_default ? ", default" : ""}
+            {m.enabled ? "" : ", off"})
+          </summary>
+          {!m.is_default && (
+            <button
+              type="button"
+              onClick={() => void run(() => api.aiSetDefaultModel(m.id))}
+            >
+              Make this the default
+            </button>
+          )}
+          <ProviderForm
+            kinds={instance.kinds}
+            current={m}
+            notice={instance.notice}
+            usage={null}
+            scope="instance"
+            onChanged={onChanged}
+          />
+        </details>
+      ))}
+      {adding ? (
+        <ProviderForm
+          kinds={instance.kinds}
+          current={null}
+          notice={instance.notice}
+          usage={null}
+          scope="instance"
+          onChanged={onChanged}
+          onDone={() => setAdding(false)}
+        />
+      ) : (
+        instance.models.length < instance.max_models && (
+          <button type="button" onClick={() => setAdding(true)}>
+            Add a model
+          </button>
+        )
+      )}
+      <UsageLine usage={instance.usage} />
+      <label>
+        Monthly limit for cloud models on this server (USD)
+        <input
+          inputMode="decimal"
+          value={cap}
+          onChange={(e) => setCap(e.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() =>
+          void run(() => api.aiSetInstanceCap(toMicro(cap)), "Limit saved.")
+        }
+      >
+        Save limit
+      </button>
+      {msg && <p role="status">{msg}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function AiSettings({
   admin,
   onClose,
@@ -737,48 +872,64 @@ export function AiSettings({
   async function choose(preference: string): Promise<void> {
     try {
       await api.aiSetPreference(preference, ack);
+      setError("");
       load();
     } catch (err) {
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
     }
   }
 
+  async function toggleServer(enabled: boolean): Promise<void> {
+    try {
+      await api.aiSetServerEnabled(enabled);
+      setError("");
+      load();
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
+
+  const enabled = status?.server_ai_enabled ?? false;
   return (
     <Modal title="AI" onClose={onClose}>
       <p className="muted">
-        AI is optional. FileCanopy works fully without it. Files in Private and
-        Confidential folders are never sent to a cloud provider.
+        FileCanopy's AI can organize your files, search them and answer
+        questions about them. Files in Private and Confidential folders are
+        never sent to a cloud provider.
       </p>
-      {status && !status.secrets_key_configured && (
+      {status && enabled && !status.secrets_key_configured && (
         <p className="muted">
           This server has no secrets key set, so cloud API keys cannot be
-          stored. Local providers still work.
+          stored. Local models still work.
         </p>
       )}
       {status && (
         <section>
           <h3>My files</h3>
-          <label>
-            How AI may be used on my personal files
-            <select
-              value={status.preference}
-              onChange={(e) => void choose(e.target.value)}
-            >
-              {status.preferences.map((p) => (
-                <option key={p} value={p}>
-                  {PREFERENCE_LABELS[p] ?? p}
-                </option>
+          {enabled ? (
+            <fieldset>
+              <legend>Do you want to use AI?</legend>
+              {personalChoices(status).map((c) => (
+                <label key={c.value}>
+                  <input
+                    type="radio"
+                    name="ai-choice"
+                    checked={status.preference === c.value}
+                    onChange={() => void choose(c.value)}
+                  />
+                  {c.label}
+                  {c.note && <span className="muted"> {c.note}</span>}
+                </label>
               ))}
-            </select>
-          </label>
-          {status.instance_kind && (
+            </fieldset>
+          ) : (
             <p className="muted">
-              The server's AI is{" "}
-              {KIND_LABELS[status.instance_kind] ?? status.instance_kind}
-              {status.instance_host ? ` at ${status.instance_host}` : ""}.
+              AI is not turned on for this server
+              {admin ? "; turn it on below." : ". Ask an administrator."}
             </p>
           )}
-          {status.instance_mode === "cloud" &&
+          {enabled &&
+            status.instance_mode === "cloud" &&
             (status.preference === "instance_default" ||
               status.instance_needs_ack) && (
               <>
@@ -795,37 +946,52 @@ export function AiSettings({
                     type="button"
                     onClick={() => void choose("instance_default")}
                   >
-                    Agree and use the server's AI
+                    Agree and use the default server AI
                   </button>
                 )}
               </>
             )}
-          <h4>My own provider</h4>
-          <ProviderForm
-            key={status.my_provider?.id ?? "none"}
-            kinds={status.cloud_kinds}
-            current={status.my_provider}
-            notice={status.notice}
-            usage={status.my_usage}
-            scope="me"
-            onChanged={load}
-          />
+          {enabled && (
+            <details open={status.preference === OWN_AI}>
+              <summary>Advanced: use my own provider</summary>
+              <label>
+                <input
+                  type="radio"
+                  name="ai-choice"
+                  checked={status.preference === OWN_AI}
+                  onChange={() => void choose(OWN_AI)}
+                />
+                Use my own provider for my files
+              </label>
+              <ProviderForm
+                key={status.my_provider?.id ?? "none"}
+                kinds={status.cloud_kinds}
+                current={status.my_provider}
+                notice={status.notice}
+                usage={status.my_usage}
+                scope="me"
+                onChanged={load}
+              />
+            </details>
+          )}
         </section>
       )}
-      <OrganizeSection admin={admin} />
+      {enabled && <OrganizeSection admin={admin} />}
       <SemanticSection admin={admin} />
       {admin && instance && (
         <section>
-          <h3>Server AI (shared files)</h3>
-          <ProviderForm
-            key={instance.provider?.id ?? "none"}
-            kinds={instance.kinds}
-            current={instance.provider}
-            notice={instance.notice}
-            usage={instance.usage}
-            scope="instance"
-            onChanged={load}
-          />
+          <h3>AI on this server</h3>
+          <label>
+            <input
+              type="checkbox"
+              checked={instance.enabled}
+              onChange={(e) => void toggleServer(e.target.checked)}
+            />
+            Enable AI on this server?
+          </label>
+          {instance.enabled && (
+            <ModelsSection instance={instance} onChanged={load} />
+          )}
         </section>
       )}
       {error && (

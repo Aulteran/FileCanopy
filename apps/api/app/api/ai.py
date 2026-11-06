@@ -1,6 +1,7 @@
 """AI configuration, consent, caps and usage (M15). No route here reads a document.
 
-Administrators manage only the instance provider. A person manages only their own provider (a
+Administrators manage the server's models (several, one of them the default) and the server-wide
+AI switch. A person manages only their own provider (a
 cloud vendor; local endpoints are administrator-only, design D3). No response ever carries an API
 key, and an administrator never sees whose provider or budget a person has.
 """
@@ -26,13 +27,19 @@ from app.ai.providers import (
     validate_model,
 )
 from app.ai.routing import (
+    AI_ENABLED_KEY,
     CONSENT_VERSION,
     INSTANCE_PROVIDER_KEY,
+    MAX_INSTANCE_MODELS,
     PREFERENCES,
     AiRefused,
+    default_instance_model,
+    instance_local_provider,
+    instance_models,
     instance_provider,
     instance_signature,
     resolve_route,
+    server_ai_enabled,
 )
 from app.ai.secrets import SecretBox, SecretsError, aad_for
 from app.auth import clock
@@ -71,6 +78,8 @@ def box_of(request: Request) -> SecretBox:
 
 class ProviderOut(BaseModel):
     id: uuid.UUID
+    label: str = ""
+    is_default: bool = False
     kind: str
     mode: str
     model: str
@@ -86,6 +95,7 @@ class ProviderBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["anthropic", "openai", "gemini", "ollama", "openai_compatible"]
     model: str = Field(min_length=1, max_length=120)
+    label: str = Field(default="", max_length=80)
     endpoint: str = Field(default="", max_length=300)
     # Omitted = keep the stored key; "" = remove it.
     api_key: str | None = Field(default=None, max_length=512)
@@ -108,14 +118,26 @@ class PreferenceBody(BaseModel):
     acknowledge_instance: bool = False
 
 
+class EnabledBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+
+
+class DefaultBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: uuid.UUID
+
+
 class TestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     confirm_billed: bool = False
 
 
-def _out(p: AiProvider) -> ProviderOut:
+def _out(p: AiProvider, default_id: uuid.UUID | None = None) -> ProviderOut:
     return ProviderOut(
         id=p.id,
+        label=p.label,
+        is_default=p.id == default_id,
         kind=p.kind,
         mode=p.privacy_mode,
         model=p.model,
@@ -156,7 +178,71 @@ def _usage(db: Session, scope_key: str, default_cap: int) -> dict[str, Any]:
 
 
 def _instance(db: Session) -> AiProvider | None:
-    return db.scalar(select(AiProvider).where(AiProvider.scope == "instance"))
+    """The server's default model, whether or not it is switched on."""
+    return default_instance_model(db)
+
+
+def _instance_model(db: Session, model_id: uuid.UUID) -> AiProvider:
+    p = db.get(AiProvider, model_id)
+    if p is None or p.scope != "instance":
+        raise http_error(404, "NO_PROVIDER")
+    return p
+
+
+def _set_default(db: Session, provider: AiProvider | None) -> None:
+    setting = db.get(AppSetting, INSTANCE_PROVIDER_KEY)
+    if provider is None:
+        if setting is not None:
+            db.delete(setting)
+    elif setting is None:
+        db.add(AppSetting(key=INSTANCE_PROVIDER_KEY, value=str(provider.id)))
+    else:
+        setting.value = str(provider.id)
+
+
+def _save_instance(
+    request: Request,
+    db: Session,
+    principal: Principal,
+    existing: AiProvider | None,
+    body: ProviderBody,
+) -> AiProvider:
+    """Create or update one server model; the first one becomes the default."""
+    if existing is None and len(instance_models(db)) >= MAX_INSTANCE_MODELS:
+        raise http_error(409, "TOO_MANY_MODELS")
+    had_default = default_instance_model(db)
+    provider = _save(request, db, principal, existing, body, scope="instance")
+    _commit_provider(db, flush=True)
+    if had_default is None:
+        _set_default(db, provider)
+    audit(
+        db,
+        "ai.provider_set",
+        actor=principal.user.id,
+        ip=client_ip(request),
+        scope="instance",
+        kind=provider.kind,
+        enabled=provider.enabled,
+    )
+    _commit_provider(db)
+    return provider
+
+
+def _delete_instance(request: Request, db: Session, principal: Principal, p: AiProvider) -> None:
+    was_default = default_instance_model(db)
+    db.delete(p)
+    db.flush()
+    if was_default is not None and was_default.id == p.id:
+        rest = instance_models(db)
+        _set_default(db, rest[0] if rest else None)
+    audit(
+        db,
+        "ai.provider_removed",
+        actor=principal.user.id,
+        ip=client_ip(request),
+        scope="instance",
+    )
+    db.commit()
 
 
 def _mine(db: Session, user: User) -> AiProvider | None:
@@ -199,6 +285,7 @@ def _save(
         created_at=clock.utcnow(),
     )
     provider.kind, provider.privacy_mode, provider.model = body.kind, mode, model
+    provider.label = body.label.strip()
     provider.endpoint = endpoint
     provider.price_in_micro, provider.price_out_micro = body.price_in_micro, body.price_out_micro
     if body.api_key is not None:
@@ -225,6 +312,12 @@ def _save(
     return provider
 
 
+def _model_name(p: AiProvider | None) -> str | None:
+    if p is None:
+        return None
+    return p.label or p.model
+
+
 @router.get("/status")
 def status(
     request: Request,
@@ -233,7 +326,8 @@ def status(
 ) -> dict[str, Any]:
     cfg = ctx_of(request).settings
     user = principal.user
-    inst = _instance(db)
+    inst = instance_provider(db)  # None when the server's AI is off or the default is off
+    local = instance_local_provider(db)
     mine = _mine(db, user)
     shared = resolve_route(db, root_kind="shared", owner=None)
     personal = resolve_route(db, root_kind="personal", owner=user)
@@ -245,12 +339,16 @@ def status(
         "preferences": list(PREFERENCES),
         "instance_available": shared.provider is not None,
         # What choosing the server's AI would mean: where it runs, so a person can judge it.
-        "instance_kind": inst.kind if inst and inst.enabled else None,
-        "instance_host": (urlparse(inst.endpoint).netloc if inst and inst.enabled else None)
-        or None,
+        "instance_kind": inst.kind if inst else None,
+        "instance_host": (urlparse(inst.endpoint).netloc if inst else None) or None,
         "instance_needs_ack": personal.reason == "instance_consent_required",
         # Only the facts a person needs: not the endpoint or key state of the instance provider.
-        "instance_mode": inst.privacy_mode if inst and inst.enabled else None,
+        "instance_mode": inst.privacy_mode if inst else None,
+        "server_ai_enabled": server_ai_enabled(db),
+        # The names a person sees when choosing; never an address or key state.
+        "default_model": _model_name(inst),
+        "local_model": _model_name(local),
+        "local_available": local is not None,
         "shared_tree_ai": shared.provider is not None,
         "personal_tree_ai": personal.provider is not None,
         "personal_tree_reason": personal.reason,
@@ -269,6 +367,8 @@ def set_preference(
     db: Session = Depends(get_db),
 ) -> Ok:
     user = principal.user
+    if body.preference != "off" and not server_ai_enabled(db):
+        raise http_error(409, "AI_NOT_ENABLED")
     if body.preference == "instance_default":
         shared = instance_provider(db)
         if shared is not None and shared.privacy_mode == "cloud":
@@ -353,17 +453,106 @@ def get_instance(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     cfg = ctx_of(request).settings
-    p = _instance(db)
+    default = default_instance_model(db)
+    default_id = default.id if default else None
     return {
         "secrets_key_configured": box_of(request).configured,
         "notice": NOTICE,
         "consent_version": CONSENT_VERSION,
-        "provider": _out(p) if p else None,
+        "enabled": server_ai_enabled(db),
+        "models": [_out(m, default_id) for m in instance_models(db)],
+        "max_models": MAX_INSTANCE_MODELS,
+        # The default model, for single-model callers.
+        "provider": _out(default, default_id) if default else None,
         "usage": _usage(db, "instance", cfg.ai_default_cap_micro),
         "kinds": list(KINDS),
     }
 
 
+@router.put("/instance/enabled", response_model=Ok)
+def set_server_enabled(
+    body: EnabledBody,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    setting = db.get(AppSetting, AI_ENABLED_KEY)
+    if setting is None:
+        db.add(AppSetting(key=AI_ENABLED_KEY, value=body.enabled))
+    else:
+        setting.value = body.enabled
+    audit(
+        db,
+        "ai.server_enabled",
+        actor=principal.user.id,
+        ip=client_ip(request),
+        value=body.enabled,
+    )
+    db.commit()
+    return Ok()
+
+
+@router.post("/instance/models", response_model=ProviderOut)
+def add_instance_model(
+    body: ProviderBody,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ProviderOut:
+    p = _save_instance(request, db, principal, None, body)
+    d = default_instance_model(db)
+    return _out(p, d.id if d else None)
+
+
+@router.put("/instance/models/{model_id}", response_model=ProviderOut)
+def put_instance_model(
+    model_id: uuid.UUID,
+    body: ProviderBody,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ProviderOut:
+    p = _save_instance(request, db, principal, _instance_model(db, model_id), body)
+    d = default_instance_model(db)
+    return _out(p, d.id if d else None)
+
+
+@router.delete("/instance/models/{model_id}", response_model=Ok)
+def delete_instance_model(
+    model_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    _delete_instance(request, db, principal, _instance_model(db, model_id))
+    return Ok()
+
+
+@router.put("/instance/default", response_model=Ok)
+def set_default_model(
+    body: DefaultBody,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    _set_default(db, _instance_model(db, body.id))
+    audit(db, "ai.default_model", actor=principal.user.id, ip=client_ip(request))
+    db.commit()
+    return Ok()
+
+
+@router.post("/instance/models/{model_id}/test", response_model=Ok)
+def test_instance_model(
+    model_id: uuid.UUID,
+    body: TestBody,
+    request: Request,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    return _probe(request, principal, _instance_model(db, model_id), body)
+
+
+# Single-model shortcuts: the default model (created and made default when there is none).
 @router.put("/instance/provider", response_model=ProviderOut)
 def put_instance_provider(
     body: ProviderBody,
@@ -371,24 +560,8 @@ def put_instance_provider(
     principal: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ProviderOut:
-    provider = _save(request, db, principal, _instance(db), body, scope="instance")
-    _commit_provider(db, flush=True)
-    setting = db.get(AppSetting, INSTANCE_PROVIDER_KEY)
-    if setting is None:
-        db.add(AppSetting(key=INSTANCE_PROVIDER_KEY, value=str(provider.id)))
-    else:
-        setting.value = str(provider.id)
-    audit(
-        db,
-        "ai.provider_set",
-        actor=principal.user.id,
-        ip=client_ip(request),
-        scope="instance",
-        kind=provider.kind,
-        enabled=provider.enabled,
-    )
-    _commit_provider(db)
-    return _out(provider)
+    provider = _save_instance(request, db, principal, _instance(db), body)
+    return _out(provider, provider.id)
 
 
 @router.delete("/instance/provider", response_model=Ok)
@@ -398,17 +571,7 @@ def delete_instance_provider(
     db: Session = Depends(get_db),
 ) -> Ok:
     if (p := _instance(db)) is not None:
-        db.delete(p)
-        if (setting := db.get(AppSetting, INSTANCE_PROVIDER_KEY)) is not None:
-            db.delete(setting)
-        audit(
-            db,
-            "ai.provider_removed",
-            actor=principal.user.id,
-            ip=client_ip(request),
-            scope="instance",
-        )
-        db.commit()
+        _delete_instance(request, db, principal, p)
     return Ok()
 
 
