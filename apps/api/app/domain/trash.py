@@ -5,8 +5,9 @@ of the root directories on the library device, so the rename is instant and need
 and it is outside every root, so users, the scanner and backups never see it. A trash failure never
 falls back to a hard delete. Paths are derived from ids and never stored or returned.
 
-Every mutation follows the action contract of `docs/04_DATA_FILESYSTEM.md` (authorize, journal, claim,
-filesystem step, one database transaction) and is covered by startup recovery (`recover_one`): a
+Every mutation follows the action contract of `docs/04_DATA_FILESYSTEM.md` (authorize, journal,
+claim, filesystem step, one database transaction) and is covered by startup recovery
+(`recover_one`): a
 rename that completed is rolled forward, one that provably did not start is rolled back, and
 anything else says `reconcile_needed`. A cross-root move that is interrupted leaves both copies,
 never a lost file.
