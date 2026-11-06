@@ -12,6 +12,15 @@ import {
   type SemanticAdmin,
   type SemanticMe,
 } from "./api";
+import {
+  CUSTOM_MODEL,
+  KNOWN_MODELS,
+  defaultModel,
+  defaultPrices,
+  findModel,
+  hasModelList,
+  modelChoice,
+} from "./aiModels";
 import { Modal } from "./Dialogs";
 import { describeError } from "./format";
 
@@ -64,16 +73,28 @@ function ProviderForm({
   scope: "me" | "instance";
   onChanged: () => void;
 }) {
-  const [kind, setKind] = useState(current?.kind ?? kinds[0] ?? "anthropic");
-  const [model, setModel] = useState(current?.model ?? "");
+  const initialKind = current?.kind ?? kinds[0] ?? "anthropic";
+  const [kind, setKind] = useState(initialKind);
+  const [model, setModel] = useState(
+    current ? current.model : defaultModel(initialKind),
+  );
+  // "other" is chosen by hand; a saved name outside the list also shows as "other".
+  const [custom, setCustom] = useState(
+    current
+      ? hasModelList(initialKind) &&
+          modelChoice(initialKind, current.model) === CUSTOM_MODEL
+      : false,
+  );
   const [endpoint, setEndpoint] = useState(current?.endpoint ?? "");
   const [apiKey, setApiKey] = useState("");
-  const [priceIn, setPriceIn] = useState(
-    current ? String(current.price_in_micro / 1_000_000) : "",
-  );
-  const [priceOut, setPriceOut] = useState(
-    current ? String(current.price_out_micro / 1_000_000) : "",
-  );
+  const initialPrices = current
+    ? {
+        priceIn: String(current.price_in_micro / 1_000_000),
+        priceOut: String(current.price_out_micro / 1_000_000),
+      }
+    : defaultPrices(initialKind, defaultModel(initialKind));
+  const [priceIn, setPriceIn] = useState(initialPrices.priceIn);
+  const [priceOut, setPriceOut] = useState(initialPrices.priceOut);
   const [enabled, setEnabled] = useState(current?.enabled ?? false);
   const [ack, setAck] = useState(false);
   const [cap, setCap] = useState(
@@ -83,6 +104,33 @@ function ProviderForm({
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const cloud = !["ollama", "openai_compatible"].includes(kind);
+  const listed = cloud && hasModelList(kind);
+  const choice = custom ? CUSTOM_MODEL : modelChoice(kind, model);
+  // The prices are only ever typed by hand for a model we have no list price for.
+  const pricesKnown = !!findModel(kind, model) && !custom;
+
+  function changeKind(next: string) {
+    setKind(next);
+    const first = defaultModel(next);
+    setModel(first);
+    setCustom(false);
+    const p = defaultPrices(next, first);
+    setPriceIn(p.priceIn);
+    setPriceOut(p.priceOut);
+  }
+
+  function changeModel(value: string) {
+    if (value === CUSTOM_MODEL) {
+      setCustom(true);
+      return;
+    }
+    setCustom(false);
+    setModel(value);
+    const p = defaultPrices(kind, value);
+    setPriceIn(p.priceIn);
+    setPriceOut(p.priceOut);
+  }
+
   const fns =
     scope === "me"
       ? {
@@ -129,7 +177,7 @@ function ProviderForm({
     <form onSubmit={save}>
       <label>
         Provider
-        <select value={kind} onChange={(e) => setKind(e.target.value)}>
+        <select value={kind} onChange={(e) => changeKind(e.target.value)}>
           {kinds.map((k) => (
             <option key={k} value={k}>
               {KIND_LABELS[k] ?? k}
@@ -137,15 +185,30 @@ function ProviderForm({
           ))}
         </select>
       </label>
-      <label>
-        Model
-        <input
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          required
-          maxLength={120}
-        />
-      </label>
+      {listed && (
+        <label>
+          Model
+          <select value={choice} onChange={(e) => changeModel(e.target.value)}>
+            {KNOWN_MODELS[kind]?.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+            <option value={CUSTOM_MODEL}>Other model (type its name)</option>
+          </select>
+        </label>
+      )}
+      {(!listed || custom) && (
+        <label>
+          {listed ? "Model name" : "Model"}
+          <input
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            required
+            maxLength={120}
+          />
+        </label>
+      )}
       {!cloud && (
         <label>
           Address on your network
@@ -173,22 +236,31 @@ function ProviderForm({
             Use an API key from the provider's developer console. A chat
             subscription is not an API key.
           </p>
-          <label>
-            Price per million input tokens (USD)
-            <input
-              inputMode="decimal"
-              value={priceIn}
-              onChange={(e) => setPriceIn(e.target.value)}
-            />
-          </label>
-          <label>
-            Price per million output tokens (USD)
-            <input
-              inputMode="decimal"
-              value={priceOut}
-              onChange={(e) => setPriceOut(e.target.value)}
-            />
-          </label>
+          <details open={!pricesKnown}>
+            <summary>Advanced: prices used for the monthly limit</summary>
+            <p className="muted">
+              {pricesKnown
+                ? "Filled in for this model. Change them only if your plan has different prices."
+                : "FileCanopy cannot look up prices for this model. Enter them from your provider's price list."}{" "}
+              They only estimate spending against the monthly limit.
+            </p>
+            <label>
+              Price per million input tokens (USD)
+              <input
+                inputMode="decimal"
+                value={priceIn}
+                onChange={(e) => setPriceIn(e.target.value)}
+              />
+            </label>
+            <label>
+              Price per million output tokens (USD)
+              <input
+                inputMode="decimal"
+                value={priceOut}
+                onChange={(e) => setPriceOut(e.target.value)}
+              />
+            </label>
+          </details>
         </>
       )}
       <label>
