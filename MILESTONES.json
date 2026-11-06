@@ -1,6 +1,6 @@
 {
   "project": "FileCanopy",
-  "status": "m24_in_progress",
+  "status": "mf_in_progress",
   "schema_version": 1,
   "model_guidance": "Haiku 5.5 for small docs/scaffolding; Sonnet 5.5 routine implementation; Opus 5.5 only high-stakes security/architectural review subject to Claude Code plan access",
   "milestones": [
@@ -917,7 +917,7 @@
         "dry-run publish evidence",
         "anonymous pull and install test against published image"
       ],
-      "notes": "Prep in progress 2026-11-05 on branch mf-branch-promotion: ci.yml runs on dev/beta/release, publish.yml gated (beta/release only, MF_PUBLISH_ENABLED variable, branch-named environments, GITHUB_TOKEN only, buildx SBOM and provenance), anonymous-pull script with unit tests, workflow assertion tests. Not done: branch rename, rulesets, environments, GHCR push, dry-run evidence, anonymous pull and install test, Opus permission review. Originally planned as; see docs/milestones/MF-design-and-plan.md. Nothing created or published. Stable release is undefined until the owner defines it. MF is the permanent final milestone and carries no number so it never needs renumbering: any future milestones (e.g. the proposed M27 backup jobs) are inserted before MF.",
+      "notes": "First public beta published 2026-11-06 (beta channel only; no stable release). PR #43 (merge b68dec2, first beta candidate, 1.0.0 workflows, amd64 only) and PR #44 (merge 283c739) promoted dev to beta. Beta images ghcr.io/aulteran/filecanopy-{postgres,api,web,converter,ocr}:beta are public. Anonymous pull and a pull-and-run install test (setup, upload) passed on 2026-11-06; the logs are not stored in this repo. publish.yml runs on push to beta or release when MF_PUBLISH_ENABLED is true. The beta environment no longer has a required reviewer (removed by the owner 2026-11-06); release still requires approval. GitHub wiki is live (11 pages). README has a GHCR quick start. Still open: release 1.0.0 publish (owner decides), branch rulesets for dev/beta/release, and the in-progress compose simplification (one short deploy/compose.yaml, opt-in optional services, auto-generated database password; needs a new beta image first). Native Proxmox LXC remains deferred. Stable release is undefined until the owner defines it. MF is the permanent final milestone and carries no number so it never needs renumbering: any future milestones (e.g. the proposed M27 backup jobs) are inserted before MF.",
       "status": "in_progress"
     }
   ]
