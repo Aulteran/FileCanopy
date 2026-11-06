@@ -1528,3 +1528,70 @@ button.admin-card {
 button.admin-card:hover {
   border-color: var(--primary);
 }
+
+/* Organization suggestions: confidence bar as a slider with a matching percent field */
+.confidence {
+  margin: 4px 0 12px 1.5rem;
+}
+.confidence > label {
+  margin-bottom: 4px;
+}
+.confidence-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.confidence-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--primary);
+}
+.percent-field {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: var(--surface);
+}
+.percent-field:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.percent-field input {
+  width: 4.5ch;
+  margin: 0;
+  border: 0;
+  padding-right: 2px;
+  text-align: right;
+  background: transparent;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.percent-field input::-webkit-outer-spin-button,
+.percent-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.percent-field input[aria-invalid="true"] {
+  color: var(--danger);
+}
+.percent-field:has(input[aria-invalid="true"]) {
+  border-color: var(--danger);
+}
+.percent-field > span {
+  padding-right: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.organize-shared .actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

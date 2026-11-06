@@ -9,7 +9,7 @@ import re
 import pytest
 from playwright.sync_api import Browser, Locator, Page, expect
 from support import World, sign_in
-from test_auth_stack import PASSWORD
+from test_auth_stack import PASSWORD, Client
 
 pytestmark = pytest.mark.e2e
 
@@ -46,13 +46,21 @@ def test_dialogs_fit_their_content_and_scroll_when_tall(browser: Browser, world:
 
 
 def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world: World) -> None:
-    page = sign_in(browser, world, world.alice_mail)
+    page = sign_in(browser, world, "admin@example.com")
     _open_ai(page)
     dialog = page.get_by_role("dialog", name="AI")
+    # the administrator turns AI on for the server, then starts adding a model
+    # the box follows the server's answer, so click and wait rather than `check()`
+    switch = dialog.get_by_label("Enable AI on this server?")
+    switch.click()
+    expect(switch).to_be_checked()
+    dialog.get_by_role("button", name="Add a model").click()
+    # an administrator also has "my own provider" further up: work inside the new model's form
+    form = dialog.locator("form").filter(has_text="Name (optional)")
 
     # Anthropic is the first cloud provider, so the form starts on it.
     def field(label: str, tag: str) -> Locator:
-        return dialog.locator("label").filter(has_text=re.compile(f"^{label}")).locator(tag)
+        return form.locator("label").filter(has_text=re.compile(f"^{label}")).locator(tag)
 
     model = field("Model", "select")
     expect(model).to_have_value("claude-sonnet-5-5")
@@ -61,7 +69,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     price_in = field("Price per million input tokens", "input")
     price_out = field("Price per million output tokens", "input")
     expect(price_in).to_be_hidden()
-    dialog.get_by_text("Advanced: prices used for the monthly limit").click()
+    form.get_by_text("Advanced: prices used for the monthly limit").click()
     expect(price_in).to_have_value("2")
     expect(price_out).to_have_value("10")
 
@@ -72,15 +80,15 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
 
     # "Other" lets an advanced user type a name and the prices to go with it
     model.select_option(label="Other model (type its name)")
-    name = dialog.get_by_label("Model name")
+    name = form.get_by_label("Model name")
     expect(name).to_be_visible()
     expect(price_in).to_be_visible()
     name.fill("claude-experimental")
     expect(price_in).to_have_value("4")  # not wiped while typing
 
     # the long cloud notice wraps; its checkbox sits level with the first line, not mid-paragraph
-    dialog.get_by_label("Turn this provider on").check()
-    consent = dialog.locator("label").filter(has_text="Files in Private and Confidential").last
+    form.get_by_label("Turn this model on").check()
+    consent = form.locator("label").filter(has_text="Files in Private and Confidential").last
     expect(consent).to_be_visible()
     gap = consent.evaluate(
         """(l) => {
@@ -114,3 +122,46 @@ def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, wo
     assert first is not None
     assert first["width"] > box["width"] * 0.9, "each step is a card as wide as the column"
     page.context.close()
+
+
+def test_first_time_choosing_a_cloud_server_ai_shows_the_notice_first(
+    browser: Browser, world: World
+) -> None:
+    """Choosing the server's cloud AI shows the notice and waits for the person to agree; nothing
+    is saved before that."""
+    admin = Client(world.stack)
+    assert admin.login("admin@example.com") == 200
+    model = {
+        "kind": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "label": "Cloud Test",
+        "api_key": "sk-test-not-a-real-key",
+        "price_in_micro": 2_000_000,
+        "price_out_micro": 10_000_000,
+        "enabled": True,
+        "acknowledge_cloud": True,
+    }
+    status, created, _ = admin.call("POST", "/api/v1/ai/instance/models", model)
+    assert status == 200, created
+    assert admin.call("PUT", "/api/v1/ai/instance/enabled", {"enabled": True})[0] == 200
+    try:
+        page = sign_in(browser, world, world.alice_mail)
+        _open_ai(page)
+        dialog = page.get_by_role("dialog", name="AI")
+        radio = dialog.get_by_role("radio", name=re.compile("default server AI"))
+        expect(dialog.get_by_text("Cloud Test, cloud: Anthropic")).to_be_visible()
+        radio.check()
+        agree = dialog.get_by_role("button", name="Agree and use the default server AI")
+        expect(dialog.get_by_text("never sent to a cloud provider").last).to_be_visible()
+        expect(agree).to_be_disabled()
+        assert world.alice.call("GET", "/api/v1/ai/status")[1]["preference"] == "off"
+        dialog.get_by_label(re.compile("^Cloud AI sends")).check()
+        agree.click()
+        expect(radio).to_be_checked()
+        expect(agree).to_be_hidden()
+        assert world.alice.call("GET", "/api/v1/ai/status")[1]["preference"] == "instance_default"
+        page.context.close()
+    finally:
+        world.alice.call("PUT", "/api/v1/ai/me/preference", {"preference": "off"})
+        admin.call("DELETE", f"/api/v1/ai/instance/models/{created['id']}")
+        admin.call("PUT", "/api/v1/ai/instance/enabled", {"enabled": False})

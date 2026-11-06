@@ -35,3 +35,13 @@ def test_settings_read_file_and_explicit_wins(tmp_path: Path) -> None:
     assert s.secrets_key.get_secret_value() == "own"
     s = Settings(database_url=DSN, secrets_key_file=str(tmp_path / "none"))  # type: ignore[arg-type]
     assert s.secrets_key.get_secret_value() == ""
+
+
+def test_warns_when_env_key_differs_from_the_generated_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("FILECANOPY_SECRETS_KEY", raising=False)
+    bootstrap.ensure_secrets_key(tmp_path, os.getuid(), os.getgid())
+    monkeypatch.setenv("FILECANOPY_SECRETS_KEY", "something-else")
+    assert not bootstrap.ensure_secrets_key(tmp_path, os.getuid(), os.getgid())
+    assert "differs from the generated key file" in capsys.readouterr().err

@@ -16,7 +16,11 @@ from app.db.models import AiProvider, AppSetting, User
 from app.policy import privacy
 
 PREFERENCES = ("off", "instance_default", "instance_default_local_only", "my_provider")
+# The server's default model (the pointer into `ai_provider`); several instance models may exist.
 INSTANCE_PROVIDER_KEY = "ai.instance_provider_id"
+# The server-wide "Enable AI on this server?" switch. Absent means off.
+AI_ENABLED_KEY = "ai.enabled"
+MAX_INSTANCE_MODELS = 8
 # Bump when the wording shown before cloud AI is enabled changes; consent must match.
 CONSENT_VERSION = 1
 
@@ -36,17 +40,56 @@ class Route:
     reason: str  # why there is no provider; "ok" when there is one
 
 
-def instance_provider(db: Session) -> AiProvider | None:
+def server_ai_enabled(db: Session) -> bool:
+    """The server-wide switch. Off until an administrator turns it on (or adds the first server
+    model); migration 0026 writes it for installs that already used AI."""
+    row = db.get(AppSetting, AI_ENABLED_KEY)
+    return bool(row is not None and row.value is True)
+
+
+def instance_models(db: Session) -> list[AiProvider]:
+    """Every server model, oldest first."""
+    return list(
+        db.scalars(
+            select(AiProvider)
+            .where(AiProvider.scope == "instance")
+            .order_by(AiProvider.created_at, AiProvider.id)
+        )
+    )
+
+
+def default_instance_model(db: Session) -> AiProvider | None:
+    """The marked default, enabled or not. None when no model is marked: never a guess, so that
+    removing a local default cannot quietly move shared files to a cloud model."""
     row = db.get(AppSetting, INSTANCE_PROVIDER_KEY)
     if row is None or not isinstance(row.value, str):
         return None
-    try:
-        provider = db.get(AiProvider, uuid.UUID(row.value))
-    except ValueError:
+    for m in instance_models(db):
+        if str(m.id) == row.value:
+            return m
+    return None
+
+
+def instance_provider(db: Session) -> AiProvider | None:
+    """The default server model, when the server's AI is on and the model is switched on."""
+    if not server_ai_enabled(db):
         return None
-    if provider is None or provider.scope != "instance" or not provider.enabled:
+    provider = default_instance_model(db)
+    return provider if provider is not None and provider.enabled else None
+
+
+def instance_local_provider(db: Session) -> AiProvider | None:
+    """The model "local AI only" uses: the default if it is local, else the oldest enabled local
+    one. Never a cloud model."""
+    if not server_ai_enabled(db):
         return None
-    return provider
+    default = default_instance_model(db)
+    if default is not None and default.enabled and default.privacy_mode == "local":
+        return default
+    for m in instance_models(db):
+        if m.enabled and m.privacy_mode == "local":
+            return m
+    return None
 
 
 def user_provider(db: Session, user_id: uuid.UUID) -> AiProvider | None:
@@ -69,11 +112,17 @@ def resolve_route(db: Session, *, root_kind: str, owner: User | None) -> Route:
     """`root_kind` is the storage root the content lives in. The shared tree uses the instance
     provider and never a person's credentials; a personal tree follows its owner's choice."""
     if root_kind == "shared":
+        if not server_ai_enabled(db):
+            return Route(None, "instance", "ai_not_configured")
         provider = instance_provider(db)
         return Route(provider, "instance", "ok" if provider else "ai_not_configured")
     if root_kind != "personal" or owner is None:
         return Route(None, "instance", "unknown_root")
     choice = owner.ai_preference
+    if choice not in PREFERENCES or choice == "off":
+        return Route(None, "instance", "ai_off")
+    if not server_ai_enabled(db):  # the server switch turns every route off, own providers too
+        return Route(None, "instance", "ai_not_configured")
     if choice == "instance_default":
         provider = instance_provider(db)
         if provider is None:
@@ -82,11 +131,10 @@ def resolve_route(db: Session, *, root_kind: str, owner: User | None) -> Route:
             return Route(None, "instance", "instance_consent_required")
         return Route(provider, "instance", "ok")
     if choice == "instance_default_local_only":
-        provider = instance_provider(db)
+        provider = instance_local_provider(db)
         if provider is None:
-            return Route(None, "instance", "ai_not_configured")
-        if provider.privacy_mode != "local":
-            return Route(None, "instance", "instance_not_local")
+            reason = "instance_not_local" if instance_provider(db) else "ai_not_configured"
+            return Route(None, "instance", reason)
         return Route(provider, "instance", "ok")
     if choice == "my_provider":
         provider = user_provider(db, owner.id)
