@@ -22,7 +22,7 @@ Also optional: [inbound mailbox](guides/inbound-mailbox.md), [Google sign-in](gu
 
 ## Release status
 
-[Release packet](release/README.md) and [known issues](release/known-issues.md).
+[Release packet](release/README.md) and [known issues](release/known-issues.md). Items parked until after 1.0.0 are listed in the [roadmap after 1.0.0](ROADMAP_AFTER_1_0.md).
 
 ## Developing
 
