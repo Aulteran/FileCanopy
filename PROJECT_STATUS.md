@@ -150,6 +150,10 @@
 
 **Historical M06 checkpoint (superseded by M07–M23):** the former not-implemented list included replacing existing files, Range downloads, sharing UI, OIDC, email delivery, previews, search and AI. This is not the current feature inventory; use the current milestone entries, README and release known-issues register. Specs alone are not implementation evidence.
 
+## Deferred follow-ups
+
+- Bring back `linux/arm64` image builds later. The first beta and 1.0.0 publish `linux/amd64` only. When ARM64 returns, re-add it in `.github/workflows/publish.yml` (`platforms`), the allowlist in `scripts/release-plan.mjs`, and the matching docs, with real ARM64 build and smoke-test evidence first. Until then, no ARM64 support is claimed.
+
 ## Current blockers
 
 - M24 licence/redistribution clearance: Redis 7.4.12 RSALv2/SSPLv1; PDF.js Liberation fonts GPL v2 with exceptions; native, OS and source/notice obligations and NOASSERTIONs need review. Six local-image scanner SBOMs are generated and schema-validated; final clean-candidate regeneration is still required.
