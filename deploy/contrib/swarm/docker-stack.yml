@@ -11,7 +11,7 @@
 #    restarts until its neighbour is ready. Startup therefore looks like a few restarts at first.
 #  - The database password is a Swarm secret, not an environment variable.
 #  - ONE replica of each service. FileCanopy keeps its state in a folder and a database on one
-#    node; the database and the folders are pinned to the node you label (see the README), so a
+#    node; the database and the folders are pinned to the node you label (see README.md in this folder), so a
 #    reschedule can never start an empty database on another machine.
 #  - Nothing is published to the network. The web service joins the attachable `edge` network;
 #    your TLS reverse proxy joins it too and reaches the app at http://web:8080.

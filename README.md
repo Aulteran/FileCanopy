@@ -1,203 +1,63 @@
 # FileCanopy
 
-FileCanopy is a self-hosted file manager for your documents. You run it yourself with Docker, and it works on ordinary folders on your disk. Your files stay as normal files in a folder you choose, so you can always open them with any other program. The database only stores accounts, permissions and history. It is not a replacement for your files.
+**A self-hosted file manager that keeps your files as normal files, in a folder you own.**
 
-> **Status: public beta.** Beta Docker images are published to GHCR under the `beta` tag (see the quick start below). FileCanopy is the owner-approved name, but external trademark/namespace clearance is still pending. There is no stable release yet. Keep independent backups. [Release evidence and remaining gates](docs/release/README.md).
+[![FileCanopy browsing a folder](site/assets/shots/browser-desktop-light.png)](site/index.html)
 
-## Key features
+*Design preview of the interface.*
 
-- **Your files stay normal files.** The library is a plain folder tree on your disk. Nothing is converted or hidden.
-- **Accounts and roles.** Administrator and user roles, no open sign-up, local or optional OpenID Connect sign-in. Invitations and password resets use single-use links, delivered through optional SMTP or copied by an administrator.
-- **Personal and shared folders.** Each user gets a personal folder. There is also one shared folder, where folders can be given viewer or editor access.
-- **Everyday file work.** Browse folders, upload files and whole folders, download, create folders, rename, move and copy. Keyboard navigation and a phone-friendly layout are included.
-- **Import what you already have.** During first setup you can import an existing folder or a zip file.
-- **Trash, undo and history.** Deleted items go to a trash you can restore from, and recent actions can be undone. An activity log records actions and downloads.
-- **Optional backups.** Encrypted backups of the library can be written to a separate disk you choose. They are off by default.
-- **Document tools.** Sharing, Private/Confidential folders, previews, local text search, optional OCR and verified email intake are implemented. PDF split proposals preserve the source; collections reference files without moving them.
-- **No AI required.** Basic file work runs without AI. Optional providers, validated organisation proposals, local semantic search and single-turn document chat are implemented. MCP is optional, read-only and off by default. See [feature guides](docs/guides/ai.md).
+FileCanopy runs on your own server with Docker and works on ordinary folders on your disk. You can always open your files with any other program, because nothing is converted, hidden or locked in.
 
-## Quick start (Docker Compose, published images)
+- **Your files stay normal files.** The library is a plain folder tree. The database only keeps accounts, permissions and history.
+- **Personal and shared folders.** Everyone gets a private folder, and a shared folder gives others viewer or editor access. Administrators cannot open anyone's personal files.
+- **Everyday file work.** Browse, upload whole folders, download, rename, move and copy, from the keyboard or on your phone's browser.
+- **Trash, undo and history.** Restore deleted items, undo recent actions and see who did what.
+- **Private and Confidential folders.** Confidential folders ask for your password again and lock when you step away.
+- **Search, previews and optional extras.** Find files by name or content (OCR for scans is optional), preview PDFs, images and Office documents, and back up to a separate disk with encryption. AI is optional and off by default.
 
-You need Docker with Docker Compose v2.24 or newer. Nothing is built on your machine: the images are pulled from GitHub Container Registry (`ghcr.io/aulteran/filecanopy-*`). The quick start uses the **beta** tag. The project has been tested on Docker Desktop for Windows and on Linux in CI; this is test history, not a promise for every host or architecture. Docker is the first-beta priority (owner decision 2026-11-04). Native Proxmox helper-script LXC is deferred until later, with [packaging and real-host validation pending](docs/release/proxmox-lxc.md).
+## Install in three steps
 
-```bash
-mkdir filecanopy && cd filecanopy
-curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
-docker compose up -d --wait
-```
+You need Docker with Docker Compose v2.24 or newer. Nothing is built on your machine, and there is no password to choose.
 
-Open **http://127.0.0.1:8080** and continue with [First-run setup](#first-run-setup). That is all: there is no password to choose (the stack generates the database password itself and keeps it in a Docker volume), and `library/` and `app-data/` are created next to `compose.yaml`. Your files are ordinary files in `library/`.
-
-Optional: to change the port, folders or version, download the six-line [`.env.example`](deploy/.env.example) as `.env` (`curl -fsSLo .env https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/.env.example`). Everything else (mail, single sign-on, limits, reverse proxy) is in [`.env.advanced.example`](deploy/.env.advanced.example). OCR, Office previews and workers are already in `compose.yaml`; switch them on with `COMPOSE_PROFILES` in `.env`. In-app backups and a proxy network are two small extra files in [`deploy/optional/`](deploy/optional/), added with a second `-f`.
-
-To update later, back up first (see [Backups](#backups)), then `docker compose pull && docker compose up -d --wait`. The `beta` tag moves when a new beta is published; to stay on one version set `FILECANOPY_VERSION` in `.env` to that exact version.
-
-<details>
-<summary>Build from source (developers)</summary>
-
-```bash
-git clone https://github.com/Aulteran/FileCanopy.git
-cd FileCanopy
-docker compose -f deploy/compose.yaml -f deploy/contrib/build.yaml up -d --build --wait
-```
-
-Run the other commands in this README with `-f deploy/compose.yaml` (and the same build file).
-
-</details>
-
-## First-run setup
-
-1. **Enter the setup token.** The first visit asks for a one-time setup token. If you did not set `FILECANOPY_SETUP_TOKEN`, the API prints a token to its log. Show it with (source build: add `-f deploy/compose.yaml`):
+1. Download the Compose file:
 
    ```bash
-   docker compose logs api | grep "SETUP TOKEN"
+   mkdir filecanopy && cd filecanopy
+   curl -fsSLO https://raw.githubusercontent.com/Aulteran/FileCanopy/HEAD/deploy/compose.yaml
    ```
 
-   If you set your own token, use that value instead. A restart can issue a new generated token, so check the log again if the old one stops working.
-2. **Create the administrator account.** This is the first account, and it is the only one that can be created without an invitation.
-3. **Optionally import existing files.** While the setup window is open, you can import an existing folder or zip into the shared folder or your personal folder. The window closes once you add content by hand, finish setup, or skip it.
-
-## Configuration
-
-All settings go in `.env` next to `compose.yaml`, and all are optional. [`deploy/.env.example`](deploy/.env.example) has the common ones and [`deploy/.env.advanced.example`](deploy/.env.advanced.example) lists every option with a comment. The most useful ones:
-
-| Setting | Default | What it does |
-|---|---|---|
-| `FILECANOPY_LIBRARY_PATH` | `./library` | Folder that holds your files. Relative paths are relative to `compose.yaml`. |
-| `FILECANOPY_APP_DATA_PATH` | `./app-data` | App-private working data. Must not be inside the library or the reverse. |
-| `FILECANOPY_HTTP_PORT` | `8080` | Port on your own computer where the web app is published. |
-| `FILECANOPY_SETUP_TOKEN` | empty (generated) | Your own setup token, at least 32 characters. |
-| `FILECANOPY_COOKIE_SECURE` | `true` | Sign-in cookies are sent over HTTPS only. Browsers exempt `http://localhost`. |
-| `FILECANOPY_MAX_UPLOAD_BYTES` | 10 GiB | Largest single upload. |
-| `FILECANOPY_UID` / `FILECANOPY_GID` | `10001` | On Linux, the user the app runs as. Set these to the owner of `library/` and `app-data/` (see `id -u` and `id -g`). |
-
-The advanced file also covers import limits, how long import reports are kept, and backups.
-
-### Remote access
-
-The web app listens only on `127.0.0.1`, so it is reachable only from the same machine. To use it from other devices, put a TLS reverse proxy in front of it and keep `FILECANOPY_COOKIE_SECURE=true`. Do not expose the plain HTTP port to a network.
-
-Working, tested setups for **Nginx Proxy Manager**, nginx, Caddy, Traefik and Cloudflare Tunnel are in [`deploy/proxy/`](deploy/proxy/README.md). In short, set these in `.env`:
-
-| Setting | Meaning |
-|---|---|
-| `FILECANOPY_PUBLIC_URL` | The address you type in the browser, for example `https://files.example.org`. |
-| `FILECANOPY_TRUSTED_PROXIES` | The address of your reverse proxy as the app sees it (its own single address, not a whole network). Empty (default) trusts nobody, and then all users share the proxy's address for sign-in limits and the audit log. |
-| `FILECANOPY_HSTS` | `true` sends HSTS. Off by default. |
-
-If your proxy runs in Docker, add `-f compose.proxy.yaml` (from `deploy/optional/`)` and set `FILECANOPY_PROXY_NETWORK` so the proxy can reach the app at `http://web:8080`. Uploads can be many GiB: the proxy must allow large bodies and long timeouts (the example files do). Cloudflare limits request bodies to 100 MB on the Free and Pro plans, which also applies to Cloudflare Tunnel; see the proxy guide.
-
-## Where your data lives
-
-- **`library/`** is your files. Shared files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.
-- **`app-data/`** holds app-private working data, such as staged uploads during imports. Do not edit it by hand.
-- **The database** is a Docker volume named `pgdata`; its generated password is in the `secrets` volume (keep both together). It holds accounts, permissions, trash records and history. Your files do not depend on it: the project's tests check that documents survive a total database loss.
-
-## Updating
-
-Back up your library first (see [Backups](#backups)). Then:
-
-```bash
-docker compose pull
-docker compose up -d --wait
-```
-
-Database migrations run automatically on start. (Building from source: `git pull`, then the build command above.)
-
-For a production setup (published images pinned to a version, whole-install backup and restore, HTTPS, the Docker Swarm variant) read the [production guide](docs/guides/production.md). What the containers log and the rate limits are in the [hardening guide](docs/guides/hardening.md).
-
-## Backups
-
-There are two kinds. The **disaster-recovery backup** copies the database, `app-data/` and `library/` in one go and restores into an empty install: `deploy/scripts/backup.sh <folder>` and `deploy/scripts/restore.sh <backup>` (see the [production guide](docs/guides/production.md#4-back-up)). The **in-app backups** described next are optional, encrypted, incremental copies of the library only.
-
-In-app backups are off by default, and the app does not need a backup disk to run. To turn them on:
-
-1. Set `FILECANOPY_BACKUP_PATH` in `.env` to a folder on a **separate disk or share**. It must not be inside `library/` or `app-data/`, and a copy on the same disk is not a real backup. The API user (`FILECANOPY_UID`/`FILECANOPY_GID`) must own that folder.
-2. Start the stack with the backup override file:
+2. Start it:
 
    ```bash
-   docker compose -f compose.yaml -f compose.backup.yaml up -d --wait
+   docker compose up -d --wait
    ```
 
-3. Sign in as an administrator, open **Backups**, and turn backups on. The defaults are a run every 24 hours, with a full backup every 7 runs and smaller changed-only runs in between. Backups are encrypted by default.
+3. Open **http://127.0.0.1:8080**, enter the setup token from `docker compose logs api | grep "SETUP TOKEN"`, and create your administrator account.
 
-Things to know:
+Your files are ordinary files in the `library/` folder next to `compose.yaml`.
 
-- A backup copies everyone's files, including private ones.
-- **Recovery keys are shown once and never stored.** Without a key, its encrypted backups cannot be read. Store it somewhere safe.
-- **Backup jobs (ADR-021, pending review).** Administrators can define several backup jobs with their own destination (backup volume folder, SFTP, S3), schedule, encryption and type (full every time, or a full backup followed by incrementals). Unencrypted jobs are labelled, never back up personal folders, and leave Confidential files out of the shared folder unless explicitly allowed; remote or unencrypted jobs need a fresh PIN or password to save. FTP is not supported.
-- **Each person has their own backup key (ADR-016).** The administrator key covers the shared folder only. Each person creates a key for their personal folder on the Backups page, saves it, and pastes it back to prove it; their folder is not backed up until then. A person's key opens only their own folder's archives, so handing one person a key no longer exposes anyone else.
-- **Administrator escrow is off unless the owner turns it on.** The owner can choose to let the administrator keep an encrypted copy of their key so a lost key can be recovered. This lets the administrator read that person's backups (never the live folder in the app). Without it, a lost personal key means those encrypted backups are unrecoverable; the live files are unaffected. The administrator opens an escrowed key offline with `python -m app.backup.cli escrow-open`.
-- **Backups made before per-folder keys** (encrypted to the old instance key) stay readable with that administrator key and are labelled legacy. Rotating a key only protects future backups; it does not revoke keys already copied.
-- Backups of folders that are disabled, missing or belong to removed accounts are kept and never cleaned up automatically, so they keep using space. There is no screen for purging them yet.
-- A restore runs inside the web request, so restoring a very large folder can take a long time.
-- Restoring a single file or folder from a backup is planned but not built.
+**[Read the documentation](docs/README.md)** for configuration, remote access, backups and updating.
 
-## Stopping
+## What's included
 
-```bash
-docker compose down
-```
+- Accounts, invitations, password reset, optional single sign-on (OpenID Connect, Google)
+- Personal and shared folders with viewer and editor access
+- Upload, download, rename, move, copy, trash, undo and an activity log
+- Import an existing folder or zip during first setup, and detection of changes made outside the app
+- Private and Confidential labels with a re-authentication lock
+- Previews, full-text search and optional OCR; PDF splitting and collections
+- Optional encrypted backups, email intake, AI organisation proposals, semantic search, document chat and a read-only MCP endpoint (all off by default)
 
-This stops the containers and keeps your files and database. To start again, run `docker compose up -d --wait`.
+## Known limits
 
-Adding `-v` also deletes the database volume. That removes accounts, permissions, trash records and history, but it does not delete the files in `library/`.
+- This is a **public beta**. There is no stable release yet and no external security audit. Keep your own backups.
+- Docker is the supported way to run it, and the beta images are built for amd64 only. Proxmox LXC is not available yet.
+- Anyone who can read the server's disk can read the library, like any other folder. Private and Confidential labels control access in the app; they are not encryption at rest.
+- Restoring a single file from an in-app backup is not built yet.
+- The screenshots are design previews while the interface is being finished.
 
-## Security and privacy
+See the full [known issues](docs/release/known-issues.md) and [roadmap](docs/roadmap.md).
 
-- **Administrators cannot open personal folders.** The administrator role does not let anyone browse, search or list another person's personal files. The only way in is a grant created by the owner of that folder.
-- **Passwords** are stored with Argon2id. Sign-in attempts are rate-limited, sessions are kept on the server, and cookies are HTTP-only.
-- **Host access is outside the app's trust model.** Anyone who can read the server's disk can read the files in `library/`, the same as any other folder on that machine.
-- **Private and Confidential** labels are implemented and inherit downward. Both block cloud AI; local processing requires opt-in, and Confidential content requires an unlock that expires after five minutes of user inactivity in that folder. This is app access control, not encryption at rest or E2E encryption. Host, hypervisor, storage and backup administrators can still access plaintext files and state.
-- **External processing needs care.** Normal files may be sent to configured cloud AI after applicable consent. Raising a privacy label cannot recall a previous transmission. MCP clients can forward the Normal data they receive to another provider. No provider retention or compliance guarantee is made.
-- **Backups contain protected data.** Disaster-recovery copies include all files and state. Per-folder backup keys (ADR-016, M25) are implemented but await independent security review; archives made before them are opened by the old administrator key. See [known limitations](docs/release/known-issues.md).
-- **No external security audit** has been done yet. Security work so far has been internal reviews plus automated tests.
+## Contributing, security and license
 
-## Project status and roadmap
-
-| Area | Status |
-|---|---|
-| Repository, Docker stack, database | Done |
-| Sign-in, first administrator, invitations, password reset | Done |
-| Storage roots, permissions, file operations | Done |
-| Browser interface, setup import, folder uploads | Done |
-| Change detection for external edits, backups (optional) | Done |
-| Trash, undo and activity log | Done (M07) |
-| Sharing between people and personal-folder isolation | Done (M08) |
-| Privacy levels and Confidential unlock | Done (M09) |
-| Previews, OCR and full-text search | Done (M10–M11) |
-| Email invitations, SMTP, OpenID Connect sign-in | Done (M12) |
-| Provider-only sign-in, Google, Confidential PIN lock | Done (M12b) |
-| Email intake for personal and shared folders | Done (M13–M14) |
-| PDF splitting, duplicate detection, collections | Done (M17–M18), with documented limits |
-| Optional AI (providers, organization proposals, local semantic search, chat) | Done (M15–M20), with documented limits |
-| Optional MCP integration | Done (M21), scoped read-only Normal content |
-| Full UI redesign build | Done (M21b) |
-| Production packaging, single-node Stack example, hardening | Done (M22–M23), with documented follow-ups |
-| Public beta readiness | Docker beta images published (M24, MF); stable release still gated |
-
-The full plan is in `08_IMPLEMENTATION_PLAN.md` and `MILESTONES.json`. The current state is recorded in `PROJECT_STATUS.md`, and design decisions are in `docs/adr/`.
-
-## For developers
-
-Requirements: Node.js 22 or newer, and Docker for the backend and end-to-end checks.
-
-```bash
-npm install
-npm run check        # lint, format, unit tests and secret scan
-npm run check:api    # Python checks in a pinned container
-npm run test:compose # real Compose stack tests
-npm run check:web    # web type checks and unit tests
-npm run test:e2e     # browser tests against a real stack
-npm run check:full   # everything above
-```
-
-Continuous integration runs on GitHub Actions. See `.github/workflows/ci.yml`.
-
-## Contributing
-
-Report bugs in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues), using synthetic examples and sanitised diagnostics. Include your commit/image identity, deployment method and reproduction steps. Discuss large changes first. [CONTRIBUTING](docs/release/drafts/CONTRIBUTING.md), [SECURITY](SECURITY.md) and [CHANGELOG](docs/release/drafts/CHANGELOG.md) are prepared as drafts pending owner approval. A private security-reporting route still needs configuration and verification; do not post secrets or vulnerability details in public issues.
-
-## License
-
-FileCanopy declares [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`), consistently with both package manifests. Third-party components retain their own terms. The [runtime dependency audit](docs/release/dependency-audit.md) records exact versions, sources and unresolved licence/redistribution issues; release clearance is pending their resolution and owner sign-off. No legal advice or blanket compatibility conclusion is implied.
+Bug reports and ideas are welcome in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues); see the [developer guide](docs/development.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). FileCanopy is licensed under the [AGPL-3.0](LICENSE).

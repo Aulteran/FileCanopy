@@ -14,7 +14,7 @@ Because M03 has no folder-creation endpoint, subfolder nodes in tests are create
 
 ## Acceptance checklist
 
-| # | Criterion (`MILESTONES.json`) | How M03 meets it | Evidence |
+| # | Criterion (`docs/MILESTONES.json`) | How M03 meets it | Evidence |
 |---|---|---|---|
 | 1 | Two user roles without admin personal read bypass | `policy.effective()` takes an actor id, never a role; admin role used only by instance ops (ADR-004 §4) | ACL matrix rows for admin; admin personal 403 tests; route-inventory test |
 | 2 | Effective ACL and subtree grants evaluated centrally | Single `app/policy` module; lineage-based inheritance; every node route uses the `node_access` dependency | ACL matrix; route-inventory test; revocation test |

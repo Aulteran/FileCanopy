@@ -108,10 +108,10 @@ An independent review of M06c found the items below; all but the two noted at th
 | 10 | Restore built under its final name | Built under `.filecanopy-tmp-restore-*`, renamed to `Restored from backup ...` at the end; stale temporary folders are swept at startup. |
 | 12 | Storage errors and a low-order X25519 key escaped | `StorageError`/`StorageEscape` become `RESTORE_FAILED`; the key-exchange `ValueError` becomes `DecryptionError`. |
 | 13 | Unbounded reads of `meta/deleted.txt` and the manifest | Capped (128 MiB and 512 MiB; `meta/run.json` 64 KiB). |
-| 14 | Frozen-root and deleted-account retention | Documented on the Backups page, in the README and `11_OPEN_DECISIONS.md` item 16; the `frozen_roots_kept` warning. The audited purge is follow-up, not built. |
+| 14 | Frozen-root and deleted-account retention | Documented on the Backups page, in the README and `docs/11_OPEN_DECISIONS.md` item 16; the `frozen_roots_kept` warning. The audited purge is follow-up, not built. |
 | - | `metadata.json` | Users reduced to id and role (no email or name). |
-| 2 | One key opens every archive | Not implemented (needs an ADR). **ADR-016 (Proposed)** added: per-root key pairs, owner recovery key, opt-in audited administrator escrow; listed in `11_OPEN_DECISIONS.md` item 15; mitigation now: UI and README say to rotate the recovery key after giving it to an owner; the M09 notes carry the constraint that a restore re-applies the most restrictive privacy label. |
-| 11 | Restore runs inside the request | Known limitation (one at a time, may be slow for very large folders); a background job is deferred (`11_OPEN_DECISIONS.md` item 17). |
+| 2 | One key opens every archive | Not implemented (needs an ADR). **ADR-016 (Proposed)** added: per-root key pairs, owner recovery key, opt-in audited administrator escrow; listed in `docs/11_OPEN_DECISIONS.md` item 15; mitigation now: UI and README say to rotate the recovery key after giving it to an owner; the M09 notes carry the constraint that a restore re-applies the most restrictive privacy label. |
+| 11 | Restore runs inside the request | Known limitation (one at a time, may be slow for very large folders); a background job is deferred (`docs/11_OPEN_DECISIONS.md` item 17). |
 
 Evidence: `npm run check` clean; `npm run check:web` 17 vitest tests; `npm run check:api` 411 passed, 1 skipped (test_backup.py now 80 tests); `npm run test:compose` 26 passed; `npm run test:e2e` 19 passed.
 

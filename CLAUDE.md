@@ -10,8 +10,8 @@
 
 ## Mandatory before every coding session
 
-1. Read `PROJECT_STATUS.md`, `MILESTONES.json` and target section of `08_IMPLEMENTATION_PLAN.md`.
-2. Read `01_PRODUCT_SPEC.md`, `03_SECURITY_PRIVACY.md`, `04_DATA_FILESYSTEM.md`, plus topic-specific docs.
+1. Read `docs/PROJECT_STATUS.md`, `docs/MILESTONES.json` and target section of `docs/08_IMPLEMENTATION_PLAN.md`.
+2. Read `docs/01_PRODUCT_SPEC.md`, `docs/03_SECURITY_PRIVACY.md`, `docs/04_DATA_FILESYSTEM.md`, plus topic-specific docs.
 3. Verify milestone dependencies are complete. Limit session to one milestone or tested subtask.
 4. Show acceptance plan, implement, run tests, update status, then **stop**. Do not begin next milestone without a new request.
 
@@ -36,4 +36,4 @@ Use Haiku 5.5 for small docs/scaffolding where adequate; Sonnet 5.5 for normal c
 
 ## Status and completion
 
-Update `MILESTONES.json` and `PROJECT_STATUS.md` after every milestone. Each milestone requires acceptance criteria, test results, code path changes, and blockers listed. Never silently override product choices; propose ADR and seek approval if needed.
+Update `docs/MILESTONES.json` and `docs/PROJECT_STATUS.md` after every milestone. Each milestone requires acceptance criteria, test results, code path changes, and blockers listed. Never silently override product choices; propose ADR and seek approval if needed.

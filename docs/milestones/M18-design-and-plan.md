@@ -71,7 +71,7 @@ cross-user membership, malformed model answers (10 cases), text provenance.
 `collection_share` (collection, user, level), `collection_suggestion` (id, owner, status, title,
 reason, confidence per mille, node_ids, created/decided, collection_id, outcome). No new settings.
 Collections are app metadata, not portable files: they need the database backup, as noted in
-`04_DATA_FILESYSTEM.md`.
+`docs/04_DATA_FILESYSTEM.md`.
 
 ## API
 

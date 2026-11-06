@@ -21,7 +21,7 @@ stable-support window is implicitly promised.
 - [Known issues and historical follow-ups](known-issues.md)
 - Proposed [CONTRIBUTING](drafts/CONTRIBUTING.md), [SECURITY](../../SECURITY.md), [CHANGELOG](drafts/CHANGELOG.md)
 - [Native Proxmox LXC plan](proxmox-lxc.md), [production guide](../guides/production.md)
-- [Owner decisions](../../11_OPEN_DECISIONS.md), [milestone status](../../MILESTONES.json)
+- [Owner decisions](../11_OPEN_DECISIONS.md), [milestone status](../MILESTONES.json)
 
 Governance files are **drafts**, awaiting owner approval before root-level adoption. In particular
 GitHub private vulnerability reporting was confirmed **disabled** by REST on 2026-11-04;
@@ -190,7 +190,7 @@ the release install/restore suite was repeated (5 passed / 1 skip).
 cleared all prior implementation findings on `816a2fc`. It independently reproduced the five-image
 attribute/canary build and fresh candidate assembly and verified all eight successful jobs in
 [CI run 41770402434](https://github.com/Aulteran/FileCanopy/actions/runs/41770402434).
-Its remaining merge requirement was the `MILESTONES.json` conflict with advanced `main`.
+Its remaining merge requirement was the `docs/MILESTONES.json` conflict with advanced `main`.
 Integration preserves M24's in-progress evidence and M25's planning-only roadmap; the obsolete
 M25 note saying M24 had not started is corrected. Run repository checks and all eight CI jobs
 on the integrated head before merging. The owner authorised merge and remote-branch deletion

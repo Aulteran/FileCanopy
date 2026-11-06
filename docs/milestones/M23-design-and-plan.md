@@ -33,7 +33,7 @@ as a follow-up).
     create/rename/upload/move/import; a forged-`From` and `Authentication-Results` set through the
     mail decision; prompt-injection text in a document reaching the AI gateway cannot widen the
     typed proposal (validator rejects unknown fields and inaccessible folders).
-- Existing mandatory adversarial tests 1–10 of `03_SECURITY_PRIVACY.md` are mapped to the test that
+- Existing mandatory adversarial tests 1–10 of `docs/03_SECURITY_PRIVACY.md` are mapped to the test that
   covers each one in the table at the end of this document; any without one gets one here.
 
 ### 2. No secret or plaintext logs

@@ -1,4 +1,4 @@
-"""Client for the local embedding endpoint (M19, 05_AI_AND_SEARCH.md "Optional embedding").
+"""Client for the local embedding endpoint (M19, docs/05_AI_AND_SEARCH.md "Optional embedding").
 
 Only local kinds exist here: llama.cpp's OpenAI-compatible server (`/v1/embeddings`) and Ollama
 (`/api/embed`). There is no cloud kind and no fallback, so text can reach nothing but the address an

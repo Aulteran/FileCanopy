@@ -6,7 +6,7 @@
 
 ## Context
 
-M04 adds the first mutating file operations (create folder, upload, download, rename, move, copy) on top of the M03 node identity and policy engine. `04_DATA_FILESYSTEM.md` fixes the action contract (authorize, validate, plan, lock or revision-check, stage with a journal, commit atomically, reconcile the database, record partial failures). The files are the source of truth: a failed database step must never leave the database claiming something the disk does not have, and a failed disk step must never lose the source.
+M04 adds the first mutating file operations (create folder, upload, download, rename, move, copy) on top of the M03 node identity and policy engine. `docs/04_DATA_FILESYSTEM.md` fixes the action contract (authorize, validate, plan, lock or revision-check, stage with a journal, commit atomically, reconcile the database, record partial failures). The files are the source of truth: a failed database step must never leave the database claiming something the disk does not have, and a failed disk step must never lose the source.
 
 Out of scope here: trash/delete and undo, external-change reconciliation and import (M06), activity history (M07), privacy labels on copies and moves (M09), conflict UI (M05).
 

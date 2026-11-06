@@ -1,7 +1,7 @@
 # M25 — Per-root backup keys and owner recovery (ADR-016)
 
 **Status:** Implemented 2026-11-05 on branch `m25-backup-keys`; awaiting CI and independent security
-review (see PROJECT_STATUS and MILESTONES.json for evidence). Planned 2026-11-03 at the owner's request.
+review (see PROJECT_STATUS and docs/MILESTONES.json for evidence). Planned 2026-11-03 at the owner's request.
 Implementation notes: owner key handoff requires the owner to present the key back before it is used
 (a personal root is refused with `BACKUP_OWNER_KEY_PENDING` until then); escrow is sealed to the
 administrator key at confirmation or later with the owner's key, and opened offline
