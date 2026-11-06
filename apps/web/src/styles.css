@@ -1414,8 +1414,13 @@ input[type="radio"] {
 label:has(> input[type="checkbox"]),
 label:has(> input[type="radio"]) {
   display: flex;
-  align-items: center;
+  /* Long text (the cloud consent notice) wraps: the box stays level with the first line. */
+  align-items: flex-start;
   font-weight: 400;
+}
+label:has(> input[type="checkbox"]) > input,
+label:has(> input[type="radio"]) > input {
+  margin-top: calc((1lh - 1rem) / 2);
 }
 .list th.pick,
 .list td.pick {

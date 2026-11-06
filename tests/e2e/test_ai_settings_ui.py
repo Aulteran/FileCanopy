@@ -75,4 +75,19 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     expect(price_in).to_be_visible()
     name.fill("claude-experimental")
     expect(price_in).to_have_value("4")  # not wiped while typing
+
+    # the long cloud notice wraps; its checkbox sits level with the first line, not mid-paragraph
+    dialog.get_by_label("Turn this provider on").check()
+    consent = dialog.locator("label").filter(has_text="Files in Private and Confidential").last
+    expect(consent).to_be_visible()
+    gap = consent.evaluate(
+        """(l) => {
+          const box = l.querySelector('input').getBoundingClientRect();
+          const top = l.getBoundingClientRect().top;
+          const line = parseFloat(getComputedStyle(l).lineHeight) || 20;
+          return [box.top + box.height / 2 - top, line, l.getBoundingClientRect().height];
+        }"""
+    )
+    assert gap[2] > gap[1] * 2, "the notice is expected to wrap onto several lines"
+    assert gap[0] < gap[1], "checkbox must align with the first line of the text"
     page.context.close()
