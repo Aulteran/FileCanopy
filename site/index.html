@@ -30,7 +30,17 @@
             >File<span>Canopy</span></span
           ></a
         >
-        <nav class="main" aria-label="Main">
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          hidden
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <span class="sr">Menu</span>
+        </button>
+        <nav class="main" id="site-nav" aria-label="Main">
           <a href="#ai">AI</a><a href="#use-cases">Use cases</a
           ><a href="#features">Features</a><a href="#screens">Screens</a
           ><a href="#quick-start">Quick start</a><a href="#status">Status</a
@@ -592,6 +602,7 @@ docker compose up -d --wait</pre>
       </form>
       <img alt="" />
     </dialog>
+    <script src="assets/menu.js"></script>
     <script src="assets/lightbox.js"></script>
   </body>
 </html>

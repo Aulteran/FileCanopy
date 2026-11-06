@@ -418,15 +418,120 @@ footer .wrap {
   flex-wrap: wrap;
   justify-content: space-between;
 }
-@media (max-width: 640px) {
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.menu-toggle {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.menu-toggle[hidden] {
+  display: none !important;
+}
+@media (max-width: 760px) {
   body {
     font-size: 16px;
+  }
+  .wrap {
+    padding: 0 16px;
+  }
+  header.top .wrap {
+    min-height: 56px;
+    gap: 8px;
+  }
+  .js .menu-toggle {
+    display: inline-flex;
+  }
+  .js nav.main {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+    margin: 0 0 8px;
+    border-top: 1px solid var(--line);
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+  }
+  .js.nav-open nav.main {
+    display: flex;
+  }
+  .js nav.main a {
+    padding: 13px 8px;
+    font-size: 17px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--line);
   }
   nav.main {
     margin-left: 0;
   }
+  nav.main a {
+    padding: 10px 10px;
+  }
   .hero {
-    padding-top: 40px;
+    padding: 36px 0 24px;
+  }
+  .hero p.lede {
+    font-size: 1.08rem;
+  }
+  .hero .cta {
+    flex-direction: column;
+    align-self: stretch;
+  }
+  .hero .cta .btn {
+    justify-content: center;
+    min-height: 48px;
+  }
+  section {
+    padding: 40px 0;
+  }
+  .gallery {
+    grid-template-columns: 1fr;
+  }
+  .steps > li {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 6px 12px;
+  }
+  .steps > li::before {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  .steps pre {
+    font-size: 13px;
+    padding: 12px;
+  }
+  th,
+  td {
+    padding: 8px 10px;
+  }
+  .table-scroll,
+  .wrap > table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+@media (max-width: 380px) {
+  h1 {
+    font-size: 2rem;
+  }
+  .btn {
+    padding: 11px 14px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
