@@ -56,17 +56,6 @@ import { UsersPage } from "./Users";
 // Roots whose setup screen the person postponed ("Decide later") in this browser tab. It survives
 // a reload but not a new tab or a new sign-in, so the screen is offered again after signing in.
 const DEFERRED_KEY = "fc.setup-deferred";
-// An administrator's first-run "set up the server" step, done for this browser tab and person.
-const SERVER_STEP_KEY = "fc.server-step";
-
-function readServerStep(userId: string): boolean {
-  try {
-    return sessionStorage.getItem(`${SERVER_STEP_KEY}:${userId}`) === "1";
-  } catch {
-    return false;
-  }
-}
-
 function readDeferred(userId: string): Set<string> {
   try {
     const raw: unknown = JSON.parse(
@@ -273,17 +262,6 @@ function Shell({
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
-  const [serverStepDone, setServerStepDone] = useState(() =>
-    readServerStep(session.user.id),
-  );
-  function finishServerStep(): void {
-    setServerStepDone(true);
-    try {
-      sessionStorage.setItem(`${SERVER_STEP_KEY}:${session.user.id}`, "1");
-    } catch {
-      /* storage unavailable: the step is simply offered again */
-    }
-  }
   const [reload, setReload] = useState(0);
 
   const loadRoots = useCallback(() => {
@@ -523,14 +501,18 @@ function Shell({
     </header>
   );
 
-  // After sign-in, a root whose setup window is open and that this person may set up (their own
-  // folder; the shared tree for an administrator) gets a full-page screen before the browser.
+  // After sign-in, a root whose setup window is open and that this person may set up gets a
+  // full-page screen before the browser. A member gets their own folder. An administrator gets the
+  // server setup, whose last step is the shared tree; their own folder is not offered here and is
+  // set up later from the side navigation ("(set up)").
   const setupRoot = roots.find((r) =>
     setupFor !== null
       ? r.node_id === setupFor && r.setup_open
-      : r.setup_open && !deferred.has(r.node_id),
+      : r.setup_open &&
+        !deferred.has(r.node_id) &&
+        (!admin || r.kind === "shared"),
   );
-  if (setupRoot && admin && !serverStepDone && setupFor === null) {
+  if (setupRoot && admin && setupFor === null) {
     return (
       <div className="shell setup-only">
         {header(false)}
@@ -538,7 +520,13 @@ function Shell({
           <ServerSetupStep
             me={session.user.id}
             onEnded={onEnded}
-            onContinue={finishServerStep}
+            sharedRoot={{
+              id: setupRoot.node_id,
+              name: setupRoot.name,
+              kind: setupRoot.kind,
+            }}
+            onFilesClosed={loadRoots}
+            onFilesLater={() => postpone(setupRoot.node_id)}
           />
         </main>
       </div>

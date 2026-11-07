@@ -115,12 +115,17 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     assert api_status(page, "POST", f"/api/v1/nodes/{shared}/setup/import", body) == 403
     admin = sign_in(browser, w, "admin@example.com", setup=True)
     shared_screen = admin.get_by_role("region", name="Set up Shared files")
-    for _ in range(2):  # the administrator's own folder may come first
-        shared_screen.or_(admin.get_by_role("region", name="Set up My files")).first.wait_for()
-        if shared_screen.is_visible():
-            break
-        admin.get_by_role("button", name="Decide later").click()
+    # the shared tree is the last step of the server setup; the administrator's own folder is not
+    # offered in this first-time flow
+    expect(admin.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
+    expect(admin.get_by_role("region", name="Set up My files")).to_have_count(0)
     expect(shared_screen).to_be_visible()
+    admin.get_by_role("button", name="Decide later").click()
+    # the administrator's own folder is set up later from the side navigation
+    admin_nav = admin.get_by_role("navigation", name="Locations")
+    expect(admin_nav.get_by_role("button", name="Set up My files")).to_contain_text("(set up)")
+    admin_nav.get_by_role("button", name="Set up My files").click()
+    expect(admin.get_by_role("region", name="Set up My files")).to_be_visible()
     admin.close()
 
     # the marker in the side navigation brings the screen back; starting empty closes it for good
