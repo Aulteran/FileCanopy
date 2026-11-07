@@ -161,8 +161,12 @@ def set_model_cap(admin: Api, cap: int | None, model_id: str | None = None) -> A
     )
 
 
-def model_usage(admin: Api) -> dict[str, Any]:
-    d: dict[str, Any] = admin.get("/ai/instance/usage").json()["models"][0]
+def model_usage(admin: Api, model_id: str | None = None) -> dict[str, Any]:
+    """The usage row of a model (the default one unless told). Not `models[0]`: models created in
+    the same instant are ordered by their random ids."""
+    wanted = model_id or default_model(admin)["id"]
+    rows = admin.get("/ai/instance/usage").json()["models"]
+    d: dict[str, Any] = next(m for m in rows if m["id"] == wanted)
     return d
 
 
