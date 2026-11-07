@@ -1363,14 +1363,15 @@ h1.brandh .c {
 .profile-panel > a {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-direction: row-reverse;
+  gap: 10px;
   width: 100%;
   min-height: 40px;
   padding: 6px 10px;
   border: 0;
   background: transparent;
   color: var(--text);
-  text-align: left;
+  text-align: right;
   text-decoration: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1378,6 +1379,10 @@ h1.brandh .c {
 .profile-panel > button:hover,
 .profile-panel > a:hover {
   background: var(--sel);
+}
+.profile-panel > button.danger,
+.profile-panel > button.danger:hover {
+  color: var(--danger, #b3261e);
 }
 .profile-panel hr {
   width: 100%;

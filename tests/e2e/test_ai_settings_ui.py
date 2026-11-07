@@ -16,7 +16,7 @@ pytestmark = pytest.mark.e2e
 
 def _open_ai(page: Page) -> None:
     page.get_by_role("button", name=re.compile("Profile menu")).click()
-    page.get_by_role("menuitem", name="AI", exact=True).click()
+    page.get_by_role("menuitem", name="AI settings", exact=True).click()
     expect(page.get_by_role("dialog", name="AI")).to_be_visible()
 
 
@@ -109,9 +109,14 @@ def test_add_model_popup_closes_with_x_escape_and_backdrop(browser: Browser, wor
     _open_ai(page)
     ai = page.get_by_role("dialog", name="AI")
     switch = ai.get_by_label("Enable AI on this server?")
-    switch.click()
+    # the server's AI switch is shared state that earlier tests may have left on: turn it on only
+    # if it is off, because clicking it again would switch it off and remove the models section
+    expect(switch).to_be_visible()
+    if not switch.is_checked():
+        switch.click()
     expect(switch).to_be_checked()
     add = ai.get_by_role("button", name="Add a model")
+    expect(add).to_be_visible()
     popup = page.get_by_role("dialog", name="Add a model")
     # the X closes it
     add.click()
