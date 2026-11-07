@@ -43,7 +43,7 @@ def mode_of(kind: str) -> str:
 
 
 class ProviderError(Exception):
-    """Typed failure: OUTAGE, TIMEOUT, AUTH, RATE_LIMIT, BAD_RESPONSE or TOO_LARGE."""
+    """Typed failure: OUTAGE, TIMEOUT, AUTH, RATE_LIMIT, NOT_FOUND, BAD_RESPONSE or TOO_LARGE."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -300,6 +300,8 @@ class Adapter:
                     raise ProviderError("RATE_LIMIT")
                 if r.status_code >= 500 or 300 <= r.status_code < 400:
                     raise ProviderError("OUTAGE")
+                if r.status_code == 404:
+                    raise ProviderError("NOT_FOUND")  # usually a model name the provider lacks
                 if r.status_code >= 400:
                     raise ProviderError("BAD_RESPONSE")
                 chunks: list[bytes] = []

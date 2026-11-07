@@ -44,6 +44,16 @@ const MESSAGES: Record<string, string> = {
   PROVIDER_OUTAGE: "The provider could not be reached.",
   PROVIDER_TIMEOUT: "The provider took too long to answer.",
   PROVIDER_RATE_LIMIT: "The provider is limiting requests. Try again later.",
+  PROVIDER_NOT_FOUND:
+    "The provider does not know this model name or address. Check the model.",
+  PROVIDER_BAD_RESPONSE:
+    "The provider refused the request or gave an unexpected answer. Check the model name.",
+  PROVIDER_TOO_LARGE: "The provider's answer was too large to use.",
+  PROVIDER_BAD_OUTPUT: "The provider answered, but not in the expected form.",
+  PROVIDER_SECRET_UNAVAILABLE:
+    "The saved API key could not be read. Enter it again and save.",
+  NO_PROVIDER: "Save the model first, then test it.",
+  AI_OFF: "AI is switched off on this server.",
   ENDPOINT_NOT_LOCAL:
     "That address is not on a private network, or could not be looked up.",
   INVALID_ENDPOINT: "That address or model name is not valid.",

@@ -11,6 +11,22 @@ describe("formatSize", () => {
   });
 });
 
+describe("describeError for a model connection test", () => {
+  it("explains each way a provider test can fail", () => {
+    for (const code of [
+      "PROVIDER_AUTH",
+      "PROVIDER_NOT_FOUND",
+      "PROVIDER_BAD_RESPONSE",
+      "PROVIDER_OUTAGE",
+      "PROVIDER_TIMEOUT",
+      "PROVIDER_RATE_LIMIT",
+      "BILLING_CONFIRMATION_REQUIRED",
+    ]) {
+      expect(describeError(code)).not.toBe("Something went wrong. Try again.");
+    }
+  });
+});
+
 describe("describeError", () => {
   it("maps known codes and hides unknown ones", () => {
     expect(describeError("NAME_CONFLICT")).toMatch(/already exists/);

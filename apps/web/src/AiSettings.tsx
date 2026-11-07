@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ApiError,
   api,
@@ -120,6 +115,11 @@ function ProviderForm({
   const [billed, setBilled] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const cloud = !["ollama", "openai_compatible"].includes(kind);
   const listed = cloud && hasModelList(kind);
   const choice = custom ? CUSTOM_MODEL : modelChoice(kind, model);
@@ -177,6 +177,25 @@ function ProviderForm({
     } catch (err) {
       setMsg("");
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
+
+  // A test only reports. It never closes the dialog or refreshes the list.
+  async function runTest() {
+    setTesting(true);
+    setTestResult(null);
+    setMsg("");
+    setError("");
+    try {
+      await fns.test(billed);
+      setTestResult({ ok: true, text: "Connected. The provider answered." });
+    } catch (err) {
+      setTestResult({
+        ok: false,
+        text: describeError(err instanceof ApiError ? err.code : "UNKNOWN"),
+      });
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -353,12 +372,22 @@ function ProviderForm({
           </label>
           <button
             type="button"
-            onClick={() =>
-              void attempt(() => fns.test(billed), "The provider answered.")
-            }
+            disabled={testing || (cloud && !billed)}
+            onClick={() => void runTest()}
           >
-            Test connection
+            {testing ? "Testing…" : "Test connection"}
           </button>
+          <p className="muted">
+            The test uses the saved settings, so save changes first.
+          </p>
+          {testResult && (
+            <p
+              role={testResult.ok ? "status" : "alert"}
+              className={testResult.ok ? undefined : "error"}
+            >
+              {testResult.text}
+            </p>
+          )}
         </>
       )}
       {usage && (
@@ -983,43 +1012,43 @@ function ModelsSection({
             </thead>
             <tbody>
               {instance.models.map((m) => (
-                  <tr key={m.id}>
-                    <th scope="row">
-                      {m.label || <span className="muted">(no name)</span>}
-                      {!m.enabled && <span className="muted"> (off)</span>}
-                    </th>
-                    <td>{modelName(m.kind, m.model)}</td>
-                    <td>{KIND_LABELS[m.kind] ?? m.kind}</td>
-                    <td>{m.mode === "local" ? "Local" : "Cloud"}</td>
-                    <td>{m.is_default ? "Default" : ""}</td>
-                    <td>
-                      <LimitCell model={m} onSaved={onChanged} />
-                    </td>
-                    <td>
-                      <div className="row-actions">
+                <tr key={m.id}>
+                  <th scope="row">
+                    {m.label || <span className="muted">(no name)</span>}
+                    {!m.enabled && <span className="muted"> (off)</span>}
+                  </th>
+                  <td>{modelName(m.kind, m.model)}</td>
+                  <td>{KIND_LABELS[m.kind] ?? m.kind}</td>
+                  <td>{m.mode === "local" ? "Local" : "Cloud"}</td>
+                  <td>{m.is_default ? "Default" : ""}</td>
+                  <td>
+                    <LimitCell model={m} onSaved={onChanged} />
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        aria-haspopup="dialog"
+                        onClick={() => setEditing(m.id)}
+                      >
+                        Edit
+                      </button>
+                      {!m.is_default && (
                         <button
                           type="button"
-                          aria-haspopup="dialog"
-                          onClick={() => setEditing(m.id)}
+                          onClick={() =>
+                            void run(() => api.aiSetDefaultModel(m.id))
+                          }
                         >
-                          Edit
+                          Make default
                         </button>
-                        {!m.is_default && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void run(() => api.aiSetDefaultModel(m.id))
-                            }
-                          >
-                            Make default
-                          </button>
-                        )}
-                        <button type="button" onClick={() => remove(m)}>
-                          Remove
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      )}
+                      <button type="button" onClick={() => remove(m)}>
+                        Remove
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

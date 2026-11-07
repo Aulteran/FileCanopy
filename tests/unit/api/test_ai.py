@@ -365,6 +365,21 @@ def test_billed_test_needs_confirmation(fx: Fx, net: Net) -> None:
     assert len(net.requests) == 1 and net.requests[0].headers["x-api-key"] == API_KEY
 
 
+def test_model_test_reports_why_it_failed_and_never_leaks_the_key(fx: Fx, net: Net) -> None:
+    admin = Api(fx, "admin")
+    added = admin.client.post("/api/v1/ai/instance/models", json=cloud_body(), headers=admin.headers)
+    assert added.status_code in (200, 201), added.text
+    path = f"/api/v1/ai/instance/models/{added.json()['id']}/test"
+    ok = admin.client.post(path, json={"confirm_billed": True}, headers=admin.headers)
+    assert ok.status_code == 200, ok.text
+    cases = ((401, "PROVIDER_AUTH"), (404, "PROVIDER_NOT_FOUND"), (400, "PROVIDER_BAD_RESPONSE"))
+    for status, expected in cases + ((503, "PROVIDER_OUTAGE"),):
+        net.status = status
+        r = admin.client.post(path, json={"confirm_billed": True}, headers=admin.headers)
+        assert code(r) == expected, (status, r.text)
+        assert API_KEY not in r.text
+
+
 # --- privacy: protected content never goes to a cloud provider -----------------------------
 def test_protected_never_reaches_cloud(fx: Fx, net: Net) -> None:
     alice, admin = Api(fx, "alice"), Api(fx, "admin")
