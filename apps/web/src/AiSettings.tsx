@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ApiError,
   api,
@@ -19,7 +25,10 @@ import {
   defaultPrices,
   findModel,
   hasModelList,
+  limitText,
   modelChoice,
+  modelName,
+  parseLimit,
 } from "./aiModels";
 import { Modal } from "./Dialogs";
 import {
@@ -35,7 +44,7 @@ import { describeError } from "./format";
 // AI settings (M15, redesigned in 0026). Private and Confidential files are never sent to a cloud
 // provider; the server enforces that, not this screen.
 
-const KIND_LABELS: Record<string, string> = {
+export const KIND_LABELS: Record<string, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI",
   gemini: "Google Gemini",
@@ -150,14 +159,12 @@ function ProviderForm({
       ? {
           put: api.aiPutMine,
           del: api.aiDeleteMine,
-          cap: api.aiSetMyCap,
           test: api.aiTestMine,
         }
       : {
           put: (b: AiProviderInput) =>
             current ? api.aiPutModel(current.id, b) : api.aiAddModel(b),
           del: () => api.aiDeleteModel(current?.id ?? ""),
-          cap: api.aiSetInstanceCap,
           test: (billed: boolean) => api.aiTestModel(current?.id ?? "", billed),
         };
 
@@ -322,7 +329,7 @@ function ProviderForm({
       )}
       <div className="actions">
         <button type="submit">Save</button>
-        {current && (
+        {current && scope === "me" && (
           <button
             type="button"
             onClick={() => void attempt(fns.del, "Removed.")}
@@ -369,7 +376,7 @@ function ProviderForm({
           <button
             type="button"
             onClick={() =>
-              void attempt(() => fns.cap(toMicro(cap)), "Limit saved.")
+              void attempt(() => api.aiSetMyCap(toMicro(cap)), "Limit saved.")
             }
           >
             Save limit
@@ -846,6 +853,70 @@ function SemanticSection({
   );
 }
 
+function LimitCell({
+  model,
+  onSaved,
+}: {
+  model: AiProvider;
+  onSaved: () => void;
+}) {
+  const saved = limitText(model.monthly_cap_micro);
+  const [text, setText] = useState(saved);
+  const [error, setError] = useState("");
+  useEffect(() => setText(saved), [saved]);
+  if (model.mode === "local")
+    return <span className="muted">Not needed (runs here)</span>;
+  const parsed = parseLimit(text);
+  async function save(): Promise<void> {
+    if (parsed === undefined) return;
+    if (
+      parsed === null &&
+      !window.confirm(
+        `No limit: spending on ${model.label || model.model} will not be capped. Remove the limit?`,
+      )
+    )
+      return;
+    try {
+      await api.aiSetModelCap(model.id, parsed);
+      setError("");
+      onSaved();
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    }
+  }
+  const name = model.label || model.model;
+  return (
+    <div className="limit-cell">
+      <span className="money-field">
+        <span aria-hidden="true">$</span>
+        <input
+          className="limit-input"
+          inputMode="decimal"
+          value={text}
+          placeholder="No limit"
+          aria-label={`Monthly limit in dollars for ${name}`}
+          aria-invalid={parsed === undefined}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </span>
+      {text !== saved && (
+        <button
+          type="button"
+          disabled={parsed === undefined}
+          onClick={() => void save()}
+        >
+          Save
+        </button>
+      )}
+      {error && (
+        <span role="alert" className="error">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function ModelsSection({
   instance,
   onChanged,
@@ -854,20 +925,23 @@ function ModelsSection({
   onChanged: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [cap, setCap] = useState(String(instance.usage.cap_micro / 1_000_000));
-  const [msg, setMsg] = useState("");
 
-  async function run(work: () => Promise<unknown>, done = "") {
+  async function run(work: () => Promise<unknown>) {
     try {
       await work();
       setError("");
-      setMsg(done);
       onChanged();
     } catch (err) {
-      setMsg("");
       setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
     }
+  }
+
+  function remove(m: AiProvider): void {
+    const name = m.label || m.model;
+    if (!window.confirm(`Remove ${name}? People can no longer use it.`)) return;
+    void run(() => api.aiDeleteModel(m.id));
   }
 
   return (
@@ -876,35 +950,89 @@ function ModelsSection({
       <p className="muted">
         Add the models people can use. One is the default; people who choose the
         server's AI get the default, and "local AI only" uses a local model.
+        Each cloud model has its own monthly spending limit.
       </p>
-      {instance.models.length === 0 && (
-        <p className="muted">No models yet. Add one to start.</p>
+      {instance.models.length === 0 ? (
+        <p className="muted empty-state">
+          No models yet. Add one to start. FileCanopy works without any.
+        </p>
+      ) : (
+        <div className="table-scroll">
+          <table className="models-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Model</th>
+                <th scope="col">Provider</th>
+                <th scope="col">Runs</th>
+                <th scope="col">Default</th>
+                <th scope="col">Monthly limit</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {instance.models.map((m) => (
+                <Fragment key={m.id}>
+                  <tr>
+                    <th scope="row">
+                      {m.label || <span className="muted">(no name)</span>}
+                      {!m.enabled && <span className="muted"> (off)</span>}
+                    </th>
+                    <td>{modelName(m.kind, m.model)}</td>
+                    <td>{KIND_LABELS[m.kind] ?? m.kind}</td>
+                    <td>{m.mode === "local" ? "Local" : "Cloud"}</td>
+                    <td>{m.is_default ? "Default" : ""}</td>
+                    <td>
+                      <LimitCell model={m} onSaved={onChanged} />
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          aria-expanded={editing === m.id}
+                          onClick={() =>
+                            setEditing(editing === m.id ? null : m.id)
+                          }
+                        >
+                          Edit
+                        </button>
+                        {!m.is_default && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void run(() => api.aiSetDefaultModel(m.id))
+                            }
+                          >
+                            Make default
+                          </button>
+                        )}
+                        <button type="button" onClick={() => remove(m)}>
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editing === m.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <ProviderForm
+                          kinds={instance.kinds}
+                          current={m}
+                          notice={instance.notice}
+                          usage={null}
+                          scope="instance"
+                          onChanged={onChanged}
+                          onDone={() => setEditing(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      {instance.models.map((m) => (
-        <details key={m.id}>
-          <summary>
-            {m.label || m.model} ({m.mode === "local" ? "local" : "cloud"}
-            {m.is_default ? ", default" : ""}
-            {m.enabled ? "" : ", off"})
-          </summary>
-          {!m.is_default && (
-            <button
-              type="button"
-              onClick={() => void run(() => api.aiSetDefaultModel(m.id))}
-            >
-              Make this the default
-            </button>
-          )}
-          <ProviderForm
-            kinds={instance.kinds}
-            current={m}
-            notice={instance.notice}
-            usage={null}
-            scope="instance"
-            onChanged={onChanged}
-          />
-        </details>
-      ))}
       {adding ? (
         <ProviderForm
           kinds={instance.kinds}
@@ -922,24 +1050,13 @@ function ModelsSection({
           </button>
         )
       )}
-      <UsageLine usage={instance.usage} />
-      <label>
-        Monthly limit for cloud models on this server (USD)
-        <input
-          inputMode="decimal"
-          value={cap}
-          onChange={(e) => setCap(e.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() =>
-          void run(() => api.aiSetInstanceCap(toMicro(cap)), "Limit saved.")
-        }
-      >
-        Save limit
-      </button>
-      {msg && <p role="status">{msg}</p>}
+      {instance.models.length > 0 && (
+        <p className="muted">
+          What each model used this month is under Administration, Usage. A new
+          cloud model starts with a {dollars(instance.default_cap_micro)} limit;
+          clear the box to remove it.
+        </p>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -1044,7 +1161,7 @@ export function AiSettings({
           {instance.enabled && instance.needs_default && (
             <p role="alert" className="error">
               Choose a default model: there is none now, so AI on shared files
-              is off. Open a model below and press "Make this the default".
+              is off. Press "Make default" on one of the models below.
             </p>
           )}
           {instance.enabled && (

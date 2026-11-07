@@ -54,7 +54,7 @@ from app.auth.deps import (
 )
 from app.auth.schemas import Ok
 from app.auth.service import audit
-from app.db.models import AiProvider, AiUsage, AppSetting, User
+from app.db.models import AiBudget, AiProvider, AiUsage, AppSetting, User
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
@@ -89,6 +89,16 @@ class ProviderOut(BaseModel):
     price_in_micro: int
     price_out_micro: int
     consent_ok: bool
+    # Server models only: this model's own monthly limit (None = no limit) and what it used this
+    # month (estimates). Always None/0 for local models and for a person's own provider.
+    monthly_cap_micro: int | None = None
+    spent_micro: int = 0
+
+
+class ModelCapBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Required: an explicit null clears the limit, a missing field is an error.
+    cap_micro: int | None = Field(ge=0)
 
 
 class ProviderBody(BaseModel):
@@ -133,7 +143,9 @@ class TestBody(BaseModel):
     confirm_billed: bool = False
 
 
-def _out(p: AiProvider, default_id: uuid.UUID | None = None) -> ProviderOut:
+def _out(
+    p: AiProvider, default_id: uuid.UUID | None = None, db: Session | None = None
+) -> ProviderOut:
     return ProviderOut(
         id=p.id,
         label=p.label,
@@ -147,6 +159,8 @@ def _out(p: AiProvider, default_id: uuid.UUID | None = None) -> ProviderOut:
         price_in_micro=p.price_in_micro,
         price_out_micro=p.price_out_micro,
         consent_ok=p.privacy_mode == "local" or p.consent_version == CONSENT_VERSION,
+        monthly_cap_micro=p.monthly_cap_micro if p.scope == "instance" else None,
+        spent_micro=budget.model_spent(db, p.id) if db is not None and p.scope == "instance" else 0,
     )
 
 
@@ -211,7 +225,12 @@ def _save_instance(
     if existing is None and len(instance_models(db)) >= MAX_INSTANCE_MODELS:
         raise http_error(409, "TOO_MANY_MODELS")
     first = existing is None and default_instance_model(db) is None
+    was_cloud = existing is not None and existing.privacy_mode == "cloud"
     provider = _save(request, db, principal, existing, body, scope="instance")
+    if provider.privacy_mode == "local":
+        provider.monthly_cap_micro = None  # a local model costs nothing, so there is no limit
+    elif not was_cloud:  # a new cloud model starts limited, never unlimited by accident
+        provider.monthly_cap_micro = ctx_of(request).settings.ai_default_cap_micro
     _commit_provider(db, flush=True)
     if first:  # adding a model when none is marked default makes it the default
         _set_default(db, provider)
@@ -470,12 +489,61 @@ def get_instance(
         "consent_version": CONSENT_VERSION,
         "enabled": server_ai_enabled(db),
         "needs_default": default is None and bool(instance_models(db)),
-        "models": [_out(m, default_id) for m in instance_models(db)],
+        "models": [_out(m, default_id, db) for m in instance_models(db)],
         "max_models": MAX_INSTANCE_MODELS,
         # The default model, for single-model callers.
-        "provider": _out(default, default_id) if default else None,
-        "usage": _usage(db, "instance", cfg.ai_default_cap_micro),
+        "provider": _out(default, default_id, db) if default else None,
         "kinds": list(KINDS),
+        "default_cap_micro": cfg.ai_default_cap_micro,
+    }
+
+
+@router.get("/instance/usage")
+def get_instance_usage(
+    _: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """This month's use of the server's models, for the administrator's Usage page."""
+    month = budget.month_key()
+    default = default_instance_model(db)
+    rows = []
+    for m in instance_models(db):
+        counts = dict(
+            db.execute(
+                select(AiUsage.status, func.count())
+                .where(AiUsage.provider_id == m.id, AiUsage.month == month)
+                .group_by(AiUsage.status)
+            ).all()
+        )
+        held = db.scalar(
+            select(AiBudget.reserved_micro).where(
+                AiBudget.scope_key == budget.model_scope(m.id), AiBudget.month == month
+            )
+        )
+        rows.append(
+            {
+                **_out(m, default.id if default else None, db).model_dump(mode="json"),
+                "reserved_micro": int(held or 0),
+                "requests": counts,
+            }
+        )
+    # Models that were removed this month: their use still counts in the month's total.
+    removed = int(
+        db.scalar(
+            select(func.coalesce(func.sum(AiUsage.final_micro), 0)).where(
+                AiUsage.month == month,
+                AiUsage.status == "ok",
+                AiUsage.provider_id.notin_([m.id for m in instance_models(db)]),
+                (AiUsage.scope_key == "instance") | AiUsage.scope_key.like("model:%"),
+            )
+        )
+        or 0
+    )
+    return {
+        "month": month,
+        "total_spent_micro": sum(r["spent_micro"] for r in rows) + removed,
+        "removed_spent_micro": removed,
+        "models": rows,
     }
 
 
@@ -511,7 +579,7 @@ def add_instance_model(
 ) -> ProviderOut:
     p = _save_instance(request, db, principal, None, body)
     d = default_instance_model(db)
-    return _out(p, d.id if d else None)
+    return _out(p, d.id if d else None, db)
 
 
 @router.put("/instance/models/{model_id}", response_model=ProviderOut)
@@ -524,7 +592,7 @@ def put_instance_model(
 ) -> ProviderOut:
     p = _save_instance(request, db, principal, _instance_model(db, model_id), body)
     d = default_instance_model(db)
-    return _out(p, d.id if d else None)
+    return _out(p, d.id if d else None, db)
 
 
 @router.delete("/instance/models/{model_id}", response_model=Ok)
@@ -585,21 +653,35 @@ def delete_instance_provider(
     return Ok()
 
 
-@router.put("/instance/cap")
-def set_instance_cap(
-    body: CapBody,
+@router.put("/instance/models/{model_id}/cap", response_model=ProviderOut)
+def set_model_cap(
+    model_id: uuid.UUID,
+    body: ModelCapBody,
     request: Request,
     principal: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> dict[str, Any]:
-    cfg = ctx_of(request).settings
+) -> ProviderOut:
+    """Set or clear one cloud model's monthly limit. What it already used this month counts."""
+    p = _instance_model(db, model_id)
+    if p.privacy_mode != "cloud":
+        raise http_error(409, "NOT_CLOUD")
     try:
-        budget.set_cap(db, "instance", cfg.ai_default_cap_micro, body.cap_micro)
+        budget.set_model_cap(db, p.id, body.cap_micro)
     except ValueError:
         raise http_error(422, "INVALID_CAP") from None
-    audit(db, "ai.cap_set", actor=principal.user.id, ip=client_ip(request), scope="instance")
+    p.monthly_cap_micro = body.cap_micro
+    audit(
+        db,
+        "ai.cap_set",
+        actor=principal.user.id,
+        ip=client_ip(request),
+        scope="model",
+        model_id=str(p.id),
+        cap_micro=body.cap_micro,  # null = the limit was cleared
+    )
     db.commit()
-    return _usage(db, "instance", cfg.ai_default_cap_micro)
+    d = default_instance_model(db)
+    return _out(p, d.id if d else None, db)
 
 
 @router.post("/instance/provider/test", response_model=Ok)

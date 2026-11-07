@@ -229,7 +229,14 @@ class AiGateway:
             raise self._refuse(db, caller, route, provider, purpose, "provider_unavailable")
         reserved = 0
         month = budget.month_key()
-        if provider.privacy_mode == "cloud":
+        # A server model is limited by its own monthly limit only; a person's own provider by
+        # that person's limit. A server model whose limit was cleared is not limited.
+        scope = _scope_of(route, provider)
+        if provider.scope == "instance" and provider.privacy_mode == "cloud":
+            # Count the model's use even with no limit, so a limit added later starts right.
+            budget.ensure_model(db, provider.id, provider.monthly_cap_micro)
+        limited = provider.scope != "instance" or provider.monthly_cap_micro is not None
+        if provider.privacy_mode == "cloud" and limited:
             est = budget.cost_micro(
                 budget.estimate_tokens(
                     len(text.encode()) + len(instructions.encode()) + WRAPPER_OVERHEAD_BYTES
@@ -238,15 +245,18 @@ class AiGateway:
                 provider.price_in_micro,
                 provider.price_out_micro,
             )
-            budget.sweep_stale(db, route.scope_key)
-            got = budget.reserve(db, route.scope_key, est, self._s.ai_default_cap_micro)
+            budget.sweep_stale(db, scope)
+            if provider.scope == "instance" and provider.monthly_cap_micro is not None:
+                got = budget.reserve_model(db, provider.id, provider.monthly_cap_micro, est)
+            else:
+                got = budget.reserve(db, scope, est, self._s.ai_default_cap_micro)
             if got is None:
                 raise self._refuse(db, caller, route, provider, purpose, "budget_exceeded")
             month, reserved = got, est
         usage = AiUsage(
             at=clock.utcnow(),
             month=month,
-            scope_key=route.scope_key,
+            scope_key=scope,
             actor_user_id=caller.user_id,
             provider_id=provider.id,
             provider_kind=provider.kind,
@@ -283,7 +293,7 @@ class AiGateway:
             # Settle only a reservation we still own; if the stale sweep already gave it back,
             # just record what was spent.
             owned = budget.claim(db, usage.id) if reserved else True
-            budget.settle(db, route.scope_key, month, reserved if owned else 0, final)
+            budget.settle(db, scope, month, reserved if owned else 0, final)
             usage.reason = "" if owned else "after_expiry"
         usage.status, usage.final_micro = "ok", final
         usage.input_tokens, usage.output_tokens = done.input_tokens, done.output_tokens
@@ -378,7 +388,7 @@ class AiGateway:
             AiUsage(
                 at=clock.utcnow(),
                 month=budget.month_key(),
-                scope_key=route.scope_key,
+                scope_key=_scope_of(route, provider),
                 actor_user_id=caller.user_id,
                 provider_id=provider.id,
                 provider_kind=provider.kind,
@@ -405,12 +415,17 @@ class AiGateway:
         count: bool = True,
     ) -> None:
         if reserved and budget.claim(db, usage.id):
-            budget.release(db, route.scope_key, month, reserved)
+            budget.release(db, usage.scope_key, month, reserved)
         usage.status = "refused" if refused else "failed"
         usage.reason = code.lower()[:40]
         db.commit()
         if count and not refused:
             self.breaker.failed(provider.id)
+
+
+def _scope_of(route: Route, provider: AiProvider) -> str:
+    """The budget scope a request counts against: a server model's own, or the person's."""
+    return budget.model_scope(provider.id) if provider.scope == "instance" else route.scope_key
 
 
 def _json_object(text: str) -> object:

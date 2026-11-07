@@ -17,6 +17,7 @@ import {
   isUsersPath,
   isSettingsPath,
   isAdminPath,
+  isUsagePath,
   oneTimeLink,
   searchPath,
   searchQueryFrom,
@@ -133,6 +134,15 @@ describe("mail routes", () => {
     expect(isVerifyEmailPath("/verify-email")).toBe(true);
     expect(isVerifyEmailPath("/verify-email/x")).toBe(false);
     expect(tokenFromHash("#token=abc")).toBe("abc");
+  });
+});
+
+describe("usage route", () => {
+  it("matches only the admin usage page", () => {
+    expect(isUsagePath("/admin/usage")).toBe(true);
+    expect(isUsagePath("/admin/usage/")).toBe(true);
+    expect(isUsagePath("/admin/usages")).toBe(false);
+    expect(isAdminPath("/admin/usage")).toBe(false);
   });
 });
 
