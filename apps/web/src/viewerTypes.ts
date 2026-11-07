@@ -103,3 +103,13 @@ function finish(all: string[][], moreRows: boolean): Table {
   const [header = [], ...rows] = all;
   return { header, rows, moreRows };
 }
+
+/** True when a PDF's metadata says it carries an XFA form (an Adobe Acrobat dynamic form, such as
+ * many government forms). PDF.js does not run those; it draws the placeholder page they ship with. */
+export function hasXfaForm(info: unknown): boolean {
+  return (
+    typeof info === "object" &&
+    info !== null &&
+    (info as { IsXFAPresent?: unknown }).IsXFAPresent === true
+  );
+}

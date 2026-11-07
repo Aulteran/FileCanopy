@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CSV_ROW_LIMIT,
   hasThumbnail,
+  hasXfaForm,
   parseDelimited,
   viewKind,
 } from "./viewerTypes";
@@ -66,5 +67,15 @@ describe("parseDelimited", () => {
       rows: [],
       moreRows: false,
     });
+  });
+});
+
+describe("hasXfaForm", () => {
+  it("is true only when the PDF metadata flags an XFA form", () => {
+    expect(hasXfaForm({ IsXFAPresent: true })).toBe(true);
+    expect(hasXfaForm({ IsXFAPresent: false })).toBe(false);
+    expect(hasXfaForm({})).toBe(false);
+    expect(hasXfaForm(null)).toBe(false);
+    expect(hasXfaForm(undefined)).toBe(false);
   });
 });

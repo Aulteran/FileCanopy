@@ -14,12 +14,13 @@ pytestmark = pytest.mark.e2e
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "viewer"
 
 
-def make_pdf(pages: int, js: str | None = None) -> bytes:
+def make_pdf(pages: int, js: str | None = None, xfa: bool = False) -> bytes:
     """A small valid PDF with one line of text per page (standard Helvetica font)."""
     objs: list[bytes] = []
     kids = " ".join(f"{4 + 2 * i} 0 R" for i in range(pages))
     action = f"/OpenAction << /S /JavaScript /JS ({js}) >> " if js else ""
-    objs.append(f"<< /Type /Catalog /Pages 2 0 R {action}>>".encode())
+    form = f"/AcroForm << /Fields [] /XFA [(template) {4 + 2 * pages} 0 R] >> " if xfa else ""
+    objs.append(f"<< /Type /Catalog /Pages 2 0 R {action}{form}>>".encode())
     objs.append(f"<< /Type /Pages /Kids [{kids}] /Count {pages} >>".encode())
     objs.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")  # object 3
     for i in range(pages):
@@ -31,6 +32,9 @@ def make_pdf(pages: int, js: str | None = None) -> bytes:
         text = f"BT /F1 24 Tf 40 300 Td (Canopy page {i + 1}) Tj ET".encode()
         objs.append(b"<< /Length %d >>\nstream\n" % len(text) + text + b"\nendstream")
         assert page == len(objs) - 1
+    if xfa:  # the XFA packet, the last object: any bytes will do, it is never run
+        xdp = b"<xdp:xdp xmlns:xdp='http://ns.adobe.com/xdp/'/>"
+        objs.append(b"<< /Length %d >>\nstream\n" % len(xdp) + xdp + b"\nendstream")
     out = bytearray(b"%PDF-1.4\n")
     offsets = []
     for n, body in enumerate(objs, start=1):
@@ -228,6 +232,22 @@ def _node_id(page: Page, world: World, name: str) -> str:
         if item["name"] == name:
             return str(item["id"])
     raise AssertionError(f"{name} not found")
+
+
+def test_adobe_xfa_form_gets_an_acrobat_notice_with_download(
+    world: World, browser: Browser
+) -> None:
+    page = sign_in(browser, world, world.alice_mail)
+    upload(page, "form.pdf", make_pdf(1, xfa=True))
+    upload(page, "plain.pdf", make_pdf(1))
+    expect(page.get_by_role("row").filter(has_text="plain.pdf")).to_be_visible()
+    open_file(page, "form.pdf")
+    expect(page.get_by_role("heading", name="This is an Adobe Acrobat form")).to_be_visible()
+    expect(page.get_by_role("link", name="Download")).to_have_count(2)  # top bar and the notice
+    page.get_by_role("button", name="← Back").click()
+    open_file(page, "plain.pdf")
+    expect(page.get_by_role("img", name="Page 1")).to_be_visible()
+    expect(page.get_by_role("heading", name="This is an Adobe Acrobat form")).to_have_count(0)
 
 
 def test_password_protected_pdf_gets_a_friendly_page(world: World, browser: Browser) -> None:
