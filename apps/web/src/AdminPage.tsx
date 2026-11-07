@@ -144,7 +144,7 @@ export function ServerSetupStep({
   return (
     <section
       aria-labelledby="server-step-h"
-      className={panel ? "server-setup with-panel" : "server-setup"}
+      className="server-setup"
     >
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
@@ -205,7 +205,11 @@ export function ServerSetupStep({
             </button>
           </p>
         </div>
-        {panel}
+        {panel ?? (
+          <section className="server-setup-panel server-setup-hint">
+            <p>Choose a step to set it up here.</p>
+          </section>
+        )}
       </div>
     </section>
   );

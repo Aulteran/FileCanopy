@@ -334,7 +334,10 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         steps_box = page.locator("ol.setup-steps").bounding_box()
         panel_box = panel.bounding_box()
         assert steps_box and panel_box and steps_box["x"] < panel_box["x"]
-        assert panel_box["width"] > steps_box["width"]
+        # A wide layout: steps a third, panel two thirds, across most of the window
+        assert 1.8 < panel_box["width"] / steps_box["width"] < 2.2
+        span = panel_box["x"] + panel_box["width"] - steps_box["x"]
+        assert span > 0.85 * page.viewport_size["width"]
         if button == "Invite users":
             expect(panel.get_by_role("button", name="Create invitation")).to_be_visible()
         panel.get_by_role("button", name="Close", exact=True).first.click()
