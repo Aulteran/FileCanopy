@@ -436,7 +436,7 @@ function OrganizeSection({
 }) {
   const [mine, setMine] = useState<OrganizeSettings | null>(null);
   const [inst, setInst] = useState<OrganizeInstance | null>(null);
-  // What the administrator is choosing for the shared files; nothing changes until Save.
+  // What the administrator is choosing for the server files; nothing changes until Save.
   const [shared, setShared] = useState("off");
   const [autoOn, setAutoOn] = useState(false);
   const [bar, setBar] = useState(String(DEFAULT_CONFIDENCE));
@@ -507,7 +507,7 @@ function OrganizeSection({
       <h3>Organization suggestions</h3>
       <p className="muted">
         AI can suggest clearer names and folders for{" "}
-        {serverSetup ? "the shared files" : "your files"}. It can never change
+        {serverSetup ? "the server files" : "your files"}. It can never change
         who has access, lower a privacy label, replace a file or delete. Applied
         changes can be undone.
       </p>
@@ -565,7 +565,7 @@ function OrganizeSection({
           }}
         >
           <label>
-            For the shared files
+            For the server files
             <select value={shared} onChange={(e) => setShared(e.target.value)}>
               {(mine?.modes ?? ["off", "review", "auto"]).map((m) => (
                 <option key={m} value={m} disabled={m === "auto" && !autoOn}>
@@ -1193,7 +1193,7 @@ export function AiSettings({
           </label>
           {instance.enabled && instance.needs_default && (
             <p role="alert" className="error">
-              Choose a default model: there is none now, so AI on shared files
+              Choose a default model: there is none now, so AI on server files
               is off. Press "Make default" on one of the models below.
             </p>
           )}

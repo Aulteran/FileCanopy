@@ -2,7 +2,7 @@
 
 ## Where your data lives
 
-- **`library/`** is your files. Shared files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.
+- **`library/`** is your files. Server files are in the shared folder, and each person's files are in their own folder. Personal folders are named by user ID, not by name. Trashed items wait in a hidden `.filecanopy-trash/` folder inside `library/`. You can use this folder with any file tool, and it is never converted or locked.
 - **`app-data/`** holds app-private working data, such as staged uploads during imports. Do not edit it by hand.
 - **The database** is a Docker volume named `pgdata`; its generated password is in the `secrets` volume (keep both together). It holds accounts, permissions, trash records and history. Your files do not depend on it: the project's tests check that documents survive a total database loss.
 

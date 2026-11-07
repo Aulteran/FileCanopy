@@ -294,8 +294,8 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
               value={form.scope}
               onChange={(e) => set("scope", e.target.value)}
             >
-              <option value="all">Shared folder and personal folders</option>
-              <option value="shared">Shared folder only</option>
+              <option value="all">Server files and personal folders</option>
+              <option value="shared">Server files only</option>
               <option value="personal">Personal folders only</option>
             </select>
           </label>

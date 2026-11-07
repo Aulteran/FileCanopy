@@ -14,6 +14,7 @@ from support import (
     api_status,
     new_folder,
     open_folder,
+    open_shared_with_you,
     row,
     select,
     sign_in,
@@ -188,9 +189,7 @@ def test_move_to_another_area_and_the_owner_restores(browser: Browser, world: Wo
     )
 
     alice = sign_in(browser, w, w.alice_mail)
-    alice.get_by_role("navigation", name="Locations").get_by_role(
-        "link", name=re.compile(f"^{shared}")
-    ).click()
+    open_shared_with_you(alice, re.compile(f"^{shared}"))
     select(alice, "across.bin")
     alice.get_by_role("button", name="Move…").click()
     dialog = alice.get_by_role("dialog", name=re.compile("Move"))
@@ -251,9 +250,7 @@ def test_a_viewer_sees_no_trash_entries_of_others(browser: Browser, world: World
 def test_viewers_cannot_delete(browser: Browser, world: World) -> None:
     w = world
     bob = sign_in(browser, w, w.bob_mail)
-    bob.get_by_role("navigation", name="Locations").get_by_role(
-        "link", name=re.compile("^T7c")
-    ).click()
+    open_shared_with_you(bob, re.compile("^T7c"))
     expect(bob.get_by_text("Read-only")).to_be_visible()
     assert api_status(bob, "GET", "/api/v1/trash") == 200
     bob.close()

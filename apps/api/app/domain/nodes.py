@@ -73,7 +73,7 @@ def ensure_shared_root(db: Session) -> Node:
         )
         db.add(root)
         db.flush()
-        return create_root_node(db, root, "Shared files")
+        return create_root_node(db, root, "Server files")
     return root_node(db, root.id)
 
 

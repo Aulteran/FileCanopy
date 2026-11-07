@@ -23,7 +23,7 @@ that, and the server checks the file again when you press Apply: if it changed, 
 
 ## Modes
 
-Each person chooses for their own personal files; the administrator chooses for the shared files.
+Each person chooses for their own personal files; the administrator chooses for the Server files.
 
 - **Off** (default).
 - **Suggest, and I decide**: suggestions wait for you.

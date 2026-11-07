@@ -107,7 +107,7 @@ export function TrashPage({ onEnded, onChanged }: Props) {
 
   const rootName = (id: string | null): string =>
     data?.roots.find((r) => r.root_node_id === id)?.kind === "shared"
-      ? "the shared area"
+      ? "the server files"
       : "your folder";
 
   return (

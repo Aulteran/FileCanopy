@@ -633,7 +633,7 @@ def test_cross_user_and_shares(fx: Fx) -> None:
     assert bob.error("get_file_metadata", node_id=ghost) == "Not found."
     assert {r["name"] for r in bob.data("list_folders")["items"]} == {
         "My files",
-        "Shared files",
+        "Server files",
     }
     # a share opens exactly that folder and nothing around it
     alice_c = (alice.client, alice.headers)

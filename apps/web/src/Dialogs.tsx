@@ -202,7 +202,7 @@ export function TargetDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(startId);
-  // Move only: other areas (My files, shared folders) can be chosen, and the original then goes
+  // Move only: other areas (My files, Server files) can be chosen, and the original then goes
   // to the trash of the area it came from (ADR-013, ADR-017).
   const [areas, setAreas] = useState<EntryPoint[] | null>(null);
   const [pickedArea, setPickedArea] = useState<string | null>(null);

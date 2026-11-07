@@ -17,6 +17,7 @@ import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
 import { UsagePage } from "./UsagePage";
+import { SharedByYouPage, SharedWithYouPage } from "./SharedPages";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -36,6 +37,8 @@ import {
   RECENT_PATH,
   searchPath,
   TRASH_PATH,
+  SHARED_WITH_PATH,
+  SHARED_BY_PATH,
   USERS_PATH,
   folderPath,
   tokenFromHash,
@@ -207,6 +210,8 @@ function Shell({
     backups,
     users,
     trash,
+    sharedWith,
+    sharedBy,
     recent,
     notices,
     inbox,
@@ -285,6 +290,8 @@ function Shell({
       !backups &&
       !users &&
       !trash &&
+      !sharedWith &&
+      !sharedBy &&
       !recent &&
       !notices &&
       !inbox &&
@@ -305,6 +312,8 @@ function Shell({
     backups,
     users,
     trash,
+    sharedWith,
+    sharedBy,
     recent,
     notices,
     inbox,
@@ -570,30 +579,65 @@ function Shell({
             Files
           </span>
           <ul>
-            {roots.map((r) => (
-              <li key={r.node_id}>
-                <a
-                  href={folderPath(r.node_id)}
-                  aria-current={activeRoot === r.node_id ? "page" : undefined}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go(folderPath(r.node_id));
-                  }}
-                >
-                  <Icon name={ROOT_ICON[r.kind]} />
-                  {rootLabel(r)}
-                </a>
-                {r.setup_open && (
-                  <button
-                    className="linklike flag"
-                    aria-label={`Set up ${r.name}`}
-                    onClick={() => setSetupFor(r.node_id)}
+            {roots
+              .filter((r) => r.kind !== "shared_with_me")
+              .map((r) => (
+                <li key={r.node_id}>
+                  <a
+                    href={folderPath(r.node_id)}
+                    aria-current={activeRoot === r.node_id ? "page" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(folderPath(r.node_id));
+                    }}
                   >
-                    (set up)
-                  </button>
-                )}
-              </li>
-            ))}
+                    <Icon name={ROOT_ICON[r.kind]} />
+                    {rootLabel(r)}
+                  </a>
+                  {r.setup_open && (
+                    <button
+                      className="linklike flag"
+                      aria-label={`Set up ${r.name}`}
+                      onClick={() => setSetupFor(r.node_id)}
+                    >
+                      (set up)
+                    </button>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </nav>
+        <nav aria-label="Shared files">
+          <span className="grp-h" aria-hidden="true">
+            Shared files
+          </span>
+          <ul>
+            <li>
+              <a
+                href={SHARED_WITH_PATH}
+                aria-current={sharedWith ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(SHARED_WITH_PATH);
+                }}
+              >
+                <Icon name="share" />
+                Shared with you
+              </a>
+            </li>
+            <li>
+              <a
+                href={SHARED_BY_PATH}
+                aria-current={sharedBy ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(SHARED_BY_PATH);
+                }}
+              >
+                <Icon name="users" />
+                Shared by you
+              </a>
+            </li>
           </ul>
         </nav>
         <nav aria-label="Trash and history">
@@ -704,6 +748,8 @@ function Shell({
           onEnded={onEnded}
           onChanged={() => setReload((n) => n + 1)}
         />
+        {sharedWith && <SharedWithYouPage roots={roots} go={go} />}
+        {sharedBy && <SharedByYouPage />}
         {users &&
           (admin ? (
             <UsersPage me={session.user.id} onEnded={onEnded} />

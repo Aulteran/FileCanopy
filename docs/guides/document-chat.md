@@ -16,7 +16,7 @@ For a written answer, set up an AI provider (see `docs/guides/ai.md`). Meaning-b
 - If the files do not clearly answer, no answer is shown, only the matching passages.
 - It never changes anything. It cannot move, rename, delete, share or relabel a file.
 - Nothing is saved. The question and answer are gone when you leave the page.
-- It looks in **My files** or **Shared files**, one at a time.
+- It looks in **My files** or **Server files**, one at a time.
 
 ## Privacy
 
