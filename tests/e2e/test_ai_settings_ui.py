@@ -195,8 +195,8 @@ def test_outgoing_email_test_shows_its_result_inside_the_panel(
     panel = page.get_by_role("region", name="Step 3: Outgoing email")
     expect(panel).to_be_visible()
     panel.get_by_label("Mail server").fill("127.0.0.1")
-    panel.get_by_label("Security").select_option("none")
-    panel.get_by_label("Port").fill("1")  # nothing listens here
+    panel.get_by_label("Security", exact=False).select_option("none")
+    panel.get_by_label("Port", exact=True).fill("1")  # nothing listens here
     panel.get_by_label("User name").fill("mailer")
     panel.get_by_label("Password", exact=True).fill("never-shown-secret")
     panel.get_by_label("From address").fill("files@example.com")
