@@ -93,7 +93,7 @@ export function ServerSetupStep({
   onEnded: () => void;
   onContinue: () => void;
 }) {
-  const [view, setView] = useState<SetupView>("steps");
+  const [view, setView] = useState<SetupView>("ai");
   const [done, setDone] = useState<ServerSetupDone>(NOTHING_DONE);
   // Read from the server each time a panel opens or closes, so a mark always reflects saved state
   // (and survives a reload).

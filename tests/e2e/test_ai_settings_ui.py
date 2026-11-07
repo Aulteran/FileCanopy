@@ -103,7 +103,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     page.context.close()
 
 
-def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, world: World) -> None:
+def test_first_run_server_step_is_wide_with_cards_in_the_left_third(browser: Browser, world: World) -> None:
     page = browser.new_context().new_page()
     page.goto(world.base + "/")
     page.get_by_label("Email").fill("admin@example.com")
@@ -115,12 +115,12 @@ def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, wo
     assert viewport is not None
     box = screen.bounding_box()
     assert box is not None
-    assert box["width"] <= 740, "a readable column, not the full page width"
+    assert box["width"] > viewport["width"] * 0.85, "the layout uses most of the window"
     middle = box["x"] + box["width"] / 2
-    assert abs(middle - viewport["width"] / 2) < 40, "the column sits in the middle"
+    assert abs(middle - viewport["width"] / 2) < 40, "the layout sits in the middle"
     first = screen.get_by_role("listitem").first.bounding_box()
     assert first is not None
-    assert first["width"] > box["width"] * 0.9, "each step is a card as wide as the column"
+    assert 0.28 < first["width"] / box["width"] < 0.34, "step cards fill the left third"
     page.context.close()
 
 
