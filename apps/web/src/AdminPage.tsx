@@ -142,10 +142,7 @@ export function ServerSetupStep({
     onClick: () => setView(v),
   });
   return (
-    <section
-      aria-labelledby="server-step-h"
-      className="server-setup"
-    >
+    <section aria-labelledby="server-step-h" className="server-setup">
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
         Set up the server in this order, then choose which files to import. Each
