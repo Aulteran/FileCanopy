@@ -16,7 +16,7 @@ pytestmark = pytest.mark.e2e
 
 def _open_ai(page: Page) -> None:
     page.get_by_role("button", name=re.compile("Profile menu")).click()
-    page.get_by_role("menuitem", name="AI", exact=True).click()
+    page.get_by_role("menuitem", name="AI settings", exact=True).click()
     expect(page.get_by_role("dialog", name="AI")).to_be_visible()
 
 

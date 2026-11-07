@@ -477,7 +477,7 @@ function Shell({
               }}
             >
               <Icon name="sparkles" />
-              AI
+              AI settings
             </button>
             {withBackups && (
               <a
@@ -510,11 +510,13 @@ function Shell({
             <button
               type="button"
               role="menuitem"
+              className="danger"
               onClick={() => {
                 close();
                 void logout();
               }}
             >
+              <Icon name="log-out" />
               Sign out
             </button>
           </>
