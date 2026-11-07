@@ -44,6 +44,17 @@ export function Modal({
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
+      onClick={(event) => {
+        // A click on the backdrop lands on the <dialog> itself, outside its box.
+        if (event.target !== event.currentTarget) return;
+        const r = event.currentTarget.getBoundingClientRect();
+        const outside =
+          event.clientX < r.left ||
+          event.clientX > r.right ||
+          event.clientY < r.top ||
+          event.clientY > r.bottom;
+        if (outside) onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key !== "Tab" || event.defaultPrevented) return;
         const dialog = event.currentTarget;

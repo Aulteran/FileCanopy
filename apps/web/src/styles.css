@@ -1682,6 +1682,22 @@ section.server-setup > p {
 /* AI models table and usage page */
 .table-scroll {
   overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--surface);
+}
+.models-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.models-table th {
+  border-bottom: 1px solid var(--line);
+}
+.models-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.models-table tbody tr:hover > * {
+  background: var(--sunken);
 }
 .models-table th[scope="row"] {
   background: none;
@@ -1690,7 +1706,14 @@ section.server-setup > p {
 }
 .models-table td,
 .models-table th {
-  vertical-align: top;
+  vertical-align: middle;
+}
+.models-table button,
+.models-table .limit-input {
+  min-height: 36px;
+  height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .row-actions,
 .limit-cell {

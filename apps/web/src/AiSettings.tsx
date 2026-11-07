@@ -1,5 +1,4 @@
 import {
-  Fragment,
   useCallback,
   useEffect,
   useState,
@@ -927,6 +926,7 @@ function ModelsSection({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const editingModel = instance.models.find((m) => m.id === editing) ?? null;
 
   async function run(work: () => Promise<unknown>) {
     try {
@@ -972,8 +972,7 @@ function ModelsSection({
             </thead>
             <tbody>
               {instance.models.map((m) => (
-                <Fragment key={m.id}>
-                  <tr>
+                  <tr key={m.id}>
                     <th scope="row">
                       {m.label || <span className="muted">(no name)</span>}
                       {!m.enabled && <span className="muted"> (off)</span>}
@@ -989,10 +988,8 @@ function ModelsSection({
                       <div className="row-actions">
                         <button
                           type="button"
-                          aria-expanded={editing === m.id}
-                          onClick={() =>
-                            setEditing(editing === m.id ? null : m.id)
-                          }
+                          aria-haspopup="dialog"
+                          onClick={() => setEditing(m.id)}
                         >
                           Edit
                         </button>
@@ -1012,43 +1009,48 @@ function ModelsSection({
                       </div>
                     </td>
                   </tr>
-                  {editing === m.id && (
-                    <tr>
-                      <td colSpan={7}>
-                        <ProviderForm
-                          kinds={instance.kinds}
-                          current={m}
-                          notice={instance.notice}
-                          usage={null}
-                          scope="instance"
-                          onChanged={onChanged}
-                          onDone={() => setEditing(null)}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {adding ? (
-        <ProviderForm
-          kinds={instance.kinds}
-          current={null}
-          notice={instance.notice}
-          usage={null}
-          scope="instance"
-          onChanged={onChanged}
-          onDone={() => setAdding(false)}
-        />
-      ) : (
-        instance.models.length < instance.max_models && (
-          <button type="button" onClick={() => setAdding(true)}>
-            Add a model
-          </button>
-        )
+      {adding && (
+        <Modal title="Add a model" onClose={() => setAdding(false)}>
+          <ProviderForm
+            kinds={instance.kinds}
+            current={null}
+            notice={instance.notice}
+            usage={null}
+            scope="instance"
+            onChanged={onChanged}
+            onDone={() => setAdding(false)}
+          />
+        </Modal>
+      )}
+      {editingModel && (
+        <Modal
+          title={`Edit ${editingModel.label || editingModel.model}`}
+          onClose={() => setEditing(null)}
+        >
+          <ProviderForm
+            kinds={instance.kinds}
+            current={editingModel}
+            notice={instance.notice}
+            usage={null}
+            scope="instance"
+            onChanged={onChanged}
+            onDone={() => setEditing(null)}
+          />
+        </Modal>
+      )}
+      {instance.models.length < instance.max_models && (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setAdding(true)}
+        >
+          Add a model
+        </button>
       )}
       {instance.models.length > 0 && (
         <p className="muted">

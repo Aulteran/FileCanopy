@@ -55,6 +55,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     switch.click()
     expect(switch).to_be_checked()
     dialog.get_by_role("button", name="Add a model").click()
+    dialog = page.get_by_role("dialog", name="Add a model")
     # an administrator also has "my own provider" further down: work inside the new model's form
     form = dialog.locator("form").filter(has_text="Name (optional)")
 
@@ -100,6 +101,35 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     )
     assert gap[2] > gap[1] * 2, "the notice is expected to wrap onto several lines"
     assert gap[0] < gap[1], "checkbox must align with the first line of the text"
+    page.context.close()
+
+
+def test_add_model_popup_closes_with_x_escape_and_backdrop(browser: Browser, world: World) -> None:
+    page = sign_in(browser, world, "admin@example.com")
+    _open_ai(page)
+    ai = page.get_by_role("dialog", name="AI")
+    switch = ai.get_by_label("Enable AI on this server?")
+    switch.click()
+    expect(switch).to_be_checked()
+    add = ai.get_by_role("button", name="Add a model")
+    popup = page.get_by_role("dialog", name="Add a model")
+    # the X closes it
+    add.click()
+    expect(popup).to_be_visible()
+    popup.get_by_role("button", name="Dismiss dialog").click()
+    expect(popup).to_have_count(0)
+    # Escape closes only the popup, not the AI dialog under it, and focus returns to the opener
+    add.click()
+    expect(popup).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(popup).to_have_count(0)
+    expect(ai).to_be_visible()
+    expect(add).to_be_focused()
+    # a click on the dimmed backdrop closes it
+    add.click()
+    expect(popup).to_be_visible()
+    page.mouse.click(2, 2)
+    expect(popup).to_have_count(0)
     page.context.close()
 
 
