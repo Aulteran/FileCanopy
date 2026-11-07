@@ -319,12 +319,26 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             "Step 5: Mail server (optional)",
         ]
     )
-    page.get_by_role("button", name="Invite users").click()
-    expect(page.get_by_role("heading", level=1, name="Step 4: Invite other users")).to_be_visible()
-    page.get_by_role("button", name="Back to setup steps").click()
-    expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
-    page.get_by_role("button", name="Set up mail").click()
-    expect(page.get_by_role("heading", level=1, name="Step 5: Mail server")).to_be_visible()
-    page.get_by_role("button", name="Back to setup steps").click()
+    # Steps 1, 2, 4 and 5 open beside the step list (two panes), never instead of it
+    for button, title in [
+        ("Choose AI settings", "Step 1: AI"),
+        ("Set up meaning-based search", "Step 2: Meaning-based search"),
+        ("Invite users", "Step 4: Invite other users"),
+        ("Set up mail", "Step 5: Mail server"),
+    ]:
+        page.get_by_role("button", name=button).click()
+        panel = page.get_by_role("region", name=title)
+        expect(panel).to_be_visible()
+        expect(page.get_by_role("dialog")).to_have_count(0)
+        expect(page.locator("ol.setup-steps")).to_be_visible()
+        steps_box = page.locator("ol.setup-steps").bounding_box()
+        panel_box = panel.bounding_box()
+        assert steps_box and panel_box and steps_box["x"] < panel_box["x"]
+        assert panel_box["width"] > steps_box["width"]
+        if button == "Invite users":
+            expect(panel.get_by_role("button", name="Create invitation")).to_be_visible()
+        panel.get_by_role("button", name="Close", exact=True).first.click()
+        expect(panel).to_have_count(0)
+        expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
     page.get_by_role("button", name="Continue to file setup").click()
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
