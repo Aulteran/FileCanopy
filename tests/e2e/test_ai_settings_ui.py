@@ -55,7 +55,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     switch.click()
     expect(switch).to_be_checked()
     dialog.get_by_role("button", name="Add a model").click()
-    # an administrator also has "my own provider" further up: work inside the new model's form
+    # an administrator also has "my own provider" further down: work inside the new model's form
     form = dialog.locator("form").filter(has_text="Name (optional)")
 
     # Anthropic is the first cloud provider, so the form starts on it.
