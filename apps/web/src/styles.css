@@ -1617,11 +1617,14 @@ button.admin-card:hover {
 
 /* Prepare your server: step list, with the invite-users card beside it (Step 4) */
 section.server-setup {
-  max-width: 1120px;
+  --setup-pad: clamp(16px, 4vw, 48px);
+  width: min(720px, 100% - 2 * var(--setup-pad));
   margin: 0 auto;
-  padding: clamp(16px, 4vw, 48px);
+  padding: 0;
+  text-align: center;
 }
 section.server-setup.with-panel {
+  width: min(1120px, 100% - 2 * var(--setup-pad));
   text-align: left;
 }
 .server-setup-layout {
@@ -1667,6 +1670,6 @@ section.server-setup.with-panel {
     order: -1;
   }
 }
-.server-setup-panel .users h1 {
+.server-setup-panel h1 {
   display: none;
 }

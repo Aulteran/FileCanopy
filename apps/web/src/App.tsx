@@ -15,7 +15,7 @@ import { VerifyEmailDialog } from "./Emails";
 import { InboxPage, MailboxAdminPage } from "./MailPages";
 import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
-import { AiSettings, SemanticSettings } from "./AiSettings";
+import { AiSettings } from "./AiSettings";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -247,8 +247,6 @@ function Shell({
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [previewSettings, setPreviewSettings] = useState(false);
   const [aiSettings, setAiSettings] = useState(false);
-  const [semanticSettings, setSemanticSettings] = useState(false);
-  const [setupVersion, setSetupVersion] = useState(0);
   // Returning from the provider after linking opens Account with the result.
   // What a provider re-check was for (set in sessionStorage before leaving; never a secret).
   const [pending] = useState(() =>
@@ -533,32 +531,10 @@ function Shell({
         <main id="main" tabIndex={-1} className="content">
           <ServerSetupStep
             me={session.user.id}
-            onAi={() => setAiSettings(true)}
-            onSemantic={() => setSemanticSettings(true)}
             onEnded={onEnded}
             onContinue={finishServerStep}
-            version={setupVersion}
           />
         </main>
-        {aiSettings && (
-          <AiSettings
-            admin={admin}
-            serverSetup
-            onClose={() => {
-              setAiSettings(false);
-              setSetupVersion((v) => v + 1);
-            }}
-          />
-        )}
-        {semanticSettings && (
-          <SemanticSettings
-            admin={admin}
-            onClose={() => {
-              setSemanticSettings(false);
-              setSetupVersion((v) => v + 1);
-            }}
-          />
-        )}
       </div>
     );
   }

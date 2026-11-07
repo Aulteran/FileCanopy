@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ApiError,
   api,
@@ -953,11 +953,14 @@ export function AiSettings({
   admin,
   onClose,
   serverSetup = false,
+  inline = false,
 }: {
   admin: boolean;
   onClose: () => void;
   /** First-time server setup: server-wide choices only; personal ones come later. */
   serverSetup?: boolean;
+  /** Shown inside a page panel (which has its own title and Close) instead of a dialog. */
+  inline?: boolean;
 }) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [instance, setInstance] = useState<AiInstance | null>(null);
@@ -1014,7 +1017,7 @@ export function AiSettings({
 
   const enabled = status?.server_ai_enabled ?? false;
   return (
-    <Modal title="AI" onClose={onClose}>
+    <Frame title="AI" inline={inline} onClose={onClose}>
       <p className="muted">
         FileCanopy's AI can organize your files, search them and answer
         questions about them. Files in Private and Confidential folders are
@@ -1135,11 +1138,33 @@ export function AiSettings({
           {error}
         </p>
       )}
-      <div className="actions">
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
+      {!inline && (
+        <div className="actions">
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      )}
+    </Frame>
+  );
+}
+
+/** A dialog, or just the content when a page panel already provides the frame. */
+function Frame({
+  title,
+  inline,
+  onClose,
+  children,
+}: {
+  title: string;
+  inline: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (inline) return <>{children}</>;
+  return (
+    <Modal title={title} onClose={onClose}>
+      {children}
     </Modal>
   );
 }
@@ -1148,13 +1173,15 @@ export function AiSettings({
 export function SemanticSettings({
   admin,
   onClose,
+  inline = false,
 }: {
   admin: boolean;
   onClose: () => void;
+  inline?: boolean;
 }) {
   return (
-    <Modal title="Meaning-based search" onClose={onClose}>
+    <Frame title="Meaning-based search" inline={inline} onClose={onClose}>
       <SemanticSection admin={admin} serverSetup />
-    </Modal>
+    </Frame>
   );
 }
