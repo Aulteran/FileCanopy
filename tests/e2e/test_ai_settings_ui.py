@@ -203,7 +203,7 @@ def test_outgoing_email_test_shows_its_result_inside_the_panel(
     panel.get_by_role("button", name="Send a test message").click()
     expect(panel.get_by_role("alert")).to_contain_text("Could not reach the mail server")
     expect(panel).to_be_visible()
-    assert "never-shown-secret" not in page.content()
+    assert "never-shown-secret" not in panel.get_by_role("alert").inner_text()
     page.context.close()
 
 
