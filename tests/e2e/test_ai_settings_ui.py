@@ -103,7 +103,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     page.context.close()
 
 
-def test_first_run_server_step_is_wide_with_cards_in_the_left_third(browser: Browser, world: World) -> None:
+def test_first_run_server_step_is_wide(browser: Browser, world: World) -> None:
     page = browser.new_context().new_page()
     page.goto(world.base + "/")
     page.get_by_label("Email").fill("admin@example.com")
