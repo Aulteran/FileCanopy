@@ -97,7 +97,8 @@ class ProviderOut(BaseModel):
 
 class ModelCapBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    cap_micro: int | None = Field(default=None, ge=0)  # None clears the limit
+    # Required: an explicit null clears the limit, a missing field is an error.
+    cap_micro: int | None = Field(ge=0)
 
 
 class ProviderBody(BaseModel):
@@ -142,20 +143,6 @@ class TestBody(BaseModel):
     confirm_billed: bool = False
 
 
-def _model_spent(db: Session, provider_id: uuid.UUID) -> int:
-    """What a model used this month, from the ledger (so it is right even with no limit set)."""
-    return int(
-        db.scalar(
-            select(func.coalesce(func.sum(AiUsage.final_micro), 0)).where(
-                AiUsage.provider_id == provider_id,
-                AiUsage.month == budget.month_key(),
-                AiUsage.status == "ok",
-            )
-        )
-        or 0
-    )
-
-
 def _out(
     p: AiProvider, default_id: uuid.UUID | None = None, db: Session | None = None
 ) -> ProviderOut:
@@ -173,7 +160,7 @@ def _out(
         price_out_micro=p.price_out_micro,
         consent_ok=p.privacy_mode == "local" or p.consent_version == CONSENT_VERSION,
         monthly_cap_micro=p.monthly_cap_micro if p.scope == "instance" else None,
-        spent_micro=_model_spent(db, p.id) if db is not None and p.scope == "instance" else 0,
+        spent_micro=budget.model_spent(db, p.id) if db is not None and p.scope == "instance" else 0,
     )
 
 
@@ -540,9 +527,22 @@ def get_instance_usage(
                 "requests": counts,
             }
         )
+    # Models that were removed this month: their use still counts in the month's total.
+    removed = int(
+        db.scalar(
+            select(func.coalesce(func.sum(AiUsage.final_micro), 0)).where(
+                AiUsage.month == month,
+                AiUsage.status == "ok",
+                AiUsage.provider_id.notin_([m.id for m in instance_models(db)]),
+                (AiUsage.scope_key == "instance") | AiUsage.scope_key.like("model:%"),
+            )
+        )
+        or 0
+    )
     return {
         "month": month,
-        "total_spent_micro": sum(r["spent_micro"] for r in rows),
+        "total_spent_micro": sum(r["spent_micro"] for r in rows) + removed,
+        "removed_spent_micro": removed,
         "models": rows,
     }
 
@@ -666,12 +666,19 @@ def set_model_cap(
     if p.privacy_mode != "cloud":
         raise http_error(409, "NOT_CLOUD")
     try:
-        if body.cap_micro is not None:
-            budget.set_model_cap(db, p.id, body.cap_micro, _model_spent(db, p.id))
+        budget.set_model_cap(db, p.id, body.cap_micro)
     except ValueError:
         raise http_error(422, "INVALID_CAP") from None
     p.monthly_cap_micro = body.cap_micro
-    audit(db, "ai.cap_set", actor=principal.user.id, ip=client_ip(request), scope="model")
+    audit(
+        db,
+        "ai.cap_set",
+        actor=principal.user.id,
+        ip=client_ip(request),
+        scope="model",
+        model_id=str(p.id),
+        cap_micro=body.cap_micro,  # null = the limit was cleared
+    )
     db.commit()
     d = default_instance_model(db)
     return _out(p, d.id if d else None, db)

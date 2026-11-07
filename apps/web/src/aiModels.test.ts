@@ -74,5 +74,7 @@ describe("model limits and names", () => {
     expect(limitText(null)).toBe("");
     expect(limitText(3_000_000)).toBe("3");
     expect(limitText(2_500_000)).toBe("2.5");
+    expect(limitText(1_234_567)).toBe("1.23");
+    expect(parseLimit(limitText(1_234_567))).not.toBeUndefined();
   });
 });

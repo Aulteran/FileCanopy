@@ -978,8 +978,8 @@ class AiProvider(Base):
     # Micro-dollars per million tokens, entered by the person; 0 for local providers.
     price_in_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     price_out_micro: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    # Optional monthly spending limit for this one model (server cloud models only), checked in
-    # addition to the server-wide limit. NULL means no limit of its own.
+    # Monthly spending limit for this one server cloud model, in micro-dollars. NULL means the
+    # administrator cleared it: the model is not limited.
     monthly_cap_micro: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

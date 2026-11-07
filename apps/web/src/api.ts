@@ -133,6 +133,7 @@ export type AiModelUsage = AiProvider & {
 export type AiInstanceUsage = {
   month: string;
   total_spent_micro: number;
+  removed_spent_micro: number;
   models: AiModelUsage[];
 };
 export type AiUsage = {

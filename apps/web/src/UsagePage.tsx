@@ -39,6 +39,12 @@ export function UsagePage() {
             used across all models. Estimates, not a bill: your provider's own
             usage page is the record.
           </p>
+          {usage.removed_spent_micro > 0 && (
+            <p className="muted">
+              Includes {dollars(usage.removed_spent_micro)} used by models that
+              have since been removed.
+            </p>
+          )}
           {usage.models.length === 0 ? (
             <p className="muted empty-state">
               No models yet. Add one under Administration, AI.

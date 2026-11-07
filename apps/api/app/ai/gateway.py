@@ -231,7 +231,10 @@ class AiGateway:
         month = budget.month_key()
         # A server model is limited by its own monthly limit only; a person's own provider by
         # that person's limit. A server model whose limit was cleared is not limited.
-        scope = budget.model_scope(provider.id) if provider.scope == "instance" else route.scope_key
+        scope = _scope_of(route, provider)
+        if provider.scope == "instance" and provider.privacy_mode == "cloud":
+            # Count the model's use even with no limit, so a limit added later starts right.
+            budget.ensure_model(db, provider.id, provider.monthly_cap_micro)
         limited = provider.scope != "instance" or provider.monthly_cap_micro is not None
         if provider.privacy_mode == "cloud" and limited:
             est = budget.cost_micro(
@@ -385,7 +388,7 @@ class AiGateway:
             AiUsage(
                 at=clock.utcnow(),
                 month=budget.month_key(),
-                scope_key=route.scope_key,
+                scope_key=_scope_of(route, provider),
                 actor_user_id=caller.user_id,
                 provider_id=provider.id,
                 provider_kind=provider.kind,
@@ -418,6 +421,11 @@ class AiGateway:
         db.commit()
         if count and not refused:
             self.breaker.failed(provider.id)
+
+
+def _scope_of(route: Route, provider: AiProvider) -> str:
+    """The budget scope a request counts against: a server model's own, or the person's."""
+    return budget.model_scope(provider.id) if provider.scope == "instance" else route.scope_key
 
 
 def _json_object(text: str) -> object:

@@ -991,7 +991,9 @@ def test_each_model_has_its_own_limit(fx: Fx, net: Net) -> None:
     assert code(set_model_cap(admin, 10**15, b["id"])) == "INVALID_CAP"
 
 
-def test_migration_0027_gives_existing_cloud_models_the_old_server_limit(tmp_path: Path) -> None:
+def test_migration_0027_splits_the_old_server_limit_across_existing_cloud_models(
+    tmp_path: Path,
+) -> None:
     import importlib.util
 
     import sqlalchemy as sa
@@ -1008,7 +1010,7 @@ def test_migration_0027_gives_existing_cloud_models_the_old_server_limit(tmp_pat
         "create table ai_provider (id integer primary key, scope varchar, privacy_mode varchar)",
         "create table ai_budget (scope_key varchar, month varchar, cap_micro bigint)",
         "insert into ai_provider values (1, 'instance', 'cloud'), (2, 'instance', 'local'),"
-        " (3, 'user', 'cloud')",
+        " (3, 'user', 'cloud'), (4, 'instance', 'cloud')",
         "insert into ai_budget values ('instance', '2026-10', 5000000),"
         " ('instance', '2026-11', 7000000)",
     ]
@@ -1019,4 +1021,48 @@ def test_migration_0027_gives_existing_cloud_models_the_old_server_limit(tmp_pat
             mod.upgrade()
             mod.upgrade()  # idempotent
         caps = dict(conn.execute(sa.text("select id, monthly_cap_micro from ai_provider")).all())
-    assert caps == {1: 7_000_000, 2: None, 3: None}
+    assert caps == {1: 3_500_000, 2: None, 3: None, 4: 3_500_000}  # 7M split over two
+
+
+def test_use_before_the_upgrade_still_counts_against_the_model_limit(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    model = post(admin, "/instance/models", cloud_body(label="A")).json()
+    with fx.w.ctx.sessions() as db:  # spent this month under the old server-wide counter
+        db.add(
+            AiUsage(
+                at=budget.clock.utcnow(),
+                month=budget.month_key(),
+                scope_key="instance",
+                provider_id=uuid.UUID(model["id"]),
+                provider_kind="anthropic",
+                model="claude-test",
+                purpose="x",
+                status="ok",
+                final_micro=3_000_000,
+            )
+        )
+        db.commit()
+    f = file_in(alice, fx.shared_sub)
+    sent = len(net.requests)
+    with pytest.raises(AiRefused) as e:
+        run(fx, caller(fx, "alice"), f)  # the model's $3 limit is already used up
+    assert e.value.reason == "budget_exceeded" and len(net.requests) == sent
+    row = model_usage(admin)
+    assert row["spent_micro"] == 3_000_000
+
+
+def test_a_missing_limit_does_not_clear_it_and_a_removed_model_still_counts(
+    fx: Fx, net: Net
+) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    a = post(admin, "/instance/models", cloud_body(label="A")).json()
+    b = post(admin, "/instance/models", cloud_body(label="B")).json()
+    assert put(admin, f"/instance/models/{a['id']}/cap", {}).status_code == 422
+    assert default_model(admin)["monthly_cap_micro"] == 3_000_000
+    run(fx, caller(fx, "alice"), file_in(alice, fx.shared_sub))
+    spent = model_usage(admin)["spent_micro"]
+    assert spent > 0
+    assert delete(admin, f"/instance/models/{a['id']}").status_code == 200
+    usage = admin.get("/ai/instance/usage").json()
+    assert usage["removed_spent_micro"] == spent and usage["total_spent_micro"] == spent
+    assert [m["id"] for m in usage["models"]] == [b["id"]]

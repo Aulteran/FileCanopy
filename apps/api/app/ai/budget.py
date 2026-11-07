@@ -11,7 +11,7 @@ import math
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import CursorResult, select, update
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -112,26 +112,54 @@ def model_scope(provider_id: object) -> str:
     return f"model:{provider_id}"
 
 
-def set_model_cap(db: Session, provider_id: object, cap_micro: int, spent_micro: int) -> AiBudget:
-    """Give one model its limit this month. `spent_micro` (from the ledger) is what it already
-    used, so a limit added or changed mid-month counts earlier use too."""
-    if not 0 <= cap_micro <= MAX_CAP_MICRO:
+def model_spent(db: Session, provider_id: object, month: str | None = None) -> int:
+    """What a model used in a month, from the ledger (so it is right even with no limit set)."""
+    return int(
+        db.scalar(
+            select(func.coalesce(func.sum(AiUsage.final_micro), 0)).where(
+                AiUsage.provider_id == provider_id,
+                AiUsage.month == (month or month_key()),
+                AiUsage.status == "ok",
+            )
+        )
+        or 0
+    )
+
+
+def ensure_model(db: Session, provider_id: object, cap_micro: int | None) -> AiBudget:
+    """This month's counter for one server model, created from the ledger the first time so what
+    the model already used this month (also under the old server-wide counter) is counted. The
+    stored cap follows the model's setting; no limit is stored as the largest cap."""
+    scope = model_scope(provider_id)
+    cap = MAX_CAP_MICRO if cap_micro is None else cap_micro
+    if not 0 <= cap <= MAX_CAP_MICRO:
         raise ValueError("cap out of range")
-    row = ensure(db, model_scope(provider_id), cap_micro)
-    row.cap_micro = cap_micro
-    row.spent_micro = spent_micro
-    db.commit()
+    month = month_key()
+    fresh = _row(db, scope, month) is None
+    row = ensure(db, scope, cap)
+    if fresh:  # seed only an untouched row: never overwrite what a request already settled
+        db.execute(
+            update(AiBudget)
+            .where(AiBudget.id == row.id, AiBudget.spent_micro == 0, AiBudget.reserved_micro == 0)
+            .values(spent_micro=model_spent(db, provider_id, month))
+        )
+        db.commit()
+    if row.cap_micro != cap:
+        row.cap_micro = cap
+        db.commit()
+    db.refresh(row)
     return row
 
 
+def set_model_cap(db: Session, provider_id: object, cap_micro: int | None) -> AiBudget:
+    """Give one model its limit this month (None clears it). Use already counted stays counted."""
+    return ensure_model(db, provider_id, cap_micro)
+
+
 def reserve_model(db: Session, provider_id: object, cap_micro: int, estimate: int) -> str | None:
-    """Like `reserve`, against a model's own limit. The stored cap follows the model's setting."""
-    scope = model_scope(provider_id)
-    row = ensure(db, scope, cap_micro)
-    if row.cap_micro != cap_micro:
-        row.cap_micro = cap_micro
-        db.commit()
-    return reserve(db, scope, estimate, cap_micro)
+    """Like `reserve`, against a model's own limit."""
+    ensure_model(db, provider_id, cap_micro)
+    return reserve(db, model_scope(provider_id), estimate, cap_micro)
 
 
 def _give_back(db: Session, scope_key: str, month: str, amount: int) -> None:

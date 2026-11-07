@@ -159,14 +159,12 @@ function ProviderForm({
       ? {
           put: api.aiPutMine,
           del: api.aiDeleteMine,
-          cap: api.aiSetMyCap,
           test: api.aiTestMine,
         }
       : {
           put: (b: AiProviderInput) =>
             current ? api.aiPutModel(current.id, b) : api.aiAddModel(b),
           del: () => api.aiDeleteModel(current?.id ?? ""),
-          cap: async () => undefined,
           test: (billed: boolean) => api.aiTestModel(current?.id ?? "", billed),
         };
 
@@ -378,7 +376,7 @@ function ProviderForm({
           <button
             type="button"
             onClick={() =>
-              void attempt(() => fns.cap(toMicro(cap)), "Limit saved.")
+              void attempt(() => api.aiSetMyCap(toMicro(cap)), "Limit saved.")
             }
           >
             Save limit
@@ -871,6 +869,13 @@ function LimitCell({
   const parsed = parseLimit(text);
   async function save(): Promise<void> {
     if (parsed === undefined) return;
+    if (
+      parsed === null &&
+      !window.confirm(
+        `No limit: spending on ${model.label || model.model} will not be capped. Remove the limit?`,
+      )
+    )
+      return;
     try {
       await api.aiSetModelCap(model.id, parsed);
       setError("");

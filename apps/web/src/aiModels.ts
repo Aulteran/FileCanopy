@@ -88,5 +88,5 @@ export function parseLimit(text: string): number | null | undefined {
 
 /** A limit as it is typed into its field. */
 export function limitText(micro: number | null): string {
-  return micro === null ? "" : String(micro / 1_000_000);
+  return micro === null ? "" : String(Number((micro / 1_000_000).toFixed(2)));
 }
