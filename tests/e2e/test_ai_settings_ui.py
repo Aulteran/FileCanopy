@@ -16,7 +16,7 @@ pytestmark = pytest.mark.e2e
 
 def _open_ai(page: Page) -> None:
     page.get_by_role("button", name=re.compile("Profile menu")).click()
-    page.get_by_role("menuitem", name="AI", exact=True).click()
+    page.get_by_role("menuitem", name="AI settings", exact=True).click()
     expect(page.get_by_role("dialog", name="AI")).to_be_visible()
 
 
@@ -109,9 +109,14 @@ def test_add_model_popup_closes_with_x_escape_and_backdrop(browser: Browser, wor
     _open_ai(page)
     ai = page.get_by_role("dialog", name="AI")
     switch = ai.get_by_label("Enable AI on this server?")
-    switch.click()
+    # the server's AI switch is shared state that earlier tests may have left on: turn it on only
+    # if it is off, because clicking it again would switch it off and remove the models section
+    expect(switch).to_be_visible()
+    if not switch.is_checked():
+        switch.click()
     expect(switch).to_be_checked()
     add = ai.get_by_role("button", name="Add a model")
+    expect(add).to_be_visible()
     popup = page.get_by_role("dialog", name="Add a model")
     # the X closes it
     add.click()
@@ -158,7 +163,7 @@ def test_server_step_marks_only_the_steps_that_are_really_done(
     browser: Browser, world: World
 ) -> None:
     """A step card shows a "Completed" check mark only for saved state, and keeps it on reload:
-    the account step always, the users step because the world already invited two people."""
+    the users step because the world already invited two people. This world has no mail server."""
     page = browser.new_context().new_page()
     page.goto(world.base + "/")
     page.get_by_label("Email").fill("admin@example.com")
@@ -172,12 +177,38 @@ def test_server_step_marks_only_the_steps_that_are_really_done(
         return item.get_by_role("img", name="Completed")
 
     for _ in range(2):  # the second pass is after a reload
-        expect(done("Step 3: Your account")).to_be_visible()
+        expect(done("Step 3: Outgoing email")).to_have_count(0)
         expect(done("Step 4: Other users")).to_be_visible()
         expect(done("Step 1: AI")).to_have_count(0)
         expect(done("Step 2: Meaning-based search")).to_have_count(0)
-        expect(done("Step 5: Mail server")).to_have_count(0)
+        expect(done("Step 5: Incoming mail")).to_have_count(0)
         page.reload()
+    page.context.close()
+
+
+def test_outgoing_email_test_shows_its_result_inside_the_panel(
+    browser: Browser, world: World
+) -> None:
+    """Step 3: a failing test reports why next to the form, without closing it or leaking the
+    password, and nothing is saved by testing."""
+    page = browser.new_context().new_page()
+    page.goto(world.base + "/")
+    page.get_by_label("Email").fill("admin@example.com")
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Sign in").click()
+    page.get_by_role("button", name="Set up outgoing email").click()
+    panel = page.get_by_role("region", name="Step 3: Outgoing email")
+    expect(panel).to_be_visible()
+    panel.get_by_label("Mail server").fill("127.0.0.1")
+    panel.get_by_label("Security", exact=False).select_option("none")
+    panel.get_by_label("Port", exact=True).fill("1")  # nothing listens here
+    panel.get_by_label("User name").fill("mailer")
+    panel.get_by_label("Password", exact=True).fill("never-shown-secret")
+    panel.get_by_label("From address").fill("files@example.com")
+    panel.get_by_role("button", name="Send a test message").click()
+    expect(panel.get_by_role("alert")).to_contain_text("Could not reach the mail server")
+    expect(panel).to_be_visible()
+    assert "never-shown-secret" not in panel.get_by_role("alert").inner_text()
     page.context.close()
 
 

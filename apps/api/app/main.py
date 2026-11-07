@@ -51,6 +51,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
+from app.mail import smtp_store
 from app.mail.poller import MailboxPoller
 from app.mcp import router as mcp_routes
 from app.mcp.tokens import TokenLimiter
@@ -85,6 +86,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.setup_token_issued = True
         except Exception as exc:  # database not ready: retried lazily by /setup/status
             log.warning("setup token not prepared at startup: %s", type(exc).__name__)
+        try:  # outgoing mail saved by an administrator replaces the environment settings
+            with sessions() as db:
+                app.state.auth.mailer.use_saved(
+                    smtp_store.load(db, app.state.ai_box, cfg.smtp_timeout_seconds)
+                )
+        except Exception as exc:  # falls back to the environment settings
+            log.warning("saved mail settings not loaded: %s", type(exc).__name__)
         try:
             ensure_roots(sessions, cfg)
         except Exception as exc:  # roots are retried on the next start; the API still serves

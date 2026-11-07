@@ -272,6 +272,23 @@ const MESSAGES: Record<string, string> = {
     "This server cannot send email. Copy the link and give it to the person yourself.",
   EMAIL_SEND_FAILED:
     "The test message could not be sent. Check the mail settings.",
+  SMTP_CONNECT_FAILED:
+    "Could not reach the mail server. Check the server name, the port and that this machine can connect to it.",
+  SMTP_TLS_FAILED:
+    "The secure connection to the mail server failed. Check the security setting matches the port (usually STARTTLS on 587, SSL on 465).",
+  SMTP_AUTH_FAILED: "The mail server refused the user name or password.",
+  SMTP_REJECTED:
+    "The mail server accepted the connection but refused the message. Check the From address is one this server may send as.",
+  SMTP_NOT_CONFIGURED: "Enter the server name and the From address first.",
+  SMTP_HOST_INVALID: "The server name is not valid.",
+  SMTP_PORT_INVALID: "The port must be a number from 1 to 65535.",
+  SMTP_SECURITY_INVALID: "Choose STARTTLS, SSL or none.",
+  SMTP_FROM_INVALID: "The From address must be an email address.",
+  SMTP_USERNAME_INVALID: "The user name is not valid.",
+  SMTP_PLAINTEXT_REFUSED:
+    "Sending without encryption is only allowed to a server on this same machine. Choose STARTTLS or SSL.",
+  SECRETS_KEY_MISSING:
+    "This server has no secrets key, so a mail password cannot be stored. Clear the password, or set FILECANOPY_SECRETS_KEY.",
   OIDC_DISABLED: "Single sign-on is not set up on this server.",
   OIDC_UNAVAILABLE:
     "The sign-in provider cannot be reached right now. Sign in with your password instead.",

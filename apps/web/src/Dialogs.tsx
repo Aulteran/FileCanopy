@@ -42,8 +42,14 @@ export function Modal({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
-      onCancel={onClose}
+      // A popup opened from inside another popup sits in this dialog's React tree, so its close
+      // and cancel events (Escape) reach these handlers too. Only react to our own.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onCancel={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       onClick={(event) => {
         // A click on the backdrop lands on the <dialog> itself, outside its box.
         if (event.target !== event.currentTarget) return;

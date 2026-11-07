@@ -367,7 +367,9 @@ def test_billed_test_needs_confirmation(fx: Fx, net: Net) -> None:
 
 def test_model_test_reports_why_it_failed_and_never_leaks_the_key(fx: Fx, net: Net) -> None:
     admin = Api(fx, "admin")
-    added = admin.client.post("/api/v1/ai/instance/models", json=cloud_body(), headers=admin.headers)
+    added = admin.client.post(
+        "/api/v1/ai/instance/models", json=cloud_body(), headers=admin.headers
+    )
     assert added.status_code in (200, 201), added.text
     path = f"/api/v1/ai/instance/models/{added.json()['id']}/test"
     ok = admin.client.post(path, json={"confirm_billed": True}, headers=admin.headers)

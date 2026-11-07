@@ -76,11 +76,12 @@ def _blocked(retry: int) -> Exception:
 @router.get("/config", response_model=AuthConfig)
 def auth_config(request: Request, db: Session = Depends(get_db)) -> AuthConfig:
     """Public: what the sign-in page may offer. No secrets, no hosts."""
-    s = ctx_of(request).settings
+    ctx = ctx_of(request)
+    s = ctx.settings
     only = oidc_only.effective(db, s)
     return AuthConfig(
         oidc=OidcPublic(enabled=s.oidc_enabled, label=s.oidc_label),
-        password_reset_by_email=s.smtp_configured and not only,
+        password_reset_by_email=ctx.mailer.configured and not only,
         password_login=not only,
     )
 

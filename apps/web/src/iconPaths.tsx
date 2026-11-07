@@ -227,6 +227,20 @@ export const ICON_PATHS = {
       </g>
     </>
   ),
+  "log-out": (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M9 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3" />
+        <path d="M16 16.5 20.5 12 16 7.5M20.5 12H9" />
+      </g>
+    </>
+  ),
   unlock: (
     <>
       <g

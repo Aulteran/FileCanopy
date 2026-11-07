@@ -2,9 +2,10 @@
 hashes, plaintext passwords or session tokens, and grants no access to anyone's content."""
 
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Request
+from pydantic import Field
 from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.auth.schemas import (
     IssuedToken,
     Ok,
     SendOptions,
+    Strict,
     UpdateUser,
     UserOut,
     UserWithToken,
@@ -31,7 +33,9 @@ from app.auth.service import (
     valid_email,
 )
 from app.db.models import AuthToken, User, UserEmailAlias, UserIdentity
+from app.mail import smtp_store
 from app.mail.address import address_forms, normalize_address, reserved_addresses
+from app.notifications.mail import SmtpConfig
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -115,7 +119,9 @@ def create_invited_user(
         raise http_error(422, "INVALID_NAME")
     # A verified sender alias is an identity too (M13): one address, one account.
     mail_address = normalize_address(email)
-    if mail_address is not None and mail_address in reserved_addresses(ctx.settings):
+    if mail_address is not None and mail_address in reserved_addresses(
+        ctx.settings, ctx.mailer.config.sender
+    ):
         raise http_error(409, "EMAIL_EXISTS")  # the intake or system address (review L2)
     if mail_address is not None and db.scalar(
         select(User.id).where(User.email.in_(address_forms(mail_address)))
@@ -293,16 +299,35 @@ def revoke_user_sessions(
     return Ok()
 
 
+def _smtp_out(request: Request, db: Session) -> dict[str, object]:
+    ctx = ctx_of(request)
+    c = ctx.mailer.config
+    saved = ctx.mailer.configured and smtp_store.has_saved_password(db)
+    return {
+        "configured": c.configured,
+        "source": ("saved" if ctx.mailer.is_saved else "environment") if c.configured else None,
+        "host": c.host,
+        "port": c.port,
+        "security": c.security,
+        "username": c.username,
+        "sender": c.sender,
+        "has_password": bool(c.password) or saved,
+        "can_store_password": request.app.state.ai_box.configured,
+    }
+
+
 @router.get("/auth-config")
 def auth_config(request: Request, _: Principal = Depends(require_admin)) -> dict[str, object]:
     """Read-only view of how sign-in and mail are configured. Never includes a secret."""
-    s = ctx_of(request).settings
+    ctx = ctx_of(request)
+    s = ctx.settings
+    c = ctx.mailer.config
     return {
         "smtp": {
-            "configured": s.smtp_configured,
-            "host": s.smtp_host if s.smtp_configured else None,
-            "from": s.smtp_from if s.smtp_configured else None,
-            "security": s.smtp_security if s.smtp_configured else None,
+            "configured": c.configured,
+            "host": c.host if c.configured else None,
+            "from": c.sender if c.configured else None,
+            "security": c.security if c.configured else None,
         },
         "oidc": {
             "enabled": s.oidc_enabled,
@@ -315,21 +340,103 @@ def auth_config(request: Request, _: Principal = Depends(require_admin)) -> dict
     }
 
 
-@router.post("/smtp/test", response_model=Ok)
-def smtp_test(
+class SmtpIn(Strict):
+    host: str = Field(max_length=255)
+    port: int = Field(ge=1, le=65535)
+    security: Literal["starttls", "ssl", "none"]
+    username: str = Field(default="", max_length=255)
+    # None keeps the password already in use (when the user name is unchanged).
+    password: str | None = Field(default=None, max_length=1024)
+    sender: str = Field(max_length=320)
+
+
+def _smtp_config(request: Request, body: SmtpIn) -> SmtpConfig:
+    ctx = ctx_of(request)
+    current = ctx.mailer.config
+    username = body.username.strip()
+    if body.password is not None:
+        password = body.password
+    elif username and username == current.username:
+        password = current.password
+    else:
+        password = ""
+    c = SmtpConfig(
+        body.host.strip(),
+        body.port,
+        body.security,
+        username,
+        password if username else "",
+        body.sender.strip(),
+        ctx.settings.smtp_timeout_seconds,
+    )
+    try:
+        smtp_store.validate(c, ctx.settings)
+    except smtp_store.SmtpInvalid as exc:
+        raise http_error(422, str(exc)) from exc
+    return c
+
+
+@router.get("/smtp")
+def smtp_get(
+    request: Request,
+    _: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """The outgoing mail settings in force. The password is never returned."""
+    return _smtp_out(request, db)
+
+
+@router.put("/smtp")
+def smtp_put(
+    body: SmtpIn,
     request: Request,
     admin: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> Ok:
-    """Sends a test message to the administrator's own address."""
-    mailer = ctx_of(request).mailer
-    if not mailer.configured:
-        raise http_error(409, "EMAIL_NOT_CONFIGURED")
-    ok = mailer.send(*mailer.test_message(admin.user.email))
-    audit(db, "smtp.test", actor=admin.user.id, ip=client_ip(request), sent=ok)
+) -> dict[str, object]:
+    ctx = ctx_of(request)
+    c = _smtp_config(request, body)
+    box = request.app.state.ai_box
+    if c.password and not box.configured:
+        raise http_error(409, "SECRETS_KEY_MISSING")
+    smtp_store.save(db, box, c)
+    audit(db, "smtp.save", actor=admin.user.id, ip=client_ip(request))
     db.commit()
-    if not ok:
-        raise http_error(502, "EMAIL_SEND_FAILED")
+    ctx.mailer.use_saved(c)
+    return _smtp_out(request, db)
+
+
+@router.delete("/smtp")
+def smtp_delete(
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """Forgets the saved settings; the server falls back to its environment settings."""
+    if smtp_store.clear(db):
+        audit(db, "smtp.clear", actor=admin.user.id, ip=client_ip(request))
+        db.commit()
+    ctx_of(request).mailer.use_saved(None)
+    return _smtp_out(request, db)
+
+
+@router.post("/smtp/test", response_model=Ok)
+def smtp_test(
+    request: Request,
+    body: SmtpIn | None = None,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    """Sends a test message to the administrator's own address, with the posted settings (not
+    saved) or, without a body, the ones in force."""
+    mailer = ctx_of(request).mailer
+    c = _smtp_config(request, body) if body is not None else mailer.config
+    if not c.configured:
+        raise http_error(409, "EMAIL_NOT_CONFIGURED")
+    failure = mailer.try_send(c, *mailer.test_message(admin.user.email))
+    audit(db, "smtp.test", actor=admin.user.id, ip=client_ip(request), sent=failure is None)
+    db.commit()
+    if failure is not None:
+        raise http_error(502, failure)
     return Ok()
 
 
