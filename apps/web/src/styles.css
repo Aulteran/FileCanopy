@@ -1614,3 +1614,59 @@ button.admin-card:hover {
   color: var(--on-primary);
   background: var(--primary);
 }
+
+/* Prepare your server: step list, with the invite-users card beside it (Step 4) */
+section.server-setup {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 48px);
+}
+section.server-setup.with-panel {
+  text-align: left;
+}
+.server-setup-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 32px);
+  align-items: start;
+}
+.with-panel .server-setup-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.setup-steps li.active {
+  border-color: var(--primary);
+}
+.server-setup-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  padding: clamp(16px, 2.5vw, 28px);
+  min-width: 0;
+}
+.server-setup-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.server-setup-panel > header h2 {
+  margin: 0;
+}
+.server-setup-panel .users {
+  max-width: none;
+}
+.server-setup-panel .users table {
+  display: block;
+  overflow-x: auto;
+}
+@media (max-width: 800px) {
+  .with-panel .server-setup-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .server-setup-panel {
+    order: -1;
+  }
+}
+.server-setup-panel .users h1 {
+  display: none;
+}

@@ -320,8 +320,17 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         ]
     )
     page.get_by_role("button", name="Invite users").click()
-    expect(page.get_by_role("heading", level=1, name="Step 4: Invite other users")).to_be_visible()
-    page.get_by_role("button", name="Back to setup steps").click()
+    # Step 4 opens beside the step list (two panes), not instead of it
+    panel = page.get_by_role("region", name="Step 4: Invite other users")
+    expect(panel).to_be_visible()
+    expect(page.locator("ol.setup-steps")).to_be_visible()
+    expect(panel.get_by_role("button", name="Create invitation")).to_be_visible()
+    steps_box = page.locator("ol.setup-steps").bounding_box()
+    panel_box = panel.bounding_box()
+    assert steps_box and panel_box and steps_box["x"] < panel_box["x"]
+    assert panel_box["width"] > steps_box["width"]
+    panel.get_by_role("button", name="Close").click()
+    expect(panel).to_have_count(0)
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
     page.get_by_role("button", name="Set up mail").click()
     expect(page.get_by_role("heading", level=1, name="Step 5: Mail server")).to_be_visible()

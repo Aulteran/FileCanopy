@@ -101,7 +101,7 @@ export function ServerSetupStep({
   // Read from the server each time the step list is shown or a dialog closes, so a mark always
   // reflects saved state (and survives a reload).
   useEffect(() => {
-    if (view !== "steps") return;
+    if (view === "mail") return;
     let live = true;
     void loadServerSetupDone(me).then((d) => {
       if (live) setDone(d);
@@ -117,14 +117,6 @@ export function ServerSetupStep({
       </button>
     </p>
   );
-  if (view === "users")
-    return (
-      <section aria-labelledby="server-users-h">
-        <h1 id="server-users-h">Step 4: Invite other users</h1>
-        {back}
-        <UsersPage me={me} onEnded={onEnded} />
-      </section>
-    );
   if (view === "mail")
     return (
       <section aria-labelledby="server-mail-h">
@@ -133,60 +125,90 @@ export function ServerSetupStep({
         <MailboxAdminPage onEnded={onEnded} />
       </section>
     );
+  const panelOpen = view === "users";
   return (
-    <section aria-labelledby="server-step-h">
+    <section
+      aria-labelledby="server-step-h"
+      className={panelOpen ? "server-setup with-panel" : "server-setup"}
+    >
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
         Set up the server in this order, then choose which files to import. Each
         step is optional and can be changed later under Admin.
       </p>
-      <ol className="setup-steps">
-        <li>
-          <StepDone done={done.ai} />
-          <strong>Step 1: AI (optional)</strong>
-          <p>Choose whether and how AI helps. FileCanopy works without it.</p>
-          <button type="button" onClick={onAi}>
-            Choose AI settings
-          </button>
-        </li>
-        <li>
-          <StepDone done={done.semantic} />
-          <strong>Step 2: Meaning-based search (optional)</strong>
+      <div className="server-setup-layout">
+        <div className="server-setup-steps">
+          <ol className="setup-steps">
+            <li>
+              <StepDone done={done.ai} />
+              <strong>Step 1: AI (optional)</strong>
+              <p>
+                Choose whether and how AI helps. FileCanopy works without it.
+              </p>
+              <button type="button" onClick={onAi}>
+                Choose AI settings
+              </button>
+            </li>
+            <li>
+              <StepDone done={done.semantic} />
+              <strong>Step 2: Meaning-based search (optional)</strong>
+              <p>
+                Connect a model server on your own network so search can find
+                files by meaning.
+              </p>
+              <button type="button" onClick={onSemantic}>
+                Set up meaning-based search
+              </button>
+            </li>
+            <li>
+              <StepDone done />
+              <strong>Step 3: Your account</strong>
+              <p>
+                You are signed in as this administrator. Nothing to do here.
+              </p>
+            </li>
+            <li className={panelOpen ? "active" : undefined}>
+              <StepDone done={done.users} />
+              <strong>Step 4: Other users (optional)</strong>
+              <p>Invite the people who will use this server.</p>
+              <button
+                type="button"
+                aria-expanded={panelOpen}
+                onClick={() => setView("users")}
+              >
+                Invite users
+              </button>
+            </li>
+            <li>
+              <StepDone done={done.mail} />
+              <strong>Step 5: Mail server (optional)</strong>
+              <p>Set up outgoing and incoming email.</p>
+              <button type="button" onClick={() => setView("mail")}>
+                Set up mail
+              </button>
+            </li>
+          </ol>
           <p>
-            Connect a model server on your own network so search can find files
-            by meaning.
+            <button type="button" className="primary" onClick={onContinue}>
+              Continue to file setup
+            </button>
           </p>
-          <button type="button" onClick={onSemantic}>
-            Set up meaning-based search
-          </button>
-        </li>
-        <li>
-          <StepDone done />
-          <strong>Step 3: Your account</strong>
-          <p>You are signed in as this administrator. Nothing to do here.</p>
-        </li>
-        <li>
-          <StepDone done={done.users} />
-          <strong>Step 4: Other users (optional)</strong>
-          <p>Invite the people who will use this server.</p>
-          <button type="button" onClick={() => setView("users")}>
-            Invite users
-          </button>
-        </li>
-        <li>
-          <StepDone done={done.mail} />
-          <strong>Step 5: Mail server (optional)</strong>
-          <p>Set up outgoing and incoming email.</p>
-          <button type="button" onClick={() => setView("mail")}>
-            Set up mail
-          </button>
-        </li>
-      </ol>
-      <p>
-        <button type="button" className="primary" onClick={onContinue}>
-          Continue to file setup
-        </button>
-      </p>
+        </div>
+        {panelOpen && (
+          <section
+            className="server-setup-panel"
+            aria-labelledby="server-users-h"
+          >
+            <header>
+              <h2 id="server-users-h">Step 4: Invite other users</h2>
+              <button type="button" onClick={() => setView("steps")}>
+                Close
+              </button>
+            </header>
+            <UsersPage me={me} onEnded={onEnded} />
+          </section>
+        )}
+      </div>
     </section>
   );
 }
