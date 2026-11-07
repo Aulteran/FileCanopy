@@ -8,6 +8,6 @@ Everything needed to run FileCanopy with Docker. Start with the root [`README.md
 - `scripts/`: `backup.sh` and `restore.sh`, whole-install disaster recovery.
 - `proxy/`: tested reverse proxy setups (Nginx Proxy Manager, nginx, Caddy, Traefik, Cloudflare Tunnel).
 - `postgres/`: PostgreSQL 17 plus pgvector, built into the `-postgres` image.
-- `contrib/`: not for normal installs. `build.yaml` builds the images from a checkout (`scripts/dev-up.ps1` wraps it: pull dev, build, `up -d --wait` against your own stack folder, keeping its override and volumes); `swarm/` is the single-node Docker Swarm variant.
+- `contrib/`: not for normal installs. `build.yaml` builds the images from a checkout (double-click `dev-up.cmd` at the repo root: menu to run, wipe and restart, or quit; data lives in the gitignored `.dev-stack/`); `swarm/` is the single-node Docker Swarm variant.
 
 Defaults for every setting live in `apps/api/app/config.py`; `.env` only overrides them. Design and rationale: `docs/adr/ADR-003-compose-layout-and-mounts.md`.

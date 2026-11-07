@@ -23,3 +23,6 @@ __pycache__/
 # Local runtime data: must never be checked in
 /library/
 /app-data/
+
+# Local dev test stack (scripts/dev-stack.ps1)
+/.dev-stack/
