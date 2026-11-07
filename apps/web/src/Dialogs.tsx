@@ -177,7 +177,7 @@ export function NameDialog({
 
 type TargetProps = {
   mode: "move" | "copy" | "restore";
-  item: Pick<Child, "id" | "name">;
+  items: Pick<Child, "id" | "name">[];
   startId: string; // topmost visible folder of the item's tree: the picker never leaves it
   currentParentId: string;
   onSubmit: (targetId: string) => Promise<void>;
@@ -186,12 +186,13 @@ type TargetProps = {
 
 export function TargetDialog({
   mode,
-  item,
+  items,
   startId,
   currentParentId,
   onSubmit,
   onClose,
 }: TargetProps) {
+  const itemIds = items.map((i) => i.id).join(",");
   const [at, setAt] = useState<NodeInfo | null>(null);
   const [folders, setFolders] = useState<Child[]>([]);
   // Cursor of the next page of this folder's children: the list is paged like the browser's, so
@@ -205,6 +206,7 @@ export function TargetDialog({
   // to the trash of the area it came from (ADR-013, ADR-017).
   const [areas, setAreas] = useState<EntryPoint[] | null>(null);
   const [pickedArea, setPickedArea] = useState<string | null>(null);
+  const ids = new Set(items.map((i) => i.id));
   const shown = useRef(target); // the folder whose list is on screen, for late pages
   shown.current = target;
 
@@ -217,7 +219,7 @@ export function TargetDialog({
         if (!live) return;
         setAt(node);
         setFolders(
-          kids.items.filter((c) => c.kind === "dir" && c.id !== item.id),
+          kids.items.filter((c) => c.kind === "dir" && !ids.has(c.id)),
         );
         setNext(kids.next_after);
       })
@@ -230,7 +232,7 @@ export function TargetDialog({
     return () => {
       live = false;
     };
-  }, [target, item.id]);
+  }, [target, itemIds]);
 
   async function more(): Promise<void> {
     if (next === null) return;
@@ -241,7 +243,7 @@ export function TargetDialog({
       if (shown.current !== from) return; // the person moved to another folder meanwhile
       setFolders((f) => [
         ...f,
-        ...page.items.filter((c) => c.kind === "dir" && c.id !== item.id),
+        ...page.items.filter((c) => c.kind === "dir" && !ids.has(c.id)),
       ]);
       setNext(page.next_after);
     } catch (err) {
@@ -269,11 +271,21 @@ export function TargetDialog({
     }
     setChecking(true); // the button stays off until the answer is in
     let live = true;
-    api
-      .moveImpact(item.id, target, mode === "copy")
-      .then((i) => {
+    Promise.all(
+      itemIds
+        .split(",")
+        .map((id) => api.moveImpact(id, target, mode === "copy")),
+    )
+      .then((all) => {
         if (!live) return;
-        setImpact(i);
+        const merge = (
+          pick: (i: Impact) => Impact["gain"],
+        ): Impact["gain"] => ({
+          affected: all.some((i) => pick(i).affected),
+          hidden: all.some((i) => pick(i).hidden),
+          names: [...new Set(all.flatMap((i) => pick(i).names))],
+        });
+        setImpact({ gain: merge((i) => i.gain), lose: merge((i) => i.lose) });
         setChecking(false);
       })
       .catch(() => {
@@ -284,7 +296,7 @@ export function TargetDialog({
     return () => {
       live = false;
     };
-  }, [mode, item.id, target, at, canWrite]);
+  }, [mode, itemIds, target, at, canWrite]);
   const sees = (s: Impact["gain"]): string =>
     s.hidden
       ? "People who can open the destination folder"
@@ -316,7 +328,14 @@ export function TargetDialog({
   }
 
   return (
-    <Modal title={`${verb} “${item.name}”`} onClose={onClose}>
+    <Modal
+      title={
+        items.length === 1
+          ? `${verb} “${items[0]?.name ?? ""}”`
+          : `${verb} ${items.length} items`
+      }
+      onClose={onClose}
+    >
       <p className="hint">
         Destination: <strong>{at?.name ?? "…"}</strong>
       </p>

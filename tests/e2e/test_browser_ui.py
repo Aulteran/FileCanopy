@@ -178,6 +178,43 @@ def test_move_between_folders(browser: Browser, world: World) -> None:
     page.close()
 
 
+def test_single_selection_system(browser: Browser, world: World) -> None:
+    """Row clicks and checkboxes are one selection: same ticks, same panels, bulk Copy works."""
+    page = sign_in(browser, world, world.alice_mail)
+    rows = page.locator("tbody tr")
+    expect(rows).to_have_count(2)  # Archive, Docs
+    boxes = page.get_by_role("checkbox")
+    details = page.get_by_role("complementary", name="Details")
+
+    # clicking a row ticks its box and shows the normal details panel
+    select(page, "Docs")
+    expect(row(page, "Docs").get_by_role("checkbox")).to_be_checked()
+    expect(details.get_by_role("button", name="Rename")).to_be_visible()
+
+    # ticking a second box (after a row click) gives the bulk panel, not a broken one
+    row(page, "Archive").get_by_role("checkbox").check()
+    expect(details.get_by_role("heading", name="2 items selected")).to_be_visible()
+    for name in ("Move…", "Copy…", "Move to Trash", "Clear selection"):
+        expect(details.get_by_role("button", name=name)).to_be_visible()
+
+    # unticking one goes back to the single-item panel
+    row(page, "Archive").get_by_role("checkbox").uncheck()
+    expect(details.get_by_role("button", name="Rename")).to_be_visible()
+    expect(row(page, "Docs").get_by_role("checkbox")).to_be_checked()
+
+    # a plain row click replaces the selection (only that row stays ticked)
+    select(page, "Archive")
+    expect(row(page, "Archive").get_by_role("checkbox")).to_be_checked()
+    expect(row(page, "Docs").get_by_role("checkbox")).not_to_be_checked()
+
+    # select-all ticks every row and offers the bulk panel
+    boxes.first.check()
+    expect(details.get_by_role("heading", name="2 items selected")).to_be_visible()
+    details.get_by_role("button", name="Clear selection").click()
+    expect(row(page, "Docs").get_by_role("checkbox")).not_to_be_checked()
+    page.close()
+
+
 def test_keyboard_operation(browser: Browser, world: World) -> None:
     page = sign_in(browser, world, world.alice_mail)
     rows = page.locator("tbody tr")

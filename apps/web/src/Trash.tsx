@@ -254,7 +254,7 @@ export function TrashPage({ onEnded, onChanged }: Props) {
       {pickFor && pickFor.root_node_id && (
         <TargetDialog
           mode="restore"
-          item={{ id: pickFor.id, name: pickFor.name }}
+          items={[{ id: pickFor.id, name: pickFor.name }]}
           startId={pickFor.root_node_id}
           currentParentId=""
           onClose={() => setPickFor(null)}
