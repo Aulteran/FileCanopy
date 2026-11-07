@@ -4,6 +4,7 @@ import { describeError, formatSize } from "./format";
 import { folderPath, hasInAppHistory } from "./route";
 import {
   TEXT_LIMIT,
+  hasXfaForm,
   parseDelimited,
   viewKind,
   type Table,
@@ -607,6 +608,7 @@ function PdfView({
     () => typeof window === "undefined" || window.innerWidth >= 900,
   );
   const [height, setHeight] = useState(0);
+  const [xfa, setXfa] = useState(false);
   const [firstSize, setFirstSize] = useState<[number, number] | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -633,10 +635,14 @@ function PdfView({
           void opened.destroy();
           return;
         }
+        // An Adobe Acrobat (XFA) form only draws its "please wait" page here: say so.
+        const meta = await loaded.getMetadata().catch(() => null);
+        const isXfa = !url && hasXfaForm(meta?.info);
         const first = await loaded.getPage(1);
         const vp = first.getViewport({ scale: 1 });
         if (!live) return;
         setFirstSize([vp.width, vp.height]);
+        setXfa(isXfa);
         setDoc(loaded);
       } catch (err) {
         if (!live) return;
@@ -689,6 +695,24 @@ function PdfView({
 
   return (
     <>
+      {xfa && (
+        <section className="viewer-note" role="note" aria-live="polite">
+          <h2>This is an Adobe Acrobat form</h2>
+          <p>
+            It was made for Adobe Acrobat and may look empty or incomplete here.
+            For the real form, download it and open it in Adobe Acrobat.
+          </p>
+          <p>
+            <a
+              className="button primary"
+              href={api.downloadUrl(nodeId)}
+              download
+            >
+              Download
+            </a>
+          </p>
+        </section>
+      )}
       <Zoombar
         zoom={zoom}
         onZoom={(z) => {
