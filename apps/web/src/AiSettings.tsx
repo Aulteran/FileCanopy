@@ -1027,6 +1027,28 @@ export function AiSettings({
           models still work.
         </p>
       )}
+      {admin && instance && (
+        <section>
+          <h3>AI on this server</h3>
+          <label>
+            <input
+              type="checkbox"
+              checked={instance.enabled}
+              onChange={(e) => void toggleServer(e.target.checked)}
+            />
+            Enable AI on this server?
+          </label>
+          {instance.enabled && instance.needs_default && (
+            <p role="alert" className="error">
+              Choose a default model: there is none now, so AI on shared files
+              is off. Open a model below and press "Make this the default".
+            </p>
+          )}
+          {instance.enabled && (
+            <ModelsSection instance={instance} onChanged={load} />
+          )}
+        </section>
+      )}
       {status && !serverSetup && (
         <section>
           <h3>My files</h3>
@@ -1053,7 +1075,7 @@ export function AiSettings({
           ) : (
             <p className="muted">
               AI is not turned on for this server
-              {admin ? "; turn it on below." : ". Ask an administrator."}
+              {admin ? "; turn it on above." : ". Ask an administrator."}
             </p>
           )}
           {enabled &&
@@ -1107,28 +1129,6 @@ export function AiSettings({
       {enabled && <OrganizeSection admin={admin} serverSetup={serverSetup} />}
       {!serverSetup && (
         <SemanticSection admin={admin} serverSetup={serverSetup} />
-      )}
-      {admin && instance && (
-        <section>
-          <h3>AI on this server</h3>
-          <label>
-            <input
-              type="checkbox"
-              checked={instance.enabled}
-              onChange={(e) => void toggleServer(e.target.checked)}
-            />
-            Enable AI on this server?
-          </label>
-          {instance.enabled && instance.needs_default && (
-            <p role="alert" className="error">
-              Choose a default model: there is none now, so AI on shared files
-              is off. Open a model below and press "Make this the default".
-            </p>
-          )}
-          {instance.enabled && (
-            <ModelsSection instance={instance} onChanged={load} />
-          )}
-        </section>
       )}
       {error && (
         <p role="alert" className="error">
