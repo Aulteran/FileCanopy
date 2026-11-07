@@ -1734,3 +1734,26 @@ section.server-setup > p {
 .empty-state {
   padding: 12px 0;
 }
+
+.models-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+.models-header > p {
+  flex: 1 1 24rem;
+  margin: 0;
+}
+.models-header > button {
+  margin-left: auto;
+  flex: none;
+}
+.models-table {
+  margin-bottom: 16px;
+}
+.models-header + .muted.empty-state {
+  margin-top: 0;
+}

@@ -947,11 +947,22 @@ function ModelsSection({
   return (
     <>
       <h4>Models</h4>
-      <p className="muted">
-        Add the models people can use. One is the default; people who choose the
-        server's AI get the default, and "local AI only" uses a local model.
-        Each cloud model has its own monthly spending limit.
-      </p>
+      <div className="models-header">
+        <p className="muted">
+          Add the models people can use. One is the default; people who choose
+          the server's AI get the default, and "local AI only" uses a local
+          model. Each cloud model has its own monthly spending limit.
+        </p>
+        {instance.models.length < instance.max_models && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setAdding(true)}
+          >
+            Add a model
+          </button>
+        )}
+      </div>
       {instance.models.length === 0 ? (
         <p className="muted empty-state">
           No models yet. Add one to start. FileCanopy works without any.
@@ -1042,15 +1053,6 @@ function ModelsSection({
             onDone={() => setEditing(null)}
           />
         </Modal>
-      )}
-      {instance.models.length < instance.max_models && (
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          onClick={() => setAdding(true)}
-        >
-          Add a model
-        </button>
       )}
       {instance.models.length > 0 && (
         <p className="muted">
