@@ -316,6 +316,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             "Step 3: Your account",
             "Step 4: Other users (optional)",
             "Step 5: Mail server (optional)",
+            "Step 6: Shared files",
         ]
     )
     # Step 1 is already open beside the list when setup starts
