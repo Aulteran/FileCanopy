@@ -710,7 +710,7 @@ function SemanticSection({
   if (!mine) return null;
   return (
     <section>
-      <h3>Meaning-based search</h3>
+      {!serverSetup && <h3>Meaning-based search</h3>}
       <p className="muted">
         Optional. When an administrator connects a model server on your own
         network, search can also find files whose meaning is close to your
