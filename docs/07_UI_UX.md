@@ -10,7 +10,7 @@ Familiar OneDrive/Nextcloud-style file manager: stable left navigation, breadcru
 [ FileCanopy ]
   Home
   My Files                  # personal root
-  Shared Files              # main work tree if granted
+  Server Files              # main work tree if granted
   Shared with Me            # virtual granted folders
   Collections               # virtual user-approved groups
   Recent                    # ACL filtered

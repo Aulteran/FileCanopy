@@ -50,7 +50,7 @@ runs for anyone. Then, under **Models**, add one or more (up to 8): each is a cl
 (Anthropic, OpenAI, Gemini) or, with **This is a local model** ticked, Ollama or another
 OpenAI-compatible server on your network. The first model is the **default**; "Make this the
 default" changes it. Removing the default promotes another enabled model of the same kind (local
-stays local, cloud stays cloud); if there is none, no model is the default, AI on shared files stays
+stays local, cloud stays cloud); if there is none, no model is the default, AI on server files stays
 off, and the dialog asks you to choose one. Adding the first model switches AI on; turning the
 switch off stops every model and every own provider (models and keys are kept). Optional
 meaning-based search (`semantic-search.md`) is separate (its own step in the first-time setup): it never uses these models and has its own
@@ -58,7 +58,7 @@ settings.
 
 ## Who uses what
 
-- Shared files: the server's default model.
+- Server files: the server's default model.
 - A person's personal files: each person answers "Do you want to use AI?" in the AI dialog:
   **No** (the default); **Yes, use the default server AI** (the default model's name is shown); or
   **Yes, use local AI only** (shown only when a local model exists; it uses the default if that

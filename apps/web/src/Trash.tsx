@@ -107,7 +107,7 @@ export function TrashPage({ onEnded, onChanged }: Props) {
 
   const rootName = (id: string | null): string =>
     data?.roots.find((r) => r.root_node_id === id)?.kind === "shared"
-      ? "the shared area"
+      ? "the server files"
       : "your folder";
 
   return (
@@ -254,7 +254,7 @@ export function TrashPage({ onEnded, onChanged }: Props) {
       {pickFor && pickFor.root_node_id && (
         <TargetDialog
           mode="restore"
-          item={{ id: pickFor.id, name: pickFor.name }}
+          items={[{ id: pickFor.id, name: pickFor.name }]}
           startId={pickFor.root_node_id}
           currentParentId=""
           onClose={() => setPickFor(null)}

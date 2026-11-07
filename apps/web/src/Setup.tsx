@@ -264,7 +264,7 @@ export function SetupScreen({
     >
       {!embedded && <h1 id="setup-title">Set up {heading}</h1>}
       {embedded && (
-        <p>These are the shared files everyone on this server uses.</p>
+        <p>These are the server files everyone on this server uses.</p>
       )}
       <p className="hint">
         Start empty, or copy in files you already have. Imported files are a

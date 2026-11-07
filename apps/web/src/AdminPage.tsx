@@ -176,7 +176,7 @@ export function ServerSetupStep({
     ) : view === "files" ? (
       <SetupPanel
         id="server-files-h"
-        title="Step 6: Shared files"
+        title="Step 6: Server files"
         onClose={close}
       >
         <SetupScreen
@@ -196,7 +196,7 @@ export function ServerSetupStep({
     <section aria-labelledby="server-step-h" className="server-setup">
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
-        Set up the server in this order. The last step is the shared files
+        Set up the server in this order. The last step is the server files
         everyone will use; finishing or skipping it completes setup. Each step
         is optional and can be changed later under Admin.
       </p>
@@ -254,13 +254,13 @@ export function ServerSetupStep({
               </button>
             </li>
             <li className={view === "files" ? "active" : undefined}>
-              <strong>Step 6: Shared files</strong>
+              <strong>Step 6: Server files</strong>
               <p>
                 Start the shared library empty, or copy in files you already
                 have. Finishing or skipping this completes setup.
               </p>
               <button type="button" {...step("files")}>
-                Set up shared files
+                Set up server files
               </button>
             </li>
           </ol>

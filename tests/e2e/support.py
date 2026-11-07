@@ -33,13 +33,13 @@ def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ct
     page.get_by_label("Email").fill(email)
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Sign in").click()
-    # an administrator first gets the "Prepare your server" steps; the last one is the shared files
+    # an administrator first gets the "Prepare your server" steps; the last one is the server files
     server = page.get_by_role("heading", level=1, name="Prepare your server")
     page.get_by_role("region", name=re.compile("^Set up ")).or_(server).or_(
         page.get_by_role("navigation", name="Locations")
     ).first.wait_for()
     if server.is_visible():
-        page.get_by_role("button", name="Set up shared files").click()
+        page.get_by_role("button", name="Set up server files").click()
     screen = page.get_by_role("region", name=re.compile("^Set up "))
     nav = page.get_by_role("navigation", name="Locations")
     if setup:
@@ -99,3 +99,11 @@ def new_folder(page: Page, name: str) -> None:
 def open_folder(page: Page, name: str) -> None:
     row(page, name).get_by_role("link", name=name).click()
     expect(crumbs(page).get_by_text(name)).to_be_visible()
+
+
+def open_shared_with_you(page: Page, name: str | re.Pattern[str]) -> None:
+    """Opens a folder another person shared, from the "Shared with you" page."""
+    page.get_by_role("navigation", name="Shared files").get_by_role(
+        "link", name="Shared with you"
+    ).click()
+    page.get_by_role("main").get_by_role("link", name=name).click()

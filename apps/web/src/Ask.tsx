@@ -62,7 +62,7 @@ export function AskPanel({ initial, go, onEnded }: Props) {
             onChange={(e) => setScope(e.target.value as "mine" | "shared")}
           >
             <option value="mine">My files</option>
-            <option value="shared">Shared files</option>
+            <option value="shared">Server files</option>
           </select>
         </label>
         <button type="submit" disabled={busy || question.trim().length < 2}>

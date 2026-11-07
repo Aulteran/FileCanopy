@@ -5,7 +5,7 @@ import re
 
 import pytest
 from playwright.sync_api import Browser, expect
-from support import World, api_status, new_folder, sign_in
+from support import World, api_status, new_folder, open_shared_with_you, sign_in
 
 pytestmark = pytest.mark.e2e
 
@@ -42,7 +42,7 @@ def test_share_read_only_then_revoke(world: World, browser: Browser) -> None:
     expect(bob.get_by_role("link", name=re.compile(r"Notifications \(\d+ new\)"))).to_be_visible()
     bob.get_by_role("link", name=re.compile("Notifications")).click()
     expect(bob.get_by_text("shared the folder Holiday plans with you")).to_be_visible()
-    bob.get_by_role("link", name=re.compile("Holiday plans")).first.click()
+    open_shared_with_you(bob, re.compile("Holiday plans"))
     expect(bob.get_by_text("Read-only")).to_be_visible()
     expect(bob.get_by_role("button", name="New folder")).to_be_disabled()
     expect(bob.get_by_role("button", name=re.compile("^Share"))).to_have_count(0)

@@ -101,20 +101,20 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     screen.get_by_role("button", name="Decide later").click()
     expect(nav).to_be_visible()
     expect(nav.get_by_role("button", name="Set up My files")).to_contain_text("(set up)")
-    expect(nav.get_by_role("button", name="Set up Shared files")).to_have_count(0)
+    expect(nav.get_by_role("button", name="Set up Server files")).to_have_count(0)
     page.reload()
     expect(nav).to_be_visible()
     expect(screen).to_have_count(0)
 
     # a member does not get the offer for the shared tree; the administrator does
-    nav.get_by_role("link", name="Shared files").click()
-    expect(crumbs(page).get_by_text("Shared files")).to_be_visible()
+    nav.get_by_role("link", name="Server files").click()
+    expect(crumbs(page).get_by_text("Server files")).to_be_visible()
     shared = page.url.rsplit("/", 1)[-1]
     assert api_status(page, "GET", f"/api/v1/nodes/{shared}/setup") == 403
     body = {"entries": [{"path": "x.txt", "kind": "file", "size": 1}]}
     assert api_status(page, "POST", f"/api/v1/nodes/{shared}/setup/import", body) == 403
     admin = sign_in(browser, w, "admin@example.com", setup=True)
-    shared_screen = admin.get_by_role("region", name="Set up Shared files")
+    shared_screen = admin.get_by_role("region", name="Set up Server files")
     # the shared tree is the last step of the server setup; the administrator's own folder is not
     # offered in this first-time flow
     expect(admin.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()

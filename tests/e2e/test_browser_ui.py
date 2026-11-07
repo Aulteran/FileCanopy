@@ -62,10 +62,10 @@ def test_first_run_setup_and_sign_in(fresh_stack: Stack, browser: Browser) -> No
     page.get_by_role("button", name="Sign in").click()
     # an administrator first gets the optional server step
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
-    # the last numbered step is the shared files (the administrator's own folder is not offered
+    # the last numbered step is the server files (the administrator's own folder is not offered
     # here); it opens beside the step list instead of on a separate page
-    page.get_by_role("button", name="Set up shared files").click()
-    expect(page.get_by_role("region", name="Set up Shared files")).to_be_visible()
+    page.get_by_role("button", name="Set up server files").click()
+    expect(page.get_by_role("region", name="Set up Server files")).to_be_visible()
     expect(page.get_by_role("button", name="Continue to file setup")).to_have_count(0)
     page.get_by_role("button", name="Decide later").click()
     nav = page.get_by_role("navigation", name="Locations")
@@ -178,6 +178,56 @@ def test_move_between_folders(browser: Browser, world: World) -> None:
     page.close()
 
 
+def test_single_selection_system(browser: Browser, world: World) -> None:
+    """Row clicks and checkboxes are one selection: same ticks, same panels, bulk Copy works."""
+    page = sign_in(browser, world, world.alice_mail)
+    rows = page.locator("tbody tr")
+    expect(rows).to_have_count(2)  # Archive, Docs
+    boxes = page.get_by_role("checkbox")
+    details = page.get_by_role("complementary", name="Details")
+
+    # clicking a row ticks its box and shows the normal details panel
+    select(page, "Docs")
+    expect(row(page, "Docs").get_by_role("checkbox")).to_be_checked()
+    expect(details.get_by_role("button", name="Rename")).to_be_visible()
+
+    # ticking a second box (after a row click) gives the bulk panel, not a broken one
+    row(page, "Archive").get_by_role("checkbox").check()
+    expect(details.get_by_role("heading", name="2 items selected")).to_be_visible()
+    for name in ("Move…", "Copy…", "Move to Trash", "Clear selection"):
+        expect(details.get_by_role("button", name=name)).to_be_visible()
+
+    # unticking one goes back to the single-item panel
+    row(page, "Archive").get_by_role("checkbox").uncheck()
+    expect(details.get_by_role("button", name="Rename")).to_be_visible()
+    expect(row(page, "Docs").get_by_role("checkbox")).to_be_checked()
+
+    # a plain row click replaces the selection (only that row stays ticked)
+    select(page, "Archive")
+    expect(row(page, "Archive").get_by_role("checkbox")).to_be_checked()
+    expect(row(page, "Docs").get_by_role("checkbox")).not_to_be_checked()
+
+    # select-all ticks every row and offers the bulk panel
+    boxes.first.check()
+    expect(details.get_by_role("heading", name="2 items selected")).to_be_visible()
+    details.get_by_role("button", name="Clear selection").click()
+    expect(row(page, "Docs").get_by_role("checkbox")).not_to_be_checked()
+    page.close()
+
+
+def test_shared_files_navigation(browser: Browser, world: World) -> None:
+    """Server files and Shared files are separate areas; Shared files has two pages."""
+    page = sign_in(browser, world, world.alice_mail)
+    locations = page.get_by_role("navigation", name="Locations")
+    expect(locations.get_by_role("link", name="My files")).to_be_visible()
+    shared = page.get_by_role("navigation", name="Shared files")
+    shared.get_by_role("link", name="Shared with you").click()
+    expect(page.get_by_role("heading", name="Shared with you")).to_be_visible()
+    shared.get_by_role("link", name="Shared by you").click()
+    expect(page.get_by_role("heading", name="Shared by you")).to_be_visible()
+    page.close()
+
+
 def test_keyboard_operation(browser: Browser, world: World) -> None:
     page = sign_in(browser, world, world.alice_mail)
     rows = page.locator("tbody tr")
@@ -258,7 +308,10 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
     put = w.alice.call("PUT", f"/api/v1/nodes/{docs}/grants/{bob_id}", {"level": "viewer"})
     assert put[0] == 200
     bob.goto(w.base + "/")
-    link = bob.get_by_role("navigation", name="Locations").get_by_role("link", name="Docs (from")
+    bob.get_by_role("navigation", name="Shared files").get_by_role(
+        "link", name="Shared with you"
+    ).click()
+    link = bob.get_by_role("main").get_by_role("link", name="Docs")
     expect(link).to_be_visible()
     link.click()
     expect(bob.get_by_text("Read-only")).to_be_visible()
@@ -316,7 +369,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             "Step 3: Outgoing email (optional)",
             "Step 4: Other users (optional)",
             "Step 5: Incoming mail (optional)",
-            "Step 6: Shared files",
+            "Step 6: Server files",
         ]
     )
     # Step 1 is already open beside the list when setup starts
@@ -328,7 +381,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         ("Set up outgoing email", "Step 3: Outgoing email"),
         ("Invite users", "Step 4: Other users"),
         ("Check incoming mail", "Step 5: Incoming mail"),
-        ("Set up shared files", "Step 6: Shared files"),
+        ("Set up server files", "Step 6: Server files"),
     ]:
         page.get_by_role("button", name=button).click()
         panel = page.get_by_role("region", name=title)
@@ -359,5 +412,5 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
         expect(page.get_by_text("Choose a step to set it up here.")).to_be_visible()
     expect(page.get_by_role("button", name="Continue to file setup")).to_have_count(0)
-    page.get_by_role("button", name="Set up shared files").click()
-    expect(page.get_by_role("region", name="Set up Shared files")).to_be_visible()
+    page.get_by_role("button", name="Set up server files").click()
+    expect(page.get_by_role("region", name="Set up Server files")).to_be_visible()

@@ -129,8 +129,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
   const zipInput = useRef<HTMLInputElement>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Items ticked for a bulk action (separate from the one item shown in the details pane).
+  // The one selection: row clicks, checkboxes and keys all change this set. One selected item
+  // shows its details; several show the bulk panel.
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [focusIx, setFocusIx] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -211,7 +211,16 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   const privileges = info?.my_privileges ?? [];
   const canWrite = privileges.includes("write");
-  const selected = items.find((c) => c.id === selectedId) ?? null;
+  const selectedItems = items.filter((c) => checked.has(c.id));
+  const selected =
+    selectedItems.length === 1 ? (selectedItems[0] ?? null) : null;
+  // Move, copy and trash only apply to ordinary present items.
+  const actionable = selectedItems.filter(
+    (c) => c.kind !== "other" && c.status === "active",
+  );
+  function selectOnly(id: string): void {
+    setChecked(new Set([id]));
+  }
 
   async function loadMore(): Promise<void> {
     if (!next) return;
@@ -295,7 +304,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   }
 
   async function deleteChecked(): Promise<void> {
-    const targets = items.filter((c) => checked.has(c.id));
+    const targets = actionable;
     let moved = 0;
     let lastOp: Operation | null = null;
     for (const c of targets) {
@@ -309,7 +318,6 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       }
     }
     setChecked(new Set());
-    setSelectedId(null);
     if (moved > 0)
       offerUndo(
         `Moved ${moved} item${moved === 1 ? "" : "s"} to the Trash`,
@@ -318,11 +326,55 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     await refresh();
   }
 
+  /** Moves or copies every selected item; stops at the first failure and says how far it got. */
+  async function transferSelected(
+    mode: "move" | "copy",
+    target: string,
+  ): Promise<void> {
+    const targets = actionable;
+    let done = 0;
+    let lastOp: Operation | null = null;
+    for (const c of targets) {
+      try {
+        const r =
+          mode === "move"
+            ? await api.move(c.id, target, c.revision)
+            : await api.copy(c.id, target, c.revision);
+        lastOp = r.operation;
+        done++;
+      } catch (err) {
+        if (done === 0) {
+          if (err instanceof ApiError && err.code === "REVISION_CONFLICT")
+            await refresh();
+          throw err; // nothing changed: the dialog shows the error
+        }
+        setDialog(null);
+        setChecked(new Set());
+        offerUndo(
+          `${mode === "move" ? "Moved" : "Copied"} ${done} of ${targets.length} items`,
+          null,
+        );
+        setErrorText(fail(err));
+        await refresh();
+        return;
+      }
+    }
+    setDialog(null);
+    setChecked(new Set());
+    const verb = mode === "move" ? "Moved" : "Copied";
+    const only = targets.length === 1 ? targets[0] : undefined;
+    offerUndo(
+      only ? `${verb} ${only.name}` : `${verb} ${done} items`,
+      only ? undoableId(lastOp) : null,
+    );
+    await refresh();
+  }
+
   async function deleteSelected(): Promise<void> {
     if (!selected) return;
     try {
       const r = await api.deleteNode(selected.id, selected.revision);
-      setSelectedId(null);
+      setChecked(new Set());
       offerUndo(`Moved ${selected.name} to the Trash`, undoableId(r.operation));
     } catch (err) {
       if (err instanceof ApiError && err.code === "REVISION_CONFLICT")
@@ -497,7 +549,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     try {
       await api.dismiss(selected.id);
       setNotice(`Removed ${selected.name} from the list`);
-      setSelectedId(null);
+      setChecked(new Set());
       await refresh();
     } catch (err) {
       setErrorText(fail(err));
@@ -590,18 +642,18 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       case "End":
         return focus(items.length - 1);
       case " ":
-        setSelectedId(item.id);
+        toggleChecked(item.id);
         e.preventDefault();
         return;
       case "Enter":
         if (item.kind === "dir") go(folderPath(item.id));
         else if (canView(item)) go(viewPath(item.id));
-        else setSelectedId(item.id);
+        else selectOnly(item.id);
         e.preventDefault();
         return;
       case "F2":
         if (canWrite && item.kind !== "other" && item.status === "active") {
-          setSelectedId(item.id);
+          selectOnly(item.id);
           setDialog("rename");
           e.preventDefault();
         }
@@ -983,14 +1035,14 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     }}
                     role="row"
                     tabIndex={ix === focusIx ? 0 : -1}
-                    aria-selected={c.id === selectedId}
-                    className={rowClass(c, c.id === selectedId)}
+                    aria-selected={checked.has(c.id)}
+                    className={rowClass(c, checked.has(c.id))}
                     onFocus={(e) => {
                       if (e.target === e.currentTarget) setFocusIx(ix);
                     }}
                     onClick={(e) => {
                       if (e.ctrlKey || e.metaKey) toggleChecked(c.id);
-                      setSelectedId(c.id);
+                      else selectOnly(c.id);
                       setFocusIx(ix);
                     }}
                     onKeyDown={(e) => onGridKey(e, ix, c)}
@@ -1211,24 +1263,44 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                 )}
               </div>
             </>
+          ) : selectedItems.length > 1 ? (
+            <>
+              <h2>{selectedItems.length} items selected</h2>
+              <p className="hint">
+                {actionable.length < selectedItems.length
+                  ? `${actionable.length} of them can be moved, copied or trashed.`
+                  : "Choose what to do with all of them."}
+              </p>
+              <div className="actions column">
+                <button
+                  disabled={!canWrite || actionable.length === 0}
+                  title={noWrite}
+                  onClick={() => setDialog("move")}
+                >
+                  Move…
+                </button>
+                <button
+                  disabled={!canWrite || actionable.length === 0}
+                  title={noWrite}
+                  onClick={() => setDialog("copy")}
+                >
+                  Copy…
+                </button>
+                <button
+                  disabled={!canWrite || actionable.length === 0}
+                  title={noWrite}
+                  onClick={() => void deleteChecked()}
+                >
+                  Move to Trash
+                </button>
+                <button onClick={() => setChecked(new Set())}>
+                  Clear selection
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <h2>{info.name}</h2>
-              {checked.size > 0 && (
-                <div className="actions">
-                  <p className="hint">{checked.size} selected</p>
-                  <button
-                    disabled={!canWrite}
-                    title={noWrite}
-                    onClick={() => void deleteChecked()}
-                  >
-                    Move {checked.size} to Trash
-                  </button>
-                  <button onClick={() => setChecked(new Set())}>
-                    Clear selection
-                  </button>
-                </div>
-              )}
               <p className="hint">
                 {items.length} item{items.length === 1 ? "" : "s"}
                 {next ? "+" : ""}. Select an item for details.
@@ -1301,24 +1373,14 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           }}
         />
       )}
-      {(dialog === "move" || dialog === "copy") && selected && (
+      {(dialog === "move" || dialog === "copy") && actionable.length > 0 && (
         <TargetDialog
           mode={dialog}
-          item={selected}
+          items={actionable}
           startId={topId}
           currentParentId={parentOfSelected}
           onClose={() => setDialog(null)}
-          onSubmit={(target) =>
-            mutate(
-              () =>
-                dialog === "move"
-                  ? api.move(selected.id, target, selected.revision)
-                  : api.copy(selected.id, target, selected.revision),
-              dialog === "move"
-                ? `Moved ${selected.name}`
-                : `Copied ${selected.name}`,
-            )
-          }
+          onSubmit={(target) => transferSelected(dialog, target)}
         />
       )}
     </section>
