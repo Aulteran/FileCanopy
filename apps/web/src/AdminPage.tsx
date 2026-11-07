@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { Icon } from "./Icon";
 import { MailboxAdminPage } from "./MailPages";
+import { SmtpSetup } from "./SmtpSettings";
 import {
   BACKUPS_PATH,
   MAILBOX_PATH,
@@ -88,12 +89,12 @@ export function AdminPage({
   );
 }
 
-type SetupView = "steps" | "ai" | "semantic" | "users" | "mail";
+type SetupView = "steps" | "ai" | "semantic" | "smtp" | "users" | "mail";
 
 // Shown to an administrator before the first file setup, so the server itself (AI, people,
 // email) can be configured first. Every part is optional and can be done later.
-// The order is fixed: AI, meaning-based search, then your account, then other users, then the mail
-// server, and only then the file setup. Steps 1, 2, 4 and 5 open as a panel beside the step list
+// The order is fixed: AI, meaning-based search, outgoing email (SMTP), other users, incoming mail,
+// and only then the file setup. Every step opens as a panel beside the step list
 // (steps on the left third, the panel on the right two thirds) and close back to the full list, so
 // nothing is postponed to the Admin page. Every step is optional and can be changed later under Admin.
 export function ServerSetupStep({
@@ -132,10 +133,21 @@ export function ServerSetupStep({
       >
         <SemanticSettings admin inline onClose={close} />
       </SetupPanel>
+    ) : view === "smtp" ? (
+      <SetupPanel
+        id="server-smtp-h"
+        title="Step 3: Outgoing email"
+        onClose={close}
+      >
+        <SmtpSetup
+          onEnded={onEnded}
+          onChanged={() => void loadServerSetupDone(me).then((d) => setDone(d))}
+        />
+      </SetupPanel>
     ) : view === "users" ? (
       <SetupPanel
         id="server-users-h"
-        title="Step 4: Invite other users"
+        title="Step 4: Other users"
         onClose={close}
       >
         <UsersPage me={me} onEnded={onEnded} />
@@ -143,7 +155,7 @@ export function ServerSetupStep({
     ) : view === "mail" ? (
       <SetupPanel
         id="server-mail-h"
-        title="Step 5: Mail server"
+        title="Step 5: Incoming mail"
         onClose={close}
       >
         <MailboxAdminPage onEnded={onEnded} />
@@ -184,12 +196,16 @@ export function ServerSetupStep({
                 Set up meaning-based search
               </button>
             </li>
-            <li>
-              <StepDone done />
-              <strong>Step 3: Your account</strong>
+            <li className={view === "smtp" ? "active" : undefined}>
+              <StepDone done={done.smtp} />
+              <strong>Step 3: Outgoing email (optional)</strong>
               <p>
-                You are signed in as this administrator. Nothing to do here.
+                Set up and test the mail server that sends invitations and
+                password resets.
               </p>
+              <button type="button" {...step("smtp")}>
+                Set up outgoing email
+              </button>
             </li>
             <li className={view === "users" ? "active" : undefined}>
               <StepDone done={done.users} />
@@ -201,10 +217,12 @@ export function ServerSetupStep({
             </li>
             <li className={view === "mail" ? "active" : undefined}>
               <StepDone done={done.mail} />
-              <strong>Step 5: Mail server (optional)</strong>
-              <p>Set up outgoing and incoming email.</p>
+              <strong>Step 5: Incoming mail (optional)</strong>
+              <p>
+                Let people file attachments by emailing them to this server.
+              </p>
               <button type="button" {...step("mail")}>
-                Set up mail
+                Check incoming mail
               </button>
             </li>
           </ol>

@@ -49,11 +49,16 @@ def address_forms(address: str) -> list[str]:
     return list(dict.fromkeys(forms))
 
 
-def reserved_addresses(settings: "Settings") -> set[str]:
+def reserved_addresses(settings: "Settings", sender: str | None = None) -> set[str]:
     """Addresses nobody may claim as a sender identity: the two intake addresses (their mail
     lands in the mailbox) and the system's own sender address (review L2)."""
     out = set()
-    for raw in (settings.imap_personal_address, settings.imap_ingest_address, settings.smtp_from):
+    for raw in (
+        settings.imap_personal_address,
+        settings.imap_ingest_address,
+        settings.smtp_from,
+        sender,
+    ):
         norm = normalize_address(raw) if raw else None
         if norm:
             out.add(norm)

@@ -59,6 +59,26 @@ export type OidcOnly = {
   unlinked_users: number;
   admin_linked: boolean;
 };
+export type SmtpSettings = {
+  configured: boolean;
+  source: "saved" | "environment" | null;
+  host: string;
+  port: number;
+  security: "starttls" | "ssl" | "none";
+  username: string;
+  sender: string;
+  has_password: boolean;
+  can_store_password: boolean;
+};
+/** What the form sends. `password` undefined keeps the saved one; the server never returns it. */
+export type SmtpInput = {
+  host: string;
+  port: number;
+  security: SmtpSettings["security"];
+  username: string;
+  password?: string;
+  sender: string;
+};
 export type AdminAuthConfig = {
   smtp: {
     configured: boolean;
@@ -992,7 +1012,12 @@ export const api = {
     ),
   adminAuthConfig: () =>
     call<AdminAuthConfig>("GET", "/api/v1/admin/auth-config"),
-  smtpTest: () => call<{ status: string }>("POST", "/api/v1/admin/smtp/test"),
+  smtpTest: (input?: SmtpInput) =>
+    call<{ status: string }>("POST", "/api/v1/admin/smtp/test", input),
+  smtpSettings: () => call<SmtpSettings>("GET", "/api/v1/admin/smtp"),
+  smtpSave: (input: SmtpInput) =>
+    call<SmtpSettings>("PUT", "/api/v1/admin/smtp", input),
+  smtpClear: () => call<SmtpSettings>("DELETE", "/api/v1/admin/smtp"),
   unlinkIdentity: (id: string) =>
     call<{ status: string }>(
       "DELETE",

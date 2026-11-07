@@ -130,7 +130,7 @@ def add_email(
         raise http_error(429, "TOO_MANY_ATTEMPTS", {"Retry-After": str(retry)})
     _require_proof(request, db, principal, body)
     ctx.throttle.record_failure(db, keys)  # counts every request, successful or not
-    if address in reserved_addresses(ctx.settings):
+    if address in reserved_addresses(ctx.settings, ctx.mailer.config.sender):
         db.commit()
         raise http_error(409, "ADDRESS_RESERVED")
     if address in address_forms(user.email) or user.email in address_forms(address):

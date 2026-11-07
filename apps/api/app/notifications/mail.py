@@ -11,6 +11,7 @@ import smtplib
 import ssl
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from email.message import EmailMessage
 from urllib.parse import quote
 
@@ -26,9 +27,41 @@ def one_time_link(public_url: str, purpose: str, token: str) -> str:
     return f"{public_url.rstrip('/')}/{page}#token={quote(token, safe='')}"
 
 
-def _build(settings: Settings, to: str, subject: str, body: str) -> EmailMessage:
+@dataclass(frozen=True)
+class SmtpConfig:
+    """The outgoing mail settings in force: saved by an administrator, else the environment."""
+
+    host: str
+    port: int
+    security: str  # "starttls", "ssl" or "none"
+    username: str
+    password: str
+    sender: str
+    timeout: int = 10
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.host and self.sender)
+
+    @classmethod
+    def from_settings(cls, s: Settings) -> "SmtpConfig":
+        return cls(
+            s.smtp_host,
+            s.smtp_port,
+            s.smtp_security,
+            s.smtp_username,
+            s.smtp_password.get_secret_value(),
+            s.smtp_from,
+            s.smtp_timeout_seconds,
+        )
+
+    def __repr__(self) -> str:  # never print the password
+        return f"SmtpConfig(host={self.host!r}, port={self.port}, sender={self.sender!r})"
+
+
+def _build(sender: str, to: str, subject: str, body: str) -> EmailMessage:
     msg = EmailMessage()  # rejects CR/LF in header values: no header injection
-    msg["From"] = settings.smtp_from
+    msg["From"] = sender
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
@@ -42,43 +75,68 @@ class Mailer:
         smtp_factory: Callable[[], smtplib.SMTP] | None = None,
     ) -> None:
         self._s = settings
+        self._env = SmtpConfig.from_settings(settings)
+        self._saved: SmtpConfig | None = None
         self._smtp_factory = smtp_factory
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mail")
 
     @property
-    def configured(self) -> bool:
-        return self._s.smtp_configured
+    def config(self) -> SmtpConfig:
+        """What the server uses now: the administrator's saved settings win over the environment."""
+        return self._saved or self._env
 
-    def _connect(self) -> smtplib.SMTP:
-        s = self._s
+    @property
+    def from_environment(self) -> SmtpConfig:
+        return self._env
+
+    def use_saved(self, config: SmtpConfig | None) -> None:
+        self._saved = config
+
+    @property
+    def is_saved(self) -> bool:
+        return self._saved is not None
+
+    @property
+    def configured(self) -> bool:
+        return self.config.configured
+
+    def _connect(self, c: SmtpConfig) -> smtplib.SMTP:
         if self._smtp_factory is not None:
             return self._smtp_factory()
-        if s.smtp_security == "ssl":
+        if c.security == "ssl":
             return smtplib.SMTP_SSL(
-                s.smtp_host,
-                s.smtp_port,
-                timeout=s.smtp_timeout_seconds,
-                context=ssl.create_default_context(),
+                c.host, c.port, timeout=c.timeout, context=ssl.create_default_context()
             )
-        return smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=s.smtp_timeout_seconds)
+        return smtplib.SMTP(c.host, c.port, timeout=c.timeout)
 
     def send(self, to: str, subject: str, body: str) -> bool:
-        if not self.configured:
-            return False
-        s = self._s
+        return self.try_send(self.config, to, subject, body) is None
+
+    def try_send(self, c: SmtpConfig, to: str, subject: str, body: str) -> str | None:
+        """Sends with the given settings. None on success, else a short reason code. Never raises
+        and never returns text from the relay (it can echo addresses or credentials)."""
+        if not c.configured:
+            return "SMTP_NOT_CONFIGURED"
+        stage = "SMTP_CONNECT_FAILED"
         try:
-            msg = _build(s, to, subject, body)
-            with self._connect() as smtp:
-                if s.smtp_security == "starttls" and self._smtp_factory is None:
+            msg = _build(c.sender, to, subject, body)
+            with self._connect(c) as smtp:
+                if c.security == "starttls" and self._smtp_factory is None:
+                    stage = "SMTP_TLS_FAILED"
                     smtp.starttls(context=ssl.create_default_context())
-                if s.smtp_username:
-                    smtp.login(s.smtp_username, s.smtp_password.get_secret_value())
+                if c.username:
+                    stage = "SMTP_AUTH_FAILED"
+                    smtp.login(c.username, c.password)
+                stage = "SMTP_REJECTED"
                 smtp.send_message(msg)
-            return True
+            return None
+        except ssl.SSLError as exc:
+            log.warning("mail not sent: %s", type(exc).__name__)
+            return "SMTP_TLS_FAILED"
         except (OSError, smtplib.SMTPException, ValueError) as exc:
             # The class name only: messages from relays can echo addresses or credentials.
             log.warning("mail not sent: %s", type(exc).__name__)
-            return False
+            return stage
 
     def send_in_background(self, to: str, subject: str, body: str) -> None:
         """Fire and forget, so a reply never reveals (by timing) whether a mail was needed."""

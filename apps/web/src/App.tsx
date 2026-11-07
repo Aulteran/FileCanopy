@@ -744,7 +744,7 @@ function Shell({
         )}
         {mailbox &&
           (admin ? (
-            <MailboxAdminPage onEnded={onEnded} />
+            <MailboxAdminPage onEnded={onEnded} outgoing />
           ) : (
             <p>Only administrators can manage the mailbox.</p>
           ))}
