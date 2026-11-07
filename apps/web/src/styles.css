@@ -768,8 +768,7 @@ tbody tr.unsupported .flag {
 .shell.setup-only {
   display: block;
 }
-.setup-screen,
-section[aria-labelledby="server-step-h"] {
+.setup-screen {
   max-width: 720px;
   margin: 0 auto;
   text-align: center;
@@ -1617,24 +1616,21 @@ button.admin-card:hover {
 
 /* Prepare your server: step list, with the invite-users card beside it (Step 4) */
 section.server-setup {
-  --setup-pad: clamp(16px, 4vw, 48px);
-  width: min(720px, 100% - 2 * var(--setup-pad));
+  width: min(1600px, 92vw, 100%);
   margin: 0 auto;
   padding: 0;
-  text-align: center;
 }
-section.server-setup.with-panel {
-  width: min(1120px, 100% - 2 * var(--setup-pad));
-  text-align: left;
+section.server-setup > p {
+  max-width: 70ch;
 }
 .server-setup-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(16px, 3vw, 32px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: clamp(16px, 3vw, 40px);
   align-items: start;
 }
-.with-panel .server-setup-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+.server-setup-steps .setup-steps {
+  margin-top: 0;
 }
 .setup-steps li.active {
   border-color: var(--primary);
@@ -1662,12 +1658,21 @@ section.server-setup.with-panel {
   display: block;
   overflow-x: auto;
 }
+.server-setup-panel p {
+  max-width: 70ch;
+}
+.server-setup-hint {
+  color: var(--muted);
+}
 @media (max-width: 800px) {
-  .with-panel .server-setup-layout {
+  .server-setup-layout {
     grid-template-columns: minmax(0, 1fr);
   }
   .server-setup-panel {
     order: -1;
+  }
+  .server-setup-hint {
+    display: none;
   }
 }
 .server-setup-panel h1 {

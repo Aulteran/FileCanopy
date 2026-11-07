@@ -319,6 +319,8 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             "Step 5: Mail server (optional)",
         ]
     )
+    # Step 1 is already open beside the list when setup starts
+    expect(page.get_by_role("region", name="Step 1: AI")).to_be_visible()
     # Steps 1, 2, 4 and 5 open beside the step list (two panes), never instead of it
     for button, title in [
         ("Choose AI settings", "Step 1: AI"),
@@ -334,11 +336,15 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         steps_box = page.locator("ol.setup-steps").bounding_box()
         panel_box = panel.bounding_box()
         assert steps_box and panel_box and steps_box["x"] < panel_box["x"]
-        assert panel_box["width"] > steps_box["width"]
+        # A wide layout: steps a third, panel two thirds, across most of the window
+        assert 1.8 < panel_box["width"] / steps_box["width"] < 2.2
+        span = panel_box["x"] + panel_box["width"] - steps_box["x"]
+        assert span > 0.85 * page.viewport_size["width"]
         if button == "Invite users":
             expect(panel.get_by_role("button", name="Create invitation")).to_be_visible()
         panel.get_by_role("button", name="Close", exact=True).first.click()
         expect(panel).to_have_count(0)
         expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
+        expect(page.get_by_text("Choose a step to set it up here.")).to_be_visible()
     page.get_by_role("button", name="Continue to file setup").click()
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
