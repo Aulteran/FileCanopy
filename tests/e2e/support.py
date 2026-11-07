@@ -27,29 +27,27 @@ class World:
 def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ctx: Any) -> Page:
     """Signs in. Someone whose setup window is open first gets the full-page setup screen. With
     `setup=True` that screen is left on the page for the test to use; otherwise "Decide later" is
-    pressed for every such screen (the window stays open) so the test lands in the browser."""
+    pressed for such a screen (the window stays open) so the test lands in the browser."""
     page = browser.new_context(**ctx).new_page()
     page.goto(w.base + "/")
     page.get_by_label("Email").fill(email)
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Sign in").click()
-    # an administrator first gets the optional "Prepare your server" step
-    step = page.get_by_role("button", name="Continue to file setup")
-    page.get_by_role("region", name=re.compile("^Set up ")).or_(step).or_(
+    # an administrator first gets the "Prepare your server" steps; the last one is the shared files
+    server = page.get_by_role("heading", level=1, name="Prepare your server")
+    page.get_by_role("region", name=re.compile("^Set up ")).or_(server).or_(
         page.get_by_role("navigation", name="Locations")
     ).first.wait_for()
-    if step.is_visible():
-        step.click()
+    if server.is_visible():
+        page.get_by_role("button", name="Set up shared files").click()
     screen = page.get_by_role("region", name=re.compile("^Set up "))
     nav = page.get_by_role("navigation", name="Locations")
     if setup:
         expect(screen).to_be_visible()
         return page
     later = page.get_by_role("button", name="Decide later")
-    for _ in range(4):  # an administrator may have two open roots
-        nav.or_(later).first.wait_for()
-        if nav.is_visible():
-            break
+    nav.or_(later).first.wait_for()
+    if later.is_visible():
         later.click()
     expect(nav).to_be_visible()
     return page

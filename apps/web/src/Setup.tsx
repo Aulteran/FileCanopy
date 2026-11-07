@@ -54,9 +54,17 @@ type Props = {
   /** "Decide later": leave the screen with the window still open. */
   onLater: () => void;
   onEnded: () => void;
+  /** Shown inside a step of the server setup: no page title (the step has one). */
+  embedded?: boolean;
 };
 
-export function SetupScreen({ root, onClosed, onLater, onEnded }: Props) {
+export function SetupScreen({
+  root,
+  onClosed,
+  onLater,
+  onEnded,
+  embedded = false,
+}: Props) {
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
   const [error, setError] = useState("");
   const [includeSystem, setIncludeSystem] = useState(false);
@@ -245,8 +253,8 @@ export function SetupScreen({ root, onClosed, onLater, onEnded }: Props) {
   const canDrop = phase.name === "offer";
   return (
     <section
-      className="setup-screen"
-      aria-labelledby="setup-title"
+      className={embedded ? "setup-screen embedded" : "setup-screen"}
+      aria-label={`Set up ${heading}`}
       onDragOver={(e) => {
         e.preventDefault(); // a drop here is never an ordinary upload
         if (canDrop) setDragging(true);
@@ -254,7 +262,10 @@ export function SetupScreen({ root, onClosed, onLater, onEnded }: Props) {
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => (canDrop ? void onDrop(e) : e.preventDefault())}
     >
-      <h1 id="setup-title">Set up {heading}</h1>
+      {!embedded && <h1 id="setup-title">Set up {heading}</h1>}
+      {embedded && (
+        <p>These are the shared files everyone on this server uses.</p>
+      )}
       <p className="hint">
         Start empty, or copy in files you already have. Imported files are a
         copy: the originals are not changed. This choice is offered once; you

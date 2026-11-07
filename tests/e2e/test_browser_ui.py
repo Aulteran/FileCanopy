@@ -62,12 +62,11 @@ def test_first_run_setup_and_sign_in(fresh_stack: Stack, browser: Browser) -> No
     page.get_by_role("button", name="Sign in").click()
     # an administrator first gets the optional server step
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
-    page.get_by_role("button", name="Continue to file setup").click()
-    # a fresh account has two open setup windows (its own folder and the shared tree): each gets a
-    # full-page screen before the browser
-    expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
-    page.get_by_role("button", name="Decide later").click()
-    expect(page.get_by_role("heading", level=1, name="Set up Shared files")).to_be_visible()
+    # the last numbered step is the shared files (the administrator's own folder is not offered
+    # here); it opens beside the step list instead of on a separate page
+    page.get_by_role("button", name="Set up shared files").click()
+    expect(page.get_by_role("region", name="Set up Shared files")).to_be_visible()
+    expect(page.get_by_role("button", name="Continue to file setup")).to_have_count(0)
     page.get_by_role("button", name="Decide later").click()
     nav = page.get_by_role("navigation", name="Locations")
     expect(nav.get_by_role("link")).to_have_count(2)  # My files and the shared tree
@@ -317,6 +316,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             "Step 3: Outgoing email (optional)",
             "Step 4: Other users (optional)",
             "Step 5: Incoming mail (optional)",
+            "Step 6: Shared files",
         ]
     )
     # Step 1 is already open beside the list when setup starts
@@ -328,6 +328,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         ("Set up outgoing email", "Step 3: Outgoing email"),
         ("Invite users", "Step 4: Other users"),
         ("Check incoming mail", "Step 5: Incoming mail"),
+        ("Set up shared files", "Step 6: Shared files"),
     ]:
         page.get_by_role("button", name=button).click()
         panel = page.get_by_role("region", name=title)
@@ -357,5 +358,6 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         expect(panel).to_have_count(0)
         expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
         expect(page.get_by_text("Choose a step to set it up here.")).to_be_visible()
-    page.get_by_role("button", name="Continue to file setup").click()
-    expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
+    expect(page.get_by_role("button", name="Continue to file setup")).to_have_count(0)
+    page.get_by_role("button", name="Set up shared files").click()
+    expect(page.get_by_role("region", name="Set up Shared files")).to_be_visible()

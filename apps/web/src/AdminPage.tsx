@@ -10,6 +10,7 @@ import {
   USAGE_PATH,
   USERS_PATH,
 } from "./route";
+import { SetupScreen } from "./Setup";
 import { UsersPage } from "./Users";
 import {
   loadServerSetupDone,
@@ -89,22 +90,34 @@ export function AdminPage({
   );
 }
 
-type SetupView = "steps" | "ai" | "semantic" | "smtp" | "users" | "mail";
+type SetupView =
+  "steps" | "ai" | "semantic" | "smtp" | "users" | "mail" | "files";
 
-// Shown to an administrator before the first file setup, so the server itself (AI, people,
-// email) can be configured first. Every part is optional and can be done later.
+/** The shared tree whose first-time file setup is the last step of the server setup. */
+export type SharedSetupRoot = { id: string; name: string; kind: string };
+
+// Shown to an administrator on first sign-in, so the server itself (AI, people, email) is
+// configured before the shared files. Every part is optional and can be done later.
 // The order is fixed: AI, meaning-based search, outgoing email (SMTP), other users, incoming mail,
-// and only then the file setup. Every step opens as a panel beside the step list
+// and last the shared file setup (the library everyone uses). The administrator's own personal
+// folder is not part of this flow: it is set up later from the side navigation. Every step opens
+// as a panel beside the step list
 // (steps on the left third, the panel on the right two thirds) and close back to the full list, so
 // nothing is postponed to the Admin page. Every step is optional and can be changed later under Admin.
 export function ServerSetupStep({
   me,
   onEnded,
-  onContinue,
+  sharedRoot,
+  onFilesClosed,
+  onFilesLater,
 }: {
   me: string;
   onEnded: () => void;
-  onContinue: () => void;
+  sharedRoot: SharedSetupRoot;
+  /** The shared file setup was finished or skipped: setup is complete. */
+  onFilesClosed: () => void;
+  /** "Decide later": leave the setup with the shared file window still open. */
+  onFilesLater: () => void;
 }) {
   const [view, setView] = useState<SetupView>("ai");
   const [done, setDone] = useState<ServerSetupDone>(NOTHING_DONE);
@@ -160,6 +173,20 @@ export function ServerSetupStep({
       >
         <MailboxAdminPage onEnded={onEnded} />
       </SetupPanel>
+    ) : view === "files" ? (
+      <SetupPanel
+        id="server-files-h"
+        title="Step 6: Shared files"
+        onClose={close}
+      >
+        <SetupScreen
+          embedded
+          root={sharedRoot}
+          onClosed={onFilesClosed}
+          onLater={onFilesLater}
+          onEnded={onEnded}
+        />
+      </SetupPanel>
     ) : null;
   const step = (v: SetupView) => ({
     "aria-expanded": view === v,
@@ -169,8 +196,9 @@ export function ServerSetupStep({
     <section aria-labelledby="server-step-h" className="server-setup">
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
-        Set up the server in this order, then choose which files to import. Each
-        step is optional and can be changed later under Admin.
+        Set up the server in this order. The last step is the shared files
+        everyone will use; finishing or skipping it completes setup. Each step
+        is optional and can be changed later under Admin.
       </p>
       <div className="server-setup-layout">
         <div className="server-setup-steps">
@@ -225,12 +253,17 @@ export function ServerSetupStep({
                 Check incoming mail
               </button>
             </li>
+            <li className={view === "files" ? "active" : undefined}>
+              <strong>Step 6: Shared files</strong>
+              <p>
+                Start the shared library empty, or copy in files you already
+                have. Finishing or skipping this completes setup.
+              </p>
+              <button type="button" {...step("files")}>
+                Set up shared files
+              </button>
+            </li>
           </ol>
-          <p>
-            <button type="button" className="primary" onClick={onContinue}>
-              Continue to file setup
-            </button>
-          </p>
         </div>
         {panel ?? (
           <section className="server-setup-panel server-setup-hint">
