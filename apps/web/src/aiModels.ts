@@ -70,3 +70,23 @@ export function defaultPrices(
     ? { priceIn: String(known.inUsd), priceOut: String(known.outUsd) }
     : { priceIn: "", priceOut: "" };
 }
+
+/** A short name for the model a saved entry uses: "Claude Sonnet 5.5", or the model id itself. */
+export function modelName(kind: string, model: string): string {
+  const known = findModel(kind, model);
+  return known ? known.label.replace(/\s*\(.*\)\s*$/, "") : model;
+}
+
+/** The text of a monthly limit field: "" means no limit. Returns micro-dollars, null for no
+ * limit, or undefined when the text is not a money amount (then nothing is saved). */
+export function parseLimit(text: string): number | null | undefined {
+  const t = text.trim().replace(/^\$/, "");
+  if (t === "") return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return undefined;
+  return Math.round(Number.parseFloat(t) * 1_000_000);
+}
+
+/** A limit as it is typed into its field. */
+export function limitText(micro: number | null): string {
+  return micro === null ? "" : String(micro / 1_000_000);
+}

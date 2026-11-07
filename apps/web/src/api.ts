@@ -122,6 +122,18 @@ export type AiProvider = {
   price_in_micro: number;
   price_out_micro: number;
   consent_ok: boolean;
+  /** Server models: this model's own monthly limit (null = none) and this month's use. */
+  monthly_cap_micro: number | null;
+  spent_micro: number;
+};
+export type AiModelUsage = AiProvider & {
+  reserved_micro: number;
+  requests: Record<string, number>;
+};
+export type AiInstanceUsage = {
+  month: string;
+  total_spent_micro: number;
+  models: AiModelUsage[];
 };
 export type AiUsage = {
   month: string;
@@ -294,8 +306,8 @@ export type AiInstance = {
   models: AiProvider[];
   max_models: number;
   provider: AiProvider | null;
-  usage: AiUsage;
   kinds: string[];
+  default_cap_micro: number;
 };
 export type AiProviderInput = {
   kind: string;
@@ -1297,8 +1309,12 @@ export const api = {
     call<unknown>("POST", `/api/v1/ai/instance/models/${id}/test`, {
       confirm_billed,
     }),
-  aiSetInstanceCap: (cap_micro: number) =>
-    call<AiUsage>("PUT", "/api/v1/ai/instance/cap", { cap_micro }),
+  aiSetModelCap: (id: string, cap_micro: number | null) =>
+    call<AiProvider>("PUT", `/api/v1/ai/instance/models/${id}/cap`, {
+      cap_micro,
+    }),
+  aiInstanceUsage: () =>
+    call<AiInstanceUsage>("GET", "/api/v1/ai/instance/usage"),
 
   // AI organization proposals (M16)
   organizeSettings: () =>

@@ -775,7 +775,8 @@ def test_batch_limit_and_stop_on_budget(fx: Fx, net: Net) -> None:
     r = org(alice, "/suggest", {"node_ids": [str(uuid.uuid4()) for _ in range(21)]})
     assert r.status_code == 422
     # a zero cap blocks the cloud; the rest of the batch is not tried
-    assert put(admin, "/instance/cap", {"cap_micro": 0}).status_code == 200
+    model = admin.get("/ai/instance").json()["provider"]["id"]
+    assert put(admin, f"/instance/models/{model}/cap", {"cap_micro": 0}).status_code == 200
     net.text = answer(new_name="n.pdf")
     out = org(alice, "/suggest", {"node_ids": [str(i) for i in ids]}).json()["items"]
     assert [i["skipped"] for i in out] == ["budget_exceeded"] * 3

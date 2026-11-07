@@ -272,7 +272,7 @@ def test_shared_tree_questions_use_the_shared_tree_only(fx: Fx, net: Net) -> Non
     assert out["status"] == "answered"
     assert [c["node_id"] for c in out["citations"]] == [str(shared)]
     assert "900 EUR" not in sent(net)  # her personal file stayed out of a shared-tree request
-    assert {u.scope_key for u in usage_rows(fx)} == {"instance"}
+    assert {u.scope_key.split(":")[0] for u in usage_rows(fx)} == {"model"}
 
 
 def test_a_revoked_share_stops_the_chat_at_once(fx: Fx, net: Net) -> None:
@@ -336,8 +336,9 @@ def test_cost_cap_stops_the_call_and_falls_back_to_passages(fx: Fx, net: Net) ->
     doc(fx, alice, fx.y2026, "roof.txt", ROOF)
     net.text = reply()
     assert ok(alice)["status"] == "answered"
-    spent = admin.get("/ai/instance").json()["usage"]["spent_micro"]
-    assert put(admin, "/instance/cap", {"cap_micro": spent}).status_code == 200
+    model = admin.get("/ai/instance").json()["provider"]
+    cap = {"cap_micro": model["spent_micro"]}
+    assert put(admin, f"/instance/models/{model['id']}/cap", cap).status_code == 200
     sent_before = len(net.requests)
     out = ok(alice)
     assert out["status"] == "passages_only" and out["reason"] == "budget_exceeded"

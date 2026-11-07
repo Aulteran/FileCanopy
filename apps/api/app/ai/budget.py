@@ -107,6 +107,33 @@ def sweep_stale(db: Session, scope_key: str) -> int:
     return len(stale)
 
 
+def model_scope(provider_id: object) -> str:
+    """The budget scope of one server model's own monthly limit."""
+    return f"model:{provider_id}"
+
+
+def set_model_cap(db: Session, provider_id: object, cap_micro: int, spent_micro: int) -> AiBudget:
+    """Give one model its limit this month. `spent_micro` (from the ledger) is what it already
+    used, so a limit added or changed mid-month counts earlier use too."""
+    if not 0 <= cap_micro <= MAX_CAP_MICRO:
+        raise ValueError("cap out of range")
+    row = ensure(db, model_scope(provider_id), cap_micro)
+    row.cap_micro = cap_micro
+    row.spent_micro = spent_micro
+    db.commit()
+    return row
+
+
+def reserve_model(db: Session, provider_id: object, cap_micro: int, estimate: int) -> str | None:
+    """Like `reserve`, against a model's own limit. The stored cap follows the model's setting."""
+    scope = model_scope(provider_id)
+    row = ensure(db, scope, cap_micro)
+    if row.cap_micro != cap_micro:
+        row.cap_micro = cap_micro
+        db.commit()
+    return reserve(db, scope, estimate, cap_micro)
+
+
 def _give_back(db: Session, scope_key: str, month: str, amount: int) -> None:
     db.execute(
         update(AiBudget)

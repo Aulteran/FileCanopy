@@ -1678,3 +1678,36 @@ section.server-setup > p {
 .server-setup-panel h1 {
   display: none;
 }
+
+/* AI models table and usage page */
+.table-scroll {
+  overflow-x: auto;
+}
+.models-table th[scope="row"] {
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+.models-table td,
+.models-table th {
+  vertical-align: top;
+}
+.row-actions,
+.limit-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.money-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.limit-input {
+  width: 7em;
+  max-width: 100%;
+}
+.empty-state {
+  padding: 12px 0;
+}

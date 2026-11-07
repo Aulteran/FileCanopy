@@ -5,7 +5,10 @@ import {
   defaultModel,
   defaultPrices,
   hasModelList,
+  limitText,
   modelChoice,
+  modelName,
+  parseLimit,
 } from "./aiModels";
 
 describe("AI model list", () => {
@@ -47,5 +50,29 @@ describe("AI model list", () => {
       expect(m.inUsd).toBeGreaterThan(0);
       expect(m.outUsd).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("model limits and names", () => {
+  it("shows a short model name", () => {
+    expect(modelName("anthropic", "claude-sonnet-5-5")).toBe(
+      "Claude Sonnet 5.5",
+    );
+    expect(modelName("openai", "gpt-x")).toBe("gpt-x");
+  });
+  it("reads a limit field: blank is no limit, junk is refused", () => {
+    expect(parseLimit("")).toBeNull();
+    expect(parseLimit("  ")).toBeNull();
+    expect(parseLimit("3")).toBe(3_000_000);
+    expect(parseLimit("$2.50")).toBe(2_500_000);
+    expect(parseLimit("0")).toBe(0);
+    expect(parseLimit("-1")).toBeUndefined();
+    expect(parseLimit("1.234")).toBeUndefined();
+    expect(parseLimit("abc")).toBeUndefined();
+  });
+  it("writes a limit back as text", () => {
+    expect(limitText(null)).toBe("");
+    expect(limitText(3_000_000)).toBe("3");
+    expect(limitText(2_500_000)).toBe("2.5");
   });
 });

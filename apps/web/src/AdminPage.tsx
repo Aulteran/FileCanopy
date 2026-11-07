@@ -2,7 +2,13 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { Icon } from "./Icon";
 import { MailboxAdminPage } from "./MailPages";
-import { BACKUPS_PATH, MAILBOX_PATH, SETTINGS_PATH, USERS_PATH } from "./route";
+import {
+  BACKUPS_PATH,
+  MAILBOX_PATH,
+  SETTINGS_PATH,
+  USAGE_PATH,
+  USERS_PATH,
+} from "./route";
 import { UsersPage } from "./Users";
 import {
   loadServerSetupDone,
@@ -42,6 +48,12 @@ export function AdminPage({
       icon: "backup" as const,
       title: "Backups",
       text: "Backup targets, schedules and restores.",
+    },
+    {
+      path: USAGE_PATH,
+      icon: "sparkles" as const,
+      title: "Usage",
+      text: "What each AI model used this month and its spending limit.",
     },
   ];
   return (

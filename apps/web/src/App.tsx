@@ -16,6 +16,7 @@ import { InboxPage, MailboxAdminPage } from "./MailPages";
 import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
+import { UsagePage } from "./UsagePage";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -227,6 +228,7 @@ function Shell({
     mailbox,
     admin: adminRoute,
     settings: settingsRoute,
+    usage: usageRoute,
     search,
     go,
   } = useRoute();
@@ -314,6 +316,7 @@ function Shell({
       !mailbox &&
       !adminRoute &&
       !settingsRoute &&
+      !usageRoute &&
       search === null
     )
       go(folderPath(roots[0]!.node_id), true);
@@ -333,6 +336,7 @@ function Shell({
     mailbox,
     adminRoute,
     settingsRoute,
+    usageRoute,
     search,
     go,
   ]);
@@ -423,7 +427,9 @@ function Shell({
           href={ADMIN_PATH}
           className="toplink"
           aria-current={
-            adminRoute || users || mailbox || settingsRoute ? "page" : undefined
+            adminRoute || users || mailbox || settingsRoute || usageRoute
+              ? "page"
+              : undefined
           }
           onClick={(e) => {
             e.preventDefault();
@@ -753,6 +759,12 @@ function Shell({
             <ServerSettingsPage onEnded={onEnded} />
           ) : (
             <p>Only administrators can open the server settings.</p>
+          ))}
+        {usageRoute &&
+          (admin ? (
+            <UsagePage />
+          ) : (
+            <p>Only administrators can open the usage page.</p>
           ))}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />

@@ -103,7 +103,9 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
     page.context.close()
 
 
-def test_first_run_server_step_is_wide_with_cards_in_the_left_third(browser: Browser, world: World) -> None:
+def test_first_run_server_step_is_wide_with_cards_in_the_left_third(
+    browser: Browser, world: World
+) -> None:
     page = browser.new_context().new_page()
     page.goto(world.base + "/")
     page.get_by_label("Email").fill("admin@example.com")
@@ -192,3 +194,26 @@ def test_first_time_choosing_a_cloud_server_ai_shows_the_notice_first(
         world.alice.call("PUT", "/api/v1/ai/me/preference", {"preference": "off"})
         admin.call("DELETE", f"/api/v1/ai/instance/models/{created['id']}")
         admin.call("PUT", "/api/v1/ai/instance/enabled", {"enabled": False})
+
+
+def test_models_start_as_an_empty_table_and_usage_lives_on_its_own_page(
+    browser: Browser, world: World
+) -> None:
+    page = sign_in(browser, world, "admin@example.com")
+    _open_ai(page)
+    dialog = page.get_by_role("dialog", name="AI")
+    switch = dialog.get_by_label("Enable AI on this server?")
+    switch.click()
+    expect(switch).to_be_checked()
+    # no models yet: a message and the button, no table, and no server-wide limit anywhere
+    expect(dialog.get_by_text("No models yet")).to_be_visible()
+    expect(dialog.get_by_role("table")).to_have_count(0)
+    expect(dialog.get_by_role("button", name="Add a model")).to_be_visible()
+    expect(dialog.get_by_text("Monthly limit for cloud models on this server")).to_have_count(0)
+    expect(dialog.get_by_text("Estimates, not a bill")).to_have_count(0)
+    page.keyboard.press("Escape")
+
+    page.goto(world.base + "/admin/usage")
+    expect(page.get_by_role("heading", name="AI usage")).to_be_visible()
+    expect(page.get_by_text("Estimates, not a bill")).to_be_visible()
+    page.context.close()

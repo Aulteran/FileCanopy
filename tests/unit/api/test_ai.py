@@ -150,6 +150,22 @@ def local_body(**extra: Any) -> dict[str, Any]:
     }
 
 
+def default_model(admin: Api) -> dict[str, Any]:
+    d: dict[str, Any] = admin.get("/ai/instance").json()["provider"]
+    return d
+
+
+def set_model_cap(admin: Api, cap: int | None, model_id: str | None = None) -> Any:
+    return put(
+        admin, f"/instance/models/{model_id or default_model(admin)['id']}/cap", {"cap_micro": cap}
+    )
+
+
+def model_usage(admin: Api) -> dict[str, Any]:
+    d: dict[str, Any] = admin.get("/ai/instance/usage").json()["models"][0]
+    return d
+
+
 def gateway(fx: Fx) -> Any:
     return fx.w.app.state.ai
 
@@ -450,16 +466,21 @@ def test_cap_blocks_and_usage_is_visible(fx: Fx, net: Net) -> None:
     f = file_in(alice, fx.shared_sub)
     me = caller(fx, "alice")
     run(fx, me, f)
-    u = admin.get("/ai/instance").json()["usage"]
+    u = model_usage(admin)
     assert u["spent_micro"] == 3000 + 1500 and u["reserved_micro"] == 0  # 1000 in, 100 out
-    cap = put(admin, "/instance/cap", {"cap_micro": u["spent_micro"]})
+    assert u["monthly_cap_micro"] == 3_000_000  # a new cloud model starts with the default limit
+    cap = set_model_cap(admin, u["spent_micro"])
     assert cap.status_code == 200
     sent = len(net.requests)
     with pytest.raises(AiRefused) as e:
         run(fx, me, f)
     assert e.value.reason == "budget_exceeded" and len(net.requests) == sent
-    assert put(admin, "/instance/cap", {"cap_micro": 0}).status_code == 200
-    assert code(put(admin, "/instance/cap", {"cap_micro": -1})) == "VALIDATION_ERROR"
+    assert set_model_cap(admin, 0).status_code == 200
+    assert code(set_model_cap(admin, -1)) == "VALIDATION_ERROR"
+    # clearing the limit lifts it: the model is then not limited at all
+    assert set_model_cap(admin, None).status_code == 200
+    run(fx, me, f)
+    assert len(net.requests) == sent + 1
     assert any(u.status == "refused" and u.reason == "budget_exceeded" for u in usage_rows(fx))
     # the ledger holds no document text
     assert "invoice" not in json.dumps(
@@ -477,7 +498,7 @@ def test_failure_releases_the_reservation(fx: Fx, net: Net) -> None:
     net.status = 500
     with pytest.raises(AiError):
         run(fx, caller(fx, "alice"), f)
-    u = admin.get("/ai/instance").json()["usage"]
+    u = model_usage(admin)
     assert u["reserved_micro"] == 0 and u["spent_micro"] == 0
     net.status, net.text = 200, "not json"
     with pytest.raises(AiError) as e:
@@ -548,10 +569,12 @@ def test_budget_race(tmp_path: Path) -> None:
 
 def test_new_month_inherits_the_cap(fx: Fx) -> None:
     admin = Api(fx, "admin")
-    put(admin, "/instance/cap", {"cap_micro": 7_000_000})
+    put(admin, "/instance/provider", cloud_body())
+    mid = default_model(admin)["id"]
+    assert set_model_cap(admin, 7_000_000).status_code == 200
     fx.w.advance(days=40)
     with fx.w.ctx.sessions() as db:
-        assert budget.ensure(db, "instance", 3_000_000).cap_micro == 7_000_000
+        assert budget.ensure(db, budget.model_scope(mid), 3_000_000).cap_micro == 7_000_000
 
 
 def test_secret_key_parsing() -> None:
@@ -935,3 +958,65 @@ def test_a_person_saving_their_own_provider_cannot_switch_ai_on(fx: Fx, net: Net
         assert resolve_route(db, root_kind="shared", owner=None).reason == "ai_not_configured"
     assert admin.get("/ai/instance").json()["enabled"] is False
     assert not net.requests
+
+
+def test_each_model_has_its_own_limit(fx: Fx, net: Net) -> None:
+    admin, alice = Api(fx, "admin"), Api(fx, "alice")
+    a = post(admin, "/instance/models", cloud_body(label="A")).json()
+    b = post(admin, "/instance/models", cloud_body(label="B")).json()
+    home = post(admin, "/instance/models", local_body(label="Home")).json()
+    assert (
+        a["monthly_cap_micro"] == b["monthly_cap_micro"] == 3_000_000
+    )  # never unlimited by default
+    assert home["monthly_cap_micro"] is None
+    assert code(set_model_cap(admin, 1_000_000, home["id"])) == "NOT_CLOUD"
+    f = file_in(alice, fx.shared_sub)
+    me = caller(fx, "alice")
+    run(fx, me, f)  # the default model is A
+    spent = next(m for m in admin.get("/ai/instance/usage").json()["models"] if m["id"] == a["id"])
+    assert spent["spent_micro"] > 0
+    # A's limit used up: refused and nothing sent; B's own limit is separate and untouched
+    assert set_model_cap(admin, spent["spent_micro"], a["id"]).status_code == 200
+    sent = len(net.requests)
+    with pytest.raises(AiRefused) as e:
+        run(fx, me, f)
+    assert e.value.reason == "budget_exceeded" and len(net.requests) == sent
+    assert put(admin, "/instance/default", {"id": b["id"]}).status_code == 200
+    run(fx, me, f)
+    usage = admin.get("/ai/instance/usage").json()
+    by = {m["id"]: m for m in usage["models"]}
+    assert by[b["id"]]["spent_micro"] > 0 and by[b["id"]]["monthly_cap_micro"] == 3_000_000
+    assert usage["total_spent_micro"] == by[a["id"]]["spent_micro"] + by[b["id"]]["spent_micro"]
+    assert code(set_model_cap(admin, -5, b["id"])) == "VALIDATION_ERROR"
+    assert code(set_model_cap(admin, 10**15, b["id"])) == "INVALID_CAP"
+
+
+def test_migration_0027_gives_existing_cloud_models_the_old_server_limit(tmp_path: Path) -> None:
+    import importlib.util
+
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    path = Path(__file__).parents[3] / "apps/api/migrations/versions/0027_ai_model_caps.py"
+    spec = importlib.util.spec_from_file_location("m0027", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    eng = sa.create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    ddl = [
+        "create table ai_provider (id integer primary key, scope varchar, privacy_mode varchar)",
+        "create table ai_budget (scope_key varchar, month varchar, cap_micro bigint)",
+        "insert into ai_provider values (1, 'instance', 'cloud'), (2, 'instance', 'local'),"
+        " (3, 'user', 'cloud')",
+        "insert into ai_budget values ('instance', '2026-10', 5000000),"
+        " ('instance', '2026-11', 7000000)",
+    ]
+    with eng.begin() as conn:
+        for stmt in ddl:
+            conn.execute(sa.text(stmt))
+        with Operations.context(MigrationContext.configure(conn)):
+            mod.upgrade()
+            mod.upgrade()  # idempotent
+        caps = dict(conn.execute(sa.text("select id, monthly_cap_micro from ai_provider")).all())
+    assert caps == {1: 7_000_000, 2: None, 3: None}
