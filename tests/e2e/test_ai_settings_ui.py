@@ -124,6 +124,33 @@ def test_first_run_server_step_is_a_centred_column_of_cards(browser: Browser, wo
     page.context.close()
 
 
+def test_server_step_marks_only_the_steps_that_are_really_done(
+    browser: Browser, world: World
+) -> None:
+    """A step card shows a "Completed" check mark only for saved state, and keeps it on reload:
+    the account step always, the users step because the world already invited two people."""
+    page = browser.new_context().new_page()
+    page.goto(world.base + "/")
+    page.get_by_label("Email").fill("admin@example.com")
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Sign in").click()
+    screen = page.get_by_role("region", name="Prepare your server")
+    expect(screen).to_be_visible()
+
+    def done(step: str) -> Locator:
+        item = screen.get_by_role("listitem").filter(has_text=step)
+        return item.get_by_role("img", name="Completed")
+
+    for _ in range(2):  # the second pass is after a reload
+        expect(done("Step 3: Your account")).to_be_visible()
+        expect(done("Step 4: Other users")).to_be_visible()
+        expect(done("Step 1: AI")).to_have_count(0)
+        expect(done("Step 2: Meaning-based search")).to_have_count(0)
+        expect(done("Step 5: Mail server")).to_have_count(0)
+        page.reload()
+    page.context.close()
+
+
 def test_first_time_choosing_a_cloud_server_ai_shows_the_notice_first(
     browser: Browser, world: World
 ) -> None:

@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import { MailboxAdminPage } from "./MailPages";
 import { BACKUPS_PATH, MAILBOX_PATH, SETTINGS_PATH, USERS_PATH } from "./route";
 import { UsersPage } from "./Users";
+import {
+  loadServerSetupDone,
+  NOTHING_DONE,
+  type ServerSetupDone,
+} from "./serverSetupState";
 
 // One place for server-wide administration, instead of separate top-bar links.
 export function AdminPage({
@@ -81,14 +86,30 @@ export function ServerSetupStep({
   onSemantic,
   onEnded,
   onContinue,
+  version = 0,
 }: {
   me: string;
   onAi: () => void;
   onSemantic: () => void;
   onEnded: () => void;
   onContinue: () => void;
+  /** Bumped by the parent when a settings dialog closes, so the check marks are read again. */
+  version?: number;
 }) {
   const [view, setView] = useState<"steps" | "users" | "mail">("steps");
+  const [done, setDone] = useState<ServerSetupDone>(NOTHING_DONE);
+  // Read from the server each time the step list is shown or a dialog closes, so a mark always
+  // reflects saved state (and survives a reload).
+  useEffect(() => {
+    if (view !== "steps") return;
+    let live = true;
+    void loadServerSetupDone(me).then((d) => {
+      if (live) setDone(d);
+    });
+    return () => {
+      live = false;
+    };
+  }, [me, view, version]);
   const back = (
     <p>
       <button type="button" onClick={() => setView("steps")}>
@@ -121,6 +142,7 @@ export function ServerSetupStep({
       </p>
       <ol className="setup-steps">
         <li>
+          <StepDone done={done.ai} />
           <strong>Step 1: AI (optional)</strong>
           <p>Choose whether and how AI helps. FileCanopy works without it.</p>
           <button type="button" onClick={onAi}>
@@ -128,6 +150,7 @@ export function ServerSetupStep({
           </button>
         </li>
         <li>
+          <StepDone done={done.semantic} />
           <strong>Step 2: Meaning-based search (optional)</strong>
           <p>
             Connect a model server on your own network so search can find files
@@ -138,10 +161,12 @@ export function ServerSetupStep({
           </button>
         </li>
         <li>
+          <StepDone done />
           <strong>Step 3: Your account</strong>
           <p>You are signed in as this administrator. Nothing to do here.</p>
         </li>
         <li>
+          <StepDone done={done.users} />
           <strong>Step 4: Other users (optional)</strong>
           <p>Invite the people who will use this server.</p>
           <button type="button" onClick={() => setView("users")}>
@@ -149,6 +174,7 @@ export function ServerSetupStep({
           </button>
         </li>
         <li>
+          <StepDone done={done.mail} />
           <strong>Step 5: Mail server (optional)</strong>
           <p>Set up outgoing and incoming email.</p>
           <button type="button" onClick={() => setView("mail")}>
@@ -162,5 +188,15 @@ export function ServerSetupStep({
         </button>
       </p>
     </section>
+  );
+}
+
+/** A small check mark at the top right of a finished step card. */
+function StepDone({ done }: { done: boolean }) {
+  if (!done) return null;
+  return (
+    <span className="step-done" role="img" aria-label="Completed">
+      ✓
+    </span>
   );
 }
