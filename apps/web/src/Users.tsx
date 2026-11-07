@@ -13,6 +13,7 @@ import {
   type OidcOnly,
   type OneTimeToken,
 } from "./api";
+import { Modal } from "./Dialogs";
 import { describeError, formatDate } from "./format";
 import { oneTimeLink } from "./route";
 
@@ -33,13 +34,19 @@ export function UsersPage({ me, onEnded }: Props) {
   const [issued, setIssued] = useState<Issued | null>(null);
   const [busy, setBusy] = useState(false);
   const [config, setConfig] = useState<AdminAuthConfig | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState("");
 
-  const fail = useCallback(
-    (err: unknown) => {
+  const describe = useCallback(
+    (err: unknown): string => {
       if (err instanceof ApiError && err.status === 401) onEnded();
-      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+      return describeError(err instanceof ApiError ? err.code : "UNKNOWN");
     },
     [onEnded],
+  );
+  const fail = useCallback(
+    (err: unknown) => setError(describe(err)),
+    [describe],
   );
 
   const load = useCallback(() => {
@@ -64,10 +71,12 @@ export function UsersPage({ me, onEnded }: Props) {
     what: () => Promise<OneTimeToken | unknown>,
     done: string,
     email?: string,
-  ): Promise<void> {
+    report: (message: string) => void = setError,
+  ): Promise<boolean> {
     setBusy(true);
     setError("");
     setNotice("");
+    report("");
     try {
       const out = await what();
       const token =
@@ -87,8 +96,10 @@ export function UsersPage({ me, onEnded }: Props) {
         setNotice(done);
       }
       load();
+      return true;
     } catch (err) {
-      fail(err);
+      report(describe(err));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -103,7 +114,7 @@ export function UsersPage({ me, onEnded }: Props) {
     const role = form.get("role") === "admin" ? "admin" : "member";
     if (!email || !name) return;
     const sendEmail = mail && form.get("send_email") === "on";
-    await act(
+    const ok = await act(
       async () => {
         const out = await api.inviteUser({
           email,
@@ -116,7 +127,9 @@ export function UsersPage({ me, onEnded }: Props) {
       },
       `Invited ${email}`,
       email,
+      setInviteError,
     );
+    if (ok) setInviting(false);
   }
 
   return (
@@ -139,36 +152,6 @@ export function UsersPage({ me, onEnded }: Props) {
 
       {issued && <LinkPanel issued={issued} onClose={() => setIssued(null)} />}
 
-      <section aria-labelledby="invite-title" className="panel">
-        <h2 id="invite-title">Invite someone</h2>
-        <form onSubmit={(e) => void invite(e)} className="stack-form">
-          <label>
-            Email
-            <input name="email" type="email" required maxLength={320} />
-          </label>
-          <label>
-            Name
-            <input name="name" required maxLength={200} autoComplete="off" />
-          </label>
-          <label>
-            Role
-            <select name="role" defaultValue="member">
-              <option value="member">Member</option>
-              <option value="admin">Administrator</option>
-            </select>
-          </label>
-          {mail && (
-            <label className="check">
-              <input type="checkbox" name="send_email" defaultChecked />
-              Email the invitation link
-            </label>
-          )}
-          <button type="submit" className="primary" disabled={busy}>
-            Create invitation
-          </button>
-        </form>
-      </section>
-
       <p role="status" className="sr-only">
         {notice}
       </p>
@@ -178,181 +161,239 @@ export function UsersPage({ me, onEnded }: Props) {
 
       <section aria-labelledby="accounts-title" className="panel">
         <h2 id="accounts-title">Accounts</h2>
+        <div className="models-header">
+          <p className="muted">
+            Everyone who can sign in, and the people you have invited.
+          </p>
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setInviteError("");
+              setInviting(true);
+            }}
+          >
+            Invite user
+          </button>
+        </div>
         {users === null ? (
           <p className="loading">Loading…</p>
         ) : (
-          <table aria-label="Accounts">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Role</th>
-                <th scope="col">Status</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.name}
-                    {u.id === me && " (you)"}
-                  </td>
-                  <td>{u.email}</td>
-                  <td>{u.role === "admin" ? "Administrator" : "Member"}</td>
-                  <td>{STATUS[u.status] ?? u.status}</td>
-                  <td>
-                    <div className="row-actions">
-                      {(u.status === "invited" ||
-                        (onlyActive &&
-                          u.status === "active" &&
-                          !u.sso_linked)) && (
-                        <button
-                          disabled={busy}
-                          aria-label={`New invitation link for ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.reissueInvitation(u.id),
-                              `New invitation link for ${u.email}`,
-                              u.email,
-                            )
-                          }
-                        >
-                          New invitation link
-                        </button>
-                      )}
-                      {(u.status === "invited" ||
-                        (onlyActive &&
-                          u.status === "active" &&
-                          !u.sso_linked)) &&
-                        mail && (
+          <div className="table-scroll">
+            <table aria-label="Accounts" className="models-table">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <th scope="row">
+                      {u.name}
+                      {u.id === me && " (you)"}
+                    </th>
+                    <td>{u.email}</td>
+                    <td>{u.role === "admin" ? "Administrator" : "Member"}</td>
+                    <td>{STATUS[u.status] ?? u.status}</td>
+                    <td>
+                      <div className="row-actions">
+                        {(u.status === "invited" ||
+                          (onlyActive &&
+                            u.status === "active" &&
+                            !u.sso_linked)) && (
                           <button
                             disabled={busy}
-                            aria-label={`Email a new invitation to ${u.email}`}
+                            aria-label={`New invitation link for ${u.email}`}
                             onClick={() =>
                               void act(
-                                () => api.reissueInvitation(u.id, true),
-                                `New invitation for ${u.email}`,
+                                () => api.reissueInvitation(u.id),
+                                `New invitation link for ${u.email}`,
                                 u.email,
                               )
                             }
                           >
-                            Email invitation
+                            New invitation link
                           </button>
                         )}
-                      {u.status === "active" && !onlyActive && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Password reset link for ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.issueReset(u.id),
-                              `Password reset link for ${u.email}`,
-                              u.email,
-                            )
-                          }
-                        >
-                          Reset link
-                        </button>
-                      )}
-                      {u.status === "active" && mail && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Email a password reset to ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.issueReset(u.id, true),
-                              `Password reset for ${u.email}`,
-                              u.email,
-                            )
-                          }
-                        >
-                          Email reset
-                        </button>
-                      )}
-                      {u.sso_linked && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Unlink the sign-in provider of ${u.email}`}
-                          onClick={() =>
-                            void act(
-                              () => api.unlinkIdentity(u.id),
-                              `Unlinked the sign-in provider of ${u.email}`,
-                            )
-                          }
-                        >
-                          Unlink provider
-                        </button>
-                      )}
-                      {u.id !== me && u.status === "active" && (
-                        <button
-                          disabled={busy}
-                          aria-label={`Sign ${u.email} out everywhere`}
-                          onClick={() =>
-                            void act(
-                              () => api.revokeSessions(u.id),
-                              `Signed ${u.email} out everywhere`,
-                            )
-                          }
-                        >
-                          Sign out everywhere
-                        </button>
-                      )}
-                      {u.id !== me && (
-                        <button
-                          disabled={busy}
-                          aria-label={
-                            u.role === "admin"
-                              ? `Make ${u.email} a member`
-                              : `Make ${u.email} an administrator`
-                          }
-                          onClick={() =>
-                            void act(
-                              () =>
-                                api.updateUser(u.id, {
-                                  role: u.role === "admin" ? "member" : "admin",
-                                }),
-                              `Changed the role of ${u.email}`,
-                            )
-                          }
-                        >
-                          {u.role === "admin" ? "Make member" : "Make admin"}
-                        </button>
-                      )}
-                      {u.id !== me && (
-                        <button
-                          disabled={busy}
-                          aria-label={
-                            u.status === "disabled"
-                              ? `Enable ${u.email}`
-                              : `Disable ${u.email}`
-                          }
-                          onClick={() =>
-                            void act(
-                              () =>
-                                api.updateUser(u.id, {
-                                  status:
-                                    u.status === "disabled"
-                                      ? "active"
-                                      : "disabled",
-                                }),
+                        {(u.status === "invited" ||
+                          (onlyActive &&
+                            u.status === "active" &&
+                            !u.sso_linked)) &&
+                          mail && (
+                            <button
+                              disabled={busy}
+                              aria-label={`Email a new invitation to ${u.email}`}
+                              onClick={() =>
+                                void act(
+                                  () => api.reissueInvitation(u.id, true),
+                                  `New invitation for ${u.email}`,
+                                  u.email,
+                                )
+                              }
+                            >
+                              Email invitation
+                            </button>
+                          )}
+                        {u.status === "active" && !onlyActive && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Password reset link for ${u.email}`}
+                            onClick={() =>
+                              void act(
+                                () => api.issueReset(u.id),
+                                `Password reset link for ${u.email}`,
+                                u.email,
+                              )
+                            }
+                          >
+                            Reset link
+                          </button>
+                        )}
+                        {u.status === "active" && mail && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Email a password reset to ${u.email}`}
+                            onClick={() =>
+                              void act(
+                                () => api.issueReset(u.id, true),
+                                `Password reset for ${u.email}`,
+                                u.email,
+                              )
+                            }
+                          >
+                            Email reset
+                          </button>
+                        )}
+                        {u.sso_linked && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Unlink the sign-in provider of ${u.email}`}
+                            onClick={() =>
+                              void act(
+                                () => api.unlinkIdentity(u.id),
+                                `Unlinked the sign-in provider of ${u.email}`,
+                              )
+                            }
+                          >
+                            Unlink provider
+                          </button>
+                        )}
+                        {u.id !== me && u.status === "active" && (
+                          <button
+                            disabled={busy}
+                            aria-label={`Sign ${u.email} out everywhere`}
+                            onClick={() =>
+                              void act(
+                                () => api.revokeSessions(u.id),
+                                `Signed ${u.email} out everywhere`,
+                              )
+                            }
+                          >
+                            Sign out everywhere
+                          </button>
+                        )}
+                        {u.id !== me && (
+                          <button
+                            disabled={busy}
+                            aria-label={
+                              u.role === "admin"
+                                ? `Make ${u.email} a member`
+                                : `Make ${u.email} an administrator`
+                            }
+                            onClick={() =>
+                              void act(
+                                () =>
+                                  api.updateUser(u.id, {
+                                    role:
+                                      u.role === "admin" ? "member" : "admin",
+                                  }),
+                                `Changed the role of ${u.email}`,
+                              )
+                            }
+                          >
+                            {u.role === "admin" ? "Make member" : "Make admin"}
+                          </button>
+                        )}
+                        {u.id !== me && (
+                          <button
+                            disabled={busy}
+                            aria-label={
                               u.status === "disabled"
-                                ? `Enabled ${u.email}`
-                                : `Disabled ${u.email}`,
-                            )
-                          }
-                        >
-                          {u.status === "disabled" ? "Enable" : "Disable"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                                ? `Enable ${u.email}`
+                                : `Disable ${u.email}`
+                            }
+                            onClick={() =>
+                              void act(
+                                () =>
+                                  api.updateUser(u.id, {
+                                    status:
+                                      u.status === "disabled"
+                                        ? "active"
+                                        : "disabled",
+                                  }),
+                                u.status === "disabled"
+                                  ? `Enabled ${u.email}`
+                                  : `Disabled ${u.email}`,
+                              )
+                            }
+                          >
+                            {u.status === "disabled" ? "Enable" : "Disable"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
+      {inviting && (
+        <Modal title="Invite user" onClose={() => setInviting(false)}>
+          <form onSubmit={(e) => void invite(e)} className="stack-form">
+            <label>
+              Email
+              <input name="email" type="email" required maxLength={320} />
+            </label>
+            <label>
+              Name
+              <input name="name" required maxLength={200} autoComplete="off" />
+            </label>
+            <label>
+              Role
+              <select name="role" defaultValue="member">
+                <option value="member">Member</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </label>
+            {mail && (
+              <label className="check">
+                <input type="checkbox" name="send_email" defaultChecked />
+                Email the invitation link
+              </label>
+            )}
+            {inviteError && (
+              <p role="alert" className="error">
+                {inviteError}
+              </p>
+            )}
+            <div className="actions">
+              <button type="submit" className="primary" disabled={busy}>
+                Create invitation
+              </button>
+              <button type="button" onClick={() => setInviting(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -431,8 +472,8 @@ function LinkPanel({
   );
 }
 
-/** How sign-in and mail are set up (read-only: they come from the server's environment), with a
- * test message to the administrator's own address. */
+/** How sign-in and mail are set up (read-only here), with a test message to the administrator's
+ * own address. */
 function SignInPanel({
   config,
   onError,
@@ -467,7 +508,8 @@ function SignInPanel({
           : "Single sign-on is not configured."}
       </p>
       <p className="hint">
-        These are set in the server&apos;s environment file, never here.
+        Outgoing email is set up in Step 3 of first-time setup, or under Admin,
+        Mailbox. Single sign-on is set in the server&apos;s environment file.
         Password sign-in always stays available.
       </p>
       {smtp.configured && (

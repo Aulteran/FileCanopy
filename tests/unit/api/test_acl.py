@@ -632,6 +632,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/auth/oidc/identity",
     "/api/v1/auth/oidc/unlink",
     "/api/v1/admin/auth-config",
+    "/api/v1/admin/smtp",
     "/api/v1/admin/smtp/test",
     "/api/v1/admin/users/{user_id}/identity",
     "/api/v1/roots",  # actor-scoped entry points; not addressed by node id

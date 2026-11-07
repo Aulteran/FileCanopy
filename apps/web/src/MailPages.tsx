@@ -7,6 +7,7 @@ import {
   type SharedIntake,
 } from "./api";
 import { describeError, formatDate, formatSize } from "./format";
+import { SmtpSetup } from "./SmtpSettings";
 
 // Mail views (M13). Everything shown here comes from the server as plain text and is rendered as
 // text: subjects, addresses and file names are written by the sender.
@@ -187,7 +188,14 @@ export function InboxPage({
   );
 }
 
-export function MailboxAdminPage({ onEnded }: { onEnded: () => void }) {
+export function MailboxAdminPage({
+  onEnded,
+  outgoing = false,
+}: {
+  onEnded: () => void;
+  /** Also show the outgoing (SMTP) settings. First-time setup has them in their own step. */
+  outgoing?: boolean;
+}) {
   const [status, setStatus] = useState<MailboxStatus | null>(null);
   const [rows, setRows] = useState<MailMessage[]>([]);
   const [error, setError] = useState("");
@@ -305,6 +313,12 @@ export function MailboxAdminPage({ onEnded }: { onEnded: () => void }) {
         </p>
       )}
       {message && <p role="status">{message}</p>}
+      {outgoing && (
+        <section aria-labelledby="outgoing-title">
+          <h2 id="outgoing-title">Outgoing email</h2>
+          <SmtpSetup onEnded={onEnded} />
+        </section>
+      )}
       {status && !status.configured && (
         <p>
           No inbound mailbox is set up. See the FILECANOPY_IMAP_* settings in

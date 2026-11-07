@@ -7,6 +7,9 @@ export type ServerSetupDone = {
   ai: boolean;
   semantic: boolean;
   users: boolean;
+  /** Outgoing mail (SMTP), Step 3. */
+  smtp: boolean;
+  /** Incoming mail (the mailbox), Step 5. */
   mail: boolean;
 };
 
@@ -14,6 +17,7 @@ export const NOTHING_DONE: ServerSetupDone = {
   ai: false,
   semantic: false,
   users: false,
+  smtp: false,
   mail: false,
 };
 
@@ -60,6 +64,7 @@ export async function loadServerSetupDone(
     ai: aiDone({ instance, preference: status?.preference ?? null }),
     semantic: semantic?.enabled === true,
     users: accounts ? usersDone(accounts, me) : false,
-    mail: mailbox?.configured === true || auth?.smtp.configured === true,
+    smtp: auth?.smtp.configured === true,
+    mail: mailbox?.configured === true,
   };
 }

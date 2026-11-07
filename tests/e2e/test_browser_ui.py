@@ -314,19 +314,20 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         [
             "Step 1: AI (optional)",
             "Step 2: Meaning-based search (optional)",
-            "Step 3: Your account",
+            "Step 3: Outgoing email (optional)",
             "Step 4: Other users (optional)",
-            "Step 5: Mail server (optional)",
+            "Step 5: Incoming mail (optional)",
         ]
     )
     # Step 1 is already open beside the list when setup starts
     expect(page.get_by_role("region", name="Step 1: AI")).to_be_visible()
-    # Steps 1, 2, 4 and 5 open beside the step list (two panes), never instead of it
+    # Every step opens beside the step list (two panes), never instead of it
     for button, title in [
         ("Choose AI settings", "Step 1: AI"),
         ("Set up meaning-based search", "Step 2: Meaning-based search"),
-        ("Invite users", "Step 4: Invite other users"),
-        ("Set up mail", "Step 5: Mail server"),
+        ("Set up outgoing email", "Step 3: Outgoing email"),
+        ("Invite users", "Step 4: Other users"),
+        ("Check incoming mail", "Step 5: Incoming mail"),
     ]:
         page.get_by_role("button", name=button).click()
         panel = page.get_by_role("region", name=title)
@@ -340,8 +341,18 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         assert 1.8 < panel_box["width"] / steps_box["width"] < 2.2
         span = panel_box["x"] + panel_box["width"] - steps_box["x"]
         assert span > 0.85 * page.viewport_size["width"]
+        if button == "Set up outgoing email":
+            expect(panel.get_by_label("Mail server")).to_be_visible()
+            expect(panel.get_by_role("button", name="Send a test message")).to_be_visible()
         if button == "Invite users":
-            expect(panel.get_by_role("button", name="Create invitation")).to_be_visible()
+            # the invite form is a popup opened from a button above the table, not a section
+            expect(panel.get_by_text("Invite someone")).to_have_count(0)
+            expect(panel.get_by_role("table", name="Accounts")).to_be_visible()
+            panel.get_by_role("button", name="Invite user", exact=True).click()
+            popup = page.get_by_role("dialog", name="Invite user")
+            expect(popup.get_by_role("button", name="Create invitation")).to_be_visible()
+            popup.get_by_role("button", name="Dismiss dialog").click()
+            expect(page.get_by_role("dialog")).to_have_count(0)
         panel.get_by_role("button", name="Close", exact=True).first.click()
         expect(panel).to_have_count(0)
         expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
