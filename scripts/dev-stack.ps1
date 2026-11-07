@@ -1,11 +1,11 @@
 <#
 Self-contained local test stack built from this checkout (no ghcr, works offline once images are cached).
   dev-stack.ps1 [-Port 8080] [-Tailscale <ip>] [-NoPull] [-NoOpen]   interactive menu (what dev-up.cmd runs)
-  dev-stack.ps1 up | down | wipe [-Yes]                              the same steps, non-interactive
+  dev-stack.ps1 up | restart | down | wipe [-Yes]                              the same steps, non-interactive
 The stack lives in <repo>\.dev-stack (gitignored): .env, library\, app-data\. Docker project name: filecanopy-dev.
 #>
 param(
-  [Parameter(Position = 0)][ValidateSet('menu', 'up', 'down', 'wipe')][string]$Action = 'menu',
+  [Parameter(Position = 0)][ValidateSet('menu', 'up', 'restart', 'down', 'wipe')][string]$Action = 'menu',
   [int]$Port = 8080,
   [string]$Tailscale = '',
   [switch]$NoPull,
@@ -30,6 +30,8 @@ function Compose([string[]]$cmd) {
   & docker @a | Out-Host
   return $LASTEXITCODE
 }
+
+$script:Recreate = $false
 
 function Start-Stack {
 if (-not $NoPull) {
@@ -82,7 +84,9 @@ if ((Compose @('build')) -ne 0) {
   if (@($have).Count -lt 3) { Write-Host 'Build failed and no earlier build exists. The first build needs internet.' -ForegroundColor Red; return }
   Write-Host 'Build failed (offline?): starting the previously built images instead.' -ForegroundColor Yellow
 }
-if ((Compose @('up', '-d', '--wait')) -ne 0) { Write-Host 'Start failed. Logs: docker compose -p filecanopy-dev logs api' -ForegroundColor Red; return }
+$upArgs = @('up', '-d', '--wait')
+if ($script:Recreate) { $upArgs += '--force-recreate' }
+if ((Compose $upArgs) -ne 0) { Write-Host 'Start failed. Logs: docker compose -p filecanopy-dev logs api' -ForegroundColor Red; return }
 
 $url = "http://localhost:$port"
 Write-Host ''
@@ -93,7 +97,7 @@ if ($firstRun) {
 } else {
   Write-Host "Setup token (only needed until the first admin is created): $token"
 }
-Write-Host "Keep this window open while you test. Use the menu below to restart fresh (2) or shut down (3)."
+Write-Host "Keep this window open while you test. Use the menu below to restart fresh (2), apply updates (4) or shut down (3)."
 if (-not $NoOpen) { Start-Process $url }
 }
 
@@ -115,6 +119,7 @@ function Wipe-Stack {
 
 switch ($Action) {
   'up'   { Start-Stack; exit 0 }
+  'restart' { $script:Recreate = $true; Start-Stack; exit 0 }
   'down' { Stop-Stack; exit 0 }
   'wipe' { Wipe-Stack | Out-Null; exit 0 }
 }
@@ -126,11 +131,13 @@ while ($true) {
   Write-Host '  1  Run it as you left it (keeps your data)'
   Write-Host '  2  Wipe everything and start completely fresh (test first-time setup)'
   Write-Host '  3  Quit (shuts the app down, keeps data)'
-  $c = Read-Host 'Choose 1, 2 or 3'
+  Write-Host '  4  Restart and apply updates (pulls dev, rebuilds, recreates containers, keeps data)'
+  $c = Read-Host 'Choose 1, 2, 3 or 4'
   switch ($c) {
-    '1' { Start-Stack }
-    '2' { if (Wipe-Stack) { Start-Stack } }
+    '1' { $script:Recreate = $false; Start-Stack }
+    '2' { if (Wipe-Stack) { $script:Recreate = $false; Start-Stack } }
     '3' { Stop-Stack; exit 0 }
-    default { Write-Host 'Please type 1, 2 or 3.' }
+    '4' { $script:Recreate = $true; Start-Stack }
+    default { Write-Host 'Please type 1, 2, 3 or 4.' }
   }
 }
