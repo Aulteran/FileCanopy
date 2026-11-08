@@ -32,6 +32,8 @@ function Compose([string[]]$cmd) {
 }
 
 $script:Recreate = $false
+# Set by menu option 4: the user already has the app open, so do not open a new tab.
+$script:SkipOpen = $false
 
 function Start-Stack {
 if (-not $NoPull) {
@@ -98,7 +100,9 @@ if ($firstRun) {
   Write-Host "Setup token (only needed until the first admin is created): $token"
 }
 Write-Host "Keep this window open while you test. Use the menu below to restart fresh (2), apply updates (4) or shut down (3)."
-if (-not $NoOpen) { Start-Process $url }
+if ($script:SkipOpen) {
+  Write-Host 'Updated. Refresh your open FileCanopy browser tab (Ctrl+F5) to load the new version.' -ForegroundColor Cyan
+} elseif (-not $NoOpen) { Start-Process $url }
 }
 
 function Stop-Stack {
@@ -126,6 +130,7 @@ switch ($Action) {
 
 # ---- interactive menu: stays open while the app runs ----
 while ($true) {
+  $script:SkipOpen = $false
   Write-Host ''
   Write-Host '=== FileCanopy test app (built from local dev source) ===' -ForegroundColor Green
   Write-Host '  1  Run it as you left it (keeps your data)'
@@ -137,7 +142,7 @@ while ($true) {
     '1' { $script:Recreate = $false; Start-Stack }
     '2' { if (Wipe-Stack) { $script:Recreate = $false; Start-Stack } }
     '3' { Stop-Stack; exit 0 }
-    '4' { $script:Recreate = $true; Start-Stack }
+    '4' { $script:Recreate = $true; $script:SkipOpen = $true; Start-Stack }
     default { Write-Host 'Please type 1, 2, 3 or 4.' }
   }
 }
