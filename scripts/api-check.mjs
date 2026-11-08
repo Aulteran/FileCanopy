@@ -1,4 +1,5 @@
 // Runs backend lint, type check and unit tests in the pinned Python 3.13 dev image.
+// Usage: node scripts/api-check.mjs [static|tests]   (default: both; CI runs them as two jobs)
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -25,23 +26,30 @@ if (!process.env.FILECANOPY_SKIP_IMAGE_BUILD) {
 }
 const inDev = (...cmd) => run(["run", "--rm", "filecanopy-api-dev", ...cmd]);
 const config = ["--config", "apps/api/pyproject.toml"];
-inDev("ruff", "check", ...config, "apps/api", "workers", "tests");
-inDev("ruff", "format", "--check", ...config, "apps/api", "workers", "tests");
-inDev(
-  "mypy",
-  "--config-file",
-  "apps/api/pyproject.toml",
-  "apps/api/app",
-  "workers",
-);
-inDev(
-  "pytest",
-  "-c",
-  "apps/api/pyproject.toml",
-  "-m",
-  "not compose",
-  "-q",
-  "-rs", // list why tests were skipped (the M10 hardening tests must run in CI)
-  "tests/unit/api",
-  "tests/security", // M23 adversarial suite
-);
+const part = process.argv[2] ?? "all";
+if (part === "all" || part === "static") {
+  inDev("ruff", "check", ...config, "apps/api", "workers", "tests");
+  inDev("ruff", "format", "--check", ...config, "apps/api", "workers", "tests");
+  inDev(
+    "mypy",
+    "--config-file",
+    "apps/api/pyproject.toml",
+    "apps/api/app",
+    "workers",
+  );
+}
+if (part === "all" || part === "tests") {
+  inDev(
+    "pytest",
+    "-n",
+    "auto", // pytest-xdist: one worker per CPU
+    "-c",
+    "apps/api/pyproject.toml",
+    "-m",
+    "not compose",
+    "-q",
+    "-rs", // list why tests were skipped (the M10 hardening tests must run in CI)
+    "tests/unit/api",
+    "tests/security", // M23 adversarial suite
+  );
+}

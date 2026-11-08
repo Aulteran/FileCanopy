@@ -1,5 +1,6 @@
 -r requirements.txt
 ast_serialize==0.13.1
+execnet==2.1.2
 iniconfig==2.3.1
 librt==0.16.0
 mypy==2.4.1
@@ -9,6 +10,7 @@ pathspec==1.1.1
 pluggy==1.7.0
 Pygments==2.21.0
 pytest==9.2.0
+pytest-xdist==3.8.0
 ruff==0.17.3
 types-cffi==2.1.0.20260827
 types-pyOpenSSL==24.1.0.20240722
