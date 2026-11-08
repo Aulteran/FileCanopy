@@ -261,7 +261,8 @@ def test_change_own_name(world: World) -> None:
     bad = c.patch("/api/v1/auth/profile", json={"name": "X", "role": "admin"}, headers=h)
     assert bad.status_code == 422
     # Needs a session and the CSRF header.
-    assert world.browser().patch("/api/v1/auth/profile", json={"name": "Z"}).status_code in (401, 403)
+    anon = world.browser().patch("/api/v1/auth/profile", json={"name": "Z"})
+    assert anon.status_code in (401, 403)
     assert c.patch("/api/v1/auth/profile", json={"name": "Z"}).status_code == 403
 
 
