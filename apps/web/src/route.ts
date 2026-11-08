@@ -20,6 +20,7 @@ const COLLECTIONS = /^\/collections(?:\/([0-9a-f-]{36}))?\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
 const ADMIN = /^\/admin\/?$/;
 const SETTINGS = /^\/admin\/settings\/?$/;
+const AI_ADMIN = /^\/admin\/ai\/?$/;
 const USAGE = /^\/admin\/usage\/?$/;
 const TOKEN_PAGE = /^\/(invite|reset)\/?$/;
 
@@ -59,6 +60,11 @@ export const MAILBOX_PATH = "/admin/mail";
 export const ADMIN_PATH = "/admin";
 export const SETTINGS_PATH = "/admin/settings";
 export const USAGE_PATH = "/admin/usage";
+export const AI_ADMIN_PATH = "/admin/ai";
+
+export function isAiAdminPath(pathname: string): boolean {
+  return AI_ADMIN.test(pathname);
+}
 
 export function isUsagePath(pathname: string): boolean {
   return USAGE.test(pathname);
@@ -196,6 +202,7 @@ export function useRoute(): {
   admin: boolean;
   settings: boolean;
   usage: boolean;
+  aiAdmin: boolean;
   search: string | null;
   go: (path: string, replace?: boolean) => void;
 } {
@@ -235,6 +242,7 @@ export function useRoute(): {
     admin: isAdminPath(path),
     settings: isSettingsPath(path),
     usage: isUsagePath(path),
+    aiAdmin: isAiAdminPath(path),
     search: isSearchPath(path) ? searchQueryFrom(query) : null,
     go,
   };

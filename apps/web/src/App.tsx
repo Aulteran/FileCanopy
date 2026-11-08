@@ -36,6 +36,7 @@ import { ServerSettingsPage } from "./ServerSettings";
 import { ProfileMenu } from "./ProfileMenu";
 import {
   ADMIN_PATH,
+  AI_ADMIN_PATH,
   MAILBOX_PATH,
   BACKUPS_PATH,
   COLLECTIONS_PATH,
@@ -282,6 +283,7 @@ function Shell({
     admin: adminRoute,
     settings: settingsRoute,
     usage: usageRoute,
+    aiAdmin: aiAdminRoute,
     search,
     go,
   } = useRoute();
@@ -388,6 +390,7 @@ function Shell({
       !adminRoute &&
       !settingsRoute &&
       !usageRoute &&
+      !aiAdminRoute &&
       search === null
     )
       go(folderPath(roots[0]!.node_id), true);
@@ -409,6 +412,7 @@ function Shell({
     adminRoute,
     settingsRoute,
     usageRoute,
+    aiAdminRoute,
     search,
     go,
   ]);
@@ -527,6 +531,7 @@ function Shell({
             mailbox ||
             settingsRoute ||
             usageRoute ||
+            aiAdminRoute ||
             backups
               ? "page"
               : undefined
@@ -896,7 +901,7 @@ function Shell({
           ))}
         {adminRoute &&
           (admin ? (
-            <AdminPage go={go} onAi={() => setAiSettings(true)} />
+            <AdminPage go={go} />
           ) : (
             <p>Only administrators can open the admin page.</p>
           ))}
@@ -906,9 +911,15 @@ function Shell({
           ) : (
             <p>Only administrators can open the server settings.</p>
           ))}
+        {aiAdminRoute &&
+          (admin ? (
+            <AiSettings admin asPage onClose={() => go(ADMIN_PATH)} />
+          ) : (
+            <p>Only administrators can open the AI settings.</p>
+          ))}
         {usageRoute &&
           (admin ? (
-            <UsagePage onAi={() => setAiSettings(true)} />
+            <UsagePage onAi={() => go(AI_ADMIN_PATH)} />
           ) : (
             <p>Only administrators can open the usage page.</p>
           ))}
