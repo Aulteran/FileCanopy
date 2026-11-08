@@ -17,12 +17,8 @@ def test_skips_are_saved_listed_and_undone(tmp_path: Any, monkeypatch: Any) -> N
     admin = Api(fx, "admin")
     assert admin.get("/admin/setup-skips").json() == {"skipped": []}
     assert put(admin, {"step": "mail", "skipped": True}).json() == {"skipped": ["mail"]}
-    assert put(admin, {"step": "ai", "skipped": True}).json() == {
-        "skipped": ["ai", "mail"]
-    }
-    assert put(admin, {"step": "ai", "skipped": True}).json() == {
-        "skipped": ["ai", "mail"]
-    }
+    assert put(admin, {"step": "ai", "skipped": True}).json() == {"skipped": ["ai", "mail"]}
+    assert put(admin, {"step": "ai", "skipped": True}).json() == {"skipped": ["ai", "mail"]}
     assert admin.get("/admin/setup-skips").json() == {"skipped": ["ai", "mail"]}
     assert put(admin, {"step": "ai", "skipped": False}).json() == {"skipped": ["mail"]}
 
