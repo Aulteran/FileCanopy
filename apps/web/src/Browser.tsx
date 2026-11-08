@@ -95,6 +95,8 @@ const UNSUPPORTED: Record<string, string> = {
 
 type Props = {
   folderId: string;
+  /** Bumped by the parent after an outside change; reloads the list in place (B10). */
+  reloadKey?: number;
   go: (path: string) => void;
   onRoot: (id: string | null) => void;
   onEnded: () => void;
@@ -125,7 +127,14 @@ function undoableId(op: Operation | null): string | null {
   return op && op.detail?.undo ? op.id : null;
 }
 
-export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
+export function Browser({
+  folderId,
+  reloadKey = 0,
+  go,
+  onRoot,
+  onEnded,
+  onOpenSetup,
+}: Props) {
   const [density, setDensity] = useState<Density>(loadDensity);
   const [info, setInfo] = useState<NodeInfo | null>(null);
   const [crumbs, setCrumbs] = useState<NodeInfo[]>([]);
@@ -134,6 +143,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const [state, setState] = useState<
     "loading" | "ready" | "denied" | "error" | "locked"
   >("loading");
+  // True while a reload runs over content already on screen (B10).
+  const [refreshing, setRefreshing] = useState(false);
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -177,6 +188,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   useEffect(() => {
     let live = true;
+    setRefreshing(true);
     (async () => {
       try {
         const node = await api.node(folderId, !background.current);
@@ -211,12 +223,14 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         setState(
           err instanceof ApiError && err.status === 403 ? "denied" : "error",
         );
+      } finally {
+        if (live) setRefreshing(false);
       }
     })();
     return () => {
       live = false;
     };
-  }, [folderId, loadList, onRoot, fail, tick]);
+  }, [folderId, loadList, onRoot, fail, tick, reloadKey]);
 
   const privileges = info?.my_privileges ?? [];
   const canWrite = privileges.includes("write");
@@ -690,7 +704,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
-  if (state === "loading") return <Loading />;
+  // Only the first load shows the full "Loading…" view; later reloads keep the list (B10).
+  if (state === "loading" && !info) return <Loading />;
   if (state === "locked") {
     return (
       <LockCard
@@ -704,7 +719,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       />
     );
   }
-  if (state !== "ready" || !info) {
+  if ((state !== "ready" && state !== "loading") || !info) {
     return (
       <section className="folder-missing">
         <h1>Folder not available</h1>
@@ -1040,7 +1055,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       )}
 
       <div className="split">
-        <div className="list">
+        <div className="list" aria-busy={refreshing}>
+          {refreshing && <div className="refresh-bar" aria-hidden="true" />}
           {items.length === 0 ? (
             <p className="empty">
               This folder is empty.

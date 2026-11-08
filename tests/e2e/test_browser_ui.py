@@ -224,8 +224,8 @@ def test_shared_files_navigation(browser: Browser, world: World) -> None:
     shared = page.get_by_role("navigation", name="Shared files")
     shared.get_by_role("link", name="Shared with you").click()
     expect(page.get_by_role("heading", name="Shared with you")).to_be_visible()
-    shared.get_by_role("link", name="Shared by you").click()
-    expect(page.get_by_role("heading", name="Shared by you")).to_be_visible()
+    # "Shared by you" is hidden until its list exists (UI audit S01).
+    expect(shared.get_by_role("link", name="Shared by you")).to_have_count(0)
     page.close()
 
 
