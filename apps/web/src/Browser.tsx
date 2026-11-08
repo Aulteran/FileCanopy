@@ -62,6 +62,8 @@ type Dialog =
   | "copy"
   | "share"
   | "privacy"
+  | "share-selected"
+  | "privacy-selected"
   | "collect"
   | "leave";
 type Upload = {
@@ -252,6 +254,30 @@ export function Browser({
   const actionable = selectedItems.filter(
     (c) => c.kind !== "other" && c.status === "active",
   );
+  // A selected folder's sharing and privacy come from its own node (the list does not carry them).
+  // Only set when the caller can manage that folder, so the details panel can offer Share and Privacy.
+  const selectedDirId = selected?.kind === "dir" ? selected.id : null;
+  const [selectedNode, setSelectedNode] = useState<NodeInfo | null>(null);
+  useEffect(() => {
+    setSelectedNode(null);
+    if (!selectedDirId) return;
+    let stale = false;
+    api
+      .node(selectedDirId)
+      .then((n) => {
+        if (!stale) setSelectedNode(n);
+      })
+      .catch(() => undefined);
+    return () => {
+      stale = true;
+    };
+  }, [selectedDirId]);
+  function refreshSelectedNode(id: string): void {
+    api
+      .node(id)
+      .then((n) => setSelectedNode((cur) => (cur && cur.id === id ? n : cur)))
+      .catch(() => undefined);
+  }
   // The toast shows every result for six seconds. It stays while the pointer or keyboard is on it.
   const [toastOn, setToastOn] = useState(false);
   const [toastHeld, setToastHeld] = useState(false);
@@ -1336,6 +1362,20 @@ export function Browser({
                           Add to collection…
                         </button>
                       )}
+                      {selectedNode &&
+                        selectedNode.can_manage &&
+                        selectedNode.shared_with !== null && (
+                          <>
+                            <button onClick={() => setDialog("share-selected")}>
+                              Share…
+                            </button>
+                            <button
+                              onClick={() => setDialog("privacy-selected")}
+                            >
+                              Privacy…
+                            </button>
+                          </>
+                        )}
                     </div>
                     {selected.kind === "file" && (
                       <div className="detail-group">
@@ -1486,6 +1526,30 @@ export function Browser({
           folderName={info.name}
           onClose={() => setDialog(null)}
           onChanged={() => void api.node(info.id).then(setInfo)}
+          onEnded={onEnded}
+          onOpenFolder={(id) => {
+            setDialog(null);
+            go(folderPath(id));
+          }}
+        />
+      )}
+      {dialog === "privacy-selected" && selectedNode && (
+        <PrivacyDialog
+          info={selectedNode}
+          onClose={() => setDialog(null)}
+          onChanged={() => {
+            refreshSelectedNode(selectedNode.id);
+            setState("loading");
+            setTick((t) => t + 1);
+          }}
+        />
+      )}
+      {dialog === "share-selected" && selectedNode && (
+        <ShareDialog
+          folderId={selectedNode.id}
+          folderName={selectedNode.name}
+          onClose={() => setDialog(null)}
+          onChanged={() => refreshSelectedNode(selectedNode.id)}
           onEnded={onEnded}
           onOpenFolder={(id) => {
             setDialog(null);
