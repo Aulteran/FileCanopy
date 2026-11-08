@@ -430,9 +430,12 @@ const ORGANIZE_LABELS: Record<string, string> = {
 function OrganizeSection({
   admin,
   serverSetup,
+  serverOnly = false,
 }: {
   admin: boolean;
   serverSetup: boolean;
+  /** The admin AI page: server-wide choices only, no personal ones. */
+  serverOnly?: boolean;
 }) {
   const [mine, setMine] = useState<OrganizeSettings | null>(null);
   const [inst, setInst] = useState<OrganizeInstance | null>(null);
@@ -445,7 +448,7 @@ function OrganizeSection({
 
   const load = useCallback(() => {
     // Personal choices belong to each person's own settings, not to server setup.
-    if (!serverSetup)
+    if (!serverSetup && !serverOnly)
       api
         .organizeSettings()
         .then(setMine)
@@ -475,7 +478,7 @@ function OrganizeSection({
           }
         })
         .catch(() => setError(describeError("UNKNOWN")));
-  }, [admin, serverSetup]);
+  }, [admin, serverSetup, serverOnly]);
   useEffect(load, [load]);
 
   async function run(fn: () => Promise<unknown>, done: string): Promise<void> {
@@ -507,11 +510,11 @@ function OrganizeSection({
       <h3>Organization suggestions</h3>
       <p className="muted">
         AI can suggest clearer names and folders for{" "}
-        {serverSetup ? "the server files" : "your files"}. It can never change
-        who has access, lower a privacy label, replace a file or delete. Applied
-        changes can be undone.
+        {serverSetup || serverOnly ? "the server files" : "your files"}. It can
+        never change who has access, lower a privacy label, replace a file or
+        delete. Applied changes can be undone.
       </p>
-      {serverSetup && (
+      {(serverSetup || serverOnly) && (
         <p className="muted">
           Each person chooses this for their own personal files later, in their
           own AI settings.
@@ -1192,6 +1195,7 @@ export function AiSettings({
   onClose,
   serverSetup = false,
   inline = false,
+  asPage = false,
 }: {
   admin: boolean;
   onClose: () => void;
@@ -1199,6 +1203,9 @@ export function AiSettings({
   serverSetup?: boolean;
   /** Shown inside a page panel (which has its own title and Close) instead of a dialog. */
   inline?: boolean;
+  /** The Administration > AI page: a page with its own heading, server-wide choices only.
+   * `onClose` takes the person back to Administration. */
+  asPage?: boolean;
 }) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [instance, setInstance] = useState<AiInstance | null>(null);
@@ -1255,7 +1262,7 @@ export function AiSettings({
 
   const enabled = status?.server_ai_enabled ?? false;
   return (
-    <Frame title="AI" inline={inline} onClose={onClose}>
+    <Frame title="AI" inline={inline} asPage={asPage} onClose={onClose}>
       <p className="muted">
         FileCanopy's AI can organize your files, search them and answer
         questions about them. Files in Private and Confidential folders are
@@ -1290,7 +1297,7 @@ export function AiSettings({
           )}
         </section>
       )}
-      {status && !serverSetup && (
+      {status && !serverSetup && !asPage && (
         <section>
           <h3>My files</h3>
           {enabled ? (
@@ -1367,8 +1374,14 @@ export function AiSettings({
           )}
         </section>
       )}
-      {enabled && <OrganizeSection admin={admin} serverSetup={serverSetup} />}
-      {!serverSetup && (
+      {enabled && (
+        <OrganizeSection
+          admin={admin}
+          serverSetup={serverSetup}
+          serverOnly={asPage}
+        />
+      )}
+      {!serverSetup && !asPage && (
         <SemanticSection admin={admin} serverSetup={serverSetup} />
       )}
       {error && (
@@ -1376,7 +1389,7 @@ export function AiSettings({
           {error}
         </p>
       )}
-      {!inline && (
+      {!inline && !asPage && (
         <div className="actions">
           <button type="button" onClick={onClose}>
             Close
@@ -1391,15 +1404,29 @@ export function AiSettings({
 function Frame({
   title,
   inline,
+  asPage = false,
   onClose,
   children,
 }: {
   title: string;
   inline: boolean;
+  asPage?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
   if (inline) return <>{children}</>;
+  if (asPage)
+    return (
+      <section aria-labelledby="ai-page-h">
+        <p>
+          <button type="button" className="linklike" onClick={onClose}>
+            Back to Administration
+          </button>
+        </p>
+        <h1 id="ai-page-h">{title}</h1>
+        {children}
+      </section>
+    );
   return (
     <Modal title={title} onClose={onClose}>
       {children}
