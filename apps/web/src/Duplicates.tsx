@@ -17,7 +17,9 @@ function groupLabel(g: DuplicateGroup): string {
   const count = `${g.members.length} copies`;
   if (g.kind === "exact") {
     const what =
-      names.size === 1 ? `“${g.members[0]!.name}”` : formatSize(g.members[0]!.size);
+      names.size === 1
+        ? `“${g.members[0]!.name}”`
+        : formatSize(g.members[0]!.size);
     return `${what} · ${count}`;
   }
   return `${count} · about ${Math.round(g.similarity / 10)}% the same text`;
