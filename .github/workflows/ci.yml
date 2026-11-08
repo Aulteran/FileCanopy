@@ -1,6 +1,7 @@
 # Runs the same checks as local development. No secrets, no AI provider calls, no real documents.
 #
-# - `check` (fast): lint, format, unit tests, secret scan. Runs on every push and pull request.
+# - `check` (fast): JS lint/format/tests, secret scan, web checks and the backend unit tests (pytest-xdist);
+#   `api-static` runs backend ruff and mypy alongside it. Runs on every push and pull request.
 # - `compose` (slow): the real Docker Compose suite, split into two parallel jobs. Runs on pull
 #   requests and manual runs, not again on the push that merges them (the merged tree was just
 #   tested). Run it by hand from the Actions tab (workflow_dispatch) after a direct push to a branch.
@@ -45,7 +46,29 @@ jobs:
           load: true
           cache-from: type=gha,scope=api-dev
           cache-to: type=gha,mode=max,scope=api-dev
-      - run: npm run check:api
+      # Tests only (pytest-xdist); ruff and mypy run in the parallel `api-static` job.
+      - run: node scripts/api-check.mjs tests
+        env:
+          FILECANOPY_SKIP_IMAGE_BUILD: "1"
+
+  # Backend lint, format and strict mypy, in parallel with the unit tests in `check`.
+  api-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: dev
+          tags: filecanopy-api-dev
+          load: true
+          cache-from: type=gha,scope=api-dev
+      - run: node scripts/api-check.mjs static
         env:
           FILECANOPY_SKIP_IMAGE_BUILD: "1"
 
