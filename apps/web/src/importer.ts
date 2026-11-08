@@ -71,7 +71,7 @@ async function walk(
   out.dirs.push(path);
   const reader = (entry as FileSystemDirectoryEntry).createReader();
   // readEntries returns a limited batch each time; call it until it returns nothing.
-  for (let batch = await readBatch(reader); batch.length > 0; ) {
+  for (let batch = await readBatch(reader); batch.length > 0;) {
     for (const child of batch) await walk(child, path, out);
     batch = await readBatch(reader);
   }
@@ -127,14 +127,12 @@ export function stripTopFolder(picked: Picked): Picked {
 export function toManifest(picked: Picked): ManifestEntry[] {
   return [
     ...picked.dirs.map((path): ManifestEntry => ({ path, kind: "dir" })),
-    ...picked.files.map(
-      ({ path, file }): ManifestEntry => ({
-        path,
-        kind: "file",
-        size: file.size,
-        mtime: file.lastModified,
-      }),
-    ),
+    ...picked.files.map(({ path, file }): ManifestEntry => ({
+      path,
+      kind: "file",
+      size: file.size,
+      mtime: file.lastModified,
+    })),
   ];
 }
 

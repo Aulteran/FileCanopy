@@ -100,8 +100,10 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     # "Decide later" leaves the window open and goes to the browser; a reload stays in the browser
     screen.get_by_role("button", name="Decide later").click()
     expect(nav).to_be_visible()
-    expect(nav.get_by_role("link", name="My files").get_by_role("img", name="Not set up yet")).to_be_visible()
-    expect(nav.get_by_role("link", name="Server files").get_by_role("img", name="Not set up yet")).to_have_count(0)
+    my_files = nav.get_by_role("link", name="My files")
+    expect(my_files.get_by_role("img", name="Not set up yet")).to_be_visible()
+    server_files = nav.get_by_role("link", name="Server files")
+    expect(server_files.get_by_role("img", name="Not set up yet")).to_have_count(0)
     page.reload()
     expect(nav).to_be_visible()
     expect(screen).to_have_count(0)
@@ -123,7 +125,8 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     admin.get_by_role("button", name="Decide later").click()
     # the administrator's own folder is set up later from the side navigation
     admin_nav = admin.get_by_role("navigation", name="Locations")
-    expect(admin_nav.get_by_role("link", name="My files").get_by_role("img", name="Not set up yet")).to_be_visible()
+    admin_my_files = admin_nav.get_by_role("link", name="My files")
+    expect(admin_my_files.get_by_role("img", name="Not set up yet")).to_be_visible()
     admin_nav.get_by_role("link", name="My files").click()
     admin.get_by_role("button", name="Set up now").click()
     expect(admin.get_by_role("region", name="Set up My files")).to_be_visible()
