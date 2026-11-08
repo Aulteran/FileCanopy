@@ -31,9 +31,7 @@ def toast(page: Page):  # type: ignore[no-untyped-def]
 
 
 def open_trash(page: Page) -> None:
-    page.get_by_role("navigation", name="History").get_by_role(
-        "link", name="Trash"
-    ).click()
+    page.get_by_role("navigation", name="History").get_by_role("link", name="Trash").click()
     expect(page.get_by_role("heading", name="Trash", exact=True)).to_be_visible()
 
 
