@@ -47,7 +47,7 @@ def trash_row(page: Page, name: str):  # type: ignore[no-untyped-def]
 
 def delete_selected(page: Page, name: str) -> None:
     select(page, name)
-    page.get_by_role("button", name="Delete", exact=True).click()
+    page.locator("aside.details").get_by_role("button", name="Move to Trash", exact=True).click()
     expect(toast(page)).to_contain_text(f"Moved {name} to the Trash")
 
 
@@ -193,7 +193,7 @@ def test_move_to_another_area_and_the_owner_restores(browser: Browser, world: Wo
     select(alice, "across.bin")
     alice.get_by_role("button", name="Move…").click()
     dialog = alice.get_by_role("dialog", name=re.compile("Move"))
-    dialog.get_by_role("button", name=re.compile("Other areas")).click()
+    dialog.get_by_role("button", name=re.compile("Other places")).click()
     dialog.get_by_role("list", name="Areas").get_by_role("button", name="My files").click()
     expect(dialog.get_by_text("goes to the Trash of the area it came from")).to_be_visible()
     expect(alice.get_by_text("use Copy instead")).to_have_count(0)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeError,
+  formatShortDate,
   formatSize,
   looksLikeEmail,
   progressText,
@@ -67,5 +68,26 @@ describe("looksLikeEmail", () => {
       "a@example.",
     ])
       expect(looksLikeEmail(bad)).toBe(false);
+  });
+});
+
+describe("formatShortDate", () => {
+  const now = new Date(2026, 10, 8, 15, 0, 0); // 8 Nov 2026, local time
+  it("shows only the time for today", () => {
+    const today = new Date(2026, 10, 8, 8, 49, 31).toISOString();
+    const text = formatShortDate(today, now);
+    expect(text).toMatch(/8:49/);
+    expect(text).not.toMatch(/2026|Nov/);
+  });
+  it("drops the year within this year", () => {
+    const earlier = new Date(2026, 9, 2, 12, 0, 0).toISOString();
+    const text = formatShortDate(earlier, now);
+    expect(text).toMatch(/Oct/);
+    expect(text).not.toMatch(/2026/);
+  });
+  it("keeps the year for older dates and tolerates bad input", () => {
+    const old = new Date(2025, 10, 8, 12, 0, 0).toISOString();
+    expect(formatShortDate(old, now)).toMatch(/2025/);
+    expect(formatShortDate("not a date", now)).toBe("");
   });
 });
