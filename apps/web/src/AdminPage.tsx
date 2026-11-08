@@ -5,6 +5,7 @@ import { IncomingMailSetup } from "./IncomingMailSetup";
 import { api } from "./api";
 import { SmtpSetup } from "./SmtpSettings";
 import {
+  AI_ADMIN_PATH,
   BACKUPS_PATH,
   MAILBOX_PATH,
   SETTINGS_PATH,
@@ -23,23 +24,14 @@ import {
 } from "./serverSetupState";
 
 // One place for server-wide administration, instead of separate top-bar links.
-export function AdminPage({
-  go,
-  onAi,
-}: {
-  go: (path: string) => void;
-  onAi: () => void;
-}) {
+export function AdminPage({ go }: { go: (path: string) => void }) {
   // A05: order is Server settings, Users, AI, Usage, Mail server, Backups.
-  const cards: Array<
-    | {
-        path: string;
-        icon: "settings" | "users" | "mail" | "backup" | "activity";
-        title: string;
-        text: string;
-      }
-    | { ai: true }
-  > = [
+  const cards: Array<{
+    path: string;
+    icon: "settings" | "users" | "mail" | "backup" | "activity" | "sparkles";
+    title: string;
+    text: string;
+  }> = [
     {
       path: SETTINGS_PATH,
       icon: "settings",
@@ -52,7 +44,12 @@ export function AdminPage({
       title: "Users",
       text: "Invite people, reset sign-ins and manage roles.",
     },
-    { ai: true },
+    {
+      path: AI_ADMIN_PATH,
+      icon: "sparkles",
+      title: "AI",
+      text: "AI models, what they may see, and spending limits.",
+    },
     {
       path: USAGE_PATH,
       icon: "activity",
@@ -77,32 +74,22 @@ export function AdminPage({
       <h1 id="admin-h">Administration</h1>
       <p>Server-wide settings for everyone who uses this FileCanopy.</p>
       <ul className="admin-cards">
-        {cards.map((c) =>
-          "ai" in c ? (
-            <li key="ai">
-              <button type="button" className="admin-card" onClick={onAi}>
-                <Icon name="sparkles" />
-                <strong>AI</strong>
-                <span>AI models, what they may see, and spending limits.</span>
-              </button>
-            </li>
-          ) : (
-            <li key={c.path}>
-              <a
-                className="admin-card"
-                href={c.path}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(c.path);
-                }}
-              >
-                <Icon name={c.icon} />
-                <strong>{c.title}</strong>
-                <span>{c.text}</span>
-              </a>
-            </li>
-          ),
-        )}
+        {cards.map((c) => (
+          <li key={c.path}>
+            <a
+              className="admin-card"
+              href={c.path}
+              onClick={(e) => {
+                e.preventDefault();
+                go(c.path);
+              }}
+            >
+              <Icon name={c.icon} />
+              <strong>{c.title}</strong>
+              <span>{c.text}</span>
+            </a>
+          </li>
+        ))}
       </ul>
     </section>
   );

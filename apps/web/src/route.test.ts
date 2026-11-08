@@ -19,6 +19,7 @@ import {
   isAdminPath,
   isAskPath,
   isUsagePath,
+  isAiAdminPath,
   oneTimeLink,
   searchPath,
   searchQueryFrom,
@@ -162,5 +163,14 @@ describe("server settings route", () => {
     expect(isSettingsPath("/admin/settings/")).toBe(true);
     expect(isSettingsPath("/admin/settingsx")).toBe(false);
     expect(isAdminPath("/admin/settings")).toBe(false);
+  });
+});
+
+describe("admin AI page route", () => {
+  it("matches /admin/ai only", () => {
+    expect(isAiAdminPath("/admin/ai")).toBe(true);
+    expect(isAiAdminPath("/admin/ai/")).toBe(true);
+    expect(isAiAdminPath("/admin")).toBe(false);
+    expect(isAiAdminPath("/admin/aid")).toBe(false);
   });
 });
