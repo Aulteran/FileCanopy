@@ -945,6 +945,58 @@ function LimitCell({
   );
 }
 
+/** One-press "does this model work?" check for a saved model; works during first-time setup. */
+function TestButton({ model }: { model: AiProvider }) {
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
+  const name = model.label || model.model;
+  async function run(): Promise<void> {
+    const cloud = model.mode !== "local";
+    if (
+      cloud &&
+      !window.confirm(
+        `Test ${name}? This sends one tiny request to the provider that may be billed.`,
+      )
+    )
+      return;
+    setTesting(true);
+    setResult(null);
+    try {
+      await api.aiTestModel(model.id, cloud);
+      setResult({ ok: true, text: "Works. The provider answered." });
+    } catch (err) {
+      setResult({
+        ok: false,
+        text: describeError(err instanceof ApiError ? err.code : "UNKNOWN"),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+  return (
+    <>
+      <button
+        type="button"
+        disabled={testing}
+        aria-label={`Test ${name}`}
+        onClick={() => void run()}
+      >
+        {testing ? "Testing…" : "Test"}
+      </button>
+      {result && (
+        <span
+          role={result.ok ? "status" : "alert"}
+          className={result.ok ? undefined : "error"}
+        >
+          {result.text}
+        </span>
+      )}
+    </>
+  );
+}
+
 function ModelsSection({
   instance,
   onChanged,
@@ -1033,6 +1085,7 @@ function ModelsSection({
                       >
                         Edit
                       </button>
+                      <TestButton model={m} />
                       {!m.is_default && (
                         <button
                           type="button"
