@@ -36,6 +36,7 @@ const COLLISION_KINDS: Record<string, string> = {
   folder_vs_file: "a folder and a file share a name",
   folder_merged_by_name_key: "folders differ only by case or accents",
 };
+const LOG_LIMIT = 200;
 const FINAL = new Set(["done", "failed", "stopped", "cancelled", "expired"]);
 
 type Phase =
@@ -69,6 +70,7 @@ export function SetupScreen({
   const [error, setError] = useState("");
   const [includeSystem, setIncludeSystem] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
   const picked = useRef<Picked | null>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -168,12 +170,40 @@ export function SetupScreen({
     }
   }
 
+  /** Newest first, at most LOG_LIMIT names. */
+  function addToLog(names: string[]): void {
+    if (names.length === 0 || !alive.current) return;
+    setLog((old) => [...names.reverse(), ...old].slice(0, LOG_LIMIT));
+  }
+
   async function watchZip(batch: Batch): Promise<void> {
+    setLog([]);
     setPhase({ name: "running", batch, sent: 0, failed: 0 });
+    const cursors: Record<string, number> = { done: -1, renamed: -1 };
     for (;;) {
       await new Promise((r) => setTimeout(r, 700));
       if (!alive.current) return;
       const now = await api.importInfo(batch.id);
+      // Only the names of files the server has copied; nothing about their contents.
+      const names: string[] = [];
+      for (const status of Object.keys(cursors)) {
+        try {
+          let after = cursors[status]!;
+          for (let pages = 0; pages < 5; pages += 1) {
+            const page = await api.importEntries(batch.id, status, after);
+            for (const e of page.items) {
+              after = Math.max(after, e.index);
+              if (e.kind === "file") names.push(e.path);
+            }
+            if (page.next_after === null) break;
+            after = page.next_after;
+          }
+          cursors[status] = after;
+        } catch {
+          // the log is a nicety; the counts above still tell the truth
+        }
+      }
+      addToLog(names);
       setPhase({
         name: "running",
         batch: now,
@@ -200,6 +230,7 @@ export function SetupScreen({
       todo = await pendingFiles(batch.id);
     }
     const total = todo.length;
+    setLog([]);
     setPhase({ name: "running", batch, sent: 0, failed: 0 });
     const result = await sendEntries(
       batch.id,
@@ -208,6 +239,8 @@ export function SetupScreen({
       (sent, failed) => {
         if (alive.current) setPhase({ name: "running", batch, sent, failed });
       },
+      undefined,
+      (path) => addToLog([path]),
     );
     const now = await api.importInfo(batch.id);
     setPhase({ name: "report", batch: now });
@@ -368,6 +401,17 @@ export function SetupScreen({
             {phase.sent} of {phase.batch.plan.files} files imported
             {phase.failed > 0 && `, ${phase.failed} failed`}
           </p>
+          {log.length > 0 && (
+            <ul
+              className="import-log"
+              aria-label="Files imported so far, newest first"
+              tabIndex={0}
+            >
+              {log.map((name, i) => (
+                <li key={`${log.length - i}:${name}`}>{name}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
