@@ -2435,3 +2435,38 @@ legend {
 .shared-row > svg.i {
   color: var(--muted);
 }
+
+/* B10: a thin bar on top of the list while a reload keeps the current rows on screen. */
+.list {
+  position: relative;
+}
+.refresh-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent, #2f6b3a) 40%,
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: refresh-slide 1.1s linear infinite;
+}
+@keyframes refresh-slide {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .refresh-bar {
+    animation: none;
+    background: var(--accent, #2f6b3a);
+  }
+}

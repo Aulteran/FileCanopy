@@ -26,7 +26,7 @@ import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
 import { UsagePage } from "./UsagePage";
-import { SharedByYouPage, SharedWithYouPage } from "./SharedPages";
+import { SharedWithYouPage } from "./SharedPages";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -47,7 +47,6 @@ import {
   searchPath,
   TRASH_PATH,
   SHARED_WITH_PATH,
-  SHARED_BY_PATH,
   USERS_PATH,
   folderPath,
   tokenFromHash,
@@ -270,7 +269,6 @@ function Shell({
     users,
     trash,
     sharedWith,
-    sharedBy,
     recent,
     notices,
     inbox,
@@ -379,7 +377,6 @@ function Shell({
       !users &&
       !trash &&
       !sharedWith &&
-      !sharedBy &&
       !recent &&
       !notices &&
       !inbox &&
@@ -401,7 +398,6 @@ function Shell({
     users,
     trash,
     sharedWith,
-    sharedBy,
     recent,
     notices,
     inbox,
@@ -801,14 +797,6 @@ function Shell({
             go={go}
             onNavigate={closeNav}
           />
-          <NavLink
-            to={SHARED_BY_PATH}
-            current={sharedBy}
-            icon="users"
-            label="Shared by you"
-            go={go}
-            onNavigate={closeNav}
-          />
         </NavGroup>
         <NavGroup title="History">
           <NavLink
@@ -842,7 +830,6 @@ function Shell({
           onChanged={() => setReload((n) => n + 1)}
         />
         {sharedWith && <SharedWithYouPage roots={roots} go={go} />}
-        {sharedBy && <SharedByYouPage />}
         {users &&
           (admin ? (
             <UsersPage me={session.user.id} onEnded={onEnded} />
@@ -937,8 +924,9 @@ function Shell({
         )}
         {!backups && folderId !== null && (
           <Browser
-            key={`${folderId}:${reload}`}
+            key={folderId}
             folderId={folderId}
+            reloadKey={reload}
             go={go}
             onRoot={setActiveRoot}
             onEnded={onEnded}

@@ -9,7 +9,6 @@ const BACKUPS = /^\/backups\/?$/;
 const USERS = /^\/admin\/users\/?$/;
 const TRASH = /^\/trash\/?$/;
 const SHARED_WITH = /^\/shared\/with-you\/?$/;
-const SHARED_BY = /^\/shared\/by-you\/?$/;
 const RECENT = /^\/recent\/?$/;
 const NOTICES = /^\/notifications\/?$/;
 const SEARCH = /^\/search\/?$/;
@@ -44,15 +43,11 @@ export const BACKUPS_PATH = "/backups";
 export const USERS_PATH = "/admin/users";
 export const TRASH_PATH = "/trash";
 export const SHARED_WITH_PATH = "/shared/with-you";
-export const SHARED_BY_PATH = "/shared/by-you";
 
 export function isSharedWithPath(pathname: string): boolean {
   return SHARED_WITH.test(pathname);
 }
 
-export function isSharedByPath(pathname: string): boolean {
-  return SHARED_BY.test(pathname);
-}
 export const RECENT_PATH = "/recent";
 export const NOTICES_PATH = "/notifications";
 export const SEARCH_PATH = "/search";
@@ -189,7 +184,6 @@ export function useRoute(): {
   users: boolean;
   trash: boolean;
   sharedWith: boolean;
-  sharedBy: boolean;
   recent: boolean;
   notices: boolean;
   inbox: boolean;
@@ -229,7 +223,6 @@ export function useRoute(): {
     users: isUsersPath(path),
     trash: isTrashPath(path),
     sharedWith: isSharedWithPath(path),
-    sharedBy: isSharedByPath(path),
     recent: isRecentPath(path),
     notices: isNoticesPath(path),
     inbox: isInboxPath(path),
