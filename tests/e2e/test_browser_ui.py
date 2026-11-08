@@ -21,6 +21,7 @@ from support import (
     crumbs,
     new_folder,
     open_folder,
+    open_menu_if_phone,
     row,
     select,
     sign_in,
@@ -68,7 +69,7 @@ def test_first_run_setup_and_sign_in(fresh_stack: Stack, browser: Browser) -> No
     expect(page.get_by_role("region", name="Set up Server files")).to_be_visible()
     expect(page.get_by_role("button", name="Continue to file setup")).to_have_count(0)
     page.get_by_role("button", name="Decide later").click()
-    nav = page.get_by_role("navigation", name="Locations")
+    nav = page.get_by_role("navigation", name="Files", exact=True)
     expect(nav.get_by_role("link")).to_have_count(2)  # My files and the shared tree
     expect(nav.get_by_role("link", name="My files")).to_have_attribute("aria-current", "page")
     page.reload()  # the session survives a reload
@@ -218,7 +219,7 @@ def test_single_selection_system(browser: Browser, world: World) -> None:
 def test_shared_files_navigation(browser: Browser, world: World) -> None:
     """Server files and Shared files are separate areas; Shared files has two pages."""
     page = sign_in(browser, world, world.alice_mail)
-    locations = page.get_by_role("navigation", name="Locations")
+    locations = page.get_by_role("navigation", name="Files", exact=True)
     expect(locations.get_by_role("link", name="My files")).to_be_visible()
     shared = page.get_by_role("navigation", name="Shared files")
     shared.get_by_role("link", name="Shared with you").click()
@@ -235,7 +236,7 @@ def test_keyboard_operation(browser: Browser, world: World) -> None:
 
     # the skip link is the first tab stop
     page.keyboard.press("Tab")
-    expect(page.get_by_role("link", name="Skip to files")).to_be_focused()
+    expect(page.get_by_role("link", name="Skip to content")).to_be_focused()
 
     rows.first.focus()
     page.keyboard.press("ArrowDown")
@@ -266,8 +267,10 @@ def test_keyboard_operation(browser: Browser, world: World) -> None:
 def test_phone_sized_viewport(browser: Browser, world: World) -> None:
     w = world
     page = sign_in(browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True)
-    nav = page.get_by_role("navigation", name="Locations")
+    open_menu_if_phone(page)
+    nav = page.get_by_role("navigation", name="Files", exact=True)
     expect(nav.get_by_role("link", name="My files")).to_be_visible()
+    nav.get_by_role("link", name="My files").click()  # choosing a page closes the drawer
     expect(page.get_by_role("button", name="Upload", exact=True)).to_be_visible()
     new_folder(page, "Phone")
     assert (w.alice_disk / "Phone").is_dir()

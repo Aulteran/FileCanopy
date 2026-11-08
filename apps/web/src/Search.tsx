@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ApiError, api, type SearchHit, type SearchStatus } from "./api";
 import { AskPanel } from "./Ask";
 import { describeError } from "./format";
+import { Icon } from "./Icon";
 import { folderPath, viewPath } from "./route";
 
 type Props = {
@@ -26,6 +27,24 @@ export function matchLabel(match: SearchHit["match"]): string {
   if (match === "name") return "Name";
   if (match === "semantic") return "Similar meaning";
   return "Text";
+}
+
+/** Splits a snippet so that the words of the query can be shown in <mark>. Matching is case-blind
+ * and the query is escaped, so no character of the query is read as a pattern. */
+export function highlightParts(
+  text: string,
+  q: string,
+): { text: string; hit: boolean }[] {
+  const words = [...new Set(q.trim().split(/\s+/).filter(Boolean))]
+    .slice(0, 10)
+    .sort((a, b) => b.length - a.length)
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (words.length === 0) return [{ text, hit: false }];
+  // A capturing split puts the matches at the odd indexes.
+  return text
+    .split(new RegExp(`(${words.join("|")})`, "gi"))
+    .map((part, i) => ({ text: part, hit: i % 2 === 1 }))
+    .filter((part) => part.text !== "");
 }
 
 export function SearchPage({ q, go, onEnded }: Props) {
@@ -81,34 +100,45 @@ export function SearchPage({ q, go, onEnded }: Props) {
         <ul className="results">
           {hits.map((h) => (
             <li key={h.node_id}>
-              <a
-                href={
-                  h.kind === "dir" ? folderPath(h.node_id) : viewPath(h.node_id)
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(
+              <div className="hit-head">
+                <Icon name={h.kind === "dir" ? "folder" : "file"} />
+                <a
+                  href={
                     h.kind === "dir"
                       ? folderPath(h.node_id)
-                      : viewPath(h.node_id),
-                  );
-                }}
-              >
-                {h.name}
-              </a>
-              <span className="tag">{matchLabel(h.match)}</span>
-              {h.snippet && <p className="snippet">{h.snippet}</p>}
-              {h.parent_id && (
-                <a
-                  href={folderPath(h.parent_id)}
-                  className="toplink"
+                      : viewPath(h.node_id)
+                  }
                   onClick={(e) => {
                     e.preventDefault();
-                    go(folderPath(h.parent_id as string));
+                    go(
+                      h.kind === "dir"
+                        ? folderPath(h.node_id)
+                        : viewPath(h.node_id),
+                    );
                   }}
                 >
-                  Show in folder
+                  {h.name}
                 </a>
+                <span className="badge">{matchLabel(h.match)}</span>
+                {h.parent_id && (
+                  <a
+                    href={folderPath(h.parent_id)}
+                    className="sublink"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(folderPath(h.parent_id as string));
+                    }}
+                  >
+                    Show in folder
+                  </a>
+                )}
+              </div>
+              {h.snippet && (
+                <p className="snippet clamp">
+                  {highlightParts(h.snippet, q).map((part, i) =>
+                    part.hit ? <mark key={i}>{part.text}</mark> : part.text,
+                  )}
+                </p>
               )}
             </li>
           ))}
@@ -121,7 +151,13 @@ export function SearchPage({ q, go, onEnded }: Props) {
         </p>
       )}
       {state === "ready" && note && <p className="hint">{note}</p>}
-      <AskPanel initial={q} go={go} onEnded={onEnded} />
+      <AskPanel
+        key={q}
+        initial=""
+        placeholder={`Ask about “${q}”`}
+        go={go}
+        onEnded={onEnded}
+      />
     </section>
   );
 }

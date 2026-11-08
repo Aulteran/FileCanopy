@@ -87,7 +87,7 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     w = world
     p = new_person(w, "ola")
     page = sign_in(browser, w, p.mail, setup=True)
-    nav = page.get_by_role("navigation", name="Locations")
+    nav = page.get_by_role("navigation", name="Files", exact=True)
     screen = page.get_by_role("region", name="Set up My files")
     # a full page before the browser: no navigation, no file list behind it
     expect(page.get_by_role("heading", level=1, name="Set up My files")).to_be_visible()
@@ -126,7 +126,7 @@ def test_setup_offer_start_empty_and_who_sees_it(browser: Browser, world: BaseWo
     expect(shared_screen).to_be_visible()
     admin.get_by_role("button", name="Decide later").click()
     # the administrator's own folder is set up later from the side navigation
-    admin_nav = admin.get_by_role("navigation", name="Locations")
+    admin_nav = admin.get_by_role("navigation", name="Files", exact=True)
     expect(
         admin_nav.get_by_role("link", name="My files").get_by_role("img", name="Not set up yet")
     ).to_be_visible()
