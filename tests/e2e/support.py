@@ -36,12 +36,12 @@ def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ct
     # an administrator first gets the "Prepare your server" steps; the last one is the server files
     server = page.get_by_role("heading", level=1, name="Prepare your server")
     page.get_by_role("region", name=re.compile("^Set up ")).or_(server).or_(
-        page.get_by_role("navigation", name="Locations")
+        page.get_by_role("navigation", name="Files")
     ).first.wait_for()
     if server.is_visible():
         page.get_by_role("button", name="Set up server files").click()
     screen = page.get_by_role("region", name=re.compile("^Set up "))
-    nav = page.get_by_role("navigation", name="Locations")
+    nav = page.get_by_role("navigation", name="Files")
     if setup:
         expect(screen).to_be_visible()
         return page

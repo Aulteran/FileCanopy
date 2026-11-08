@@ -96,6 +96,7 @@ export function NotificationsBell({
       </button>
       {open && (
         <div className="bell-panel" aria-label="Notifications">
+          <h2 className="bell-head">Notifications</h2>
           {state === "loading" && <Loading />}
           {state === "error" && (
             <p role="alert" className="error">
@@ -103,28 +104,29 @@ export function NotificationsBell({
             </p>
           )}
           {state === "ready" && items.length === 0 && (
-            <p className="hint">
-              Nothing new. You will see it here when someone shares a folder.
-            </p>
+            <p className="empty">No notifications yet.</p>
           )}
           {items.length > 0 && (
             <ul className="notices">
               {items.map((n) => (
                 <li key={n.id} className={n.read ? undefined : "unread"}>
-                  <span>{noticeText(n)}</span>{" "}
-                  <span className="hint">{formatDate(n.at)}</span>{" "}
-                  {n.node_id && (
-                    <a
-                      href={`/f/${n.node_id}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onOpenChange(false);
-                        go(`/f/${n.node_id}`);
-                      }}
-                    >
-                      Open
-                    </a>
-                  )}
+                  <span>{noticeText(n)}</span>
+                  <span className="muted">
+                    {formatDate(n.at)}
+                    {n.node_id && " · "}
+                    {n.node_id && (
+                      <a
+                        href={`/f/${n.node_id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onOpenChange(false);
+                          go(`/f/${n.node_id}`);
+                        }}
+                      >
+                        Open
+                      </a>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

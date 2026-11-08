@@ -15,6 +15,7 @@ const NOTICES = /^\/notifications\/?$/;
 const SEARCH = /^\/search\/?$/;
 const INBOX = /^\/inbox\/?$/;
 const ORGANIZE = /^\/organize\/?$/;
+const ASK = /^\/ask\/?$/;
 const DUPLICATES = /^\/duplicates\/?$/;
 const COLLECTIONS = /^\/collections(?:\/([0-9a-f-]{36}))?\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
@@ -82,6 +83,12 @@ export function isInboxPath(pathname: string): boolean {
 
 export function isOrganizePath(pathname: string): boolean {
   return ORGANIZE.test(pathname);
+}
+
+export const ASK_PATH = "/ask";
+
+export function isAskPath(pathname: string): boolean {
+  return ASK.test(pathname);
 }
 
 export function isDuplicatesPath(pathname: string): boolean {
@@ -187,6 +194,7 @@ export function useRoute(): {
   notices: boolean;
   inbox: boolean;
   organize: boolean;
+  ask: boolean;
   duplicates: boolean;
   collections: boolean;
   collectionId: string | null;
@@ -226,6 +234,7 @@ export function useRoute(): {
     notices: isNoticesPath(path),
     inbox: isInboxPath(path),
     organize: isOrganizePath(path),
+    ask: isAskPath(path),
     duplicates: isDuplicatesPath(path),
     collections: isCollectionsPath(path),
     collectionId: collectionIdFrom(path),

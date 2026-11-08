@@ -1451,7 +1451,6 @@ h1.brandh .c {
 .profile-panel > button.danger,
 .profile-panel > button.danger:hover {
   color: var(--danger);
-  justify-content: center;
 }
 .profile-panel hr {
   width: 100%;
@@ -2073,4 +2072,143 @@ button.link-button:focus-visible {
   margin: 16px;
   padding: 24px;
   text-align: center;
+}
+
+/* ---- navigation drawer, search field, results, Ask AI (UI audit N01-N03, R01, Q01-Q03) ---- */
+.nav-menu,
+.sidenav-head,
+.nav-scrim {
+  display: none;
+}
+.sidenav-title {
+  font-weight: 700;
+}
+.sidenav-head {
+  align-items: center;
+  justify-content: space-between;
+}
+.searchfield {
+  position: relative;
+  display: flex;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.searchfield input[type="search"] {
+  width: 100%;
+  padding-left: 38px;
+}
+.searchfield > svg.i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.sublink {
+  margin-left: 8px;
+  font-size: 0.9rem;
+}
+.hit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.hit-head > svg.i {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.snippet.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+ul.results mark {
+  background: var(--sel);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.ask form label {
+  margin: 0;
+}
+.bell-head {
+  margin: 4px 0 6px;
+  font-size: 1rem;
+}
+.notices li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+@media (max-width: 760px) {
+  .nav-menu {
+    display: inline-flex;
+  }
+  .shell {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "top"
+      "main";
+  }
+  .sidenav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: min(280px, 85vw);
+    height: 100vh;
+    overflow-y: auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 14px;
+    padding: 12px 10px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    background: var(--bg);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0.2s;
+  }
+  .sidenav.open {
+    transform: none;
+    visibility: visible;
+  }
+  .sidenav-head {
+    display: flex;
+  }
+  .sidenav .grp-h {
+    display: block;
+  }
+  .sidenav ul {
+    display: block;
+    overflow: visible;
+  }
+  .sidenav a {
+    white-space: normal;
+    padding: 10px;
+  }
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgb(0 0 0 / 0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidenav {
+    transition: none;
+  }
 }

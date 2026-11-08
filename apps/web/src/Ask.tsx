@@ -10,13 +10,35 @@ import { folderPath, viewPath } from "./route";
 
 type Props = {
   initial: string;
+  placeholder?: string;
   go: (path: string) => void;
   onEnded: () => void;
 };
 
+/** The Ask AI page (nav item): an empty question, so the person types their own. */
+export function AskPage({
+  go,
+  onEnded,
+}: {
+  go: (path: string) => void;
+  onEnded: () => void;
+}) {
+  return (
+    <section aria-labelledby="ask-page-h">
+      <h1 id="ask-page-h">Ask AI</h1>
+      <AskPanel
+        initial=""
+        placeholder="Ask a question about your files"
+        go={go}
+        onEnded={onEnded}
+      />
+    </section>
+  );
+}
+
 /** Ask a question about your files (M20). Nothing is saved: the question and answer are gone when
  * the page is left. Every citation is a real file the server checked you may read. */
-export function AskPanel({ initial, go, onEnded }: Props) {
+export function AskPanel({ initial, placeholder, go, onEnded }: Props) {
   const [question, setQuestion] = useState(initial);
   const [scope, setScope] = useState<"mine" | "shared">("mine");
   const [busy, setBusy] = useState(false);
@@ -51,6 +73,7 @@ export function AskPanel({ initial, go, onEnded }: Props) {
           <input
             type="text"
             value={question}
+            placeholder={placeholder}
             maxLength={500}
             onChange={(e) => setQuestion(e.target.value)}
           />
@@ -104,7 +127,7 @@ export function AskPanel({ initial, go, onEnded }: Props) {
                     {c.parent_id && (
                       <a
                         href={folderPath(c.parent_id)}
-                        className="toplink"
+                        className="sublink"
                         onClick={(e) => {
                           e.preventDefault();
                           go(folderPath(c.parent_id as string));

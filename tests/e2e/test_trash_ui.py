@@ -31,7 +31,7 @@ def toast(page: Page):  # type: ignore[no-untyped-def]
 
 
 def open_trash(page: Page) -> None:
-    page.get_by_role("navigation", name="Trash and history").get_by_role(
+    page.get_by_role("navigation", name="History").get_by_role(
         "link", name="Trash"
     ).click()
     expect(page.get_by_role("heading", name="Trash", exact=True)).to_be_visible()
@@ -74,7 +74,7 @@ def test_delete_goes_to_trash_and_restores(browser: Browser, world: World) -> No
     assert (disk / "T7a" / "gone.txt").read_bytes() == data
 
     # delete forever asks first, and then really removes it
-    page.get_by_role("navigation", name="Locations").get_by_role("link", name="My files").click()
+    page.get_by_role("navigation", name="Files").get_by_role("link", name="My files").click()
     open_folder(page, "T7a")
     delete_selected(page, "gone.txt")
     open_trash(page)

@@ -649,6 +649,20 @@ export const ICON_PATHS = {
       </g>
     </>
   ),
+  user: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20.5a8 8 0 0 1 16 0" />
+      </g>
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICON_PATHS;
