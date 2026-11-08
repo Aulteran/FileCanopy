@@ -26,7 +26,14 @@ import { AddToCollectionDialog } from "./Collections";
 import { describeSuggestResult } from "./collectionsText";
 import { NameDialog, TargetDialog } from "./Dialogs";
 import { ShareDialog } from "./Share";
-import { describeError, formatDate, formatSize, progressText } from "./format";
+import {
+  describeError,
+  formatDate,
+  formatShortDate,
+  formatSize,
+  progressText,
+} from "./format";
+import { MenuButton } from "./MenuButton";
 import { describeUndoConflict } from "./history";
 import { describeSkipped } from "./organizeText";
 import {
@@ -88,6 +95,8 @@ const UNSUPPORTED: Record<string, string> = {
 
 type Props = {
   folderId: string;
+  /** Bumped by the parent after an outside change; reloads the list in place (B10). */
+  reloadKey?: number;
   go: (path: string) => void;
   onRoot: (id: string | null) => void;
   onEnded: () => void;
@@ -118,7 +127,14 @@ function undoableId(op: Operation | null): string | null {
   return op && op.detail?.undo ? op.id : null;
 }
 
-export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
+export function Browser({
+  folderId,
+  reloadKey = 0,
+  go,
+  onRoot,
+  onEnded,
+  onOpenSetup,
+}: Props) {
   const [density, setDensity] = useState<Density>(loadDensity);
   const [info, setInfo] = useState<NodeInfo | null>(null);
   const [crumbs, setCrumbs] = useState<NodeInfo[]>([]);
@@ -127,6 +143,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const [state, setState] = useState<
     "loading" | "ready" | "denied" | "error" | "locked"
   >("loading");
+  // True while a reload runs over content already on screen (B10).
+  const [refreshing, setRefreshing] = useState(false);
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -170,6 +188,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   useEffect(() => {
     let live = true;
+    setRefreshing(true);
     (async () => {
       try {
         const node = await api.node(folderId, !background.current);
@@ -200,15 +219,18 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         }
         const text = fail(err);
         setErrorText(text);
+        setMissing(err instanceof ApiError && err.status === 404);
         setState(
           err instanceof ApiError && err.status === 403 ? "denied" : "error",
         );
+      } finally {
+        if (live) setRefreshing(false);
       }
     })();
     return () => {
       live = false;
     };
-  }, [folderId, loadList, onRoot, fail, tick]);
+  }, [folderId, loadList, onRoot, fail, tick, reloadKey]);
 
   const privileges = info?.my_privileges ?? [];
   const canWrite = privileges.includes("write");
@@ -219,6 +241,25 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   const actionable = selectedItems.filter(
     (c) => c.kind !== "other" && c.status === "active",
   );
+  // The toast shows every result for six seconds. It stays while the pointer or keyboard is on it.
+  const [toastOn, setToastOn] = useState(false);
+  const [toastHeld, setToastHeld] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const detailsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!notice && !undoable) return;
+    setToastOn(true);
+    if (toastHeld) return;
+    const timer = setTimeout(() => setToastOn(false), 6000);
+    return () => clearTimeout(timer);
+  }, [notice, undoable, toastHeld]);
+
+  /** Opens a folder, or a file in the viewer; the same as Enter and double-click. */
+  function openItem(item: Child): void {
+    if (item.kind === "dir") go(folderPath(item.id));
+    else if (canView(item)) go(viewPath(item.id));
+  }
+
   function selectOnly(id: string): void {
     setChecked(new Set([id]));
   }
@@ -663,7 +704,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
-  if (state === "loading") return <Loading />;
+  // Only the first load shows the full "Loading…" view; later reloads keep the list (B10).
+  if (state === "loading" && !info) return <Loading />;
   if (state === "locked") {
     return (
       <LockCard
@@ -677,15 +719,24 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       />
     );
   }
-  if (state !== "ready" || !info) {
+  if ((state !== "ready" && state !== "loading") || !info) {
     return (
-      <div role="alert" className="empty">
-        <p>
+      <section className="folder-missing">
+        <h1>Folder not available</h1>
+        <p role="alert">
           {state === "denied"
             ? "You do not have access to this folder."
-            : errorText || "This folder could not be loaded."}
+            : missing
+              ? "This folder no longer exists."
+              : errorText || "This folder could not be loaded."}
         </p>
-      </div>
+        <div className="actions">
+          <button className="primary" onClick={() => go("/")}>
+            Go to My files
+          </button>
+          <button onClick={() => window.history.back()}>Back</button>
+        </div>
+      </section>
     );
   }
 
@@ -707,13 +758,11 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <nav aria-label="Breadcrumb" className="crumbs">
-        <ol>
-          {crumbs.map((c, i) => (
-            <li key={c.id}>
-              {i === crumbs.length - 1 ? (
-                <span aria-current="page">{c.name}</span>
-              ) : (
+      {crumbs.length > 1 && (
+        <nav aria-label="Breadcrumb" className="crumbs">
+          <ol>
+            {crumbs.slice(0, -1).map((c) => (
+              <li key={c.id}>
                 <a
                   href={folderPath(c.id)}
                   onClick={(e) => {
@@ -723,11 +772,15 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                 >
                   {c.name}
                 </a>
-              )}
-            </li>
-          ))}
-        </ol>
-      </nav>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
+      <div className="folder-title">
+        <h1>{crumbs[crumbs.length - 1]?.name ?? info.name}</h1>
+        <LabelBadge label={info.privacy_effective} />
+      </div>
 
       {info.privacy_effective === "confidential" && !info.locked && (
         <LockStrip
@@ -755,15 +808,6 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             void runUploads(files);
           }}
         />
-        <button
-          className="primary"
-          disabled={!canWrite}
-          title={noWrite}
-          onClick={() => fileInput.current?.click()}
-        >
-          <Icon name="upload" />
-          Upload here
-        </button>
         <input
           ref={folderInput}
           type="file"
@@ -777,14 +821,6 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             void runFolderUpload(chosen);
           }}
         />
-        <button
-          disabled={!canWrite}
-          title={noWrite}
-          onClick={() => folderInput.current?.click()}
-        >
-          <Icon name="upload" />
-          Upload folder
-        </button>
         <input
           ref={zipInput}
           type="file"
@@ -797,14 +833,22 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
             if (file) void unpackZip(file);
           }}
         />
-        <button
+        <MenuButton
+          label="Upload"
+          icon="upload"
+          primary
           disabled={!canWrite}
-          title={noWrite || "Add the files inside a .zip to this folder"}
-          onClick={() => zipInput.current?.click()}
-        >
-          <Icon name="upload" />
-          Unpack zip here
-        </button>
+          title={noWrite}
+          items={[
+            { label: "Files…", onSelect: () => fileInput.current?.click() },
+            { label: "Folder…", onSelect: () => folderInput.current?.click() },
+            {
+              label: "Unpack a .zip…",
+              title: "Add the files inside a .zip to this folder",
+              onSelect: () => zipInput.current?.click(),
+            },
+          ]}
+        />
         <button
           disabled={!canWrite}
           title={noWrite}
@@ -813,47 +857,53 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           <Icon name="folder-plus" />
           New folder
         </button>
-        <button
-          disabled={items.filter((c) => c.kind === "file").length < 2}
-          title="Ask AI which of the files listed here belong together"
-          onClick={() => void suggestCollections()}
-        >
-          Suggest collections
-        </button>
-        <LabelBadge label={info.privacy_effective} />
-        {info.shared_with !== null && info.kind === "dir" && (
-          <button onClick={() => setDialog("privacy")}>Privacy…</button>
-        )}
         {info.shared_with !== null && info.kind === "dir" && (
           <button onClick={() => setDialog("share")}>
             Share{info.shared_with > 0 ? ` (${info.shared_with})` : ""}
           </button>
         )}
-        {info.parent_id === null &&
-          info.root_kind === "personal" &&
-          !info.can_manage &&
-          privileges.length > 0 && (
-            <button onClick={() => void leave()}>Stop using this share</button>
-          )}
-        <button onClick={() => void rescan()}>
-          <Icon name="refresh" />
-          Rescan
-        </button>
+        {info.shared_with !== null && info.kind === "dir" && (
+          <button onClick={() => setDialog("privacy")}>Privacy…</button>
+        )}
         <button
-          type="button"
-          aria-pressed={density === "compact"}
-          title="Show more rows in the list"
-          onClick={() => {
-            const d: Density =
-              density === "compact" ? "comfortable" : "compact";
-            saveDensity(d);
-            setDensity(d);
-          }}
+          disabled={items.filter((c) => c.kind === "file").length < 2}
+          title="Ask AI which of the files listed here belong together"
+          onClick={() => void suggestCollections()}
         >
-          <Icon name="rows" />
-          Compact list
+          <Icon name="sparkles" />
+          Suggest collections
         </button>
         {!canWrite && <span className="hint">Read-only</span>}
+        <MenuButton
+          label="More"
+          icon="more"
+          items={[
+            { label: "Rescan", icon: "refresh", onSelect: () => void rescan() },
+            {
+              label: "Compact list",
+              checked: density === "compact",
+              title: "Show more rows in the list",
+              onSelect: () => {
+                const d: Density =
+                  density === "compact" ? "comfortable" : "compact";
+                saveDensity(d);
+                setDensity(d);
+              },
+            },
+            ...(info.parent_id === null &&
+            info.root_kind === "personal" &&
+            !info.can_manage &&
+            privileges.length > 0
+              ? [
+                  {
+                    label: "Stop using this share",
+                    icon: "close" as const,
+                    onSelect: () => void leave(),
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
 
       {info.parent_id === null &&
@@ -895,14 +945,23 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       <p role="alert" className="error">
         {errorText}
       </p>
-      {undoable && (
-        <div className="toast" aria-label="Last action">
+      {toastOn && (notice || undoable) && (
+        <div
+          className="toast"
+          aria-label="Last action"
+          onMouseEnter={() => setToastHeld(true)}
+          onMouseLeave={() => setToastHeld(false)}
+          onFocus={() => setToastHeld(true)}
+          onBlur={() => setToastHeld(false)}
+        >
           <span>{notice}</span>
-          <button onClick={() => void undoLast()}>Undo</button>
+          {undoable && <button onClick={() => void undoLast()}>Undo</button>}
           <button
             aria-label="Dismiss"
             onClick={() => {
+              setToastOn(false);
               setUndoable(null);
+              setNotice("");
             }}
           >
             <Icon name="close" />
@@ -996,7 +1055,8 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       )}
 
       <div className="split">
-        <div className="list">
+        <div className="list" aria-busy={refreshing}>
+          {refreshing && <div className="refresh-bar" aria-hidden="true" />}
           {items.length === 0 ? (
             <p className="empty">
               This folder is empty.
@@ -1051,6 +1111,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                       setFocusIx(ix);
                     }}
                     onKeyDown={(e) => onGridKey(e, ix, c)}
+                    onDoubleClick={() => openItem(c)}
                   >
                     <td className="pick">
                       <input
@@ -1062,70 +1123,85 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                       />
                     </td>
                     <td>
-                      <span
-                        className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
-                      >
-                        <Icon
-                          name={
-                            c.kind === "dir"
-                              ? "folder"
-                              : c.kind === "other"
-                                ? "alert"
-                                : IMAGE_NAME.test(c.name)
-                                  ? "image"
-                                  : "file"
-                          }
-                        />
+                      <span className="name-cell">
+                        <span
+                          className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
+                        >
+                          <Icon
+                            name={
+                              c.kind === "dir"
+                                ? "folder"
+                                : c.kind === "other"
+                                  ? "alert"
+                                  : IMAGE_NAME.test(c.name)
+                                    ? "image"
+                                    : "file"
+                            }
+                          />
+                        </span>
+                        {c.kind === "dir" ? (
+                          <a
+                            href={folderPath(c.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              go(folderPath(c.id));
+                            }}
+                          >
+                            {c.name}
+                          </a>
+                        ) : canView(c) ? (
+                          <a
+                            href={viewPath(c.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              go(viewPath(c.id));
+                            }}
+                          >
+                            {c.name}
+                          </a>
+                        ) : (
+                          c.name
+                        )}
                       </span>
-                      {c.kind === "dir" ? (
-                        <a
-                          href={folderPath(c.id)}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            go(folderPath(c.id));
-                          }}
-                        >
-                          {c.name}
-                        </a>
-                      ) : canView(c) ? (
-                        <a
-                          href={viewPath(c.id)}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            go(viewPath(c.id));
-                          }}
-                        >
-                          {c.name}
-                        </a>
-                      ) : (
-                        c.name
-                      )}
                       {c.kind === "other" && (
-                        <em className="flag">
-                          {" "}
-                          (not supported:{" "}
-                          {UNSUPPORTED[c.unsupported_reason ?? ""] ?? "unknown"}
-                          )
-                        </em>
+                        <span
+                          className="badge muted"
+                          title={`Not supported: ${UNSUPPORTED[c.unsupported_reason ?? ""] ?? "unknown"}`}
+                        >
+                          Not supported
+                        </span>
                       )}
                       {c.status === "missing" && (
-                        <em className="flag"> (missing, rescan needed)</em>
+                        <span
+                          className="badge warn"
+                          title="Removed outside the app. A rescan finds it again if it comes back."
+                        >
+                          Missing
+                        </span>
                       )}
                       {c.status !== "active" && c.status !== "missing" && (
-                        <em className="flag"> (needs rescan)</em>
+                        <span
+                          className="badge warn"
+                          title="Rescan to bring this item up to date."
+                        >
+                          Needs rescan
+                        </span>
                       )}
                       {c.name_collision && (
-                        <em className="flag">
-                          {" "}
-                          (name differs only by case or accents from another
-                          item)
-                        </em>
+                        <span
+                          className="badge warn"
+                          title="Its name differs only by case or accents from another item."
+                        >
+                          Similar name
+                        </span>
                       )}
                     </td>
                     <td className="num">{formatSize(c.size)}</td>
-                    <td className="when">{formatDate(c.updated_at)}</td>
+                    <td className="when" title={formatDate(c.updated_at)}>
+                      {formatShortDate(c.updated_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1138,7 +1214,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
           )}
         </div>
 
-        <aside className="details" aria-label="Details">
+        <aside className="details" aria-label="Details" ref={detailsRef}>
           {selected ? (
             <>
               <h2>{selected.name}</h2>
@@ -1187,82 +1263,101 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     </button>
                   </>
                 )}
-                {canView(selected) && privileges.includes("read") && (
-                  <a
-                    className="button primary"
-                    href={viewPath(selected.id)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      go(viewPath(selected.id));
-                    }}
-                  >
-                    Open
-                  </a>
-                )}
-                {selected.kind === "file" &&
-                  selected.status === "active" &&
-                  privileges.includes("read") && (
-                    <a
-                      className="button"
-                      href={api.downloadUrl(selected.id)}
-                      download
-                    >
-                      Download
-                    </a>
-                  )}
+                <div className="detail-row">
+                  {privileges.includes("read") &&
+                    (selected.kind === "dir" || canView(selected)) && (
+                      <a
+                        className="button primary"
+                        href={
+                          selected.kind === "dir"
+                            ? folderPath(selected.id)
+                            : viewPath(selected.id)
+                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openItem(selected);
+                        }}
+                      >
+                        Open
+                      </a>
+                    )}
+                  {privileges.includes("read") &&
+                    selected.kind === "file" &&
+                    selected.status === "active" && (
+                      <a
+                        className="button"
+                        href={api.downloadUrl(selected.id)}
+                        download
+                      >
+                        Download
+                      </a>
+                    )}
+                </div>
                 {selected.kind !== "other" && selected.status === "active" && (
                   <>
-                    <button
-                      disabled={!canWrite}
-                      title={noWrite}
-                      onClick={() => setDialog("rename")}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      disabled={!canWrite}
-                      title={noWrite}
-                      onClick={() => setDialog("move")}
-                    >
-                      Move…
-                    </button>
-                    <button
-                      disabled={!canWrite}
-                      title={noWrite}
-                      onClick={() => setDialog("copy")}
-                    >
-                      Copy…
-                    </button>
-                    {selected.kind === "file" && (
-                      <button onClick={() => setDialog("collect")}>
-                        Add to collection…
-                      </button>
-                    )}
-                    {selected.kind === "file" && (
+                    <div className="detail-group">
                       <button
                         disabled={!canWrite}
                         title={noWrite}
-                        onClick={() => void suggestSelected()}
+                        onClick={() => setDialog("rename")}
                       >
-                        Suggest organization
+                        <Icon name="rename" />
+                        Rename
                       </button>
-                    )}
-                    {selected.kind === "file" &&
-                      selected.name.toLowerCase().endsWith(".pdf") && (
+                      <button
+                        disabled={!canWrite}
+                        title={noWrite}
+                        onClick={() => setDialog("move")}
+                      >
+                        <Icon name="move" />
+                        Move…
+                      </button>
+                      <button
+                        disabled={!canWrite}
+                        title={noWrite}
+                        onClick={() => setDialog("copy")}
+                      >
+                        <Icon name="copy" />
+                        Copy…
+                      </button>
+                      {selected.kind === "file" && (
+                        <button onClick={() => setDialog("collect")}>
+                          <Icon name="layers" />
+                          Add to collection…
+                        </button>
+                      )}
+                    </div>
+                    {selected.kind === "file" && (
+                      <div className="detail-group">
                         <button
                           disabled={!canWrite}
                           title={noWrite}
-                          onClick={() => void splitSelected()}
+                          onClick={() => void suggestSelected()}
                         >
-                          Suggest PDF split
+                          <Icon name="sparkles" />
+                          Suggest organization
                         </button>
-                      )}
+                        {selected.name.toLowerCase().endsWith(".pdf") && (
+                          <button
+                            disabled={!canWrite}
+                            title={noWrite}
+                            onClick={() => void splitSelected()}
+                          >
+                            <Icon name="sparkles" />
+                            Suggest PDF split
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <hr className="detail-divider" />
                     <button
+                      className="danger"
                       disabled={!canWrite}
                       title={noWrite}
                       onClick={() => void deleteSelected()}
                     >
-                      Delete
+                      <Icon name="trash" />
+                      Move to Trash
                     </button>
                   </>
                 )}
@@ -1315,6 +1410,46 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
         </aside>
       </div>
 
+      {checked.size > 0 && (
+        <div className="phone-bar" role="region" aria-label="Selected items">
+          <span className="phone-bar-count">{checked.size} selected</span>
+          {selected &&
+            privileges.includes("read") &&
+            (selected.kind === "dir" || canView(selected)) && (
+              <button onClick={() => openItem(selected)}>Open</button>
+            )}
+          {selected &&
+            privileges.includes("read") &&
+            selected.kind === "file" &&
+            selected.status === "active" && (
+              <a
+                className="button"
+                href={api.downloadUrl(selected.id)}
+                download
+              >
+                Download
+              </a>
+            )}
+          <button
+            className="danger"
+            disabled={!canWrite || actionable.length === 0}
+            title={noWrite}
+            onClick={() => void (selected ? deleteSelected() : deleteChecked())}
+          >
+            Move to Trash
+          </button>
+          <button
+            onClick={() =>
+              detailsRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })
+            }
+          >
+            More
+          </button>
+        </div>
+      )}
       {dialog === "privacy" && (
         <PrivacyDialog
           info={info}

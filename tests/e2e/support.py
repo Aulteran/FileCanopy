@@ -36,20 +36,21 @@ def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ct
     # an administrator first gets the "Prepare your server" steps; the last one is the server files
     server = page.get_by_role("heading", level=1, name="Prepare your server")
     page.get_by_role("region", name=re.compile("^Set up ")).or_(server).or_(
-        page.get_by_role("navigation", name="Locations")
-    ).first.wait_for()
+        page.get_by_role("navigation", name="Files", exact=True)
+    ).or_(page.get_by_role("button", name="Open menu")).first.wait_for()
     if server.is_visible():
         page.get_by_role("button", name="Set up server files").click()
     screen = page.get_by_role("region", name=re.compile("^Set up "))
-    nav = page.get_by_role("navigation", name="Locations")
+    nav = page.get_by_role("navigation", name="Files", exact=True)
     if setup:
         expect(screen).to_be_visible()
         return page
     later = page.get_by_role("button", name="Decide later")
-    nav.or_(later).first.wait_for()
+    menu = page.get_by_role("button", name="Open menu")  # on a phone the navigation is a drawer
+    nav.or_(later).or_(menu).first.wait_for()
     if later.is_visible():
         later.click()
-    expect(nav).to_be_visible()
+    expect(nav.or_(menu)).to_be_visible()
     return page
 
 
@@ -79,7 +80,8 @@ def select(page: Page, name: str) -> None:
 
 
 def crumbs(page: Page) -> Locator:
-    return page.get_by_role("navigation", name="Breadcrumb")
+    # The ancestors are in the breadcrumb; the current folder is the page title.
+    return page.locator("nav[aria-label='Breadcrumb'], .folder-title")
 
 
 def upload(page: Page, name: str, data: bytes) -> None:
@@ -107,3 +109,10 @@ def open_shared_with_you(page: Page, name: str | re.Pattern[str]) -> None:
         "link", name="Shared with you"
     ).click()
     page.get_by_role("main").get_by_role("link", name=name).click()
+
+
+def open_menu_if_phone(page: Page) -> None:
+    """On a phone the side navigation is a drawer: open it before using a link in it."""
+    viewport = page.viewport_size or {"width": 1280, "height": 720}
+    if viewport["width"] <= 760:
+        page.get_by_role("button", name="Open menu").click()

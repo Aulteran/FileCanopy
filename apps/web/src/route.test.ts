@@ -17,6 +17,7 @@ import {
   isUsersPath,
   isSettingsPath,
   isAdminPath,
+  isAskPath,
   isUsagePath,
   oneTimeLink,
   searchPath,
@@ -134,6 +135,15 @@ describe("mail routes", () => {
     expect(isVerifyEmailPath("/verify-email")).toBe(true);
     expect(isVerifyEmailPath("/verify-email/x")).toBe(false);
     expect(tokenFromHash("#token=abc")).toBe("abc");
+  });
+});
+
+describe("ask route", () => {
+  it("matches only the Ask AI page", () => {
+    expect(isAskPath("/ask")).toBe(true);
+    expect(isAskPath("/ask/")).toBe(true);
+    expect(isAskPath("/ask/x")).toBe(false);
+    expect(isAskPath("/f/ask")).toBe(false);
   });
 });
 

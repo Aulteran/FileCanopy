@@ -9,12 +9,12 @@ const BACKUPS = /^\/backups\/?$/;
 const USERS = /^\/admin\/users\/?$/;
 const TRASH = /^\/trash\/?$/;
 const SHARED_WITH = /^\/shared\/with-you\/?$/;
-const SHARED_BY = /^\/shared\/by-you\/?$/;
 const RECENT = /^\/recent\/?$/;
 const NOTICES = /^\/notifications\/?$/;
 const SEARCH = /^\/search\/?$/;
 const INBOX = /^\/inbox\/?$/;
 const ORGANIZE = /^\/organize\/?$/;
+const ASK = /^\/ask\/?$/;
 const DUPLICATES = /^\/duplicates\/?$/;
 const COLLECTIONS = /^\/collections(?:\/([0-9a-f-]{36}))?\/?$/;
 const MAILBOX = /^\/admin\/mail\/?$/;
@@ -43,15 +43,11 @@ export const BACKUPS_PATH = "/backups";
 export const USERS_PATH = "/admin/users";
 export const TRASH_PATH = "/trash";
 export const SHARED_WITH_PATH = "/shared/with-you";
-export const SHARED_BY_PATH = "/shared/by-you";
 
 export function isSharedWithPath(pathname: string): boolean {
   return SHARED_WITH.test(pathname);
 }
 
-export function isSharedByPath(pathname: string): boolean {
-  return SHARED_BY.test(pathname);
-}
 export const RECENT_PATH = "/recent";
 export const NOTICES_PATH = "/notifications";
 export const SEARCH_PATH = "/search";
@@ -82,6 +78,12 @@ export function isInboxPath(pathname: string): boolean {
 
 export function isOrganizePath(pathname: string): boolean {
   return ORGANIZE.test(pathname);
+}
+
+export const ASK_PATH = "/ask";
+
+export function isAskPath(pathname: string): boolean {
+  return ASK.test(pathname);
 }
 
 export function isDuplicatesPath(pathname: string): boolean {
@@ -182,11 +184,11 @@ export function useRoute(): {
   users: boolean;
   trash: boolean;
   sharedWith: boolean;
-  sharedBy: boolean;
   recent: boolean;
   notices: boolean;
   inbox: boolean;
   organize: boolean;
+  ask: boolean;
   duplicates: boolean;
   collections: boolean;
   collectionId: string | null;
@@ -221,11 +223,11 @@ export function useRoute(): {
     users: isUsersPath(path),
     trash: isTrashPath(path),
     sharedWith: isSharedWithPath(path),
-    sharedBy: isSharedByPath(path),
     recent: isRecentPath(path),
     notices: isNoticesPath(path),
     inbox: isInboxPath(path),
     organize: isOrganizePath(path),
+    ask: isAskPath(path),
     duplicates: isDuplicatesPath(path),
     collections: isCollectionsPath(path),
     collectionId: collectionIdFrom(path),

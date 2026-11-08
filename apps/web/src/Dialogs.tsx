@@ -210,6 +210,27 @@ export function TargetDialog({
   const ids = new Set(items.map((i) => i.id));
   const shown = useRef(target); // the folder whose list is on screen, for late pages
   shown.current = target;
+  // The folders from the top down to the chosen one, so the destination reads as a path.
+  const [trail, setTrail] = useState<NodeInfo[]>([]);
+  useEffect(() => {
+    if (!at) return;
+    let live = true;
+    (async () => {
+      const chain: NodeInfo[] = [at];
+      let up = at.parent_id;
+      while (up && chain.length < 32) {
+        const n = await api.node(up);
+        chain.unshift(n);
+        up = n.parent_id;
+      }
+      if (live) setTrail(chain);
+    })().catch(() => {
+      if (live) setTrail([at]);
+    });
+    return () => {
+      live = false;
+    };
+  }, [at]);
 
   useEffect(() => {
     let live = true;
@@ -338,7 +359,12 @@ export function TargetDialog({
       onClose={onClose}
     >
       <p className="hint">
-        Destination: <strong>{at?.name ?? "…"}</strong>
+        Destination:{" "}
+        <strong title={trail.map((n) => n.name).join(" › ")}>
+          {trail.length > 0
+            ? trail.map((n) => n.name).join(" › ")
+            : (at?.name ?? "…")}
+        </strong>
       </p>
       {areas !== null ? (
         <ul className="picker" aria-label="Areas">
@@ -364,7 +390,8 @@ export function TargetDialog({
           {mode === "move" && at && (
             <li>
               <button type="button" onClick={() => void showAreas()}>
-                ↑ Other areas…
+                <Icon name="folder" />
+                Other places (My files, Server files)…
               </button>
             </li>
           )}
@@ -378,7 +405,9 @@ export function TargetDialog({
           {folders.map((f) => (
             <li key={f.id}>
               <button type="button" onClick={() => setTarget(f.id)}>
+                <Icon name="folder" />
                 {f.name}
+                <Icon name="chev" />
               </button>
             </li>
           ))}

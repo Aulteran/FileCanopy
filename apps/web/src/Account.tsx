@@ -115,6 +115,11 @@ export function AccountDialog({
       />
       <SenderAddresses reauthed={reauthed} />
       <ConnectedApps reauthed={reauthed} />
+      <div className="actions">
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -152,6 +157,17 @@ function PinSection({
     if (kind === "password" && !st.has_password)
       setKind(st.reauth_available ? "reauth" : "pin");
   }, [st, kind]);
+  useEffect(() => {
+    // With only one way to prove it is you, that way is used without a choice (D03).
+    if (!st) return;
+    const only = [
+      st.set && "pin",
+      st.has_password && "password",
+      st.reauth_available && "reauth",
+      pinToken && "email",
+    ].filter((k): k is ProofKind => typeof k === "string");
+    if (only.length === 1 && kind !== only[0]) setKind(only[0]!);
+  }, [st, kind, pinToken]);
 
   function proofOf(form: FormData): PinProof | null {
     const v = String(form.get("proof") ?? "");
@@ -279,20 +295,24 @@ function PinSection({
             required
           />
         </label>
-        <fieldset>
-          <legend>Confirm it is you with</legend>
-          {options.map(([k, label]) => (
-            <label key={k}>
-              <input
-                type="radio"
-                name="kind"
-                checked={kind === k}
-                onChange={() => setKind(k)}
-              />
-              {label}
-            </label>
-          ))}
-        </fieldset>
+        {options.length > 1 ? (
+          <fieldset>
+            <legend>Confirm it is you with</legend>
+            {options.map(([k, label]) => (
+              <label key={k}>
+                <input
+                  type="radio"
+                  name="kind"
+                  checked={kind === k}
+                  onChange={() => setKind(k)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+        ) : (
+          options[0] && <p>Confirm it is you with {options[0][1]}.</p>
+        )}
         {(kind === "pin" || kind === "password") && (
           <label>
             {kind === "pin" ? "Current PIN" : "Password"}

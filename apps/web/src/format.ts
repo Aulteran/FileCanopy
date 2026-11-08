@@ -24,6 +24,26 @@ export function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString();
 }
 
+/** A short date for list rows: a time today, "Nov 8" this year, "Nov 8, 2025" before that. */
+export function formatShortDate(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+  if (d.getFullYear() === now.getFullYear()) {
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 // Messages never repeat a name or path from the server (an insufficient-permissions error must not
 // reveal them); the UI only names things the user typed or already sees.
 const MESSAGES: Record<string, string> = {

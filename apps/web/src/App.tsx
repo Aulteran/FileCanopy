@@ -1,6 +1,14 @@
 import { Loading } from "./Loading";
 import { Icon, Wordmark } from "./Icon";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { IconName } from "./iconPaths";
+import { AskPage } from "./Ask";
 import {
   ApiError,
   api,
@@ -18,7 +26,7 @@ import { LockScreen } from "./LockScreen";
 import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
 import { UsagePage } from "./UsagePage";
-import { SharedByYouPage, SharedWithYouPage } from "./SharedPages";
+import { SharedWithYouPage } from "./SharedPages";
 import { PreviewSettings } from "./PreviewSettings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
@@ -34,12 +42,12 @@ import {
   DUPLICATES_PATH,
   INBOX_PATH,
   ORGANIZE_PATH,
+  ASK_PATH,
   isVerifyEmailPath,
   RECENT_PATH,
   searchPath,
   TRASH_PATH,
   SHARED_WITH_PATH,
-  SHARED_BY_PATH,
   USERS_PATH,
   folderPath,
   tokenFromHash,
@@ -150,7 +158,8 @@ function SignedInApp() {
   if (failed) {
     return (
       <main className="auth">
-        <h1>FileCanopy</h1>
+        <h1 className="sr-only">FileCanopy</h1>
+        <Wordmark />
         <p role="alert" className="error">
           Cannot reach the server.
         </p>
@@ -177,6 +186,55 @@ function SignedInApp() {
       onSession={(session) => setBoot({ state: "ready", session })}
       onSetupDone={() => setBoot({ state: "login" })}
     />
+  );
+}
+
+// One group of the side navigation. The visible heading and the nav's aria-label are the same
+// words, so a screen reader and a sighted person find the same group.
+function NavGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <nav aria-label={title}>
+      <span className="grp-h" aria-hidden="true">
+        {title}
+      </span>
+      <ul>{children}</ul>
+    </nav>
+  );
+}
+
+function NavLink({
+  to,
+  current,
+  icon,
+  label,
+  go,
+  onNavigate,
+  extra,
+}: {
+  to: string;
+  current: boolean;
+  icon: IconName;
+  label: string;
+  go: (path: string) => void;
+  onNavigate: () => void;
+  extra?: ReactNode;
+}) {
+  return (
+    <li>
+      <a
+        href={to}
+        aria-current={current ? "page" : undefined}
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate();
+          go(to);
+        }}
+      >
+        <Icon name={icon} />
+        {label}
+        {extra}
+      </a>
+    </li>
   );
 }
 
@@ -212,11 +270,11 @@ function Shell({
     users,
     trash,
     sharedWith,
-    sharedBy,
     recent,
     notices,
     inbox,
     organize,
+    ask,
     duplicates,
     collections,
     collectionId,
@@ -228,6 +286,23 @@ function Shell({
     go,
   } = useRoute();
   const [verifyOpen, setVerifyOpen] = useState(aliasLink !== null);
+  // The side navigation is a drawer on phones (R01): closed until the Menu button opens it.
+  const [navOpen, setNavOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeNav = useCallback(() => setNavOpen(false), []);
+  useEffect(() => {
+    if (!navOpen) return;
+    navRef.current?.querySelector<HTMLElement>("a")?.focus();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") {
+        setNavOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navOpen]);
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(() => {
     api
@@ -303,7 +378,6 @@ function Shell({
       !users &&
       !trash &&
       !sharedWith &&
-      !sharedBy &&
       !recent &&
       !notices &&
       !inbox &&
@@ -325,7 +399,6 @@ function Shell({
     users,
     trash,
     sharedWith,
-    sharedBy,
     recent,
     notices,
     inbox,
@@ -383,6 +456,19 @@ function Shell({
 
   const header = (withBackups: boolean) => (
     <header className="topbar">
+      {withBackups && (
+        <button
+          ref={menuButton}
+          type="button"
+          className="iconbtn nav-menu"
+          aria-label="Open menu"
+          aria-expanded={navOpen}
+          aria-controls="sidenav"
+          onClick={() => setNavOpen(true)}
+        >
+          <Icon name="menu" />
+        </button>
+      )}
       <a
         href="/"
         className="brand"
@@ -405,18 +491,20 @@ function Shell({
             if (typeof q === "string" && q.trim()) go(searchPath(q));
           }}
         >
-          <input
-            key={search ?? ""}
-            type="search"
-            name="q"
-            aria-label="Search files"
-            placeholder="Search files"
-            defaultValue={search ?? ""}
-            maxLength={200}
-          />
-          <button type="submit">
+          <span className="searchfield">
             <Icon name="search" />
-            <span className="lbl">Search</span>
+            <input
+              key={search ?? ""}
+              type="search"
+              name="q"
+              aria-label="Search files"
+              placeholder="Search files"
+              defaultValue={search ?? ""}
+              maxLength={200}
+            />
+          </span>
+          <button type="submit" className="sr-only">
+            Search
           </button>
         </form>
       )}
@@ -434,7 +522,12 @@ function Shell({
           href={ADMIN_PATH}
           className="toplink"
           aria-current={
-            adminRoute || users || mailbox || settingsRoute || usageRoute
+            adminRoute ||
+            users ||
+            mailbox ||
+            settingsRoute ||
+            usageRoute ||
+            backups
               ? "page"
               : undefined
           }
@@ -461,7 +554,7 @@ function Shell({
                 setAccount(true);
               }}
             >
-              <Icon name="settings" />
+              <Icon name="user" />
               Account
             </button>
             <button
@@ -590,186 +683,147 @@ function Shell({
   return (
     <div className="shell">
       <a href="#main" className="skip">
-        Skip to files
+        Skip to content
       </a>
       {header(true)}
-      <div className="sidenav">
-        <nav aria-label="Locations">
-          <span className="grp-h" aria-hidden="true">
-            Files
-          </span>
-          <ul>
-            {roots
-              .filter((r) => r.kind !== "shared_with_me")
-              .map((r) => (
-                <li key={r.node_id}>
-                  <a
-                    href={folderPath(r.node_id)}
-                    aria-current={
-                      highlightedRoot === r.node_id ? "page" : undefined
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      go(folderPath(r.node_id));
-                    }}
-                  >
-                    <Icon name={ROOT_ICON[r.kind]} />
-                    {rootLabel(r)}
-                    {r.setup_open && (
-                      <svg
-                        className="navwarn"
-                        role="img"
-                        aria-label="Not set up yet"
-                        viewBox="0 0 24 24"
-                        width="18"
-                        height="18"
-                      >
-                        <title>Not set up yet</title>
-                        <path
-                          d="M12 3.5 22 20.5H2z"
-                          fill="currentColor"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M12 10v5M12 17.6v.1"
-                          stroke="var(--surface)"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </svg>
-                    )}
-                  </a>
-                </li>
-              ))}
-          </ul>
-        </nav>
-        <nav aria-label="Shared files">
-          <span className="grp-h" aria-hidden="true">
-            Shared files
-          </span>
-          <ul>
-            <li>
-              <a
-                href={SHARED_WITH_PATH}
-                aria-current={sharedWith ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(SHARED_WITH_PATH);
-                }}
-              >
-                <Icon name="share" />
-                Shared with you
-              </a>
-            </li>
-            <li>
-              <a
-                href={SHARED_BY_PATH}
-                aria-current={sharedBy ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(SHARED_BY_PATH);
-                }}
-              >
-                <Icon name="users" />
-                Shared by you
-              </a>
-            </li>
-          </ul>
-        </nav>
-        <nav aria-label="Trash and history">
-          <span className="grp-h" aria-hidden="true">
-            History and tools
-          </span>
-          <ul>
-            <li>
-              <a
-                href={TRASH_PATH}
-                aria-current={trash ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(TRASH_PATH);
-                }}
-              >
-                <Icon name="trash" />
-                Trash
-              </a>
-            </li>
-            <li>
-              <a
-                href={RECENT_PATH}
-                aria-current={recent ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(RECENT_PATH);
-                }}
-              >
-                <Icon name="activity" />
-                Recent actions
-              </a>
-            </li>
-            {incomingMail && (
-              <li>
-                <a
-                  href={INBOX_PATH}
-                  aria-current={inbox ? "page" : undefined}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go(INBOX_PATH);
-                  }}
-                >
-                  <Icon name="mail" />
-                  Email inbox
-                </a>
-              </li>
-            )}
-            <li>
-              <a
-                href={COLLECTIONS_PATH}
-                aria-current={collections ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(COLLECTIONS_PATH);
-                }}
-              >
-                <Icon name="layers" />
-                Collections
-              </a>
-            </li>
-            <li>
-              <a
-                href={DUPLICATES_PATH}
-                aria-current={duplicates ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(DUPLICATES_PATH);
-                }}
-              >
-                <Icon name="copy" />
-                Duplicates
-              </a>
-            </li>
-            <li>
-              <a
-                href={ORGANIZE_PATH}
-                aria-current={organize ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(ORGANIZE_PATH);
-                }}
-              >
-                <Icon name="sparkles" />
-                AI suggestions
-              </a>
-            </li>
-          </ul>
-        </nav>
+      <div
+        className={`sidenav${navOpen ? " open" : ""}`}
+        id="sidenav"
+        ref={navRef}
+      >
+        <div className="sidenav-head">
+          <span className="sidenav-title">Menu</span>
+          <button
+            type="button"
+            className="iconbtn"
+            aria-label="Close menu"
+            onClick={closeNav}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+        <NavGroup title="Files">
+          {roots
+            .filter((r) => r.kind !== "shared_with_me")
+            .map((r) => (
+              <NavLink
+                key={r.node_id}
+                to={folderPath(r.node_id)}
+                current={highlightedRoot === r.node_id}
+                icon={ROOT_ICON[r.kind]}
+                label={rootLabel(r)}
+                go={go}
+                onNavigate={closeNav}
+                extra={
+                  r.setup_open ? (
+                    <svg
+                      className="navwarn"
+                      role="img"
+                      aria-label="Not set up yet"
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                    >
+                      <title>Not set up yet</title>
+                      <path
+                        d="M12 3.5 22 20.5H2z"
+                        fill="currentColor"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M12 10v5M12 17.6v.1"
+                        stroke="var(--surface)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                    </svg>
+                  ) : null
+                }
+              />
+            ))}
+          {incomingMail && (
+            <NavLink
+              to={INBOX_PATH}
+              current={inbox}
+              icon="mail"
+              label="Email inbox"
+              go={go}
+              onNavigate={closeNav}
+            />
+          )}
+        </NavGroup>
+        <NavGroup title="Organize">
+          <NavLink
+            to={ASK_PATH}
+            current={ask}
+            icon="sparkles"
+            label="Ask AI"
+            go={go}
+            onNavigate={closeNav}
+          />
+          <NavLink
+            to={ORGANIZE_PATH}
+            current={organize}
+            icon="check"
+            label="AI suggestions"
+            go={go}
+            onNavigate={closeNav}
+          />
+          <NavLink
+            to={COLLECTIONS_PATH}
+            current={collections}
+            icon="layers"
+            label="Collections"
+            go={go}
+            onNavigate={closeNav}
+          />
+          <NavLink
+            to={DUPLICATES_PATH}
+            current={duplicates}
+            icon="copy"
+            label="Duplicates"
+            go={go}
+            onNavigate={closeNav}
+          />
+        </NavGroup>
+        <NavGroup title="Shared files">
+          <NavLink
+            to={SHARED_WITH_PATH}
+            current={sharedWith}
+            icon="share"
+            label="Shared with you"
+            go={go}
+            onNavigate={closeNav}
+          />
+        </NavGroup>
+        <NavGroup title="History">
+          <NavLink
+            to={RECENT_PATH}
+            current={recent}
+            icon="activity"
+            label="Recent actions"
+            go={go}
+            onNavigate={closeNav}
+          />
+          <NavLink
+            to={TRASH_PATH}
+            current={trash}
+            icon="trash"
+            label="Trash"
+            go={go}
+            onNavigate={closeNav}
+          />
+        </NavGroup>
       </div>
+      {navOpen && (
+        <div className="nav-scrim" aria-hidden="true" onClick={closeNav} />
+      )}
       <main id="main" tabIndex={-1} className="content">
         {roots !== null && roots.length === 0 && (
-          <p>No storage locations are available to you.</p>
+          <p className="empty">No storage locations are available to you.</p>
         )}
         <UnfinishedUploads
           go={go}
@@ -777,7 +831,6 @@ function Shell({
           onChanged={() => setReload((n) => n + 1)}
         />
         {sharedWith && <SharedWithYouPage roots={roots} go={go} />}
-        {sharedBy && <SharedByYouPage />}
         {users &&
           (admin ? (
             <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
@@ -826,6 +879,7 @@ function Shell({
             onChanged={() => setReload((n) => n + 1)}
           />
         )}
+        {ask && <AskPage go={go} onEnded={onEnded} />}
         {organize && (
           <OrganizePage
             admin={admin}
@@ -881,8 +935,9 @@ function Shell({
         )}
         {!backups && folderId !== null && (
           <Browser
-            key={`${folderId}:${reload}`}
+            key={folderId}
             folderId={folderId}
+            reloadKey={reload}
             go={go}
             onRoot={setActiveRoot}
             onEnded={onEnded}
