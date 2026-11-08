@@ -1359,11 +1359,15 @@ h1.brandh .c {
   border-radius: var(--r-m);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
 }
+/* Items are right-aligned: row-reverse puts the icon on the right, and in a row-reverse flex
+   container flex-start is the right edge. justify-content must be set here because the global
+   button rule centers buttons (justify-content: center), which made the text look centered. */
 .profile-panel > button,
 .profile-panel > a {
   display: flex;
   align-items: center;
   flex-direction: row-reverse;
+  justify-content: flex-start;
   gap: 10px;
   width: 100%;
   min-height: 40px;
@@ -1383,6 +1387,7 @@ h1.brandh .c {
 .profile-panel > button.danger,
 .profile-panel > button.danger:hover {
   color: var(--danger, #b3261e);
+  justify-content: center;
 }
 .profile-panel hr {
   width: 100%;
