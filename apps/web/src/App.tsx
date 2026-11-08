@@ -240,6 +240,8 @@ function Shell({
     return () => clearInterval(t);
   }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
+  // The Email inbox exists only once incoming mail is set up (Step 5).
+  const incomingMail = session.incoming_mail === true;
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [previewSettings, setPreviewSettings] = useState(false);
   const [aiSettings, setAiSettings] = useState(false);
@@ -688,19 +690,21 @@ function Shell({
                 Notifications{unread > 0 ? ` (${unread} new)` : ""}
               </a>
             </li>
-            <li>
-              <a
-                href={INBOX_PATH}
-                aria-current={inbox ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(INBOX_PATH);
-                }}
-              >
-                <Icon name="mail" />
-                Email inbox
-              </a>
-            </li>
+            {incomingMail && (
+              <li>
+                <a
+                  href={INBOX_PATH}
+                  aria-current={inbox ? "page" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(INBOX_PATH);
+                  }}
+                >
+                  <Icon name="mail" />
+                  Email inbox
+                </a>
+              </li>
+            )}
             <li>
               <a
                 href={COLLECTIONS_PATH}
@@ -760,7 +764,24 @@ function Shell({
           ) : (
             <p>Only administrators can manage users.</p>
           ))}
-        {inbox && <InboxPage onEnded={onEnded} go={go} />}
+        {inbox &&
+          (incomingMail ? (
+            <InboxPage onEnded={onEnded} go={go} />
+          ) : (
+            <section aria-labelledby="inbox-off-title">
+              <h1 id="inbox-off-title">Email inbox</h1>
+              <p>
+                Email is not set up on this server yet, so there is no inbox
+                here.
+              </p>
+              {admin && (
+                <p>
+                  To set it up, open <a href={ADMIN_PATH}>Admin</a> and go to
+                  Step 5: Incoming mail.
+                </p>
+              )}
+            </section>
+          ))}
         {collections && (
           <CollectionsPage
             collectionId={collectionId}
