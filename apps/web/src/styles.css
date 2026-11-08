@@ -1793,7 +1793,7 @@ section.server-setup > p {
   margin-top: 0;
 }
 
-/* Outgoing email form (first-time setup Step 3, Admin > Mailbox) */
+/* Outgoing email form (first-time setup Step 3: Mail server, Admin > Mailbox) */
 .smtp-form {
   max-width: 560px;
 }

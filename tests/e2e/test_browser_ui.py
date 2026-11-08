@@ -366,10 +366,9 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         [
             "Step 1: AI (optional)",
             "Step 2: Meaning-based search (optional)",
-            "Step 3: Outgoing email (optional)",
+            "Step 3: Mail server (optional)",
             "Step 4: Other users (optional)",
-            "Step 5: Incoming mail (optional)",
-            "Step 6: Server files",
+            "Step 5: Server files",
         ]
     )
     # Step 1 is already open beside the list when setup starts
@@ -378,10 +377,9 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
     for button, title in [
         ("Choose AI settings", "Step 1: AI"),
         ("Set up meaning-based search", "Step 2: Meaning-based search"),
-        ("Set up outgoing email", "Step 3: Outgoing email"),
+        ("Set up mail server", "Step 3: Mail server"),
         ("Invite users", "Step 4: Other users"),
-        ("Check incoming mail", "Step 5: Incoming mail"),
-        ("Set up server files", "Step 6: Server files"),
+        ("Set up server files", "Step 5: Server files"),
     ]:
         page.get_by_role("button", name=button).click()
         panel = page.get_by_role("region", name=title)
@@ -395,9 +393,10 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
         assert 1.8 < panel_box["width"] / steps_box["width"] < 2.2
         span = panel_box["x"] + panel_box["width"] - steps_box["x"]
         assert span > 0.85 * page.viewport_size["width"]
-        if button == "Set up outgoing email":
+        if button == "Set up mail server":
             expect(panel.get_by_label("Mail server")).to_be_visible()
             expect(panel.get_by_role("button", name="Send a test message")).to_be_visible()
+            expect(panel.get_by_label("Enable incoming mail")).to_be_visible()
         if button == "Invite users":
             # the invite form is a popup opened from a button above the table, not a section
             expect(panel.get_by_text("Invite someone")).to_have_count(0)

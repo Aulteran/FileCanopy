@@ -7,9 +7,9 @@ export type ServerSetupDone = {
   ai: boolean;
   semantic: boolean;
   users: boolean;
-  /** Outgoing mail (SMTP), Step 3. */
+  /** Outgoing mail (SMTP), part of Step 3. */
   smtp: boolean;
-  /** Incoming mail (the mailbox), Step 5. */
+  /** Incoming mail (the mailbox), part of Step 3. */
   mail: boolean;
 };
 
@@ -64,12 +64,13 @@ export async function loadServerSetupDone(
     ai: aiDone({ instance, preference: status?.preference ?? null }),
     semantic: semantic?.enabled === true,
     users: accounts ? usersDone(accounts, me) : false,
-    smtp: auth?.smtp.configured === true,
+    // Step 3 is the whole mail server: outgoing (SMTP) and incoming mail.
+    smtp: auth?.smtp.configured === true || mailbox?.configured === true,
     mail: mailbox?.configured === true,
   };
 }
 
-/** The optional steps that can be skipped (Step 6, the server files, is required). */
+/** The optional steps that can be skipped (Step 5, the server files, is required). */
 export type SkippableStep = "ai" | "semantic" | "smtp" | "users" | "mail";
 
 /** The steps the administrator skipped, as saved on the server. A failed request shows none. */

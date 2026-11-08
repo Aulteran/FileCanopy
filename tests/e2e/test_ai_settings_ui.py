@@ -177,11 +177,11 @@ def test_server_step_marks_only_the_steps_that_are_really_done(
         return item.get_by_role("img", name="Completed")
 
     for _ in range(2):  # the second pass is after a reload
-        expect(done("Step 3: Outgoing email")).to_have_count(0)
+        expect(done("Step 3: Mail server")).to_have_count(0)
         expect(done("Step 4: Other users")).to_be_visible()
         expect(done("Step 1: AI")).to_have_count(0)
         expect(done("Step 2: Meaning-based search")).to_have_count(0)
-        expect(done("Step 5: Incoming mail")).to_have_count(0)
+        expect(done("Step 5: Server files")).to_have_count(0)
         page.reload()
     page.context.close()
 
@@ -196,8 +196,8 @@ def test_outgoing_email_test_shows_its_result_inside_the_panel(
     page.get_by_label("Email").fill("admin@example.com")
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Sign in").click()
-    page.get_by_role("button", name="Set up outgoing email").click()
-    panel = page.get_by_role("region", name="Step 3: Outgoing email")
+    page.get_by_role("button", name="Set up mail server").click()
+    panel = page.get_by_role("region", name="Step 3: Mail server")
     expect(panel).to_be_visible()
     panel.get_by_label("Mail server").fill("127.0.0.1")
     panel.get_by_label("Security", exact=False).select_option("none")
