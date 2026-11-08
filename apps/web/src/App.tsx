@@ -265,6 +265,8 @@ function Shell({
     if (pending === "oidc-only") go(USERS_PATH, true);
   }, [sso, pending, go]);
   const [activeRoot, setActiveRoot] = useState<string | null>(null);
+  // Only a folder page highlights a location; other pages must not keep the last folder's highlight.
+  const highlightedRoot = folderId !== null ? activeRoot : null;
   const [deferred, setDeferred] = useState(() => readDeferred(session.user.id));
   const [setupFor, setSetupFor] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -585,7 +587,9 @@ function Shell({
                 <li key={r.node_id}>
                   <a
                     href={folderPath(r.node_id)}
-                    aria-current={activeRoot === r.node_id ? "page" : undefined}
+                    aria-current={
+                      highlightedRoot === r.node_id ? "page" : undefined
+                    }
                     onClick={(e) => {
                       e.preventDefault();
                       go(folderPath(r.node_id));
