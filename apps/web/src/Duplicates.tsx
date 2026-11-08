@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, type DuplicateGroup } from "./api";
 import { describeError, formatSize } from "./format";
+import { viewPath } from "./route";
+import { viewKind } from "./viewerTypes";
 
 // Duplicate files among those you can open (M17). This page only reports. Nothing is removed
 // unless you press "Move to trash" on a copy yourself; the trash keeps it and it can be restored.
@@ -10,10 +12,25 @@ function errorOf(err: unknown, onEnded: () => void): string {
   return describeError(err instanceof ApiError ? err.code : "UNKNOWN");
 }
 
+function groupLabel(g: DuplicateGroup): string {
+  const names = new Set(g.members.map((m) => m.name.toLowerCase()));
+  const count = `${g.members.length} copies`;
+  if (g.kind === "exact") {
+    const what =
+      names.size === 1
+        ? `“${g.members[0]!.name}”`
+        : formatSize(g.members[0]!.size);
+    return `${what} · ${count}`;
+  }
+  return `${count} · about ${Math.round(g.similarity / 10)}% the same text`;
+}
+
 export function DuplicatesPage({
+  go,
   onEnded,
   onChanged,
 }: {
+  go: (path: string) => void;
   onEnded: () => void;
   onChanged: () => void;
 }) {
@@ -55,6 +72,52 @@ export function DuplicatesPage({
     }
   }
 
+  function renderGroup(g: DuplicateGroup, i: number) {
+    return (
+      <div key={`${g.kind}-${i}`} className="dup-group">
+        <h3>{groupLabel(g)}</h3>
+        <ul className="plain">
+          {g.members.map((m) => (
+            <li key={m.node_id}>
+              {viewKind(m.name) !== null ? (
+                <a
+                  href={viewPath(m.node_id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(viewPath(m.node_id));
+                  }}
+                >
+                  {m.name}
+                </a>
+              ) : (
+                m.name
+              )}{" "}
+              <span className="muted">
+                {formatSize(m.size)}
+                {m.parent_name ? ` · in ${m.parent_name}` : ""}
+              </span>{" "}
+              {viewKind(m.name) !== null && (
+                <button
+                  className="linklike"
+                  onClick={() => go(viewPath(m.node_id))}
+                >
+                  View
+                </button>
+              )}{" "}
+              <button
+                className="linklike"
+                disabled={busy}
+                onClick={() => void trash(m.node_id, m.name, m.revision)}
+              >
+                Move to trash
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <section aria-labelledby="dup-title">
       <h1 id="dup-title">Duplicates</h1>
@@ -82,33 +145,26 @@ export function DuplicatesPage({
           No duplicates found. New files appear after they have been scanned.
         </p>
       )}
-      {groups?.map((g, i) => (
-        <div key={i}>
-          <h2>
-            {g.kind === "exact"
-              ? "Identical files"
-              : `Almost the same (${Math.round(g.similarity / 10)}% similar text)`}
-          </h2>
-          <ul className="plain">
-            {g.members.map((m) => (
-              <li key={m.node_id}>
-                {m.name}{" "}
-                <span className="muted">
-                  {formatSize(m.size)}
-                  {m.parent_name ? ` · in ${m.parent_name}` : ""}
-                </span>{" "}
-                <button
-                  className="linklike"
-                  disabled={busy}
-                  onClick={() => void trash(m.node_id, m.name, m.revision)}
-                >
-                  Move to trash
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {groups && groups.some((g) => g.kind === "exact") && (
+        <>
+          <h2>Identical files</h2>
+          <p className="muted">
+            Same content, byte for byte. Names can differ.
+          </p>
+          {groups.filter((g) => g.kind === "exact").map(renderGroup)}
+        </>
+      )}
+      {groups && groups.some((g) => g.kind !== "exact") && (
+        <>
+          <h2>Almost the same text</h2>
+          <p className="muted">
+            Not identical files, but the text inside is very similar (for
+            example the same document scanned twice). Open each one to check
+            before you trash anything.
+          </p>
+          {groups.filter((g) => g.kind !== "exact").map(renderGroup)}
+        </>
+      )}
     </section>
   );
 }

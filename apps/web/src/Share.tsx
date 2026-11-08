@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type Grant, type Notice, type Person } from "./api";
 import { Modal } from "./Dialogs";
-import { describeError, formatDate } from "./format";
+import { describeError } from "./format";
 
 type Level = "viewer" | "editor";
 
@@ -288,73 +288,4 @@ export function noticeText(n: Notice): string {
   return n.node_name
     ? `${who} stopped using your shared folder ${n.node_name}.`
     : `${who} stopped using a folder you shared.`;
-}
-
-export function NotificationsPage({
-  onEnded,
-  go,
-  onRead,
-}: {
-  onEnded: () => void;
-  go: (path: string) => void;
-  onRead: () => void;
-}) {
-  const [items, setItems] = useState<Notice[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      try {
-        const data = await api.notifications();
-        if (!live) return;
-        setItems(data.items);
-        setState("ready");
-        if (data.unread > 0) {
-          await api.markNoticesRead();
-          onRead();
-        }
-      } catch (err) {
-        if (!live) return;
-        setError(errorOf(err, onEnded));
-        setState("error");
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [onEnded, onRead]);
-
-  return (
-    <section aria-labelledby="notices-h">
-      <h1 id="notices-h">Notifications</h1>
-      {state === "loading" && <p>Loading…</p>}
-      {state === "error" && <p role="alert">{error}</p>}
-      {state === "ready" && items.length === 0 && (
-        <p>Nothing new. You will see it here when someone shares a folder.</p>
-      )}
-      {items.length > 0 && (
-        <ul className="notices">
-          {items.map((n) => (
-            <li key={n.id} className={n.read ? undefined : "unread"}>
-              <span>{noticeText(n)}</span>{" "}
-              <span className="hint">{formatDate(n.at)}</span>{" "}
-              {n.node_id && (
-                <a
-                  href={`/f/${n.node_id}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go(`/f/${n.node_id}`);
-                  }}
-                >
-                  Open
-                </a>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
 }
