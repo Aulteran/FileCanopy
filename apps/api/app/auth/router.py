@@ -23,6 +23,7 @@ from app.auth.deps import (
 )
 from app.auth.schemas import (
     AcceptInvitation,
+    ChangeName,
     ChangePassword,
     CompleteReset,
     ForgotPassword,
@@ -223,6 +224,28 @@ def change_password(
         csrf_token=csrf,
         incoming_mail=ctx_of(request).settings.imap_configured,
     )
+
+
+@router.patch("/auth/profile", response_model=UserOut)
+def change_name(
+    body: ChangeName,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    """Change your own display name. The name is only a label (never an identity), so the
+    session is enough; the email, role and status cannot be changed here."""
+    user = principal.user
+    name = body.name.strip()
+    if not name or any(ord(c) < 32 for c in name):
+        raise http_error(422, "INVALID_NAME")
+    if name != user.name:
+        user.name = name
+        audit(
+            db, "user.updated", actor=user.id, target=user.id, ip=client_ip(request), name="changed"
+        )
+        db.commit()
+    return UserOut.of(user)
 
 
 def _redeem(db: Session, request: Request, token: str, purpose: str, expected_status: str) -> User:
