@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { Loading } from "./Loading";
 import type { EntryPoint } from "./api";
 import { folderPath } from "./route";
@@ -23,11 +24,12 @@ export function SharedWithYouPage({
       {roots === null ? (
         <Loading />
       ) : items.length === 0 ? (
-        <p>Nothing has been shared with you yet.</p>
+        <p className="empty">Nothing has been shared with you yet.</p>
       ) : (
-        <ul>
+        <ul className="shared-rows">
           {items.map((r) => (
-            <li key={r.node_id}>
+            <li key={r.node_id} className="shared-row">
+              <Icon name="folder" />
               <a
                 href={folderPath(r.node_id)}
                 onClick={(e) => {
@@ -37,7 +39,9 @@ export function SharedWithYouPage({
               >
                 {r.name}
               </a>
-              {r.owner_name ? ` (from ${r.owner_name})` : ""}
+              {r.owner_name && (
+                <span className="muted">from {r.owner_name}</span>
+              )}
             </li>
           ))}
         </ul>

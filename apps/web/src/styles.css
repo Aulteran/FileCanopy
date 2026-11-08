@@ -2074,3 +2074,226 @@ button.link-button:focus-visible {
   padding: 24px;
   text-align: center;
 }
+
+/* File browser fixes from the web UI audit (B01-B16, D01, D03, R02) */
+.list table {
+  table-layout: fixed;
+}
+.list th.num,
+.list td.num {
+  width: 96px;
+}
+.list th.when,
+.list td.when {
+  width: 150px;
+  white-space: nowrap;
+}
+.list td a {
+  color: var(--text);
+  text-decoration: none;
+}
+.list td a:hover,
+.list td a:focus-visible {
+  text-decoration: underline;
+}
+.name-cell {
+  display: inline-flex;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.name-cell .fi {
+  flex: none;
+}
+td .badge {
+  margin-left: 6px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+.badge.warn {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: transparent;
+}
+.badge.muted {
+  color: var(--muted);
+}
+button[aria-pressed="true"] {
+  background: var(--sel);
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+.folder-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 10px;
+}
+.folder-title h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  overflow-wrap: anywhere;
+}
+.menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: nowrap;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+}
+.menu button:hover:not(:disabled),
+.menu button:focus-visible {
+  background: var(--sel);
+}
+.menu-mark {
+  display: inline-flex;
+  justify-content: center;
+  width: 16px;
+}
+.menu-mark svg.i {
+  width: 16px;
+  height: 16px;
+}
+.uploads li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  padding: 8px 12px;
+}
+.uploads li > span:first-child {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.uploads progress {
+  width: 160px;
+}
+.folder-missing {
+  text-align: center;
+  padding: 48px 16px;
+}
+.details .linklike {
+  padding: 0;
+}
+.detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.detail-row:empty {
+  display: none;
+}
+.detail-row > * {
+  flex: 1 1 0;
+  justify-content: center;
+  text-align: center;
+}
+.detail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.detail-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 10px 0;
+}
+.picker button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  padding: 8px 14px;
+  margin: 12px 0;
+}
+legend {
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0 4px;
+}
+.phone-bar {
+  display: none;
+}
+@media (max-width: 760px) {
+  .phone-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+  .phone-bar-count {
+    margin-right: auto;
+    font-weight: 700;
+  }
+  .browser {
+    padding-bottom: 72px;
+  }
+}
+
+/* Shared with you as rows (S02) */
+.shared-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  overflow: hidden;
+}
+.shared-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.shared-row:last-child {
+  border-bottom: 0;
+}
+.shared-row > svg.i {
+  color: var(--muted);
+}

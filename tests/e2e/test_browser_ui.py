@@ -268,7 +268,7 @@ def test_phone_sized_viewport(browser: Browser, world: World) -> None:
     page = sign_in(browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True)
     nav = page.get_by_role("navigation", name="Locations")
     expect(nav.get_by_role("link", name="My files")).to_be_visible()
-    expect(page.get_by_role("button", name="Upload here")).to_be_visible()
+    expect(page.get_by_role("button", name="Upload", exact=True)).to_be_visible()
     new_folder(page, "Phone")
     assert (w.alice_disk / "Phone").is_dir()
     select(page, "Phone")
@@ -315,7 +315,7 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
     expect(link).to_be_visible()
     link.click()
     expect(bob.get_by_text("Read-only")).to_be_visible()
-    expect(bob.get_by_role("button", name="Upload here")).to_be_disabled()
+    expect(bob.get_by_role("button", name="Upload", exact=True)).to_be_disabled()
     expect(bob.get_by_role("button", name="New folder")).to_be_disabled()
     select(bob, "final.bin")
     expect(bob.get_by_role("link", name="Download")).to_be_visible()  # viewers may read
