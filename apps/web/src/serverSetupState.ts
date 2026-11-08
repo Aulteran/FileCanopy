@@ -68,3 +68,21 @@ export async function loadServerSetupDone(
     mail: mailbox?.configured === true,
   };
 }
+
+/** The optional steps that can be skipped (Step 6, the server files, is required). */
+export type SkippableStep = "ai" | "semantic" | "smtp" | "users" | "mail";
+
+/** The steps the administrator skipped, as saved on the server. A failed request shows none. */
+export async function loadSkippedSteps(): Promise<SkippableStep[]> {
+  const r = await ask(() => api.setupSkips());
+  return r?.skipped ?? [];
+}
+
+/** A step shows its check mark when it is really done or was skipped. */
+export function stepMarked(
+  step: SkippableStep,
+  done: ServerSetupDone,
+  skipped: SkippableStep[],
+): boolean {
+  return done[step] || skipped.includes(step);
+}

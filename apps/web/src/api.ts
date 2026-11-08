@@ -1,6 +1,7 @@
 // Thin client for the FileCanopy API. Ids only: no function takes a path. Errors from the API are
 // `{detail: {code}}`; mutations need the CSRF token from the session (ADR-012).
 
+import type { SkippableStep } from "./serverSetupState";
 import type { BackupSettings, JobBody } from "./backupForm";
 
 export class ApiError extends Error {
@@ -1273,6 +1274,13 @@ export const api = {
   downloadUrl: (id: string) => `/api/v1/nodes/${enc(id)}/content`,
   viewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/view`,
   previewUrl: (id: string) => `/api/v1/nodes/${enc(id)}/preview`,
+  setupSkips: () =>
+    call<{ skipped: SkippableStep[] }>("GET", "/api/v1/admin/setup-skips"),
+  setupSkip: (step: SkippableStep, skipped: boolean) =>
+    call<{ skipped: SkippableStep[] }>("PUT", "/api/v1/admin/setup-skips", {
+      step,
+      skipped,
+    }),
   semanticAdmin: () => call<SemanticAdmin>("GET", "/api/v1/admin/semantic"),
   semanticSave: (body: SemanticInput) =>
     call<SemanticAdmin>("PUT", "/api/v1/admin/semantic", body),

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { Icon } from "./Icon";
 import { MailboxAdminPage } from "./MailPages";
+import { api } from "./api";
 import { SmtpSetup } from "./SmtpSettings";
 import {
   BACKUPS_PATH,
@@ -14,8 +15,11 @@ import { SetupScreen } from "./Setup";
 import { UsersPage } from "./Users";
 import {
   loadServerSetupDone,
+  loadSkippedSteps,
   NOTHING_DONE,
+  stepMarked,
   type ServerSetupDone,
+  type SkippableStep,
 } from "./serverSetupState";
 
 // One place for server-wide administration, instead of separate top-bar links.
@@ -92,7 +96,13 @@ export function AdminPage({
 }
 
 type SetupView =
-  "steps" | "ai" | "semantic" | "smtp" | "users" | "mail" | "files";
+  | "steps"
+  | "ai"
+  | "semantic"
+  | "smtp"
+  | "users"
+  | "mail"
+  | "files";
 
 /** The shared tree whose first-time file setup is the last step of the server setup. */
 export type SharedSetupRoot = { id: string; name: string; kind: string };
@@ -122,6 +132,27 @@ export function ServerSetupStep({
 }) {
   const [view, setView] = useState<SetupView>("ai");
   const [done, setDone] = useState<ServerSetupDone>(NOTHING_DONE);
+  // Steps the administrator chose to skip; saved on the server like the check marks.
+  const [skipped, setSkipped] = useState<SkippableStep[]>([]);
+  useEffect(() => {
+    let live = true;
+    void loadSkippedSteps().then((s) => {
+      if (live) setSkipped(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const toggleSkip = (stepKey: SkippableStep, value: boolean) => {
+    const before = skipped;
+    setSkipped(
+      value ? [...before, stepKey] : before.filter((k) => k !== stepKey),
+    );
+    void api.setupSkip(stepKey, value).then(
+      (r) => setSkipped(r.skipped),
+      () => setSkipped(before),
+    );
+  };
   // Read from the server each time a panel opens or closes, so a mark always reflects saved state
   // (and survives a reload).
   useEffect(() => {
@@ -205,56 +236,104 @@ export function ServerSetupStep({
         <div className="server-setup-steps">
           <ol className="setup-steps">
             <li className={view === "ai" ? "active" : undefined}>
-              <StepDone done={done.ai} />
+              <StepDone done={stepMarked("ai", done, skipped)} />
               <strong>Step 1: AI (optional)</strong>
               <p>
                 Choose whether and how AI helps. FileCanopy works without it.
               </p>
-              <button type="button" {...step("ai")}>
-                Choose AI settings
-              </button>
+              <div className="step-actions">
+                <button type="button" {...step("ai")}>
+                  Choose AI settings
+                </button>
+                <SkipButton
+                  step="ai"
+                  done={done.ai}
+                  skipped={skipped}
+                  onToggle={toggleSkip}
+                />
+              </div>
             </li>
             <li className={view === "semantic" ? "active" : undefined}>
-              <StepDone done={done.semantic} />
+              <StepDone done={stepMarked("semantic", done, skipped)} />
               <strong>Step 2: Meaning-based search (optional)</strong>
               <p>
                 Connect a model server on your own network so search can find
                 files by meaning.
               </p>
-              <button type="button" {...step("semantic")}>
-                Set up meaning-based search
-              </button>
+              <div className="step-actions">
+                <button type="button" {...step("semantic")}>
+                  Set up meaning-based search
+                </button>
+                <SkipButton
+                  step="semantic"
+                  done={done.semantic}
+                  skipped={skipped}
+                  onToggle={toggleSkip}
+                />
+              </div>
             </li>
             <li className={view === "smtp" ? "active" : undefined}>
-              <StepDone done={done.smtp} />
+              <StepDone done={stepMarked("smtp", done, skipped)} />
               <strong>Step 3: Outgoing email (optional)</strong>
               <p>
                 Set up and test the mail server that sends invitations and
                 password resets.
               </p>
-              <button type="button" {...step("smtp")}>
-                Set up outgoing email
-              </button>
+              <div className="step-actions">
+                <button type="button" {...step("smtp")}>
+                  Set up outgoing email
+                </button>
+                <SkipButton
+                  step="smtp"
+                  done={done.smtp}
+                  skipped={skipped}
+                  onToggle={toggleSkip}
+                />
+              </div>
             </li>
             <li className={view === "users" ? "active" : undefined}>
-              <StepDone done={done.users} />
+              <StepDone done={stepMarked("users", done, skipped)} />
               <strong>Step 4: Other users (optional)</strong>
               <p>Invite the people who will use this server.</p>
-              <button type="button" {...step("users")}>
-                Invite users
-              </button>
+              <div className="step-actions">
+                <button type="button" {...step("users")}>
+                  Invite users
+                </button>
+                <SkipButton
+                  step="users"
+                  done={done.users}
+                  skipped={skipped}
+                  onToggle={toggleSkip}
+                />
+              </div>
             </li>
             <li className={view === "mail" ? "active" : undefined}>
-              <StepDone done={done.mail} />
+              <StepDone done={stepMarked("mail", done, skipped)} />
               <strong>Step 5: Incoming mail (optional)</strong>
               <p>
                 Let people file attachments by emailing them to this server.
               </p>
-              <button type="button" {...step("mail")}>
-                Check incoming mail
-              </button>
+              <div className="step-actions">
+                <button type="button" {...step("mail")}>
+                  Check incoming mail
+                </button>
+                <SkipButton
+                  step="mail"
+                  done={done.mail}
+                  skipped={skipped}
+                  onToggle={toggleSkip}
+                />
+              </div>
             </li>
             <li className={view === "files" ? "active" : undefined}>
+              <span
+                className="step-required"
+                role="img"
+                aria-label="Required"
+                title="Required"
+              >
+                *
+              </span>
               <strong>Step 6: Server files</strong>
               <p>
                 Start the shared library empty, or copy in files you already
@@ -298,6 +377,32 @@ function SetupPanel({
       </header>
       {children}
     </section>
+  );
+}
+
+/** The small "Skip" button at the bottom right of an optional step. A step that is really done
+ * needs no skip, so it shows nothing; a skipped step offers "Undo skip". */
+function SkipButton({
+  step,
+  done,
+  skipped,
+  onToggle,
+}: {
+  step: SkippableStep;
+  done: boolean;
+  skipped: SkippableStep[];
+  onToggle: (step: SkippableStep, value: boolean) => void;
+}) {
+  if (done) return null;
+  const is = skipped.includes(step);
+  return (
+    <button
+      type="button"
+      className="step-skip"
+      onClick={() => onToggle(step, !is)}
+    >
+      {is ? "Undo skip" : "Skip"}
+    </button>
   );
 }
 
