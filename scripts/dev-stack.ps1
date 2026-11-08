@@ -22,11 +22,20 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker is 
 docker info *> $null
 if ($LASTEXITCODE) { throw 'Docker is not running. Start Docker Desktop, wait until it says "running", then try again.' }
 
-function Compose([string[]]$cmd) {
+function Compose([string[]]$cmd, [switch]$Quiet) {
   $env:FILECANOPY_SRC = $src
   $files = @('-f', "$src\deploy\compose.yaml", '-f', "$src\deploy\contrib\build.yaml")
   if (Test-Path $override) { $files += @('-f', $override) }
   $a = @('compose', '-p', 'filecanopy-dev', '--project-directory', $stack, '--env-file', $envFile) + $files + $cmd
+  if ($Quiet) {
+    # Capture the (very long) BuildKit output; show it only if the command fails.
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $out = & docker @a 2>&1 | ForEach-Object { "$_" }
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($code -ne 0) { $out | Out-Host }
+    return $code
+  }
   & docker @a | Out-Host
   return $LASTEXITCODE
 }
@@ -37,16 +46,39 @@ $script:SkipOpen = $false
 
 function Start-Stack {
 if (-not $NoPull) {
+  $prevEap = $ErrorActionPreference
   try {
+    # git writes progress/info to stderr; do not let that abort the script under 'Stop'.
+    $ErrorActionPreference = 'Continue'
     $branch = (git -C $src rev-parse --abbrev-ref HEAD).Trim()
-    if ($branch -ne 'dev') { Write-Host "On branch '$branch', not dev: using the checkout as-is." }
-    elseif (git -C $src status --porcelain) { Write-Host 'Uncommitted changes: skipping git pull, using the checkout as-is.' }
-    else {
+    # .worktrees/ holds other sessions' worktrees; it is expected and must not count as "dirty".
+    $pathspec = @('--', '.', ':(exclude).worktrees')
+    $dirty = [bool](git -C $src status --porcelain @pathspec)
+    $ready = $true
+    if ($branch -ne 'dev' -or $dirty) {
+      $why = if ($branch -ne 'dev') { "on branch '$branch', not dev" } else { 'uncommitted changes' }
+      $msg = "dev-up auto-stash $(Get-Date -Format 'yyyy-MM-dd HH:mm') ($why; was on $branch)"
+      if ($dirty) {
+        git -C $src stash push --include-untracked -m $msg @pathspec
+        if ($LASTEXITCODE) { Write-Host 'Could not stash your changes: leaving everything as-is and skipping the pull.' -ForegroundColor Yellow; $ready = $false }
+        else {
+          Write-Host "Your uncommitted changes were stashed (nothing was deleted): $msg" -ForegroundColor Yellow
+          Write-Host "  Get them back later with: git stash pop   (on branch '$branch' if you want them there)" -ForegroundColor Yellow
+        }
+      }
+      if ($ready -and $branch -ne 'dev') {
+        git -C $src checkout dev
+        if ($LASTEXITCODE) { Write-Host "Could not switch to dev: using the checkout as-is." -ForegroundColor Yellow; $ready = $false }
+        else { Write-Host "Switched from '$branch' to dev (branch '$branch' is untouched)." -ForegroundColor Yellow }
+      }
+    }
+    if ($ready) {
       $env:GIT_HTTP_LOW_SPEED_LIMIT = '1000'; $env:GIT_HTTP_LOW_SPEED_TIME = '8'
-      git -C $src pull --ff-only origin dev 2>&1 | Out-Host
+      git -C $src pull --ff-only origin dev
       if ($LASTEXITCODE) { Write-Host 'git pull failed (offline?): using the local checkout as-is.' }
     }
   } catch { Write-Host "Skipping git pull ($($_.Exception.Message)); using the local checkout as-is." }
+  finally { $ErrorActionPreference = $prevEap }
 }
 
 New-Item -ItemType Directory -Force -Path $stack, "$stack\library", "$stack\app-data" | Out-Null
@@ -80,8 +112,8 @@ services:
 "@ | Set-Content -Encoding ascii $override
 } elseif (Test-Path $override) { Remove-Item $override }
 
-Write-Host 'Building from local source (first build is slow; later ones are cached)...'
-if ((Compose @('build')) -ne 0) {
+Write-Host 'Building... (first build is slow; full build log is shown only if it fails)'
+if ((Compose @('build') -Quiet) -ne 0) {
   $have = docker image ls --format '{{.Repository}}:{{.Tag}}' | Where-Object { $_ -in 'filecanopy-api:dev', 'filecanopy-web:dev', 'filecanopy-postgres:dev' }
   if (@($have).Count -lt 3) { Write-Host 'Build failed and no earlier build exists. The first build needs internet.' -ForegroundColor Red; return }
   Write-Host 'Build failed (offline?): starting the previously built images instead.' -ForegroundColor Yellow
