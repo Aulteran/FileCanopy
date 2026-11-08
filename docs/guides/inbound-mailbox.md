@@ -15,7 +15,13 @@ without a mailbox.
 
 ## Settings
 
-Put these in `.env` (see `.env.advanced.example`):
+You can enter the mailbox in the web UI: in first-time setup, Step 3 (Mail server), tick
+"Enable incoming mail" and fill in the fields. The password is stored encrypted with
+`FILECANOPY_SECRETS_KEY`. Or put the settings below in `.env` (see `.env.advanced.example`).
+**Environment settings always win.** When they are set, the UI shows a read-only summary (never
+the password) and cannot change them. If you add them after saving settings in the UI, the next
+start tells the administrators once ("settings changed: now taken from environment variables").
+The same rule applies to outgoing mail (SMTP).
 
 | Setting | Meaning |
 |---|---|

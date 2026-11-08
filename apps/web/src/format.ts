@@ -280,6 +280,23 @@ const MESSAGES: Record<string, string> = {
   SMTP_REJECTED:
     "The mail server accepted the connection but refused the message. Check the From address is one this server may send as.",
   SMTP_NOT_CONFIGURED: "Enter the server name and the From address first.",
+  MAIL_SET_IN_ENVIRONMENT:
+    "Mail is set in the server's environment file, which always takes priority. Change it there.",
+  IMAP_HOST_INVALID: "The mailbox server name is not valid.",
+  IMAP_PORT_INVALID: "The port must be a number from 1 to 65535.",
+  IMAP_SECURITY_INVALID: "Choose SSL, STARTTLS or none.",
+  IMAP_PLAINTEXT_REFUSED:
+    "Unencrypted mailbox connections are only allowed to this machine. Choose SSL or STARTTLS.",
+  IMAP_LOGIN_INVALID: "Enter the mailbox user name and password.",
+  IMAP_FOLDER_INVALID: "The mailbox folder name is not valid.",
+  IMAP_ADDRESSES_INVALID:
+    "Enter two different, plain email addresses: one for personal files and one for the shared folder.",
+  IMAP_AUTHSERV_INVALID: "The sender check name must not contain spaces.",
+  CONNECT_FAILED:
+    "Could not reach the mailbox server. Check the name, port and security.",
+  LOGIN_FAILED: "The mailbox server refused the user name or password.",
+  FOLDER_UNAVAILABLE:
+    "The mailbox signed in, but that folder could not be opened.",
   SMTP_HOST_INVALID: "The server name is not valid.",
   SMTP_PORT_INVALID: "The port must be a number from 1 to 65535.",
   SMTP_SECURITY_INVALID: "Choose STARTTLS, SSL or none.",

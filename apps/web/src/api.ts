@@ -80,6 +80,32 @@ export type SmtpInput = {
   password?: string;
   sender: string;
 };
+export type ImapSettings = {
+  configured: boolean;
+  source: "saved" | "environment" | null;
+  host: string;
+  port: number;
+  security: "ssl" | "starttls" | "none";
+  username: string;
+  folder: string;
+  personal_address: string;
+  ingest_address: string;
+  authserv_id: string;
+  has_password: boolean;
+  can_store_password: boolean;
+};
+/** What the mailbox form sends. `password` undefined keeps the saved one. */
+export type ImapInput = {
+  host: string;
+  port: number;
+  security: ImapSettings["security"];
+  username: string;
+  password?: string;
+  folder: string;
+  personal_address: string;
+  ingest_address: string;
+  authserv_id: string;
+};
 export type AdminAuthConfig = {
   smtp: {
     configured: boolean;
@@ -401,7 +427,8 @@ export type Notice = {
     | "mail_refused"
     | "mail_failed"
     | "mail_quarantine"
-    | "mail_intake_unset";
+    | "mail_intake_unset"
+    | "mail_source_changed";
   at: string;
   read: boolean;
   actor_name: string | null;
@@ -1019,6 +1046,18 @@ export const api = {
   smtpSave: (input: SmtpInput) =>
     call<SmtpSettings>("PUT", "/api/v1/admin/smtp", input),
   smtpClear: () => call<SmtpSettings>("DELETE", "/api/v1/admin/smtp"),
+  mailboxSettings: () =>
+    call<ImapSettings>("GET", "/api/v1/admin/mailbox/settings"),
+  mailboxSave: (input: ImapInput) =>
+    call<ImapSettings>("PUT", "/api/v1/admin/mailbox/settings", input),
+  mailboxClear: () =>
+    call<ImapSettings>("DELETE", "/api/v1/admin/mailbox/settings"),
+  mailboxTest: (input?: ImapInput) =>
+    call<{ status: string }>(
+      "POST",
+      "/api/v1/admin/mailbox/settings/test",
+      input,
+    ),
   unlinkIdentity: (id: string) =>
     call<{ status: string }>(
       "DELETE",

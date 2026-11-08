@@ -128,6 +128,57 @@ export function SmtpSetup({
     );
   }
   const keepsPassword = saved.has_password && f.username === saved.username;
+  if (saved.source === "environment")
+    return (
+      <div className="smtp-form stack-form" role="status">
+        <p>
+          You already set up outgoing mail with environment variables, so you
+          don&apos;t need to do this part. Environment settings always take
+          priority over anything set here.
+        </p>
+        <dl>
+          <dt>Mail server</dt>
+          <dd>
+            {saved.host}, port {saved.port}, {saved.security}
+          </dd>
+          <dt>User name</dt>
+          <dd>{saved.username || "none"}</dd>
+          <dt>From address</dt>
+          <dd>{saved.sender}</dd>
+        </dl>
+        <div className="actions">
+          <button
+            type="button"
+            disabled={busy !== ""}
+            onClick={() => {
+              setBusy("test");
+              setResult(null);
+              api
+                .smtpTest()
+                .then(
+                  () =>
+                    setResult({
+                      ok: true,
+                      text: "Test message sent to your own address.",
+                    }),
+                  (err: unknown) => setResult(fail(err)),
+                )
+                .finally(() => setBusy(""));
+            }}
+          >
+            {busy === "test" ? "Sending test…" : "Send a test message"}
+          </button>
+        </div>
+        {result && (
+          <p
+            role={result.ok ? "status" : "alert"}
+            className={result.ok ? "smtp-ok" : "error"}
+          >
+            {result.text}
+          </p>
+        )}
+      </div>
+    );
   return (
     <form className="smtp-form stack-form" onSubmit={(e) => void save(e)}>
       <p className="hint">
@@ -137,9 +188,7 @@ export function SmtpSetup({
       </p>
       <p className="muted" role="status">
         {saved.configured
-          ? saved.source === "saved"
-            ? "Outgoing mail is set up."
-            : "Outgoing mail is set by the server's own settings. Saving here replaces them."
+          ? "Outgoing mail is set up."
           : "Outgoing mail is not set up yet."}
       </p>
       <label>

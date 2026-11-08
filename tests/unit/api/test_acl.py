@@ -681,6 +681,9 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/me/inbox",  # own verified messages only
     "/api/v1/admin/mailbox",  # M13: administrators; no node addressed
     "/api/v1/admin/mailbox/poll",
+    "/api/v1/admin/mailbox/settings",  # administrators; no node addressed
+    "/api/v1/admin/mailbox/settings/test",
+    "/api/v1/admin/setup-skips",  # administrators; no node addressed
     "/api/v1/admin/quarantine",
     "/api/v1/admin/quarantine/{message_id}",
     "/api/v1/admin/quarantine/{message_id}/attachments/{attachment_id}/content",

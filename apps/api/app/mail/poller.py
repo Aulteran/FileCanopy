@@ -160,6 +160,14 @@ class MailboxPoller:
         if self._thread is not None:
             self._thread.join(timeout=5)
 
+    def restart(self) -> None:
+        """Picks up changed mailbox settings: stops the loop and starts it again if configured."""
+        self.stop()
+        self._stop = threading.Event()
+        self._wake = threading.Event()
+        self._thread = None
+        self.start()
+
     def poll_now(self) -> None:
         self._wake.set()
 

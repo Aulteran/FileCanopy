@@ -29,7 +29,9 @@ FAILED = "mail_failed"  # to the sender: the message could not be filed (detail 
 QUARANTINE = "mail_quarantine"  # to administrators: n messages wait for review
 INTAKE_UNSET = "mail_intake_unset"  # to administrators: shared mail waits for an intake folder
 
-MAIL_KINDS = frozenset({FILED, SHARED, REFUSED, FAILED, QUARANTINE, INTAKE_UNSET})
+SOURCE_CHANGED = "mail_source_changed"  # to administrators: mail settings now come from elsewhere
+
+MAIL_KINDS = frozenset({FILED, SHARED, REFUSED, FAILED, QUARANTINE, INTAKE_UNSET, SOURCE_CHANGED})
 
 
 def active_admins(db: Session) -> list[uuid.UUID]:

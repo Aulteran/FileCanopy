@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { Icon } from "./Icon";
-import { IncomingMailSetup } from "./MailPages";
+import { IncomingMailSetup } from "./IncomingMailSetup";
 import { api } from "./api";
 import { SmtpSetup } from "./SmtpSettings";
 import {
@@ -95,13 +95,7 @@ export function AdminPage({
   );
 }
 
-type SetupView =
-  | "steps"
-  | "ai"
-  | "semantic"
-  | "smtp"
-  | "users"
-  | "files";
+type SetupView = "steps" | "ai" | "semantic" | "smtp" | "users" | "files";
 
 /** The shared tree whose first-time file setup is the last step of the server setup. */
 export type SharedSetupRoot = { id: string; name: string; kind: string };
@@ -187,7 +181,10 @@ export function ServerSetupStep({
           onEnded={onEnded}
           onChanged={() => void loadServerSetupDone(me).then((d) => setDone(d))}
         />
-        <IncomingMailSetup onEnded={onEnded} />
+        <IncomingMailSetup
+          onEnded={onEnded}
+          onChanged={() => void loadServerSetupDone(me).then((d) => setDone(d))}
+        />
       </SetupPanel>
     ) : view === "users" ? (
       <SetupPanel

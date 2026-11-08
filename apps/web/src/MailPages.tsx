@@ -7,6 +7,7 @@ import {
   type SharedIntake,
 } from "./api";
 import { describeError, formatDate, formatSize } from "./format";
+import { IncomingMailSetup } from "./IncomingMailSetup";
 import { SmtpSetup } from "./SmtpSettings";
 
 // Mail views (M13). Everything shown here comes from the server as plain text and is rendered as
@@ -188,68 +189,6 @@ export function InboxPage({
   );
 }
 
-/** The incoming-mail part of the first-time "Mail server" step: one checkbox and why it helps.
- * The mailbox itself (IMAP host, user, password) is configured in the server's environment
- * file, so the box reflects what the server reports and, when it is off, says how to turn it on. */
-export function IncomingMailSetup({ onEnded }: { onEnded: () => void }) {
-  const [status, setStatus] = useState<MailboxStatus | null>(null);
-  const [wanted, setWanted] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let live = true;
-    api.mailboxStatus().then(
-      (s) => {
-        if (!live) return;
-        setStatus(s);
-        setWanted(s.configured);
-      },
-      (err: unknown) => live && setError(errorOf(err, onEnded)),
-    );
-    return () => {
-      live = false;
-    };
-  }, [onEnded]);
-  const on = status?.configured === true;
-  return (
-    <section aria-labelledby="incoming-mail-h">
-      <h2 id="incoming-mail-h">Incoming mail</h2>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <label>
-        <input
-          type="checkbox"
-          checked={wanted || on}
-          disabled={on || status === null}
-          onChange={(e) => setWanted(e.target.checked)}
-        />{" "}
-        Enable incoming mail
-      </label>
-      <p className="muted">
-        People can email documents to an address on this server. The server
-        picks up each attachment and files it, so nothing has to be uploaded by
-        hand. Mail from people it cannot recognise is held for you to review.
-      </p>
-      {on && status && (
-        <p role="status">
-          Incoming mail is on: {status.host} / {status.folder}. Messages to{" "}
-          {status.personal_address ?? "the intake address"} are filed for the
-          sender.
-        </p>
-      )}
-      {!on && wanted && (
-        <p role="note">
-          Add the mailbox to the server&apos;s environment file (the
-          FILECANOPY_IMAP_* settings in .env.advanced.example) and restart. This
-          page then shows it as on.
-        </p>
-      )}
-    </section>
-  );
-}
-
 export function MailboxAdminPage({
   onEnded,
   outgoing = false,
@@ -381,12 +320,7 @@ export function MailboxAdminPage({
           <SmtpSetup onEnded={onEnded} />
         </section>
       )}
-      {status && !status.configured && (
-        <p>
-          No inbound mailbox is set up. See the FILECANOPY_IMAP_* settings in
-          .env.advanced.example.
-        </p>
-      )}
+      {status && !status.configured && <IncomingMailSetup onEnded={onEnded} />}
       {status && status.configured && (
         <>
           <dl>

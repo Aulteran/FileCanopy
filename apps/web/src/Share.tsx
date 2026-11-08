@@ -266,6 +266,14 @@ function mailNoticeText(n: Notice): string | null {
       return `${count} ${count === 1 ? "email waits" : "emails wait"} for review in the mailbox quarantine.`;
     case "mail_intake_unset":
       return "Emailed files are waiting for a shared email folder. Choose one on the Mailbox page.";
+    case "mail_source_changed": {
+      const part = n.detail?.startsWith("mailbox")
+        ? "Incoming mail"
+        : "Outgoing mail";
+      return n.detail?.endsWith(":environment")
+        ? `${part} settings changed: they are now taken from the server's environment variables, which replace what was saved in the app.`
+        : `${part} settings changed: the environment variables are gone, so the settings saved in the app are used again.`;
+    }
     default:
       return null;
   }
