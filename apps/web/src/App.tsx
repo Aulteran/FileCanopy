@@ -33,7 +33,6 @@ import {
   INBOX_PATH,
   ORGANIZE_PATH,
   isVerifyEmailPath,
-  NOTICES_PATH,
   RECENT_PATH,
   searchPath,
   TRASH_PATH,
@@ -47,7 +46,7 @@ import {
 } from "./route";
 import { SearchPage } from "./Search";
 import { SetupScreen } from "./Setup";
-import { NotificationsPage } from "./Share";
+import { NotificationsBell } from "./NotificationsBell";
 import { CollectionsPage } from "./Collections";
 import { DuplicatesPage } from "./Duplicates";
 import { OrganizePage } from "./Organize";
@@ -241,6 +240,13 @@ function Shell({
   }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
+  const [bellOpen, setBellOpen] = useState(false);
+  // The old /notifications link opens the bell on the home folder instead of a page.
+  useEffect(() => {
+    if (!notices || !roots?.[0]) return;
+    setBellOpen(true);
+    go(folderPath(roots[0].node_id), true);
+  }, [notices, roots, go]);
   const [previewSettings, setPreviewSettings] = useState(false);
   const [aiSettings, setAiSettings] = useState(false);
   // Returning from the provider after linking opens Account with the result.
@@ -411,6 +417,14 @@ function Shell({
         </form>
       )}
       <span className="spacer" />
+      <NotificationsBell
+        unread={unread}
+        open={bellOpen}
+        onOpenChange={setBellOpen}
+        onRead={() => setUnread(0)}
+        onEnded={onEnded}
+        go={go}
+      />
       {withBackups && admin && (
         <a
           href={ADMIN_PATH}
@@ -677,19 +691,6 @@ function Shell({
             </li>
             <li>
               <a
-                href={NOTICES_PATH}
-                aria-current={notices ? "page" : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go(NOTICES_PATH);
-                }}
-              >
-                <Icon name="bell" />
-                Notifications{unread > 0 ? ` (${unread} new)` : ""}
-              </a>
-            </li>
-            <li>
-              <a
                 href={INBOX_PATH}
                 aria-current={inbox ? "page" : undefined}
                 onClick={(e) => {
@@ -814,13 +815,6 @@ function Shell({
           <TrashPage
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
-          />
-        )}
-        {notices && (
-          <NotificationsPage
-            onEnded={onEnded}
-            go={go}
-            onRead={() => setUnread(0)}
           />
         )}
         {recent && (
