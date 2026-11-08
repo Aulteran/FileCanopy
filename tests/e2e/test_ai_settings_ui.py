@@ -264,9 +264,10 @@ def test_models_start_as_an_empty_table_and_usage_lives_on_its_own_page(
     switch = dialog.get_by_label("Enable AI on this server?")
     switch.click()
     expect(switch).to_be_checked()
-    # no models yet: a message and the button, no table, and no server-wide limit anywhere
+    # no models yet: a message and the button, no models table, and no server-wide limit anywhere.
+    # The suggestion outcomes table is a different table, so only the models table is checked.
     expect(dialog.get_by_text("No models yet")).to_be_visible()
-    expect(dialog.get_by_role("table")).to_have_count(0)
+    expect(dialog.locator("table.models-table")).to_have_count(0)
     expect(dialog.get_by_role("button", name="Add a model")).to_be_visible()
     expect(dialog.get_by_text("Monthly limit for cloud models on this server")).to_have_count(0)
     expect(dialog.get_by_text("Estimates, not a bill")).to_have_count(0)

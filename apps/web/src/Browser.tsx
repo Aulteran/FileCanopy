@@ -24,7 +24,7 @@ import {
 import { ActivityPanel } from "./Activity";
 import { AddToCollectionDialog } from "./Collections";
 import { describeSuggestResult } from "./collectionsText";
-import { NameDialog, TargetDialog } from "./Dialogs";
+import { ConfirmDialog, NameDialog, TargetDialog } from "./Dialogs";
 import { ShareDialog } from "./Share";
 import {
   describeError,
@@ -62,7 +62,8 @@ type Dialog =
   | "copy"
   | "share"
   | "privacy"
-  | "collect";
+  | "collect"
+  | "leave";
 type Upload = {
   id: number;
   file: File;
@@ -145,6 +146,16 @@ export function Browser({
   >("loading");
   // True while a reload runs over content already on screen (B10).
   const [refreshing, setRefreshing] = useState(false);
+  // C03: the AI buttons say why they are off when AI is turned off on this server.
+  const [aiOn, setAiOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    api
+      .aiStatus()
+      .then((st) => setAiOn(st.server_ai_enabled))
+      .catch(() => setAiOn(null));
+  }, []);
+  const aiOff = aiOn === false;
+  const AI_OFF = "AI is turned off on this server";
   // Set by timers so their reload does not count as the person using the folder (M09).
   const background = useRef(false);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -499,19 +510,14 @@ export function Browser({
     await refresh();
   }
 
-  async function leave(): Promise<void> {
-    if (
-      !window.confirm(
-        `Stop using ${info?.name ?? "this folder"}? It will disappear from your list. The owner can share it again.`,
-      )
-    )
-      return;
-    try {
-      await api.leaveShare(folderId);
-      window.location.assign("/");
-    } catch (err) {
-      setErrorText(fail(err));
-    }
+  // G07a: a styled confirmation instead of window.confirm().
+  function leave(): void {
+    setDialog("leave");
+  }
+
+  async function confirmLeave(): Promise<void> {
+    await api.leaveShare(folderId);
+    window.location.assign("/");
   }
 
   async function rescan(): Promise<void> {
@@ -866,8 +872,12 @@ export function Browser({
           <button onClick={() => setDialog("privacy")}>Privacy…</button>
         )}
         <button
-          disabled={items.filter((c) => c.kind === "file").length < 2}
-          title="Ask AI which of the files listed here belong together"
+          disabled={aiOff || items.filter((c) => c.kind === "file").length < 2}
+          title={
+            aiOff
+              ? AI_OFF
+              : "Ask AI which of the files listed here belong together"
+          }
           onClick={() => void suggestCollections()}
         >
           <Icon name="sparkles" />
@@ -1330,8 +1340,8 @@ export function Browser({
                     {selected.kind === "file" && (
                       <div className="detail-group">
                         <button
-                          disabled={!canWrite}
-                          title={noWrite}
+                          disabled={!canWrite || aiOff}
+                          title={aiOff ? AI_OFF : noWrite}
                           onClick={() => void suggestSelected()}
                         >
                           <Icon name="sparkles" />
@@ -1339,8 +1349,8 @@ export function Browser({
                         </button>
                         {selected.name.toLowerCase().endsWith(".pdf") && (
                           <button
-                            disabled={!canWrite}
-                            title={noWrite}
+                            disabled={!canWrite || aiOff}
+                            title={aiOff ? AI_OFF : noWrite}
                             onClick={() => void splitSelected()}
                           >
                             <Icon name="sparkles" />
@@ -1449,6 +1459,16 @@ export function Browser({
             More
           </button>
         </div>
+      )}
+      {dialog === "leave" && info && (
+        <ConfirmDialog
+          title={`Stop using ${info.name}?`}
+          body="It will disappear from your list. The owner can share it again."
+          confirmLabel="Stop using"
+          danger
+          onConfirm={confirmLeave}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog === "privacy" && (
         <PrivacyDialog
