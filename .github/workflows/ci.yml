@@ -2,7 +2,7 @@
 #
 # - `check` (fast): JS lint/format/tests, secret scan, web checks and the backend unit tests (pytest-xdist);
 #   `api-static` runs backend ruff and mypy alongside it. Runs on every push and pull request.
-# - `compose` (slow): the real Docker Compose suite, split into two parallel jobs. Runs on pull
+# - `compose` (slow): the real Docker Compose suite, split into parallel shards (core, proxy, app, app-2, app-3). Runs on pull
 #   requests and manual runs, not again on the push that merges them (the merged tree was just
 #   tested). Run it by hand from the Actions tab (workflow_dispatch) after a direct push to a branch.
 # Docker layers are cached in the GitHub Actions cache; the images are pre-built here and the
@@ -79,13 +79,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Each entry starts its own stacks, so the two run side by side.
+          # Each entry starts its own stacks, so they run side by side; the app tests are spread over three shards.
           - suite: core
             tests: tests/integration/compose/test_stack.py
           - suite: proxy
             tests: tests/integration/compose/test_proxy_stack.py
           - suite: app
-            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_storage_stack.py tests/integration/compose/test_files_stack.py tests/integration/compose/test_import_stack.py tests/integration/compose/test_trash_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py tests/integration/compose/test_semantic_stack.py tests/integration/compose/test_release_stack.py tests/integration/compose/test_hardening_stack.py tests/integration/compose/test_mcp_revocation_stack.py
+            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_import_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py
+          - suite: app-2
+            tests: tests/integration/compose/test_files_stack.py tests/integration/compose/test_release_stack.py tests/integration/compose/test_mcp_revocation_stack.py
+          - suite: app-3
+            tests: tests/integration/compose/test_storage_stack.py tests/integration/compose/test_trash_stack.py tests/integration/compose/test_semantic_stack.py tests/integration/compose/test_hardening_stack.py
     name: compose (${{ matrix.suite }})
     steps:
       - uses: actions/checkout@v4
