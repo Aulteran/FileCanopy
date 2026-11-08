@@ -1716,6 +1716,48 @@ section.server-setup > p {
 .server-setup-panel h1 {
   display: none;
 }
+/* Wide screens: the first-time server setup fills the window. The page never scrolls; the step
+   list stays put and only the right-hand panel scrolls. Narrow screens collapse to one column
+   and scroll normally. Scoped to .setup-only so Admin and other pages are unaffected. */
+@media (min-width: 801px) {
+  .shell.setup-only {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .shell.setup-only .topbar {
+    flex: none;
+  }
+  .shell.setup-only .content:has(> section.server-setup) {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+  }
+  .shell.setup-only section.server-setup {
+    flex: 1 1 0;
+    min-height: 0;
+    width: min(1600px, 92vw, 100%);
+    display: flex;
+    flex-direction: column;
+  }
+  .shell.setup-only .server-setup-layout {
+    flex: 1 1 0;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .shell.setup-only .server-setup-steps,
+  .shell.setup-only .server-setup-panel {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
 
 /* AI models table and usage page */
 .table-scroll {
