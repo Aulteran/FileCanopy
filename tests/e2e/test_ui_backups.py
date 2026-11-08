@@ -31,9 +31,7 @@ def test_administrator_sees_settings_and_the_missing_volume_warning(
     expect(page.get_by_role("button", name="Back up now")).to_be_disabled()
     expect(page.get_by_text("never sent anywhere else")).to_be_visible()
     # the folder table names whose personal folder each row is (admins only)
-    expect(
-        page.get_by_role("cell", name=re.compile(r"Personal folder")).first
-    ).to_be_visible()
+    expect(page.get_by_role("cell", name=re.compile(r"Personal folder")).first).to_be_visible()
     # the page works at a phone width without horizontal scrolling
     page.set_viewport_size({"width": 375, "height": 812})
     scroll_width = page.evaluate("document.documentElement.scrollWidth")
