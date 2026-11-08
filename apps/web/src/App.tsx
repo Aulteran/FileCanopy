@@ -32,6 +32,7 @@ import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
 import { AdminPage, ServerSetupStep } from "./AdminPage";
+import { AdminCrumb } from "./AdminCrumb";
 import { ServerSettingsPage } from "./ServerSettings";
 import { ProfileMenu } from "./ProfileMenu";
 import {
@@ -833,7 +834,10 @@ function Shell({
         {sharedWith && <SharedWithYouPage roots={roots} go={go} />}
         {users &&
           (admin ? (
-            <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
+            <>
+              <AdminCrumb page="Users" go={go} />
+              <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
+            </>
           ) : (
             <p>Only administrators can manage users.</p>
           ))}
@@ -890,7 +894,10 @@ function Shell({
         )}
         {mailbox &&
           (admin ? (
-            <MailboxAdminPage onEnded={onEnded} outgoing />
+            <>
+              <AdminCrumb page="Mail server" go={go} />
+              <MailboxAdminPage onEnded={onEnded} outgoing />
+            </>
           ) : (
             <p>Only administrators can manage the mailbox.</p>
           ))}
@@ -902,16 +909,23 @@ function Shell({
           ))}
         {settingsRoute &&
           (admin ? (
-            <ServerSettingsPage onEnded={onEnded} />
+            <>
+              <AdminCrumb page="Server settings" go={go} />
+              <ServerSettingsPage onEnded={onEnded} />
+            </>
           ) : (
             <p>Only administrators can open the server settings.</p>
           ))}
         {usageRoute &&
           (admin ? (
-            <UsagePage onAi={() => setAiSettings(true)} />
+            <>
+              <AdminCrumb page="Usage" go={go} />
+              <UsagePage onAi={() => setAiSettings(true)} />
+            </>
           ) : (
             <p>Only administrators can open the usage page.</p>
           ))}
+        {backups && admin && <AdminCrumb page="Backups" go={go} />}
         {backups && (
           <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
         )}
