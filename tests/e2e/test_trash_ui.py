@@ -47,7 +47,7 @@ def trash_row(page: Page, name: str):  # type: ignore[no-untyped-def]
 
 def delete_selected(page: Page, name: str) -> None:
     select(page, name)
-    page.get_by_role("button", name="Move to Trash", exact=True).click()
+    page.locator("aside.details").get_by_role("button", name="Move to Trash", exact=True).click()
     expect(toast(page)).to_contain_text(f"Moved {name} to the Trash")
 
 

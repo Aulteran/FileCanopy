@@ -706,9 +706,9 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
   }
   if (state !== "ready" || !info) {
     return (
-      <section className="folder-missing" role="alert">
+      <section className="folder-missing">
         <h1>Folder not available</h1>
-        <p>
+        <p role="alert">
           {state === "denied"
             ? "You do not have access to this folder."
             : missing

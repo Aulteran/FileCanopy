@@ -130,7 +130,7 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     dialog.get_by_role("button", name="Archive").click()
     # Wait for the chosen folder's metadata before confirming; its async load/impact check can
     # otherwise change button readiness between Playwright's pointer-down and pointer-up.
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     expect(dialog.get_by_role("button", name="Copy here")).to_be_enabled()
     with page.expect_response(
         lambda response: response.request.method == "POST" and response.url.endswith("/copy")
@@ -146,7 +146,7 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     page.get_by_role("button", name="Move…").click()
     dialog = page.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name="Archive").click()
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog.get_by_role("alert")).to_have_text("An item with that name already exists here.")
     dialog.get_by_role("button", name="Cancel").click()
@@ -162,7 +162,7 @@ def test_move_between_folders(browser: Browser, world: World) -> None:
     page.get_by_role("button", name="Move…").click()
     dialog = page.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name="Archive").click()
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog).to_be_hidden()
     expect(row(page, "report (2).bin")).to_have_count(0)

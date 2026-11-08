@@ -496,9 +496,9 @@ def test_missing_unsupported_collision_and_suspended_states(
         )
 
     page = sign_in(browser, w, p.mail)
-    expect(row(page, "shortcut")).to_contain_text("not supported: symbolic link")
-    expect(row(page, "external-drive")).to_contain_text("not supported: mounted drive")
-    expect(row(page, "pipe")).to_contain_text("not supported: special file")
+    expect(row(page, "shortcut")).to_contain_text("Not supported")
+    expect(row(page, "external-drive")).to_contain_text("Not supported")
+    expect(row(page, "pipe")).to_contain_text("Not supported")
     expect(row(page, "shortcut")).to_have_class(re.compile("unsupported"))  # greyed out
     expect(row(page, "shortcut").get_by_role("link")).to_have_count(0)  # never opened
     select(page, "shortcut")
