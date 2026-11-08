@@ -8,7 +8,18 @@ import { KIND_LABELS, dollars } from "./AiSettings";
 // only). Limits are set per model in the AI settings; this page only reports. The amounts are
 // estimates from the prices entered for each model, not a bill.
 
-export function UsagePage() {
+/** "2026-11" as "November 2026" (A04). Falls back to the raw text if it is not that shape. */
+export function monthTitle(month: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return month;
+  const date = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+export function UsagePage({ onAi }: { onAi?: () => void }) {
   const [usage, setUsage] = useState<AiInstanceUsage | null>(null);
   const [error, setError] = useState("");
   const load = useCallback(() => {
@@ -35,9 +46,10 @@ export function UsagePage() {
       {usage && (
         <>
           <p>
-            {usage.month}: <strong>{dollars(usage.total_spent_micro)}</strong>{" "}
-            used across all models. Estimates, not a bill: your provider's own
-            usage page is the record.
+            {monthTitle(usage.month)}:{" "}
+            <strong>{dollars(usage.total_spent_micro)}</strong> used across all
+            models. Estimates, not a bill: your provider's own usage page is the
+            record.
           </p>
           {usage.removed_spent_micro > 0 && (
             <p className="muted">
@@ -111,9 +123,17 @@ export function UsagePage() {
             </div>
           )}
           <p className="muted">
-            Change a model's limit in its row under Administration, AI. When a
-            model reaches its limit, AI requests to it are turned away until the
-            next month or until you raise the limit; files are never affected.
+            Change a model's limit in its row under{" "}
+            {onAi ? (
+              <button type="button" className="linklike" onClick={onAi}>
+                Administration, AI
+              </button>
+            ) : (
+              "Administration, AI"
+            )}
+            . When a model reaches its limit, AI requests to it are turned away
+            until the next month or until you raise the limit; files are never
+            affected.
           </p>
         </>
       )}

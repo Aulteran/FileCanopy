@@ -99,12 +99,17 @@ def test_invite_accept_and_reset_through_the_ui(world: World, browser: Browser) 
     assert Client(world.stack).login(email, NEW_PASSWORD) == 200
 
     # administration from the page: disable and enable; the administrator cannot disable themself
-    admin.get_by_role("button", name=f"Disable {email}").click()
+    # disabling asks first (ConfirmDialog); the other row actions sit in the "More" menu
+    admin.get_by_role("button", name=f"More actions for {email}").click()
+    admin.get_by_role("menuitem", name=f"Disable {email}").click()
+    admin.get_by_role("dialog", name=f"Disable {email}?").get_by_role("button", name="Disable account").click()
     expect(row(admin, email)).to_contain_text("Disabled")
     assert Client(world.stack).login(email, NEW_PASSWORD) == 401
-    admin.get_by_role("button", name=f"Enable {email}").click()
+    admin.get_by_role("button", name=f"More actions for {email}").click()
+    admin.get_by_role("menuitem", name=f"Enable {email}").click()
     expect(row(admin, email)).to_contain_text("Active")
-    expect(accounts.get_by_role("button", name="Disable admin@example.com")).to_have_count(0)
+    # the administrator's own row offers no disable item (no "More" menu at all without mail or SSO)
+    expect(accounts.get_by_role("button", name="More actions for admin@example.com")).to_have_count(0)
 
     # the one-time secrets never reached the server: nginx logs show the path only
     logs = world.stack.compose("logs", "--no-color", "web", "api").stdout

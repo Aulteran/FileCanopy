@@ -1,5 +1,12 @@
 import { Loading } from "./Loading";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ApiError, api, type ArchiveListing, type NodeInfo } from "./api";
 import { describeError, formatSize } from "./format";
 import { folderPath, hasInAppHistory } from "./route";
@@ -22,9 +29,31 @@ type Props = {
   onEnded: () => void;
 };
 
+// Lets a view that cannot show the file tell the page, so the top bar's Download can step aside (V02).
+const ReportCannotShow = createContext<() => void>(() => undefined);
+
 export function Viewer({ nodeId, go, onEnded }: Props) {
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [error, setError] = useState("");
+  // The file that could not be shown. Keyed by file, so moving to another file needs no reset.
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const cannotShow = failedFor === nodeId;
+  const [parentName, setParentName] = useState<string | null>(null);
+  const parentId = node?.parent_id ?? null;
+  // V03: the folder the file is in, named under the title.
+  useEffect(() => {
+    setParentName(null);
+    if (!parentId) return;
+    let live = true;
+    api
+      .node(parentId)
+      .then((p) => live && setParentName(p.name))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [parentId]);
+  const reportCannotShow = useCallback(() => setFailedFor(nodeId), [nodeId]);
 
   useEffect(() => {
     let live = true;
@@ -52,60 +81,78 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
     node && node.kind === "file" ? viewKind(node.name) : null;
 
   return (
-    <div className="viewer">
-      <div className="viewer-bar">
-        <button type="button" onClick={back}>
-          ← Back
-        </button>
-        <h1 className="viewer-title">{node?.name ?? "Opening…"}</h1>
-        {node?.kind === "file" && (
-          <a className="button" href={api.downloadUrl(nodeId)} download>
-            Download
-          </a>
+    <ReportCannotShow.Provider value={reportCannotShow}>
+      <div className="viewer">
+        <div className="viewer-bar">
+          <button type="button" onClick={back}>
+            ← Back
+          </button>
+          <div className="viewer-heading">
+            <h1 className="viewer-title">{node?.name ?? "Opening…"}</h1>
+            {parentId && (
+              <p className="muted viewer-where">
+                in{" "}
+                <a
+                  href={folderPath(parentId)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(folderPath(parentId));
+                  }}
+                >
+                  {parentName ?? "the folder"}
+                </a>
+              </p>
+            )}
+          </div>
+          {node?.kind === "file" && !cannotShow && (
+            <a className="button" href={api.downloadUrl(nodeId)} download>
+              Download
+            </a>
+          )}
+        </div>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        {!error && node === null && <Loading />}
+        {node !== null && node.kind !== "file" && (
+          <Unsupported nodeId={nodeId} reason="This is not a file." />
+        )}
+        {node !== null && node.kind === "file" && kind === null && (
+          <Unsupported
+            nodeId={nodeId}
+            reason="There is no preview for this kind of file here yet."
+          />
+        )}
+        {node !== null && kind === "pdf" && (
+          <PdfView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
+        )}
+        {node !== null && kind === "office" && (
+          <OfficeView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
+        )}
+        {node !== null && kind === "archive" && (
+          <ArchiveView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
+        )}
+        {node !== null && kind === "image" && (
+          <ImageView key={nodeId} nodeId={nodeId} name={node.name} />
+        )}
+        {node !== null && (kind === "text" || kind === "csv") && (
+          <TextView
+            key={nodeId}
+            nodeId={nodeId}
+            onEnded={onEnded}
+            delimiter={
+              kind === "csv"
+                ? node.name.toLowerCase().endsWith(".tsv")
+                  ? "\t"
+                  : ","
+                : null
+            }
+          />
         )}
       </div>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      {!error && node === null && <Loading />}
-      {node !== null && node.kind !== "file" && (
-        <Unsupported nodeId={nodeId} reason="This is not a file." />
-      )}
-      {node !== null && node.kind === "file" && kind === null && (
-        <Unsupported
-          nodeId={nodeId}
-          reason="There is no preview for this kind of file here yet."
-        />
-      )}
-      {node !== null && kind === "pdf" && (
-        <PdfView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
-      )}
-      {node !== null && kind === "office" && (
-        <OfficeView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
-      )}
-      {node !== null && kind === "archive" && (
-        <ArchiveView key={nodeId} nodeId={nodeId} onEnded={onEnded} />
-      )}
-      {node !== null && kind === "image" && (
-        <ImageView key={nodeId} nodeId={nodeId} name={node.name} />
-      )}
-      {node !== null && (kind === "text" || kind === "csv") && (
-        <TextView
-          key={nodeId}
-          nodeId={nodeId}
-          onEnded={onEnded}
-          delimiter={
-            kind === "csv"
-              ? node.name.toLowerCase().endsWith(".tsv")
-                ? "\t"
-                : ","
-              : null
-          }
-        />
-      )}
-    </div>
+    </ReportCannotShow.Provider>
   );
 }
 
@@ -124,6 +171,10 @@ function Unsupported({ nodeId, reason }: { nodeId: string; reason: string }) {
 }
 
 function CouldNotShow({ nodeId, text }: { nodeId: string; text: string }) {
+  const report = useContext(ReportCannotShow);
+  useEffect(() => {
+    report();
+  }, [report]);
   return (
     <section className="viewer-note" role="alert">
       <h2>This file cannot be shown</h2>

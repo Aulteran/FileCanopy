@@ -28,6 +28,7 @@ import { ServerSettingsPage } from "./ServerSettings";
 import { ProfileMenu } from "./ProfileMenu";
 import {
   ADMIN_PATH,
+  MAILBOX_PATH,
   BACKUPS_PATH,
   COLLECTIONS_PATH,
   DUPLICATES_PATH,
@@ -240,7 +241,7 @@ function Shell({
     return () => clearInterval(t);
   }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
-  // The Email inbox exists only once incoming mail is set up (Step 5).
+  // The Email inbox exists only once incoming mail is set up (Step 3, Mail server).
   const incomingMail = session.incoming_mail === true;
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
   const [bellOpen, setBellOpen] = useState(false);
@@ -779,7 +780,7 @@ function Shell({
         {sharedBy && <SharedByYouPage />}
         {users &&
           (admin ? (
-            <UsersPage me={session.user.id} onEnded={onEnded} />
+            <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
           ) : (
             <p>Only administrators can manage users.</p>
           ))}
@@ -795,8 +796,17 @@ function Shell({
               </p>
               {admin && (
                 <p>
-                  To set it up, open <a href={ADMIN_PATH}>Admin</a> and go to
-                  Step 5: Incoming mail.
+                  To set it up, open{" "}
+                  <a
+                    href={MAILBOX_PATH}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(MAILBOX_PATH);
+                    }}
+                  >
+                    Admin, Mail server
+                  </a>{" "}
+                  and turn on incoming mail.
                 </p>
               )}
             </section>
@@ -818,6 +828,7 @@ function Shell({
         )}
         {organize && (
           <OrganizePage
+            admin={admin}
             go={go}
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
@@ -843,7 +854,7 @@ function Shell({
           ))}
         {usageRoute &&
           (admin ? (
-            <UsagePage />
+            <UsagePage onAi={() => setAiSettings(true)} />
           ) : (
             <p>Only administrators can open the usage page.</p>
           ))}

@@ -14,9 +14,9 @@ import {
   type OidcOnly,
   type OneTimeToken,
 } from "./api";
-import { Modal } from "./Dialogs";
+import { ConfirmDialog, Modal } from "./Dialogs";
 import { describeError, formatDate, looksLikeEmail } from "./format";
-import { oneTimeLink } from "./route";
+import { MAILBOX_PATH, oneTimeLink } from "./route";
 
 // Administrators manage accounts here (ADR-012, 07_UI_UX "Admin screens"): invite, new invitation
 // or reset link, role, disable, sign out everywhere. Instance administration only: it shows no
@@ -24,11 +24,27 @@ import { oneTimeLink } from "./route";
 // and the administrator never sees it; otherwise (or if mail fails) the administrator hands over a
 // one-time link, which is shown once and never again.
 
-type Props = { me: string; onEnded: () => void };
+type Props = {
+  me: string;
+  /** Navigates inside the app; without it links are plain links (used inside first-time setup). */
+  go?: (path: string) => void;
+  onEnded: () => void;
+};
 
 type Issued = { email: string; token: OneTimeToken };
 
-export function UsersPage({ me, onEnded }: Props) {
+type RowAction = {
+  key: string;
+  label: string;
+  aria?: string;
+  danger?: boolean;
+  run: () => void;
+};
+
+// Confirmation before a role change or a disable (U01).
+type Pending = { user: Account; action: "role" | "disable" };
+
+export function UsersPage({ me, go, onEnded }: Props) {
   const [users, setUsers] = useState<Account[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -38,6 +54,7 @@ export function UsersPage({ me, onEnded }: Props) {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [emailBad, setEmailBad] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
 
   const describe = useCallback(
     (err: unknown): string => {
@@ -138,23 +155,49 @@ export function UsersPage({ me, onEnded }: Props) {
     if (ok) setInviting(false);
   }
 
+  // One change for one row, with the same notice and reload as the other row actions.
+  async function changeUser(
+    u: Account,
+    patch: { role?: "admin" | "member"; status?: "active" | "disabled" },
+    done: string,
+  ): Promise<void> {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.updateUser(u.id, patch);
+      setNotice(done);
+      load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="users">
       <h1>Users</h1>
-      <p className="hint">
-        Accounts only: this page never shows anyone&apos;s files.{" "}
-        {mail
-          ? "Invitation and reset links can be emailed; a link that was emailed is never shown to you."
-          : "This server does not send email, so copy each invitation or reset link and give it to the person yourself."}
-      </p>
-
-      {config && (
-        <SignInPanel
-          onEffective={setOnlyActive}
-          config={config}
-          onError={fail}
-        />
+      {config && !mail && (
+        <div className="banner info">
+          <p>
+            Email is not set up, so copy invitation links yourself.{" "}
+            <a
+              href={MAILBOX_PATH}
+              onClick={(e) => {
+                if (!go) return;
+                e.preventDefault();
+                go(MAILBOX_PATH);
+              }}
+            >
+              Set up mail
+            </a>
+          </p>
+        </div>
       )}
+      <p className="hint">
+        Accounts only: this page never shows anyone&apos;s files.
+        {mail &&
+          " Invitation and reset links can be emailed; a link that was emailed is never shown to you."}
+      </p>
 
       {issued && <LinkPanel issued={issued} onClose={() => setIssued(null)} />}
 
@@ -187,7 +230,7 @@ export function UsersPage({ me, onEnded }: Props) {
           <Loading />
         ) : (
           <div className="table-scroll">
-            <table aria-label="Accounts" className="models-table">
+            <table aria-label="Accounts" className="models-table users-table">
               <thead>
                 <tr>
                   <th scope="col">Name</th>
@@ -198,169 +241,197 @@ export function UsersPage({ me, onEnded }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <th scope="row">
-                      {u.name}
-                      {u.id === me && " (you)"}
-                    </th>
-                    <td>{u.email}</td>
-                    <td>{u.role === "admin" ? "Administrator" : "Member"}</td>
-                    <td>{STATUS[u.status] ?? u.status}</td>
-                    <td>
-                      <div className="row-actions">
-                        {(u.status === "invited" ||
-                          (onlyActive &&
-                            u.status === "active" &&
-                            !u.sso_linked)) && (
-                          <button
-                            disabled={busy}
-                            aria-label={`New invitation link for ${u.email}`}
-                            onClick={() =>
-                              void act(
-                                () => api.reissueInvitation(u.id),
-                                `New invitation link for ${u.email}`,
-                                u.email,
-                              )
-                            }
-                          >
-                            New invitation link
-                          </button>
-                        )}
-                        {(u.status === "invited" ||
-                          (onlyActive &&
-                            u.status === "active" &&
-                            !u.sso_linked)) &&
-                          mail && (
-                            <button
+                {users.map((u) => {
+                  const invite =
+                    u.status === "invited" ||
+                    (onlyActive && u.status === "active" && !u.sso_linked);
+                  const reset = u.status === "active" && !onlyActive;
+                  const primary = invite ? (
+                    <button
+                      key="primary"
+                      disabled={busy}
+                      aria-label={`New invitation link for ${u.email}`}
+                      onClick={() =>
+                        void act(
+                          () => api.reissueInvitation(u.id),
+                          `New invitation link for ${u.email}`,
+                          u.email,
+                        )
+                      }
+                    >
+                      New invitation link
+                    </button>
+                  ) : reset ? (
+                    <button
+                      key="primary"
+                      disabled={busy}
+                      aria-label={`Password reset link for ${u.email}`}
+                      onClick={() =>
+                        void act(
+                          () => api.issueReset(u.id),
+                          `Password reset link for ${u.email}`,
+                          u.email,
+                        )
+                      }
+                    >
+                      Reset link
+                    </button>
+                  ) : null;
+                  const more: RowAction[] = [];
+                  if (invite && mail)
+                    more.push({
+                      key: "email-invite",
+                      label: "Email invitation",
+                      aria: `Email a new invitation to ${u.email}`,
+                      run: () =>
+                        void act(
+                          () => api.reissueInvitation(u.id, true),
+                          `New invitation for ${u.email}`,
+                          u.email,
+                        ),
+                    });
+                  if (reset && mail)
+                    more.push({
+                      key: "email-reset",
+                      label: "Email reset",
+                      aria: `Email a password reset to ${u.email}`,
+                      run: () =>
+                        void act(
+                          () => api.issueReset(u.id, true),
+                          `Password reset for ${u.email}`,
+                          u.email,
+                        ),
+                    });
+                  if (u.sso_linked)
+                    more.push({
+                      key: "unlink",
+                      label: "Unlink provider",
+                      aria: `Unlink the sign-in provider of ${u.email}`,
+                      run: () =>
+                        void act(
+                          () => api.unlinkIdentity(u.id),
+                          `Unlinked the sign-in provider of ${u.email}`,
+                        ),
+                    });
+                  if (u.id !== me && u.status === "active")
+                    more.push({
+                      key: "signout",
+                      label: "Sign out everywhere",
+                      aria: `Sign ${u.email} out everywhere`,
+                      run: () =>
+                        void act(
+                          () => api.revokeSessions(u.id),
+                          `Signed ${u.email} out everywhere`,
+                        ),
+                    });
+                  if (u.id !== me)
+                    more.push({
+                      key: "role",
+                      label: u.role === "admin" ? "Make member" : "Make admin",
+                      aria:
+                        u.role === "admin"
+                          ? `Make ${u.email} a member`
+                          : `Make ${u.email} an administrator`,
+                      run: () => setPending({ user: u, action: "role" }),
+                    });
+                  if (u.id !== me)
+                    more.push({
+                      key: "status",
+                      label: u.status === "disabled" ? "Enable" : "Disable",
+                      aria:
+                        u.status === "disabled"
+                          ? `Enable ${u.email}`
+                          : `Disable ${u.email}`,
+                      danger: u.status !== "disabled",
+                      run: () =>
+                        u.status === "disabled"
+                          ? void act(
+                              () => api.updateUser(u.id, { status: "active" }),
+                              `Enabled ${u.email}`,
+                            )
+                          : setPending({ user: u, action: "disable" }),
+                    });
+                  return (
+                    <tr key={u.id}>
+                      <th scope="row">
+                        {u.name}
+                        {u.id === me && " (you)"}
+                      </th>
+                      <td>{u.email}</td>
+                      <td>{u.role === "admin" ? "Administrator" : "Member"}</td>
+                      <td>{STATUS[u.status] ?? u.status}</td>
+                      <td>
+                        <div className="row-actions">
+                          {primary}
+                          {more.length > 0 && (
+                            <RowMenu
+                              email={u.email}
+                              items={more}
                               disabled={busy}
-                              aria-label={`Email a new invitation to ${u.email}`}
-                              onClick={() =>
-                                void act(
-                                  () => api.reissueInvitation(u.id, true),
-                                  `New invitation for ${u.email}`,
-                                  u.email,
-                                )
-                              }
-                            >
-                              Email invitation
-                            </button>
+                            />
                           )}
-                        {u.status === "active" && !onlyActive && (
-                          <button
-                            disabled={busy}
-                            aria-label={`Password reset link for ${u.email}`}
-                            onClick={() =>
-                              void act(
-                                () => api.issueReset(u.id),
-                                `Password reset link for ${u.email}`,
-                                u.email,
-                              )
-                            }
-                          >
-                            Reset link
-                          </button>
-                        )}
-                        {u.status === "active" && mail && (
-                          <button
-                            disabled={busy}
-                            aria-label={`Email a password reset to ${u.email}`}
-                            onClick={() =>
-                              void act(
-                                () => api.issueReset(u.id, true),
-                                `Password reset for ${u.email}`,
-                                u.email,
-                              )
-                            }
-                          >
-                            Email reset
-                          </button>
-                        )}
-                        {u.sso_linked && (
-                          <button
-                            disabled={busy}
-                            aria-label={`Unlink the sign-in provider of ${u.email}`}
-                            onClick={() =>
-                              void act(
-                                () => api.unlinkIdentity(u.id),
-                                `Unlinked the sign-in provider of ${u.email}`,
-                              )
-                            }
-                          >
-                            Unlink provider
-                          </button>
-                        )}
-                        {u.id !== me && u.status === "active" && (
-                          <button
-                            disabled={busy}
-                            aria-label={`Sign ${u.email} out everywhere`}
-                            onClick={() =>
-                              void act(
-                                () => api.revokeSessions(u.id),
-                                `Signed ${u.email} out everywhere`,
-                              )
-                            }
-                          >
-                            Sign out everywhere
-                          </button>
-                        )}
-                        {u.id !== me && (
-                          <button
-                            disabled={busy}
-                            aria-label={
-                              u.role === "admin"
-                                ? `Make ${u.email} a member`
-                                : `Make ${u.email} an administrator`
-                            }
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api.updateUser(u.id, {
-                                    role:
-                                      u.role === "admin" ? "member" : "admin",
-                                  }),
-                                `Changed the role of ${u.email}`,
-                              )
-                            }
-                          >
-                            {u.role === "admin" ? "Make member" : "Make admin"}
-                          </button>
-                        )}
-                        {u.id !== me && (
-                          <button
-                            disabled={busy}
-                            aria-label={
-                              u.status === "disabled"
-                                ? `Enable ${u.email}`
-                                : `Disable ${u.email}`
-                            }
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api.updateUser(u.id, {
-                                    status:
-                                      u.status === "disabled"
-                                        ? "active"
-                                        : "disabled",
-                                  }),
-                                u.status === "disabled"
-                                  ? `Enabled ${u.email}`
-                                  : `Disabled ${u.email}`,
-                              )
-                            }
-                          >
-                            {u.status === "disabled" ? "Enable" : "Disable"}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
+
+      {config && (
+        <SignInPanel
+          onEffective={setOnlyActive}
+          config={config}
+          onError={fail}
+        />
+      )}
+
+      {pending && (
+        <ConfirmDialog
+          title={
+            pending.action === "disable"
+              ? `Disable ${pending.user.email}?`
+              : pending.user.role === "admin"
+                ? `Make ${pending.user.email} a member?`
+                : `Make ${pending.user.email} an administrator?`
+          }
+          body={
+            pending.action === "disable"
+              ? `${pending.user.name} cannot sign in until you enable the account again.`
+              : pending.user.role === "admin"
+                ? `${pending.user.name} loses administrator access to accounts and server settings.`
+                : `${pending.user.name} can manage accounts and server settings.`
+          }
+          confirmLabel={
+            pending.action === "disable"
+              ? "Disable account"
+              : pending.user.role === "admin"
+                ? "Make member"
+                : "Make administrator"
+          }
+          danger={pending.action === "disable"}
+          onConfirm={async () => {
+            const u = pending.user;
+            if (pending.action === "disable")
+              await changeUser(
+                u,
+                { status: "disabled" },
+                `Disabled ${u.email}`,
+              );
+            else
+              await changeUser(
+                u,
+                { role: u.role === "admin" ? "member" : "admin" },
+                `Changed the role of ${u.email}`,
+              );
+            setPending(null);
+          }}
+          onClose={() => setPending(null)}
+        />
+      )}
       {inviting && (
         <Modal title="Invite user" onClose={() => setInviting(false)}>
           <form
@@ -433,6 +504,68 @@ export function UsersPage({ me, onEnded }: Props) {
             </div>
           </form>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+/** A "More" menu for the less common row actions (U01). Closes on outside click or Escape. */
+function RowMenu({
+  email,
+  items,
+  disabled,
+}: {
+  email: string;
+  items: RowAction[];
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent): void {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return (
+    <div className="row-menu" ref={wrap}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`More actions for ${email}`}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+      >
+        More
+      </button>
+      {open && (
+        <div role="menu" className="row-menu-list">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="menuitem"
+              className={item.danger ? "danger" : undefined}
+              aria-label={item.aria ?? item.label}
+              onClick={() => {
+                setOpen(false);
+                item.run();
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -537,8 +670,10 @@ function SignInPanel({
   }
 
   return (
-    <section aria-labelledby="signin-title" className="panel">
-      <h2 id="signin-title">Mail and single sign-on</h2>
+    <section
+      aria-label="Mail and single sign-on"
+      className="panel signin-panel"
+    >
       <p>
         {smtp.configured
           ? `Email is sent from ${smtp.from} through ${smtp.host}.`

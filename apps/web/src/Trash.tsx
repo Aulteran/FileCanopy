@@ -30,6 +30,8 @@ type Confirm =
   | { kind: "item"; item: TrashItem }
   | { kind: "empty"; root: TrashRoot; name: string };
 
+const CANNOT_UNDO = "This action cannot be undone";
+
 function restoredText(item: TrashItem, name: string): string {
   return name !== item.name
     ? `Restored as ${name}, because ${item.name} was taken.`
@@ -109,13 +111,6 @@ export function TrashPage({ onEnded, onChanged }: Props) {
     });
 
   if (state === "loading") return <Loading />;
-  if (state === "error")
-    return (
-      <p role="alert" className="error">
-        {error}
-      </p>
-    );
-
   const rootName = (id: string | null): string =>
     data?.roots.find((r) => r.root_node_id === id)?.kind === "shared"
       ? "Server files"
@@ -123,7 +118,28 @@ export function TrashPage({ onEnded, onChanged }: Props) {
 
   return (
     <section aria-labelledby="trash-h" className="trash">
-      <h1 id="trash-h">Trash</h1>
+      <div className="page-head">
+        <h1 id="trash-h">Trash</h1>
+        {data && data.roots.length > 0 && (
+          <div className="actions">
+            {data.roots
+              .filter((r) => r.item_count > 0)
+              .map((r) => {
+                const name = rootName(r.root_node_id);
+                return (
+                  <button
+                    key={r.root_node_id}
+                    type="button"
+                    className="danger"
+                    onClick={() => setConfirm({ kind: "empty", root: r, name })}
+                  >
+                    Empty {name} trash…
+                  </button>
+                );
+              })}
+          </div>
+        )}
+      </div>
       <p className="hint">
         Deleted items wait here.{" "}
         {data?.retention_days
@@ -162,23 +178,6 @@ export function TrashPage({ onEnded, onChanged }: Props) {
             </button>
           </p>
         ))}
-      {data && data.roots.length > 0 && (
-        <div className="actions">
-          {data.roots
-            .filter((r) => r.item_count > 0)
-            .map((r) => {
-              const name = rootName(r.root_node_id);
-              return (
-                <button
-                  key={r.root_node_id}
-                  onClick={() => setConfirm({ kind: "empty", root: r, name })}
-                >
-                  Empty trash of {name}…
-                </button>
-              );
-            })}
-        </div>
-      )}
       {items.length === 0 ? (
         <p className="empty">The Trash is empty.</p>
       ) : (
@@ -455,17 +454,20 @@ export function RecentPage({
                   <strong>{describeRecent(r)}</strong>
                 </button>
                 <span className="meta">{formatDate(r.at)}</span>
-                {r.undone && <span className="meta">Undone</span>}
+                {r.undone && <span className="badge">Undone</span>}
               </div>
-              <div className="actions">
-                <button
-                  disabled={!r.reversible}
-                  aria-label={`Undo ${describeRecent(r)}`}
-                  onClick={() => void undo(r)}
-                >
-                  Undo
-                </button>
-              </div>
+              {!r.undone && (
+                <div className="actions">
+                  <button
+                    disabled={!r.reversible}
+                    title={r.reversible ? undefined : CANNOT_UNDO}
+                    aria-label={`Undo ${describeRecent(r)}`}
+                    onClick={() => void undo(r)}
+                  >
+                    Undo
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -511,12 +513,13 @@ export function RecentPage({
                         {text.where && (
                           <span className="meta">{text.where}</span>
                         )}
-                        {item.undone && <span className="meta">Undone</span>}
+                        {item.undone && <span className="badge">Undone</span>}
                       </div>
-                      {detail.kind === "batch" && (
+                      {detail.kind === "batch" && !item.undone && (
                         <div className="actions">
                           <button
                             disabled={!item.reversible}
+                            title={item.reversible ? undefined : CANNOT_UNDO}
                             aria-label={`Undo ${text.name}`}
                             onClick={() => void undoItem(item)}
                           >

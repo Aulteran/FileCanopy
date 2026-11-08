@@ -10,6 +10,7 @@ import {
   type JobForm,
 } from "./backupForm";
 import { describeError, formatDate } from "./format";
+import { ConfirmDialog } from "./Dialogs";
 
 function message(err: unknown): string {
   const code = err instanceof ApiError ? err.code : "UNKNOWN";
@@ -90,6 +91,7 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [recovery, setRecovery] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<BackupJob | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -141,10 +143,7 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
     }
   }
 
-  async function act(
-    job: BackupJob,
-    what: "test" | "run" | "delete",
-  ): Promise<void> {
+  async function act(job: BackupJob, what: "test" | "run"): Promise<void> {
     setError("");
     setNotice("");
     try {
@@ -155,10 +154,6 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
         await api.runBackupJob(job.id);
         setNotice(`“${job.name}” is queued.`);
         window.setTimeout(() => void load(), 3000);
-      } else {
-        if (!window.confirm(`Remove the job “${job.name}”?`)) return;
-        await api.deleteBackupJob(job.id);
-        await load();
       }
     } catch (err) {
       const fingerprint =
@@ -173,7 +168,7 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
 
   const remote = form.destType !== "local";
   return (
-    <section aria-labelledby="bk-jobs">
+    <section aria-labelledby="bk-jobs" className="card">
       <h2 id="bk-jobs">Backup jobs</h2>
       <p className="hint">
         A job decides what is backed up, whether it is encrypted, where it is
@@ -253,7 +248,7 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
                 >
                   Back up now
                 </button>
-                <button type="button" onClick={() => void act(job, "delete")}>
+                <button type="button" onClick={() => setRemoving(job)}>
                   Remove
                 </button>
               </div>
@@ -564,6 +559,21 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
             </button>
           </div>
         </form>
+      )}
+      {removing && (
+        <ConfirmDialog
+          title={`Remove the job “${removing.name}”?`}
+          body="The job, its schedule and its settings are deleted."
+          confirmLabel="Remove job"
+          danger
+          onConfirm={async () => {
+            const job = removing;
+            await api.deleteBackupJob(job.id);
+            setRemoving(null);
+            await load();
+          }}
+          onClose={() => setRemoving(null)}
+        />
       )}
     </section>
   );
