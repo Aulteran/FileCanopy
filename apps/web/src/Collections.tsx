@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
@@ -125,10 +126,14 @@ function CollectionList({
           Create
         </button>
       </form>
-      {error && <p role="alert">{error}</p>}
-      {items === null && !error && <p>Loading…</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {items === null && !error && <Loading />}
       {items !== null && items.length === 0 && (
-        <p>
+        <p className="empty">
           No collections yet. Create one above, or choose “Add to collection” on
           a file.
         </p>
@@ -217,7 +222,14 @@ function CollectionView({
         <button onClick={() => go("/collections")}>All collections</button>
       </section>
     );
-  if (!data) return error ? <p role="alert">{error}</p> : <p>Loading…</p>;
+  if (!data)
+    return error ? (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    ) : (
+      <Loading />
+    );
   const owner = data.role === "owner";
 
   return (
@@ -238,8 +250,16 @@ function CollectionView({
         {describeCount(data)} you can open ·{" "}
         {roleText(data.role, data.owner_name)}
       </p>
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
+      {message && (
+        <p role="status" className="notice">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
       {owner && (
         <form
           onSubmit={(e) => {
@@ -484,7 +504,7 @@ export function AddToCollectionDialog({
 
   return (
     <Modal title={`Add “${name}” to a collection`} onClose={onClose}>
-      {items === null && !error && <p>Loading…</p>}
+      {items === null && !error && <Loading />}
       <ul className="plain">
         {items?.map((c) => (
           <li key={c.id}>
@@ -600,7 +620,12 @@ export function CollectionSuggestions({
     });
   }
 
-  if (items === null) return error ? <p role="alert">{error}</p> : null;
+  if (items === null)
+    return error ? (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    ) : null;
   if (items.length === 0 && !error) return null;
   return (
     <section aria-labelledby="coll-sugg">
@@ -609,7 +634,11 @@ export function CollectionSuggestions({
         AI can suggest files that belong together. Nothing is created until you
         approve it. Uncheck any file you do not want in the collection.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
       {items.map((s) => (
         <div key={s.id}>
           <label>

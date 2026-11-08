@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type ServerPrivacy, type ServerStorage } from "./api";
 import { describeError } from "./format";
@@ -11,8 +12,8 @@ type Access = ServerStorage["shared_default_access"];
 
 const ACCESS: Record<Access, string> = {
   none: "No access until shared on purpose",
-  viewer: "Can view the shared tree",
-  editor: "Can view and edit the shared tree",
+  viewer: "Can view Server files",
+  editor: "Can view and edit Server files",
 };
 
 export function validRetention(text: string): boolean {
@@ -91,7 +92,13 @@ export function ServerSettingsPage({ onEnded }: Props) {
     return (
       <section aria-labelledby="settings-h">
         <h1 id="settings-h">Server settings</h1>
-        {error ? <p role="alert">{error}</p> : <p>Loading…</p>}
+        {error ? (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        ) : (
+          <Loading />
+        )}
       </section>
     );
   }
@@ -108,8 +115,16 @@ export function ServerSettingsPage({ onEnded }: Props) {
         Settings that apply to everyone on this server. AI, users, email and
         backups have their own pages under Admin.
       </p>
-      {error && <p role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
+        </p>
+      )}
 
       <form
         aria-labelledby="settings-trash-h"
@@ -156,7 +171,7 @@ export function ServerSettingsPage({ onEnded }: Props) {
           )
         }
       >
-        <h2 id="settings-access-h">Shared tree for new accounts</h2>
+        <h2 id="settings-access-h">Server files for new accounts</h2>
         <label>
           Default access
           <select

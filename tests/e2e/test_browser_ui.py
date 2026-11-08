@@ -404,7 +404,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
             panel.get_by_role("button", name="Invite user", exact=True).click()
             popup = page.get_by_role("dialog", name="Invite user")
             expect(popup.get_by_role("button", name="Create invitation")).to_be_visible()
-            popup.get_by_role("button", name="Dismiss dialog").click()
+            popup.get_by_role("button", name="Close", exact=True).click()
             expect(page.get_by_role("dialog")).to_have_count(0)
         panel.get_by_role("button", name="Close", exact=True).first.click()
         expect(panel).to_have_count(0)

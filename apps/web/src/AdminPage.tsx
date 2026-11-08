@@ -46,7 +46,7 @@ export function AdminPage({
     {
       path: MAILBOX_PATH,
       icon: "mail" as const,
-      title: "Mailbox",
+      title: "Mail server",
       text: "Server email (SMTP and inbound) and quarantined messages.",
     },
     {
@@ -87,7 +87,7 @@ export function AdminPage({
           <button type="button" className="admin-card" onClick={onAi}>
             <Icon name="sparkles" />
             <strong>AI</strong>
-            <span>Optional AI providers and what content they may see.</span>
+            <span>AI models, what they may see, and spending limits.</span>
           </button>
         </li>
       </ul>
@@ -226,9 +226,10 @@ export function ServerSetupStep({
           <ol className="setup-steps">
             <li className={view === "ai" ? "active" : undefined}>
               <StepDone done={stepMarked("ai", done, skipped)} />
-              <strong>Step 1: AI (optional)</strong>
+              <strong>Step 1: AI</strong>
               <p>
-                Choose whether and how AI helps. FileCanopy works without it.
+                Choose how AI organizes, searches and answers questions about
+                your files.
               </p>
               <div className="step-actions">
                 <button type="button" {...step("ai")}>

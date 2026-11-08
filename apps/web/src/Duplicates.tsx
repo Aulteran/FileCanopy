@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, type DuplicateGroup } from "./api";
 import { describeError, formatSize } from "./format";
@@ -5,7 +6,7 @@ import { viewPath } from "./route";
 import { viewKind } from "./viewerTypes";
 
 // Duplicate files among those you can open (M17). This page only reports. Nothing is removed
-// unless you press "Move to trash" on a copy yourself; the trash keeps it and it can be restored.
+// unless you press "Move to Trash" on a copy yourself; Trash keeps it and it can be restored.
 
 function errorOf(err: unknown, onEnded: () => void): string {
   if (err instanceof ApiError && err.status === 401) onEnded();
@@ -53,16 +54,14 @@ export function DuplicatesPage({
 
   async function trash(id: string, name: string, revision: number) {
     if (
-      !window.confirm(
-        `Move “${name}” to the trash? You can restore it from the trash.`,
-      )
+      !window.confirm(`Move “${name}” to Trash? You can restore it from Trash.`)
     )
       return;
     setBusy(true);
     setError("");
     try {
       await api.deleteNode(id, revision);
-      setMessage(`“${name}” is in the trash.`);
+      setMessage(`“${name}” is in Trash.`);
       onChanged();
     } catch (err) {
       setError(errorOf(err, onEnded));
@@ -109,7 +108,7 @@ export function DuplicatesPage({
                 disabled={busy}
                 onClick={() => void trash(m.node_id, m.name, m.revision)}
               >
-                Move to trash
+                Move to Trash
               </button>
             </li>
           ))}
@@ -124,7 +123,7 @@ export function DuplicatesPage({
       <p className="muted">
         Files that are the same, or almost the same, among the files you can
         open. Nothing here is changed or removed for you. Compare the copies and
-        move the ones you do not need to the trash yourself.
+        move the ones you do not need to Trash yourself.
       </p>
       <label>
         <input
@@ -137,11 +136,19 @@ export function DuplicatesPage({
         />{" "}
         Also show files with almost the same text
       </label>
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
-      {groups === null && !error && <p>Looking…</p>}
+      {message && (
+        <p role="status" className="notice">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {groups === null && !error && <Loading text="Looking…" />}
       {groups !== null && groups.length === 0 && (
-        <p>
+        <p className="empty">
           No duplicates found. New files appear after they have been scanned.
         </p>
       )}

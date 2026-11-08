@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { Icon } from "./Icon";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -107,13 +108,18 @@ export function TrashPage({ onEnded, onChanged }: Props) {
       return describeCheck(r);
     });
 
-  if (state === "loading") return <p className="loading">Loading…</p>;
-  if (state === "error") return <p role="alert">{error}</p>;
+  if (state === "loading") return <Loading />;
+  if (state === "error")
+    return (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    );
 
   const rootName = (id: string | null): string =>
     data?.roots.find((r) => r.root_node_id === id)?.kind === "shared"
-      ? "the server files"
-      : "your folder";
+      ? "Server files"
+      : "My files";
 
   return (
     <section aria-labelledby="trash-h" className="trash">
@@ -419,7 +425,7 @@ export function RecentPage({
     });
   }
 
-  if (state === "loading") return <p className="loading">Loading…</p>;
+  if (state === "loading") return <Loading />;
   return (
     <section aria-labelledby="recent-h">
       <h1 id="recent-h">Recent actions</h1>

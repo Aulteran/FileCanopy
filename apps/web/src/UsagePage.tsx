@@ -46,7 +46,7 @@ export function UsagePage() {
             </p>
           )}
           {usage.models.length === 0 ? (
-            <p className="muted empty-state">
+            <p className="empty">
               No models yet. Add one under Administration, AI.
             </p>
           ) : (

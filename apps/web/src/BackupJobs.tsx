@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type BackupJob } from "./api";
 import {
@@ -149,13 +150,13 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
     try {
       if (what === "test") {
         await api.testBackupJob(job.id);
-        setNotice(`Connection to "${job.name}" works.`);
+        setNotice(`Connection to “${job.name}” works.`);
       } else if (what === "run") {
         await api.runBackupJob(job.id);
-        setNotice(`"${job.name}" is queued.`);
+        setNotice(`“${job.name}” is queued.`);
         window.setTimeout(() => void load(), 3000);
       } else {
-        if (!window.confirm(`Remove the job "${job.name}"?`)) return;
+        if (!window.confirm(`Remove the job “${job.name}”?`)) return;
         await api.deleteBackupJob(job.id);
         await load();
       }
@@ -195,9 +196,11 @@ export function BackupJobsPanel({ onEnded }: { onEnded: () => void }) {
         </div>
       )}
       {jobs === null ? (
-        <p className="loading">Loading…</p>
+        <Loading />
       ) : jobs.length === 0 ? (
-        <p>No jobs yet. The settings above are the default job.</p>
+        <p className="empty">
+          No jobs yet. The settings above are the default job.
+        </p>
       ) : (
         <ul className="plain">
           {jobs.map((job) => (

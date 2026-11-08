@@ -121,7 +121,7 @@ def test_add_model_popup_closes_with_x_escape_and_backdrop(browser: Browser, wor
     # the X closes it
     add.click()
     expect(popup).to_be_visible()
-    popup.get_by_role("button", name="Dismiss dialog").click()
+    popup.get_by_role("button", name="Close", exact=True).click()
     expect(popup).to_have_count(0)
     # Escape closes only the popup, not the AI dialog under it, and focus returns to the opener
     add.click()

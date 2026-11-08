@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import type { EntryPoint } from "./api";
 import { folderPath } from "./route";
 
@@ -20,7 +21,7 @@ export function SharedWithYouPage({
         part of the Server files.
       </p>
       {roots === null ? (
-        <p className="loading">Loading…</p>
+        <Loading />
       ) : items.length === 0 ? (
         <p>Nothing has been shared with you yet.</p>
       ) : (

@@ -70,7 +70,12 @@ export function ConnectedApps({ reauthed = false }: { reauthed?: boolean }) {
     }
   }
 
-  if (status === null) return error ? <p role="alert">{error}</p> : null;
+  if (status === null)
+    return error ? (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    ) : null;
   if (!status.enabled) return null;
   return (
     <section aria-labelledby="connected-apps">

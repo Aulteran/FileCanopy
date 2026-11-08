@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useEffect, useState } from "react";
 import { ApiError, api, type SearchHit, type SearchStatus } from "./api";
 import { AskPanel } from "./Ask";
@@ -67,8 +68,12 @@ export function SearchPage({ q, go, onEnded }: Props) {
       <p className="hint">
         Showing results for <strong>{q}</strong>
       </p>
-      {state === "loading" && <p>Searching…</p>}
-      {state === "error" && <p role="alert">{error}</p>}
+      {state === "loading" && <Loading text="Searching…" />}
+      {state === "error" && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
       {state === "ready" && hits.length === 0 && (
         <p>Nothing matches. Check the spelling, or try fewer words.</p>
       )}

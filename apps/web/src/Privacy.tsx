@@ -104,12 +104,16 @@ export function LockCard({
         )}
       </label>
       {pin?.disabled && (
-        <p role="alert">
+        <p role="alert" className="error">
           Your PIN was turned off after too many wrong tries. Set a new one in
           Account.
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
       <button
         type="submit"
         className="primary"
@@ -255,7 +259,11 @@ export function PrivacyDialog({
             />
           </label>
         )}
-        {error && <p role="alert">{error}</p>}
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
         <div className="actions">
           <button type="button" onClick={onClose}>
             Cancel

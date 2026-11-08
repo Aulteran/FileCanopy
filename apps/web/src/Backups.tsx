@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
@@ -162,7 +163,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
         {error}
       </p>
     ) : (
-      <p className="loading">Loading…</p>
+      <Loading />
     );
 
   const est = status.estimates;
@@ -297,7 +298,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
         </p>
         {saved && <p role="status">Saved.</p>}
         <div className="row">
-          <button type="submit" disabled={busy}>
+          <button type="submit" className="primary" disabled={busy}>
             Save
           </button>
           <button
@@ -451,7 +452,7 @@ function OwnerKeyRoot({
     }
   }
 
-  if (info === null) return <p className="loading">Loading…</p>;
+  if (info === null) return <Loading />;
   if (!info.backups_enabled || !info.encrypted)
     return (
       <p className="hint">
@@ -668,9 +669,9 @@ function RestoreRoot({
     <form onSubmit={(e) => void restore(e)} className="stack-form">
       <h3 id={id}>{root.name}</h3>
       {points === null ? (
-        <p className="loading">Loading…</p>
+        <Loading />
       ) : points.length === 0 ? (
-        <p className="hint">There are no backups of this folder yet.</p>
+        <p className="empty">There are no backups of this folder yet.</p>
       ) : (
         <>
           <label>

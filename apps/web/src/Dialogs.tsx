@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import {
   useEffect,
   useId,
@@ -91,11 +92,11 @@ export function Modal({
       <button
         type="button"
         className="modal-x"
-        aria-label="Dismiss dialog"
+        aria-label="Close"
         title="Close"
         onClick={onClose}
       >
-        ×
+        <Icon name="close" />
       </button>
       <h2 id={titleId}>{title}</h2>
       {children}

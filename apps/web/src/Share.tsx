@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type Grant, type Notice, type Person } from "./api";
 import { Modal } from "./Dialogs";
@@ -93,7 +94,7 @@ export function ShareDialog({
 
   const taken = new Set((grants ?? []).map((g) => g.grantee_user_id));
   return (
-    <Modal title={`Share "${folderName}"`} onClose={onClose}>
+    <Modal title={`Share “${folderName}”`} onClose={onClose}>
       <form onSubmit={add}>
         <label>
           Add people
@@ -139,13 +140,13 @@ export function ShareDialog({
             <option value="editor">Edit</option>
           </select>
         </label>
-        <button type="submit" className="primary" disabled={busy || !chosen}>
+        <button type="submit" disabled={busy || !chosen}>
           Add
         </button>
       </form>
       <h3>People with access</h3>
       {grants === null ? (
-        <p>Loading…</p>
+        <Loading />
       ) : grants.length === 0 ? (
         <p className="hint">Not shared with anyone yet.</p>
       ) : (

@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, type ArchiveListing, type NodeInfo } from "./api";
 import { describeError, formatSize } from "./format";
@@ -68,7 +69,7 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
           {error}
         </p>
       )}
-      {!error && node === null && <p className="loading">Loading…</p>}
+      {!error && node === null && <Loading />}
       {node !== null && node.kind !== "file" && (
         <Unsupported nodeId={nodeId} reason="This is not a file." />
       )}
@@ -283,7 +284,7 @@ function TextView({
     return () => abort.abort();
   }, [nodeId, delimiter, onEnded]);
 
-  if (data.state === "loading") return <p className="loading">Loading…</p>;
+  if (data.state === "loading") return <Loading />;
   if (data.state === "error")
     return <CouldNotShow nodeId={nodeId} text={data.text} />;
   return (
@@ -506,7 +507,7 @@ function ArchiveView({
     };
   }, [nodeId, onEnded, attempt]);
 
-  if (data.state === "loading") return <p className="loading">Loading…</p>;
+  if (data.state === "loading") return <Loading />;
   if (data.state === "optin")
     return <AllowPreviews onAllowed={() => setAttempt((n) => n + 1)} />;
   if (data.state === "error")
@@ -674,7 +675,7 @@ function PdfView({
   }, [doc]);
 
   if (error) return <CouldNotShow nodeId={nodeId} text={error} />;
-  if (!doc || !firstSize) return <p className="loading">Loading…</p>;
+  if (!doc || !firstSize) return <Loading />;
 
   // Fit to the width of the window (with a little margin), then apply the zoom.
   const fitW = width > 0 ? Math.max(0.2, (width - 24) / firstSize[0]) : 1;

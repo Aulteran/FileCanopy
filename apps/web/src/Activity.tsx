@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useEffect, useState } from "react";
 import { ApiError, api, type ActivityEvent } from "./api";
 import { describeError, formatDate } from "./format";
@@ -60,7 +61,7 @@ export function ActivityPanel({ nodeId }: { nodeId: string }) {
           <p role="alert" className="error">
             {error}
           </p>
-          {events === null && !error && <p className="hint">Loading…</p>}
+          {events === null && !error && <Loading />}
           {events !== null && events.length === 0 && (
             <p className="hint">No recorded activity yet.</p>
           )}

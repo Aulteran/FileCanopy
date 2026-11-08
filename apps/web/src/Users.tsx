@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import {
   useCallback,
   useEffect,
@@ -183,7 +184,7 @@ export function UsersPage({ me, onEnded }: Props) {
           </button>
         </div>
         {users === null ? (
-          <p className="loading">Loading…</p>
+          <Loading />
         ) : (
           <div className="table-scroll">
             <table aria-label="Accounts" className="models-table">

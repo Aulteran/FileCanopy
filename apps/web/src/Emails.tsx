@@ -67,7 +67,12 @@ export function SenderAddresses({ reauthed = false }: { reauthed?: boolean }) {
     }
   }
 
-  if (data === null) return error ? <p role="alert">{error}</p> : null;
+  if (data === null)
+    return error ? (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    ) : null;
   return (
     <section aria-labelledby="sender-addresses">
       <h3 id="sender-addresses">Sender addresses</h3>

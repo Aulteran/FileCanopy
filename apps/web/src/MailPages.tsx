@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
@@ -124,8 +125,10 @@ export function InboxPage({
           {error}
         </p>
       )}
-      {rows === null && !error && <p className="loading">Loading…</p>}
-      {rows !== null && rows.length === 0 && <p>No messages yet.</p>}
+      {rows === null && !error && <Loading />}
+      {rows !== null && rows.length === 0 && (
+        <p className="empty">No messages yet.</p>
+      )}
       {rows !== null && rows.length > 0 && (
         <table>
           <thead>
@@ -307,7 +310,7 @@ export function MailboxAdminPage({
 
   return (
     <section aria-labelledby="mailbox-title">
-      <h1 id="mailbox-title">Mailbox and quarantine</h1>
+      <h1 id="mailbox-title">Mail server</h1>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -415,7 +418,7 @@ export function MailboxAdminPage({
         Mail that could not be matched to a person. Nothing here has been given
         to anyone or to any AI service. Attachments download as inert files.
       </p>
-      {rows.length === 0 && <p>Nothing is held.</p>}
+      {rows.length === 0 && <p className="empty">Nothing is held.</p>}
       {rows.length > 0 && (
         <ul className="plain">
           {rows.map((m) => (

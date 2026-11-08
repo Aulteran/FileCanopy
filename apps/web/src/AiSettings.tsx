@@ -747,10 +747,10 @@ function SemanticSection({
     <section>
       {!serverSetup && <h3>Meaning-based search</h3>}
       <p className="muted">
-        Optional. When an administrator connects a model server on your own
-        network, search can also find files whose meaning is close to your
-        words. Nothing is sent to a cloud service, Confidential files are never
-        used, and ordinary search works with or without it.
+        When an administrator connects a model server on your own network,
+        search can also find files whose meaning is close to your words. Nothing
+        is sent to a cloud service, Confidential files are never used, and
+        ordinary search works with or without it.
       </p>
       {!serverSetup && (
         <label>
@@ -1045,9 +1045,7 @@ function ModelsSection({
         )}
       </div>
       {instance.models.length === 0 ? (
-        <p className="muted empty-state">
-          No models yet. Add one to start. FileCanopy works without any.
-        </p>
+        <p className="empty">No models yet. Add one to start.</p>
       ) : (
         <div className="table-scroll">
           <table className="models-table">

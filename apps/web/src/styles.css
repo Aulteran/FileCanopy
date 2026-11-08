@@ -36,6 +36,7 @@
   --primary: #2f6b4f;
   --primary-strong: #245a41;
   --on-primary: #ffffff;
+  --on-danger: #ffffff;
   --leaf: #8cc152;
   --sel: #e1eedd;
   --sun: #f2b94b;
@@ -77,6 +78,7 @@
     --primary: #7cc59a;
     --primary-strong: #94d3ad;
     --on-primary: #0d1a12;
+    --on-danger: #1c0a08;
     --leaf: #9fd067;
     --sel: #24382c;
     --sun: #f5c56a;
@@ -262,6 +264,21 @@ input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--primary);
 }
+input,
+select,
+textarea {
+  font-weight: 400;
+}
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+  font-weight: 400;
+}
+label .hint,
+label small,
+label .field-hint {
+  font-weight: 400;
+}
 
 [hidden] {
   display: none !important;
@@ -272,15 +289,6 @@ label {
   margin: 12px 0;
   font-weight: 700;
   font-size: 0.9rem;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .skip {
@@ -300,9 +308,30 @@ label {
   color: var(--muted);
   margin: 4px 0;
 }
+.muted {
+  color: var(--muted);
+}
+/* plain lists, cards and panels (G18) */
+.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plain > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  padding: 16px 18px;
+}
+.panel {
+  margin-bottom: 20px;
+}
 .error {
   color: var(--danger);
-  min-height: 1.4em;
   margin: 6px 0;
 }
 .loading,
@@ -562,9 +591,6 @@ th {
   width: 18px;
   height: 18px;
 }
-.fi.folder {
-  color: var(--primary);
-}
 .fi.doc {
   color: var(--info);
 }
@@ -735,9 +761,6 @@ dialog h2 {
   font-weight: 400;
   font-size: 1rem;
 }
-progress {
-  accent-color: var(--primary);
-}
 .plan ul,
 .report ul {
   margin: 4px 0 8px;
@@ -746,6 +769,7 @@ progress {
 progress {
   width: 100%;
   height: 14px;
+  accent-color: var(--primary);
 }
 tbody tr.unsupported td,
 tbody tr.missing td {
@@ -850,6 +874,12 @@ button.linklike {
 .backups .stack-form {
   max-width: 460px;
 }
+.stack-form {
+  max-width: 460px;
+}
+input[type="number"] {
+  max-width: 10rem;
+}
 .backups .row {
   display: flex;
   flex-wrap: wrap;
@@ -896,18 +926,6 @@ button.linklike {
 }
 
 /* users, one-time links and upload progress (M06d) */
-select {
-  display: block;
-  width: 100%;
-  min-height: 40px;
-  margin-top: 4px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-  color: var(--text);
-  font: inherit;
-}
 .users {
   max-width: 1000px;
 }
@@ -1013,7 +1031,35 @@ button.danger.primary {
   border-color: var(--danger);
 }
 .notice {
-  margin: 0.25rem 0;
+  margin: 6px 0;
+  color: var(--primary);
+}
+.notice:empty,
+.error:empty {
+  display: none;
+}
+/* loading state: centred muted text with a small spinner (G06) */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--muted);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 2px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .timeline {
   margin: 0.5rem 0 0;
@@ -1234,7 +1280,7 @@ ul.results {
 }
 ul.results li {
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line, #ddd);
+  border-bottom: 1px solid var(--line);
 }
 ul.results .tag {
   margin-left: 0.5rem;
@@ -1249,7 +1295,7 @@ ul.results .snippet {
 .ask {
   margin-top: 2rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--line, #ddd);
+  border-top: 1px solid var(--line);
 }
 .ask form {
   display: flex;
@@ -1334,9 +1380,6 @@ h1.brandh .c {
   vertical-align: middle;
   margin-right: 8px;
 }
-.fi.folder {
-  color: var(--primary);
-}
 .topbar .toplink {
   display: inline-flex;
   align-items: center;
@@ -1377,7 +1420,7 @@ h1.brandh .c {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-m);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  box-shadow: var(--shadow);
 }
 /* Items are right-aligned: row-reverse puts the icon on the right, and in a row-reverse flex
    container flex-start is the right edge. justify-content must be set here because the global
@@ -1407,7 +1450,7 @@ h1.brandh .c {
 }
 .profile-panel > button.danger,
 .profile-panel > button.danger:hover {
-  color: var(--danger, #b3261e);
+  color: var(--danger);
   justify-content: center;
 }
 .profile-panel hr {
@@ -1865,10 +1908,6 @@ section.server-setup > p {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
 }
-.smtp-ok {
-  color: var(--primary);
-  margin: 6px 0;
-}
 .smtp-form .actions {
   justify-content: flex-start;
 }
@@ -1884,7 +1923,7 @@ button.link-button:hover strong {
   text-decoration: underline;
 }
 button.link-button:focus-visible {
-  outline: 2px solid var(--focus, currentColor);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .recent-details {
@@ -1930,8 +1969,8 @@ button.link-button:focus-visible {
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--danger, #b3261e);
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-danger);
   font-size: 11px;
   line-height: 16px;
   font-weight: 700;
@@ -1950,7 +1989,7 @@ button.link-button:focus-visible {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-m);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  box-shadow: var(--shadow);
 }
 @media (max-width: 600px) {
   .bell {
@@ -1982,7 +2021,7 @@ button.link-button:focus-visible {
   position: absolute;
   top: 8px;
   right: 16px;
-  color: #c0392b;
+  color: var(--danger);
   font-size: 22px;
   font-weight: 700;
   line-height: 1;
@@ -1991,7 +2030,7 @@ button.link-button:focus-visible {
 .field-error {
   display: block;
   margin-top: 0.25rem;
-  color: var(--danger, #b3261e);
+  color: var(--danger);
   font-size: 0.75rem;
 }
 
@@ -1999,7 +2038,7 @@ button.link-button:focus-visible {
 .sidenav a .navwarn {
   margin-left: auto;
   flex: none;
-  color: #d9b44a;
+  color: var(--sun);
 }
 /* compact floating prompt in the middle of the content area (no backdrop, no dragging) */
 .setup-prompt {

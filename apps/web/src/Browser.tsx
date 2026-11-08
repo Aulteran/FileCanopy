@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { readZip, ZipError } from "./zipRead";
 import { Icon } from "./Icon";
 import { loadDensity, saveDensity, type Density } from "./density";
@@ -173,7 +174,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       try {
         const node = await api.node(folderId, !background.current);
         const chain: NodeInfo[] = [node];
-        for (let n = node; n.parent_id && chain.length < 64;) {
+        for (let n = node; n.parent_id && chain.length < 64; ) {
           n = await api.node(n.parent_id);
           chain.unshift(n);
         }
@@ -662,7 +663,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     }
   }
 
-  if (state === "loading") return <p className="loading">Loading…</p>;
+  if (state === "loading") return <Loading />;
   if (state === "locked") {
     return (
       <LockCard
@@ -904,7 +905,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
               setUndoable(null);
             }}
           >
-            ×
+            <Icon name="close" />
           </button>
         </div>
       )}
@@ -936,7 +937,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     setJobs((all) => all.filter((x) => x.id !== j.id))
                   }
                 >
-                  ×
+                  <Icon name="close" />
                 </button>
               )}
             </li>
@@ -986,7 +987,7 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
                     setUploads((all) => all.filter((x) => x.id !== u.id))
                   }
                 >
-                  ×
+                  <Icon name="close" />
                 </button>
               )}
             </li>

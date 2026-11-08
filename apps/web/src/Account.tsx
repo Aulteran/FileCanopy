@@ -245,8 +245,8 @@ function PinSection({
       <h3 id="pin-title">Confidential PIN</h3>
       <p className="muted">
         A 6-digit PIN opens Confidential folders and the lock screen (Lock in
-        the top bar). You stay signed in; only the screen and those folders
-        lock.{" "}
+        your profile menu). You stay signed in; only the screen and those
+        folders lock.{" "}
         {st.set
           ? st.disabled
             ? "Your PIN was turned off after too many wrong tries. Set a new one."

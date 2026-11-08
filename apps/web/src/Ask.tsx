@@ -65,11 +65,19 @@ export function AskPanel({ initial, go, onEnded }: Props) {
             <option value="shared">Server files</option>
           </select>
         </label>
-        <button type="submit" disabled={busy || question.trim().length < 2}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={busy || question.trim().length < 2}
+        >
           {busy ? "Asking…" : "Ask"}
         </button>
       </form>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
       {result && (
         <div aria-live="polite">
           {result.answer && (

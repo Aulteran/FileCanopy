@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
@@ -149,7 +150,7 @@ export function OrganizePage({
     try {
       const r = await api.splitUndo(p.id);
       setMessage(
-        `Moved ${r.trashed} new file${r.trashed === 1 ? "" : "s"} to the trash.${
+        `Moved ${r.trashed} new file${r.trashed === 1 ? "" : "s"} to Trash.${
           r.left_in_place.length > 0
             ? ` ${r.left_in_place.length} changed since and stayed where they are.`
             : ""
@@ -172,11 +173,19 @@ export function OrganizePage({
         Files in Private and Confidential folders are never sent to AI. Ask for
         a suggestion by selecting a file and choosing “Suggest organization”.
       </p>
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
-      {pending === null && !error && <p>Loading…</p>}
+      {message && (
+        <p role="status" className="notice">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {pending === null && !error && <Loading />}
       {pending !== null && pending.length === 0 && splits.length === 0 && (
-        <p>No suggestions are waiting.</p>
+        <p className="empty">No suggestions are waiting.</p>
       )}
       {splits.length > 0 && (
         <>
@@ -309,7 +318,7 @@ export function OrganizePage({
                       disabled={busy !== null}
                       onClick={() => void undoSplit(p)}
                     >
-                      Move the new files to the trash
+                      Move the new files to Trash
                     </button>
                   </>
                 )}

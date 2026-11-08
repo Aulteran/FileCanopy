@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { Icon, Wordmark } from "./Icon";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -156,7 +157,7 @@ function SignedInApp() {
       </main>
     );
   }
-  if (boot.state === "loading") return <p className="loading">Loading…</p>;
+  if (boot.state === "loading") return <Loading />;
   if (boot.state === "ready") {
     return (
       <Shell
@@ -377,7 +378,7 @@ function Shell({
       />
     );
   }
-  if (roots === null) return <p className="loading">Loading…</p>;
+  if (roots === null) return <Loading />;
 
   const header = (withBackups: boolean) => (
     <header className="topbar">

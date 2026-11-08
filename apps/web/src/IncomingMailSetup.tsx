@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, type ImapSettings } from "./api";
 import { describeError } from "./format";
@@ -82,7 +83,7 @@ export function IncomingMailSetup({
         {loadError}
       </p>
     ) : (
-      <p className="loading">Loading…</p>
+      <Loading />
     );
   }
   const keepsPassword = saved.has_password && f.username === saved.username;
@@ -315,7 +316,7 @@ export function IncomingMailSetup({
             {result && (
               <p
                 role={result.ok ? "status" : "alert"}
-                className={result.ok ? "smtp-ok" : "error"}
+                className={result.ok ? "notice" : "error"}
               >
                 {result.text}
               </p>

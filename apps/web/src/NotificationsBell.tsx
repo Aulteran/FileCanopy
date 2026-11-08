@@ -1,3 +1,4 @@
+import { Loading } from "./Loading";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, type Notice } from "./api";
 import { describeError, formatDate } from "./format";
@@ -95,8 +96,12 @@ export function NotificationsBell({
       </button>
       {open && (
         <div className="bell-panel" aria-label="Notifications">
-          {state === "loading" && <p className="hint">Loading…</p>}
-          {state === "error" && <p role="alert">{error}</p>}
+          {state === "loading" && <Loading />}
+          {state === "error" && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
           {state === "ready" && items.length === 0 && (
             <p className="hint">
               Nothing new. You will see it here when someone shares a folder.
