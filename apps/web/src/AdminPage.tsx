@@ -96,13 +96,7 @@ export function AdminPage({
 }
 
 type SetupView =
-  | "steps"
-  | "ai"
-  | "semantic"
-  | "smtp"
-  | "users"
-  | "mail"
-  | "files";
+  "steps" | "ai" | "semantic" | "smtp" | "users" | "mail" | "files";
 
 /** The shared tree whose first-time file setup is the last step of the server setup. */
 export type SharedSetupRoot = { id: string; name: string; kind: string };
