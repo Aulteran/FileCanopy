@@ -1969,3 +1969,10 @@ button.link-button:focus-visible {
   font-weight: 700;
   line-height: 1;
 }
+
+.field-error {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--danger, #b3261e);
+  font-size: 0.75rem;
+}

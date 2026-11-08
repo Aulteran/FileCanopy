@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { describeError, formatSize, progressText } from "./format";
+import {
+  describeError,
+  formatSize,
+  looksLikeEmail,
+  progressText,
+} from "./format";
 
 describe("formatSize", () => {
   it("formats bytes and larger units", () => {
@@ -43,5 +48,24 @@ describe("progressText", () => {
       "512 KB of 2.0 MB (25%)",
     );
     expect(progressText(5000, 4000)).toBe("3.9 KB of 3.9 KB (100%)");
+  });
+});
+
+describe("looksLikeEmail", () => {
+  it("accepts a normal address", () => {
+    expect(looksLikeEmail("johndoe@example.com")).toBe(true);
+    expect(looksLikeEmail(" a.b+c@mail.example.co.uk ")).toBe(true);
+  });
+  it("rejects values without an @ or a dotted domain", () => {
+    for (const bad of [
+      "john",
+      "john@",
+      "john@example",
+      "@example.com",
+      "a b@example.com",
+      "a@b..com",
+      "a@example.",
+    ])
+      expect(looksLikeEmail(bad)).toBe(false);
   });
 });

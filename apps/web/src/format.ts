@@ -325,3 +325,8 @@ const MESSAGES: Record<string, string> = {
 export function describeError(code: string): string {
   return MESSAGES[code] ?? "Something went wrong. Try again.";
 }
+
+/** Loose email shape check: something@domain.tld, no spaces. The server stays the authority. */
+export function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(value.trim());
+}

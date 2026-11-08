@@ -14,7 +14,7 @@ import {
   type OneTimeToken,
 } from "./api";
 import { Modal } from "./Dialogs";
-import { describeError, formatDate } from "./format";
+import { describeError, formatDate, looksLikeEmail } from "./format";
 import { oneTimeLink } from "./route";
 
 // Administrators manage accounts here (ADR-012, 07_UI_UX "Admin screens"): invite, new invitation
@@ -36,6 +36,7 @@ export function UsersPage({ me, onEnded }: Props) {
   const [config, setConfig] = useState<AdminAuthConfig | null>(null);
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState("");
+  const [emailBad, setEmailBad] = useState(false);
 
   const describe = useCallback(
     (err: unknown): string => {
@@ -113,6 +114,10 @@ export function UsersPage({ me, onEnded }: Props) {
     const name = String(form.get("name") ?? "").trim();
     const role = form.get("role") === "admin" ? "admin" : "member";
     if (!email || !name) return;
+    if (!looksLikeEmail(email)) {
+      setEmailBad(true);
+      return;
+    }
     const sendEmail = mail && form.get("send_email") === "on";
     const ok = await act(
       async () => {
@@ -170,6 +175,7 @@ export function UsersPage({ me, onEnded }: Props) {
             aria-haspopup="dialog"
             onClick={() => {
               setInviteError("");
+              setEmailBad(false);
               setInviting(true);
             }}
           >
@@ -356,14 +362,47 @@ export function UsersPage({ me, onEnded }: Props) {
       </section>
       {inviting && (
         <Modal title="Invite user" onClose={() => setInviting(false)}>
-          <form onSubmit={(e) => void invite(e)} className="stack-form">
-            <label>
-              Email
-              <input name="email" type="email" required maxLength={320} />
-            </label>
+          <form
+            onSubmit={(e) => void invite(e)}
+            className="stack-form"
+            noValidate
+          >
             <label>
               Name
-              <input name="name" required maxLength={200} autoComplete="off" />
+              <input
+                name="name"
+                required
+                maxLength={200}
+                autoComplete="off"
+                placeholder="John Doe"
+              />
+            </label>
+            <label>
+              Email
+              <input
+                name="email"
+                type="email"
+                required
+                maxLength={320}
+                placeholder="johndoe@example.com"
+                aria-invalid={emailBad}
+                aria-describedby={emailBad ? "invite-email-error" : undefined}
+                onBlur={(e) => {
+                  const v = e.currentTarget.value.trim();
+                  setEmailBad(v !== "" && !looksLikeEmail(v));
+                }}
+                onChange={(e) => {
+                  if (emailBad && looksLikeEmail(e.currentTarget.value))
+                    setEmailBad(false);
+                  else if (e.currentTarget.value.trim() === "")
+                    setEmailBad(false);
+                }}
+              />
+              {emailBad && (
+                <small id="invite-email-error" className="field-error">
+                  Please enter an email.
+                </small>
+              )}
             </label>
             <label>
               Role
