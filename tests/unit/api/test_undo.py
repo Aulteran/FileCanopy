@@ -396,7 +396,9 @@ def test_undo_a_batch_leaves_the_changed_item_and_reports_it(fx: Fx, me: P) -> N
     assert disk(fx, files[0]).parent.name == "Dst"
     row = next(r for r in me.get("/activity/mine").json() if r["kind"] == "batch")
     assert sorted(i["undone"] for i in row["items"]) == [False, True, True]
-    assert row["undone"] is False and row["reversible"] is True  # the changed item can still be retried
+    assert (
+        row["undone"] is False and row["reversible"] is True
+    )  # the changed item can still be retried
 
 
 def test_only_the_actor_can_undo_a_batch(fx: Fx, me: P) -> None:

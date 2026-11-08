@@ -24,7 +24,15 @@ from app.api.files import (
 )
 from app.auth import clock
 from app.auth.deps import Principal, get_db, http_error
-from app.db.models import HIDDEN_NODE_STATUSES, FileOperation, ImportBatch, Node, StorageRoot, TrashItem, User
+from app.db.models import (
+    HIDDEN_NODE_STATUSES,
+    FileOperation,
+    ImportBatch,
+    Node,
+    StorageRoot,
+    TrashItem,
+    User,
+)
 from app.domain import activity, trash, undo
 from app.domain.fileops import OpError
 from app.domain.nodes import path_components, root_node
@@ -567,7 +575,9 @@ def my_recent_actions(
         row.count = len(its)
         row.reversible = any(i.reversible for i in its)
         row.undone = all(i.undone for i in its)
-        row.from_location = its[0].from_location if len({i.from_location for i in its}) == 1 else None
+        row.from_location = (
+            its[0].from_location if len({i.from_location for i in its}) == 1 else None
+        )
         row.to_location = its[0].to_location if len({i.to_location for i in its}) == 1 else None
     batches = db.scalars(
         select(ImportBatch)
