@@ -834,3 +834,29 @@ def test_audit_trail_records_events_without_secrets(world: World) -> None:
 
 def test_health_stays_available_without_auth_for_probes(world: World) -> None:
     assert world.browser().get("/api/v1/health/live").status_code == 200
+
+
+def test_session_says_whether_incoming_mail_is_set_up(make_world: Callable[..., World]) -> None:
+    # The web app hides the Email inbox until Step 5 (incoming mail) is configured.
+    c, _ = admin_session(make_world())
+    assert c.get("/api/v1/auth/session").json()["incoming_mail"] is False
+
+
+def test_session_incoming_mail_true_and_no_mailbox_details(
+    make_world: Callable[..., World],
+) -> None:
+    # Only the boolean is returned: no mailbox host, address or password.
+    c, _ = admin_session(
+        make_world(
+            imap_host="imap.example.org",
+            imap_username="box",
+            imap_password="box-secret",
+            imap_personal_address="personaldocs@example.org",
+            imap_ingest_address="ingest@example.org",
+            imap_authserv_id="mx.example.org",
+        )
+    )
+    body = c.get("/api/v1/auth/session").json()
+    assert body["incoming_mail"] is True
+    assert "box-secret" not in json.dumps(body)
+    assert "imap.example.org" not in json.dumps(body)
