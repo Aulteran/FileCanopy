@@ -689,6 +689,8 @@ export type BackupStatus = {
     root_id: string;
     kind: string;
     user_id: string | null;
+    /** The owner's name for a personal folder (administrators only). */
+    owner_name?: string | null;
     key_state: "instance" | "none" | "pending" | "active";
     escrow: boolean;
     legacy_chains: number;

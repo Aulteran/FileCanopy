@@ -548,7 +548,7 @@ update the matching `tests/e2e` selectors in the same change.
 - **Fix:** Wrap each section (Backup settings, Space, Folders, Backup jobs, Your backup key, Restore)
   in a `.card` (G18) with 20 px gaps, and add a small in-page index of links at the top.
 
-### K02. Folder table shows "A personal folder" four times (Medium, owner decision)
+### K02. Folder table shows "A personal folder" four times (Medium, done: owner decision 2026-11-08)
 - **Where:** Backups.tsx folders table.
 - **Problem:** The admin cannot tell which person's folder each row is.
 - **Fix:** Owner to decide whether admins may see owners' names here (admins already see names under
@@ -615,7 +615,6 @@ The phone toolbar is covered by B01; checked pages have no sideways page scroll 
 
 ## Needs an owner decision (not for fix threads yet)
 
-- **K02** whether admins may see personal folder owners on the Backups page.
 - **P01** merging the three personal settings dialogs.
 - **Account has no way to change your own name or password** (only admin reset links). This needs a
   backend endpoint, so it is a feature, not a UI fix.
