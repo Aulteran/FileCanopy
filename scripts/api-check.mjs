@@ -42,6 +42,8 @@ inDev(
   "not compose",
   "-q",
   "-rs", // list why tests were skipped (the M10 hardening tests must run in CI)
+  "-n",
+  "auto", // pytest-xdist: one worker per CPU; the suite has no shared ports or files
   "tests/unit/api",
   "tests/security", // M23 adversarial suite
 );
