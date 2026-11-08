@@ -55,6 +55,8 @@ class SessionOut(BaseModel):
     csrf_token: str
     locked: bool = False  # the lock screen is up (M12b)
     pin_set: bool = False
+    # Incoming mail (the mailbox) is configured on this server (Step 5). Not a secret.
+    incoming_mail: bool = False
 
 
 class ChangePassword(Strict):

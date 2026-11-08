@@ -66,6 +66,7 @@ export function AdminPage({
         {items.map((i) => (
           <li key={i.path}>
             <a
+              className="admin-card"
               href={i.path}
               onClick={(e) => {
                 e.preventDefault();

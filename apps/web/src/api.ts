@@ -100,6 +100,8 @@ export type Session = {
   csrf_token: string;
   locked?: boolean;
   pin_set?: boolean;
+  /** Incoming mail is set up on this server (Step 5). */
+  incoming_mail?: boolean;
 };
 
 export type EntryPoint = {

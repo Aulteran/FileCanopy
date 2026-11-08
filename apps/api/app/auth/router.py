@@ -151,7 +151,11 @@ def login(
     audit(db, "login.success", actor=user.id, target=user.id, ip=ip)
     db.commit()
     set_session_cookie(request, response, token)
-    return SessionOut(user=UserOut.of(user), csrf_token=csrf)
+    return SessionOut(
+        user=UserOut.of(user),
+        csrf_token=csrf,
+        incoming_mail=ctx_of(request).settings.imap_configured,
+    )
 
 
 @router.get("/auth/session", response_model=SessionOut)
@@ -165,6 +169,7 @@ def session_info(
         csrf_token=principal.csrf_token,
         locked=principal.session.locked_at is not None,
         pin_set=ctx_of(request).pins.is_set(db, principal.user.id),
+        incoming_mail=ctx_of(request).settings.imap_configured,
     )
 
 
@@ -213,7 +218,11 @@ def change_password(
     audit(db, "password.changed", actor=user.id, target=user.id, ip=ip)
     db.commit()
     set_session_cookie(request, response, token)
-    return SessionOut(user=UserOut.of(user), csrf_token=csrf)
+    return SessionOut(
+        user=UserOut.of(user),
+        csrf_token=csrf,
+        incoming_mail=ctx_of(request).settings.imap_configured,
+    )
 
 
 def _redeem(db: Session, request: Request, token: str, purpose: str, expected_status: str) -> User:

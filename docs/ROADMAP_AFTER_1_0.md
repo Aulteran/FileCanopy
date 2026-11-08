@@ -65,6 +65,7 @@ The source documents stay authoritative: [known issues](release/known-issues.md)
 - Personal-folder end-to-end encryption ([open decisions](11_OPEN_DECISIONS.md)).
 - Per-file external anonymous link sharing ([open decisions](11_OPEN_DECISIONS.md)).
 - Mobile scanner app and advanced photo OCR or multimodal indexing ([open decisions](11_OPEN_DECISIONS.md)).
+- Linking duplicates: next to "Move to trash", offer to keep one real copy and have the other folders reference it (a symlink or reference, as the file-system design allows). Example: the same passport copy sits in the 2022 and 2024 visa-renewal folders and should exist once. Open design questions: how permissions work when folders have different access, how backups and restores handle the reference, and what happens to the other locations when the real copy is deleted or moved. Not designed or implemented.
 - Collection timelines, notes and automatic summaries ([open decisions](11_OPEN_DECISIONS.md)).
 
 ## AI and MCP
