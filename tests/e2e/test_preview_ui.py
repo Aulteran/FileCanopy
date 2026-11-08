@@ -116,10 +116,11 @@ def test_private_files_need_the_opt_in_and_it_can_be_withdrawn(
     page.get_by_role("button", name="Allow on this server").click()
     expect(page.get_by_role("cell", name="docs/readme.txt")).to_be_visible()
 
-    # withdraw it in Preview settings: the same file asks again
+    # withdraw it in Settings > Previews: the same file asks again
     page.get_by_role("button", name=re.compile("Profile menu")).click()
-    page.get_by_role("menuitem", name="Preview settings").click()
-    dialog = page.get_by_role("dialog", name="Preview settings")
+    page.get_by_role("menuitem", name="Settings").click()
+    page.get_by_role("tab", name="Previews").click()
+    dialog = page.get_by_role("dialog", name="Settings")
     box = dialog.get_by_label("Let this server make previews of my Private and Confidential files")
     expect(box).to_be_checked()
     box.click()  # the box follows the server's answer, so wait for it rather than for the click

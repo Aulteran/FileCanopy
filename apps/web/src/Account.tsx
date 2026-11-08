@@ -9,12 +9,15 @@ import { describeError } from "./format";
 // need your password, so a stolen browser session cannot attach someone else's provider login.
 export function AccountDialog({
   onClose,
+  inline = false,
   notice,
   reauthed = false,
   pinToken = null,
   onPinChanged,
 }: {
   onClose: () => void;
+  /** Shown inside the Settings dialog, which has its own frame and Close button. */
+  inline?: boolean;
   notice?: string;
   // The person just came back from the provider's check: it can be used once, now.
   reauthed?: boolean;
@@ -70,8 +73,8 @@ export function AccountDialog({
     }
   }
 
-  return (
-    <Modal title="Account" onClose={onClose}>
+  const body = (
+    <>
       {done && <p role="status">{done}</p>}
       {!enabled && (
         <p className="muted">
@@ -115,6 +118,12 @@ export function AccountDialog({
       />
       <SenderAddresses reauthed={reauthed} />
       <ConnectedApps reauthed={reauthed} />
+    </>
+  );
+  if (inline) return body;
+  return (
+    <Modal title="Account" onClose={onClose}>
+      {body}
       <div className="actions">
         <button type="button" onClick={onClose}>
           Close

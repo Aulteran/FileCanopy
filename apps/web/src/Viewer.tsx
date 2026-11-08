@@ -414,7 +414,7 @@ function AllowPreviews({ onAllowed }: { onAllowed: () => void }) {
     <section className="viewer-note" role="alert">
       <h2>Allow previews of protected files?</h2>
       <p>{describeError("LOCAL_PROCESSING_OPT_IN_REQUIRED")}</p>
-      <p>You can turn this off again at any time under Preview settings.</p>
+      <p>You can turn this off again at any time under Settings, Previews.</p>
       {error && <p className="error">{error}</p>}
       <p>
         <button

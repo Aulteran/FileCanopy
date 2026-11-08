@@ -16,8 +16,9 @@ pytestmark = pytest.mark.e2e
 
 def _open_ai(page: Page) -> None:
     page.get_by_role("button", name=re.compile("Profile menu")).click()
-    page.get_by_role("menuitem", name="AI settings", exact=True).click()
-    expect(page.get_by_role("dialog", name="AI")).to_be_visible()
+    page.get_by_role("menuitem", name="Settings", exact=True).click()
+    page.get_by_role("tab", name="AI", exact=True).click()
+    expect(page.get_by_role("dialog", name="Settings")).to_be_visible()
 
 
 def test_dialogs_fit_their_content_and_scroll_when_tall(browser: Browser, world: World) -> None:
@@ -36,7 +37,7 @@ def test_dialogs_fit_their_content_and_scroll_when_tall(browser: Browser, world:
     expect(small).to_be_hidden()
 
     _open_ai(page)
-    tall = page.get_by_role("dialog", name="AI")
+    tall = page.get_by_role("dialog", name="Settings")
     box = tall.bounding_box()
     assert box is not None
     assert box["y"] >= 0 and box["y"] + box["height"] <= viewport["height"], "stays on screen"
@@ -48,7 +49,7 @@ def test_dialogs_fit_their_content_and_scroll_when_tall(browser: Browser, world:
 def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world: World) -> None:
     page = sign_in(browser, world, "admin@example.com")
     _open_ai(page)
-    dialog = page.get_by_role("dialog", name="AI")
+    dialog = page.get_by_role("dialog", name="Settings")
     # the administrator turns AI on for the server, then starts adding a model
     # the box follows the server's answer, so click and wait rather than `check()`
     switch = dialog.get_by_label("Enable AI on this server?")
@@ -107,7 +108,7 @@ def test_claude_model_is_a_list_with_prices_tucked_away(browser: Browser, world:
 def test_add_model_popup_closes_with_x_escape_and_backdrop(browser: Browser, world: World) -> None:
     page = sign_in(browser, world, "admin@example.com")
     _open_ai(page)
-    ai = page.get_by_role("dialog", name="AI")
+    ai = page.get_by_role("dialog", name="Settings")
     switch = ai.get_by_label("Enable AI on this server?")
     # the server's AI switch is shared state that earlier tests may have left on: turn it on only
     # if it is off, because clicking it again would switch it off and remove the models section
@@ -235,7 +236,7 @@ def test_first_time_choosing_a_cloud_server_ai_shows_the_notice_first(
     try:
         page = sign_in(browser, world, world.alice_mail)
         _open_ai(page)
-        dialog = page.get_by_role("dialog", name="AI")
+        dialog = page.get_by_role("dialog", name="Settings")
         radio = dialog.get_by_role("radio", name=re.compile("default server AI"))
         expect(dialog.get_by_text("Cloud Test, cloud: Anthropic")).to_be_visible()
         radio.check()
@@ -260,7 +261,7 @@ def test_models_start_as_an_empty_table_and_usage_lives_on_its_own_page(
 ) -> None:
     page = sign_in(browser, world, "admin@example.com")
     _open_ai(page)
-    dialog = page.get_by_role("dialog", name="AI")
+    dialog = page.get_by_role("dialog", name="Settings")
     switch = dialog.get_by_label("Enable AI on this server?")
     switch.click()
     expect(switch).to_be_checked()

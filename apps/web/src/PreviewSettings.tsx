@@ -6,7 +6,14 @@ import { describeError } from "./format";
 // Per-person switch for server-side previews of Private and Confidential files (M10). Off by
 // default. On means this server may read such files to make previews, text and thumbnails; it
 // never means a cloud service gets them.
-export function PreviewSettings({ onClose }: { onClose: () => void }) {
+export function PreviewSettings({
+  onClose,
+  inline = false,
+}: {
+  onClose: () => void;
+  /** Shown inside the Settings dialog, which has its own frame and Close button. */
+  inline?: boolean;
+}) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [converter, setConverter] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +43,8 @@ export function PreviewSettings({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return (
-    <Modal title="Preview settings" onClose={onClose}>
+  const body = (
+    <>
       <label>
         <input
           type="checkbox"
@@ -63,6 +70,12 @@ export function PreviewSettings({ onClose }: { onClose: () => void }) {
           {error}
         </p>
       )}
+    </>
+  );
+  if (inline) return body;
+  return (
+    <Modal title="Preview settings" onClose={onClose}>
+      {body}
       <div className="actions">
         <button type="button" onClick={onClose}>
           Close

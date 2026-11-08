@@ -2619,3 +2619,22 @@ legend {
     background: var(--accent, #2f6b3a);
   }
 }
+
+/* Settings dialog tabs (Account, Previews, AI). */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.settings-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 8px 14px;
+}
+.settings-tabs button.active {
+  border-bottom-color: var(--primary);
+  font-weight: 700;
+}

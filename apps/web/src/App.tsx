@@ -23,11 +23,10 @@ import { Browser } from "./Browser";
 import { VerifyEmailDialog } from "./Emails";
 import { InboxPage, MailboxAdminPage } from "./MailPages";
 import { LockScreen } from "./LockScreen";
-import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
 import { UsagePage } from "./UsagePage";
 import { SharedWithYouPage } from "./SharedPages";
-import { PreviewSettings } from "./PreviewSettings";
+import { SettingsDialog, type SettingsTab } from "./Settings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
@@ -329,18 +328,18 @@ function Shell({
     setBellOpen(true);
     go(folderPath(roots[0].node_id), true);
   }, [notices, roots, go]);
-  const [previewSettings, setPreviewSettings] = useState(false);
-  const [aiSettings, setAiSettings] = useState(false);
   // Returning from the provider after linking opens Account with the result.
   // What a provider re-check was for (set in sessionStorage before leaving; never a secret).
   const [pending] = useState(() =>
     sso === "reauthed" ? sessionStorage.getItem("fc.pending") : null,
   );
-  const [account, setAccount] = useState(
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(
     sso === "linked" ||
       ssoIsError(sso) ||
       pending === "pin" ||
-      pinToken !== null,
+      pinToken !== null
+      ? "account"
+      : null,
   );
   const [locked, setLocked] = useState(session.locked === true);
   const [pinSet, setPinSet] = useState(session.pin_set === true);
@@ -557,33 +556,11 @@ function Shell({
               role="menuitem"
               onClick={() => {
                 close();
-                setAccount(true);
+                setSettingsTab("account");
               }}
             >
               <Icon name="user" />
-              Account
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                close();
-                setPreviewSettings(true);
-              }}
-            >
-              <Icon name="image" />
-              Preview settings
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                close();
-                setAiSettings(true);
-              }}
-            >
-              <Icon name="sparkles" />
-              AI settings
+              Settings
             </button>
             {withBackups && (
               <a
@@ -970,19 +947,22 @@ function Shell({
           />
         )}
       </main>
-      {account && (
-        <AccountDialog
-          onClose={() => setAccount(false)}
-          reauthed={pending === "pin"}
-          pinToken={pinToken}
-          onPinChanged={setPinSet}
-          notice={
-            sso === "linked"
-              ? "Your account is linked."
-              : ssoIsError(sso)
-                ? describeError(sso)
-                : undefined
-          }
+      {settingsTab !== null && (
+        <SettingsDialog
+          admin={admin}
+          initialTab={settingsTab}
+          onClose={() => setSettingsTab(null)}
+          account={{
+            reauthed: pending === "pin",
+            pinToken,
+            onPinChanged: setPinSet,
+            notice:
+              sso === "linked"
+                ? "Your account is linked."
+                : ssoIsError(sso)
+                  ? describeError(sso)
+                  : undefined,
+          }}
         />
       )}
       {verifyOpen && aliasLink !== null && (
@@ -990,12 +970,6 @@ function Shell({
           token={aliasLink.token}
           onClose={() => setVerifyOpen(false)}
         />
-      )}
-      {previewSettings && (
-        <PreviewSettings onClose={() => setPreviewSettings(false)} />
-      )}
-      {aiSettings && (
-        <AiSettings admin={admin} onClose={() => setAiSettings(false)} />
       )}
     </div>
   );

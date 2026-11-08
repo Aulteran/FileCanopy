@@ -227,7 +227,7 @@ def test_mail_and_single_sign_on_are_off_by_default(world: World, browser: Brows
     # without mail there is no "email it" choice: the manual link flow is the only one
     expect(admin.get_by_label("Email the invitation link")).to_have_count(0)
     admin.get_by_role("button", name=re.compile("Profile menu")).click()
-    admin.get_by_role("menuitem", name="Account").click()
+    admin.get_by_role("menuitem", name="Settings").click()
     expect(admin.get_by_text("Single sign-on is not set up on this server.")).to_be_visible()
     # the sign-in page offers neither a provider button nor "Forgot your password?"
     page = browser.new_context().new_page()
