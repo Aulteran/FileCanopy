@@ -1,5 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ApiError, api, type PinProof, type PinStatus } from "./api";
+import {
+  ApiError,
+  api,
+  type PinProof,
+  type PinStatus,
+  type Session,
+  type User,
+} from "./api";
 import { Modal } from "./Dialogs";
 import { ConnectedApps } from "./ConnectedApps";
 import { SenderAddresses } from "./Emails";
@@ -14,8 +21,14 @@ export function AccountDialog({
   reauthed = false,
   pinToken = null,
   onPinChanged,
+  onName,
+  onSession,
+  name = "",
 }: {
   onClose: () => void;
+  name?: string;
+  onName?: (user: User) => void;
+  onSession?: (session: Session) => void;
   /** Shown inside the Settings dialog, which has its own frame and Close button. */
   inline?: boolean;
   notice?: string;
@@ -29,6 +42,7 @@ export function AccountDialog({
     null,
   );
   const [enabled, setEnabled] = useState(false);
+  const [passwordLogin, setPasswordLogin] = useState(true);
   const [error, setError] = useState("");
   const [done, setDone] = useState(notice ?? "");
   const [busy, setBusy] = useState(false);
@@ -37,6 +51,7 @@ export function AccountDialog({
     api.authConfig().then(
       (c) => {
         setEnabled(c.oidc.enabled);
+        setPasswordLogin(c.password_login);
         if (!c.oidc.enabled) return;
         void api.oidcIdentity().then(
           (i) => setOidc({ linked: i.linked, label: c.oidc.label }),
@@ -111,6 +126,12 @@ export function AccountDialog({
           {error}
         </p>
       )}
+      <ProfileSection
+        name={name}
+        passwordLogin={passwordLogin}
+        onName={onName}
+        onSession={onSession}
+      />
       <PinSection
         reauthed={reauthed}
         pinToken={pinToken}
@@ -388,5 +409,136 @@ function PinSection({
         </div>
       </form>
     </section>
+  );
+}
+
+/** Change your own display name and your password. The password needs the current one; changing
+ * it ends every other session of yours. */
+function ProfileSection({
+  name,
+  passwordLogin,
+  onName,
+  onSession,
+}: {
+  name: string;
+  passwordLogin: boolean;
+  onName?: (user: User) => void;
+  onSession?: (session: Session) => void;
+}) {
+  const [nameMsg, setNameMsg] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [nameErr, setNameErr] = useState("");
+  const [pwErr, setPwErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function saveName(e: FormEvent<HTMLFormElement>): Promise<void> {
+    e.preventDefault();
+    const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
+    setBusy(true);
+    setNameErr("");
+    setNameMsg("");
+    try {
+      const user = await api.changeName(name);
+      onName?.(user);
+      setNameMsg("Your name was saved.");
+    } catch (err) {
+      setNameErr(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePassword(e: FormEvent<HTMLFormElement>): Promise<void> {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const current = String(data.get("current") ?? "");
+    const next = String(data.get("next") ?? "");
+    setPwErr("");
+    setPwMsg("");
+    if (next !== String(data.get("again") ?? "")) {
+      setPwErr(describeError("PASSWORDS_DIFFER"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const session = await api.changePassword(current, next);
+      onSession?.(session);
+      form.reset();
+      setPwMsg(
+        "Your password was changed. Your other sessions were signed out.",
+      );
+    } catch (err) {
+      setPwErr(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <h3>Your name</h3>
+      <form onSubmit={(e) => void saveName(e)}>
+        <label>
+          Name
+          <input
+            name="name"
+            required
+            maxLength={200}
+            defaultValue={name}
+            autoComplete="name"
+          />
+        </label>
+        {nameMsg && <p role="status">{nameMsg}</p>}
+        <p role="alert" className="error">
+          {nameErr}
+        </p>
+        <button type="submit" disabled={busy}>
+          Save name
+        </button>
+      </form>
+      {passwordLogin && (
+        <>
+          <h3>Change password</h3>
+          <form onSubmit={(e) => void savePassword(e)}>
+            <label>
+              Current password
+              <input
+                name="current"
+                type="password"
+                required
+                autoComplete="current-password"
+              />
+            </label>
+            <label>
+              New password
+              <input
+                name="next"
+                type="password"
+                required
+                minLength={12}
+                autoComplete="new-password"
+              />
+            </label>
+            <label>
+              New password again
+              <input
+                name="again"
+                type="password"
+                required
+                autoComplete="new-password"
+              />
+            </label>
+            {pwMsg && <p role="status">{pwMsg}</p>}
+            <p role="alert" className="error">
+              {pwErr}
+            </p>
+            <button type="submit" disabled={busy}>
+              Change password
+            </button>
+          </form>
+        </>
+      )}
+    </>
   );
 }

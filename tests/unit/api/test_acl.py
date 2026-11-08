@@ -621,6 +621,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/auth/session",
     "/api/v1/auth/logout",
     "/api/v1/auth/password",
+    "/api/v1/auth/profile",  # your own display name; actor-scoped, no node addressed
     "/api/v1/auth/invitations/accept",
     "/api/v1/auth/password-reset/complete",
     "/api/v1/auth/password-reset/request",  # M12: uniform answer, instance mail only

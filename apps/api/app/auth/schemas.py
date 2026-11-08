@@ -64,6 +64,10 @@ class ChangePassword(Strict):
     new_password: str = Field(max_length=1024)
 
 
+class ChangeName(Strict):
+    name: str = Field(min_length=1, max_length=200)
+
+
 class AcceptInvitation(Strict):
     token: str = Field(max_length=256)
     password: str = Field(max_length=1024)

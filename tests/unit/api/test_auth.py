@@ -249,6 +249,23 @@ def test_password_is_argon2id_and_never_returned(world: World) -> None:
         assert PASSWORD not in body and OTHER_PASSWORD not in body
 
 
+def test_change_own_name(world: World) -> None:
+    world.create_admin()
+    c, h = signed_in(world)
+    r = c.patch("/api/v1/auth/profile", json={"name": "  New Name  "}, headers=h)
+    assert r.status_code == 200 and r.json()["name"] == "New Name"
+    assert c.get("/api/v1/auth/session").json()["user"]["name"] == "New Name"
+    assert c.patch("/api/v1/auth/profile", json={"name": "   "}, headers=h).status_code == 422
+    assert c.patch("/api/v1/auth/profile", json={"name": "a\nb"}, headers=h).status_code == 422
+    # Only the name can be sent: no role or email through this route.
+    bad = c.patch("/api/v1/auth/profile", json={"name": "X", "role": "admin"}, headers=h)
+    assert bad.status_code == 422
+    # Needs a session and the CSRF header.
+    anon = world.browser().patch("/api/v1/auth/profile", json={"name": "Z"})
+    assert anon.status_code in (401, 403)
+    assert c.patch("/api/v1/auth/profile", json={"name": "Z"}).status_code == 403
+
+
 def test_session_cookie_attributes(make_world: Callable[..., World]) -> None:
     w = make_world(cookie_secure=True)
     w.create_admin()

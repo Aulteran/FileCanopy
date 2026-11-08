@@ -992,6 +992,17 @@ export const api = {
   login: (email: string, password: string) =>
     call<Session>("POST", "/api/v1/auth/login", { email, password }),
   session: () => call<Session>("GET", "/api/v1/auth/session"),
+  changeName: (name: string) =>
+    call<User>("PATCH", "/api/v1/auth/profile", { name }),
+  // Every session ends and a fresh one comes back, with a new CSRF token.
+  changePassword: async (current_password: string, new_password: string) => {
+    const s = await call<Session>("POST", "/api/v1/auth/password", {
+      current_password,
+      new_password,
+    });
+    setCsrf(s.csrf_token);
+    return s;
+  },
   logout: () => call<{ status: string }>("POST", "/api/v1/auth/logout"),
   acceptInvitation: (token: string, password: string, name: string | null) =>
     call<{ status: string }>("POST", "/api/v1/auth/invitations/accept", {
