@@ -85,7 +85,7 @@ jobs:
           - suite: proxy
             tests: tests/integration/compose/test_proxy_stack.py
           - suite: app
-            tests: tests/integration/compose/test_import_stack.py tests/integration/compose/test_auth_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py
+            tests: tests/integration/compose/test_auth_stack.py tests/integration/compose/test_import_stack.py tests/integration/compose/test_pin_stack.py tests/integration/compose/test_ai_stack.py
           - suite: app-2
             tests: tests/integration/compose/test_files_stack.py tests/integration/compose/test_release_stack.py tests/integration/compose/test_mcp_revocation_stack.py
           - suite: app-3
