@@ -1999,16 +1999,7 @@ button.link-button:focus-visible {
 .sidenav a .navwarn {
   margin-left: auto;
   flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 0.75rem;
-  font-weight: 800;
-  line-height: 1;
-  background: var(--warning);
-  color: #fff;
+  color: #d9b44a;
 }
 /* compact floating prompt in the middle of the content area (no backdrop, no dragging) */
 .setup-prompt {

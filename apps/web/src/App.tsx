@@ -614,14 +614,30 @@ function Shell({
                     <Icon name={ROOT_ICON[r.kind]} />
                     {rootLabel(r)}
                     {r.setup_open && (
-                      <span
+                      <svg
                         className="navwarn"
                         role="img"
                         aria-label="Not set up yet"
-                        title="Not set up yet"
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
                       >
-                        !
-                      </span>
+                        <title>Not set up yet</title>
+                        <path
+                          d="M12 3.5 22 20.5H2z"
+                          fill="currentColor"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M12 10v5M12 17.6v.1"
+                          stroke="var(--surface)"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </svg>
                     )}
                   </a>
                 </li>
