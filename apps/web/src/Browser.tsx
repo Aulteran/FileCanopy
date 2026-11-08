@@ -305,11 +305,12 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
 
   async function deleteChecked(): Promise<void> {
     const targets = actionable;
+    const batch = crypto.randomUUID(); // one entry in Recent actions for the whole selection
     let moved = 0;
     let lastOp: Operation | null = null;
     for (const c of targets) {
       try {
-        const r = await api.deleteNode(c.id, c.revision);
+        const r = await api.deleteNode(c.id, c.revision, batch);
         lastOp = r.operation;
         moved++;
       } catch (err) {
@@ -332,14 +333,15 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
     target: string,
   ): Promise<void> {
     const targets = actionable;
+    const batch = crypto.randomUUID(); // one entry in Recent actions for the whole selection
     let done = 0;
     let lastOp: Operation | null = null;
     for (const c of targets) {
       try {
         const r =
           mode === "move"
-            ? await api.move(c.id, target, c.revision)
-            : await api.copy(c.id, target, c.revision);
+            ? await api.move(c.id, target, c.revision, batch)
+            : await api.copy(c.id, target, c.revision, batch);
         lastOp = r.operation;
         done++;
       } catch (err) {

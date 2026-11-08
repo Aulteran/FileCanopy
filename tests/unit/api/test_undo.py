@@ -319,3 +319,95 @@ def test_operations_are_listed_with_what_can_be_undone(fx: Fx, me: P) -> None:
     plain = next(r for r in mine if r["action"] == "upload")
     assert plain["reversible"] is False  # an upload is not on the list of undoable actions
     assert P(fx, "bob").get("/activity/mine").json() == []
+
+
+def batch_move(fx: Fx, p: P, nodes: list[uuid.UUID], target: uuid.UUID, batch: str) -> None:
+    for n in nodes:
+        r = p.client.post(
+            f"/api/v1/nodes/{n}/move",
+            json={"target_parent_id": str(target), "expected_revision": 1},
+            headers={**p.headers, "X-Batch-Id": batch},
+        )
+        assert r.status_code == 200, r.text
+
+
+def test_a_multi_item_move_is_one_recent_entry_with_details(fx: Fx, me: P) -> None:
+    src = nid(me.mkdir(fx.alice_root, "Src"))
+    dst = nid(me.mkdir(fx.alice_root, "Dst"))
+    files = [nid(me.upload(src, f"{n}.txt", b"x")) for n in "abc"]
+    batch = str(uuid.uuid4())
+    fx.w.advance(seconds=1)
+    batch_move(fx, me, files, dst, batch)
+    rows = [r for r in me.get("/activity/mine").json() if r["action"] == "move"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["kind"] == "batch" and row["id"] == batch and row["count"] == 3
+    assert row["from_location"] == "My files / Src" and row["to_location"] == "My files / Dst"
+    assert row["by"] and row["reversible"] is True and row["undone"] is False
+    assert sorted(i["name"] for i in row["items"]) == ["a.txt", "b.txt", "c.txt"]
+    assert all(i["reversible"] and i["to_location"] == "My files / Dst" for i in row["items"])
+
+
+def test_a_single_move_and_an_old_entry_without_a_batch_id_show_the_destination(
+    fx: Fx, me: P
+) -> None:
+    src = nid(me.mkdir(fx.alice_root, "Src"))
+    dst = nid(me.mkdir(fx.alice_root, "Dst"))
+    a, b = nid(me.upload(src, "a.txt", b"x")), nid(me.upload(src, "b.txt", b"x"))
+    fx.w.advance(seconds=1)
+    me.move(a, dst, 1)
+    me.move(b, dst, 1)  # no batch id: what an install from before this change recorded
+    rows = [r for r in me.get("/activity/mine").json() if r["action"] == "move"]
+    assert [r["kind"] for r in rows] == ["operation", "operation"]
+    assert {r["to_location"] for r in rows} == {"My files / Dst"}
+    assert {r["name"] for r in rows} == {"a.txt", "b.txt"}
+    # one operation under a batch id is still shown as a plain single entry
+    c = nid(me.upload(src, "c.txt", b"x"))
+    fx.w.advance(seconds=1)
+    batch_move(fx, me, [c], dst, str(uuid.uuid4()))
+    top = me.get("/activity/mine").json()[0]
+    assert top["kind"] == "operation" and top["name"] == "c.txt" and top["count"] == 1
+
+
+def test_a_bad_batch_header_is_ignored(fx: Fx, me: P) -> None:
+    src = nid(me.mkdir(fx.alice_root, "Src"))
+    dst = nid(me.mkdir(fx.alice_root, "Dst"))
+    f = nid(me.upload(src, "a.txt", b"x"))
+    r = me.client.post(
+        f"/api/v1/nodes/{f}/move",
+        json={"target_parent_id": str(dst), "expected_revision": 1},
+        headers={**me.headers, "X-Batch-Id": "not-a-uuid"},
+    )
+    assert r.status_code == 200 and "batch" not in r.json()["operation"]["detail"]
+
+
+def test_undo_a_batch_leaves_the_changed_item_and_reports_it(fx: Fx, me: P) -> None:
+    src = nid(me.mkdir(fx.alice_root, "Src"))
+    dst = nid(me.mkdir(fx.alice_root, "Dst"))
+    files = [nid(me.upload(src, f"{n}.txt", b"x")) for n in "abc"]
+    batch = str(uuid.uuid4())
+    batch_move(fx, me, files, dst, batch)
+    me.rename(files[0], "renamed.txt", 2)  # changed after the move: its undo must be refused
+    done = me.post(f"/operations/batch/{batch}/undo")
+    assert done.status_code == 200, done.text
+    body = done.json()
+    assert body["undone"] == 2 and [s["reason"] for s in body["skipped"]] == ["moved"]
+    assert disk(fx, files[1]).parent.name == "Src" and disk(fx, files[2]).parent.name == "Src"
+    assert disk(fx, files[0]).parent.name == "Dst"
+    row = next(r for r in me.get("/activity/mine").json() if r["kind"] == "batch")
+    assert sorted(i["undone"] for i in row["items"]) == [False, True, True]
+    assert (
+        row["undone"] is False and row["reversible"] is True
+    )  # the changed item can still be retried
+
+
+def test_only_the_actor_can_undo_a_batch(fx: Fx, me: P) -> None:
+    src = nid(me.mkdir(fx.alice_root, "Src"))
+    dst = nid(me.mkdir(fx.alice_root, "Dst"))
+    files = [nid(me.upload(src, f"{n}.txt", b"x")) for n in "ab"]
+    batch = str(uuid.uuid4())
+    batch_move(fx, me, files, dst, batch)
+    before = library_state(fx)
+    assert P(fx, "bob").post(f"/operations/batch/{batch}/undo").status_code == 404
+    assert me.post(f"/operations/batch/{uuid.uuid4()}/undo").status_code == 404
+    assert library_state(fx) == before

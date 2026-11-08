@@ -4,6 +4,8 @@ import {
   ApiError,
   api,
   type CheckResult,
+  type Recent,
+  type RecentItem,
   type TrashItem,
   type TrashList,
   type TrashRoot,
@@ -13,7 +15,10 @@ import { describeError, formatDate, formatSize } from "./format";
 import {
   daysLeftText,
   describeAction,
+  describeBatchUndo,
   describeCheck,
+  describeRecent,
+  describeRecentItem,
   describeUndoConflict,
   reasonText,
 } from "./history";
@@ -354,7 +359,8 @@ export function RecentPage({
   onEnded: () => void;
   onChanged: () => void;
 }) {
-  const [rows, setRows] = useState<Awaited<ReturnType<typeof api.recent>>>([]);
+  const [rows, setRows] = useState<Recent[]>([]);
+  const [detail, setDetail] = useState<Recent | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -372,26 +378,45 @@ export function RecentPage({
     void load();
   }, [load]);
 
-  async function undo(r: (typeof rows)[number]): Promise<void> {
+  async function undo(r: Recent): Promise<void> {
     setMessage("");
     setError("");
     try {
-      const res =
-        r.kind === "import"
-          ? await api.undoImport(r.id)
-          : await api.undoOperation(r.id);
-      setMessage(
-        res.left_in_place.length > 0
-          ? `Undone, except ${res.left_in_place.length} item(s) that changed since and were left in place.`
-          : "Undone. Anything removed is in the Trash.",
-      );
+      if (r.kind === "batch") {
+        setMessage(describeBatchUndo(await api.undoBatch(r.id)));
+      } else {
+        const res =
+          r.kind === "import"
+            ? await api.undoImport(r.id)
+            : await api.undoOperation(r.id);
+        setMessage(
+          res.left_in_place.length > 0
+            ? `Undone, except ${res.left_in_place.length} item(s) that changed since and were left in place.`
+            : "Undone. Anything removed is in the Trash.",
+        );
+      }
       onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.code === "UNDO_CONFLICT")
         setError(describeUndoConflict(err.reason));
       else setError(errorOf(err, onEnded));
     }
+    setDetail(null);
     await load();
+  }
+
+  /** Undoes one file of a batch from the details view. */
+  async function undoItem(item: RecentItem): Promise<void> {
+    await undo({
+      id: item.operation_id,
+      kind: "operation",
+      action: "",
+      name: item.name,
+      at: item.at,
+      node_id: item.node_id,
+      reversible: item.reversible,
+      undone: item.undone,
+    });
   }
 
   if (state === "loading") return <p className="loading">Loading…</p>;
@@ -399,8 +424,8 @@ export function RecentPage({
     <section aria-labelledby="recent-h">
       <h1 id="recent-h">Recent actions</h1>
       <p className="hint">
-        Your latest changes. Undo only works while nothing else touched the
-        item.
+        Your latest changes. Select one to see the details. Undo only works
+        while nothing else touched the item.
       </p>
       <p role="status" className="notice">
         {message}
@@ -415,17 +440,21 @@ export function RecentPage({
           {rows.map((r) => (
             <li key={`${r.kind}:${r.id}`} className="trash-item">
               <div className="trash-main">
-                <strong>
-                  {describeAction(r.action)}
-                  {r.name ? ` ${r.name}` : ""}
-                </strong>
+                <button
+                  type="button"
+                  className="link-button"
+                  aria-haspopup="dialog"
+                  onClick={() => setDetail(r)}
+                >
+                  <strong>{describeRecent(r)}</strong>
+                </button>
                 <span className="meta">{formatDate(r.at)}</span>
                 {r.undone && <span className="meta">Undone</span>}
               </div>
               <div className="actions">
                 <button
                   disabled={!r.reversible}
-                  aria-label={`Undo ${describeAction(r.action)}${r.name ? ` ${r.name}` : ""}`}
+                  aria-label={`Undo ${describeRecent(r)}`}
                   onClick={() => void undo(r)}
                 >
                   Undo
@@ -434,6 +463,77 @@ export function RecentPage({
             </li>
           ))}
         </ul>
+      )}
+      {detail && (
+        <Modal title={describeRecent(detail)} onClose={() => setDetail(null)}>
+          <dl className="recent-details">
+            <dt>What</dt>
+            <dd>{describeAction(detail.action) || "Action"}</dd>
+            {detail.by && (
+              <>
+                <dt>Done by</dt>
+                <dd>{detail.by}</dd>
+              </>
+            )}
+            <dt>When</dt>
+            <dd>{formatDate(detail.at)}</dd>
+            {detail.from_location && (
+              <>
+                <dt>Original location</dt>
+                <dd>{detail.from_location}</dd>
+              </>
+            )}
+            {detail.to_location && (
+              <>
+                <dt>Destination</dt>
+                <dd>{detail.to_location}</dd>
+              </>
+            )}
+          </dl>
+          {detail.kind !== "import" && (detail.items?.length ?? 0) > 0 && (
+            <>
+              <h3>
+                {(detail.count ?? 1) > 1 ? `${detail.count} items` : "Item"}
+              </h3>
+              <ul className="trash-list" aria-label="Items">
+                {detail.items!.map((item) => {
+                  const text = describeRecentItem(detail, item);
+                  return (
+                    <li key={item.operation_id} className="trash-item">
+                      <div className="trash-main">
+                        <strong>{text.name}</strong>
+                        {text.where && (
+                          <span className="meta">{text.where}</span>
+                        )}
+                        {item.undone && <span className="meta">Undone</span>}
+                      </div>
+                      {detail.kind === "batch" && (
+                        <div className="actions">
+                          <button
+                            disabled={!item.reversible}
+                            aria-label={`Undo ${text.name}`}
+                            onClick={() => void undoItem(item)}
+                          >
+                            Undo
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+          <div className="actions">
+            <button
+              disabled={!detail.reversible}
+              onClick={() => void undo(detail)}
+            >
+              {detail.kind === "batch" ? "Undo all" : "Undo"}
+            </button>
+            <button onClick={() => setDetail(null)}>Close</button>
+          </div>
+        </Modal>
       )}
     </section>
   );

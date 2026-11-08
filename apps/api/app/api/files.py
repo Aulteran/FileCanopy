@@ -38,6 +38,7 @@ log = logging.getLogger("filecanopy.files")
 
 ConflictMode = Literal["reject", "keep_both"]
 IdempotencyKey = Header(default=None, alias="Idempotency-Key")
+BATCH_HEADER = "X-Batch-Id"
 operation_access = OperationAccess()
 
 
@@ -141,6 +142,16 @@ def _result(outcome: Outcome) -> ResultOut:
     )
 
 
+def _batch_id(request: Request) -> uuid.UUID | None:
+    """The optional `X-Batch-Id` header: one id shared by the operations of a multi-item action.
+    A malformed value is ignored, so a bad header can never block the action itself."""
+    raw = request.headers.get(BATCH_HEADER)
+    try:
+        return uuid.UUID(raw) if raw else None
+    except ValueError:
+        return None
+
+
 def _ctx(request: Request, principal: Principal, db: Session) -> OpCtx:
     return OpCtx(
         db,
@@ -148,6 +159,7 @@ def _ctx(request: Request, principal: Principal, db: Session) -> OpCtx:
         principal.user.id,
         client_ip(request),
         session_id=principal.session.id,
+        batch_id=_batch_id(request),
     )
 
 

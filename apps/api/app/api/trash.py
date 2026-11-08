@@ -24,10 +24,18 @@ from app.api.files import (
 )
 from app.auth import clock
 from app.auth.deps import Principal, get_db, http_error
-from app.db.models import FileOperation, ImportBatch, Node, StorageRoot, TrashItem, User
+from app.db.models import (
+    HIDDEN_NODE_STATUSES,
+    FileOperation,
+    ImportBatch,
+    Node,
+    StorageRoot,
+    TrashItem,
+    User,
+)
 from app.domain import activity, trash, undo
 from app.domain.fileops import OpError
-from app.domain.nodes import root_node
+from app.domain.nodes import path_components, root_node
 from app.policy import engine
 from app.policy.deps import (
     NodeContext,
@@ -146,15 +154,36 @@ class UndoOut(BaseModel):
     replayed: bool = False
 
 
+class RecentItemOut(BaseModel):
+    """One file or folder of a "Recent actions" entry, for the details view."""
+
+    operation_id: uuid.UUID
+    name: str | None
+    old_name: str | None  # only for a rename
+    from_location: str | None
+    to_location: str | None
+    at: datetime
+    node_id: uuid.UUID | None  # only while the caller can still see it
+    reversible: bool
+    undone: bool
+
+
 class RecentOut(BaseModel):
+    # An operation id, an import id, or (kind "batch") the shared batch id of a multi-item action.
     id: uuid.UUID
-    kind: Literal["operation", "import"]
+    kind: Literal["operation", "import", "batch"]
     action: str
     name: str | None
     at: datetime
     node_id: uuid.UUID | None  # only while the caller can still see it
     reversible: bool
     undone: bool
+    # Details (added after the first release; old clients ignore them).
+    count: int = 1
+    by: str | None = None
+    from_location: str | None = None  # a batch shows one only when every item shares it
+    to_location: str | None = None
+    items: list[RecentItemOut] = []
 
 
 # ------------------------------------------------------------------ helpers
@@ -427,13 +456,48 @@ def node_activity(
     )
 
 
+MAX_RECENT_OPERATIONS = 1000
+
+
+def _location(
+    db: Session,
+    actor: Actor,
+    parent_id: object,
+    cache: dict[str, str | None],
+) -> str | None:
+    """A readable folder path such as "My files / Trips", or None when the folder is gone, hidden
+    or protected from this person (a locked Confidential folder never leaks its name)."""
+    if not isinstance(parent_id, str):
+        return None
+    if parent_id in cache:
+        return cache[parent_id]
+    label: str | None = None
+    try:
+        node = db.get(Node, uuid.UUID(parent_id))
+    except ValueError:
+        node = None
+    if (
+        node is not None
+        and node.status not in HIDDEN_NODE_STATUSES
+        and Privilege.TRAVERSE in engine.effective(db, actor, node)
+        and engine.lock_scope(db, actor, node) is None
+    ):
+        root = db.get(StorageRoot, node.root_id)
+        top = "Server files" if root is not None and root.kind == "shared" else "My files"
+        label = " / ".join([top, *path_components(db, node)])
+    cache[parent_id] = label
+    return label
+
+
 @router.get("/activity/mine", response_model=list[RecentOut])
 def my_recent_actions(
     principal: Principal = Depends(actor_access),
     db: Session = Depends(get_db),
     limit: int = Query(default=30, ge=1, le=100),
 ) -> list[RecentOut]:
-    """The caller's own recent actions, newest first, with whether each can still be undone."""
+    """The caller's own recent actions, newest first, with whether each can still be undone.
+    Operations that carry the same batch id (one multi-item action) are one entry of kind
+    `batch`; entries from before batch ids existed stay single rows."""
     actor = Actor(principal.user.id, session_id=principal.session.id)
     out: list[RecentOut] = []
     ops = db.scalars(
@@ -442,8 +506,11 @@ def my_recent_actions(
             FileOperation.actor_user_id == principal.user.id, FileOperation.status == "committed"
         )
         .order_by(FileOperation.updated_at.desc(), FileOperation.id)
-        .limit(limit)
+        .limit(MAX_RECENT_OPERATIONS)
     )
+    locations: dict[str, str | None] = {}
+    groups: dict[str, list[RecentItemOut]] = {}
+    group_rows: dict[str, RecentOut] = {}
     for op in ops:
         detail = op.detail if isinstance(op.detail, dict) else {}
         node = db.get(Node, op.node_id) if op.node_id else None
@@ -452,20 +519,66 @@ def my_recent_actions(
             and node.status not in ("dismissed", "trashed", "purged")
             and Privilege.TRAVERSE in engine.effective(db, actor, node)
         )
-        out.append(
-            RecentOut(
-                id=op.id,
-                kind="operation",
-                action=op.action,
-                name=None
-                if node is not None and engine.lock_scope(db, actor, node) is not None
-                else detail.get("dst_name") or detail.get("name") or detail.get("src_name"),
-                at=op.updated_at,
-                node_id=op.node_id if seen else None,
-                reversible=undo.reversible(op),
-                undone="undone_by" in detail,
-            )
+        protected = node is not None and engine.lock_scope(db, actor, node) is not None
+        name = (
+            None
+            if protected
+            else detail.get("dst_name") or detail.get("name") or detail.get("src_name")
         )
+        src_name = detail.get("src_name")
+        item = RecentItemOut(
+            operation_id=op.id,
+            name=name,
+            old_name=src_name
+            if op.action == "rename" and not protected and src_name != name
+            else None,
+            from_location=_location(db, actor, detail.get("src_parent"), locations),
+            to_location=_location(
+                db, actor, detail.get("dst_parent") or detail.get("parent"), locations
+            ),
+            at=op.updated_at,
+            node_id=op.node_id if seen else None,
+            reversible=undo.reversible(op),
+            undone="undone_by" in detail,
+        )
+        batch = detail.get("batch")
+        key = f"{batch}:{op.action}" if isinstance(batch, str) else None
+        if key is not None and key in group_rows:
+            groups[key].append(item)
+            continue
+        row = RecentOut(
+            id=op.id,
+            kind="operation",
+            action=op.action,
+            name=name,
+            at=op.updated_at,
+            node_id=item.node_id,
+            reversible=item.reversible,
+            undone=item.undone,
+            by=principal.user.name,
+            from_location=item.from_location,
+            to_location=item.to_location,
+            items=[item],
+        )
+        if key is not None:
+            group_rows[key] = row
+            groups[key] = row.items
+        out.append(row)
+    for key, row in group_rows.items():
+        its = groups[key]
+        if len(its) < 2:
+            continue  # a batch of one reads as a single action
+        row.kind = "batch"
+        row.id = uuid.UUID(key.split(":")[0])
+        row.name = None
+        row.node_id = None
+        row.count = len(its)
+        row.reversible = any(i.reversible for i in its)
+        row.undone = all(i.undone for i in its)
+        row.from_location = (
+            its[0].from_location if len({i.from_location for i in its}) == 1 else None
+        )
+        row.to_location = its[0].to_location if len({i.to_location for i in its}) == 1 else None
     batches = db.scalars(
         select(ImportBatch)
         .where(
@@ -487,6 +600,7 @@ def my_recent_actions(
                 node_id=None,
                 reversible="undone" not in plan,
                 undone="undone" in plan,
+                by=principal.user.name,
             )
         )
     out.sort(key=lambda r: r.at, reverse=True)
@@ -514,6 +628,69 @@ def undo_operation(
     except OpError as err:
         raise _http(err) from err
     return undo_out(result)
+
+
+class BatchSkippedOut(BaseModel):
+    operation_id: uuid.UUID
+    name: str | None
+    reason: str
+
+
+class BatchUndoOut(BaseModel):
+    undone: int
+    trashed: int = 0
+    skipped: list[BatchSkippedOut] = []
+    left_in_place: list[LeftOut] = []
+
+
+@router.post("/operations/batch/{batch_id}/undo", response_model=BatchUndoOut)
+def undo_batch(
+    batch_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(actor_access),
+    db: Session = Depends(get_db),
+) -> BatchUndoOut:
+    """Reverses every still-undoable operation of one of the caller's own multi-item actions,
+    newest first. Each item is checked on its own, exactly like a single undo: an item that
+    changed since is left alone and reported in `skipped`, the rest are undone."""
+    ops = [
+        op
+        for op in db.scalars(
+            select(FileOperation)
+            .where(
+                FileOperation.actor_user_id == principal.user.id,
+                FileOperation.status == "committed",
+            )
+            .order_by(FileOperation.updated_at.desc(), FileOperation.id)
+            .limit(MAX_RECENT_OPERATIONS)
+        )
+        if isinstance(op.detail, dict) and op.detail.get("batch") == str(batch_id)
+    ]
+    if not ops:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
+    out = BatchUndoOut(undone=0)
+    for op in ops:
+        if not undo.reversible(op):
+            continue
+        name = (op.detail or {}).get("dst_name") or (op.detail or {}).get("src_name")
+        try:
+            result = undo.undo_operation(_ctx(request, principal, db), op.id, None)
+        except undo.UndoConflict as conflict:
+            db.rollback()
+            out.skipped.append(
+                BatchSkippedOut(operation_id=op.id, name=name, reason=conflict.reason)
+            )
+            continue
+        except OpError as err:
+            db.rollback()
+            out.skipped.append(BatchSkippedOut(operation_id=op.id, name=name, reason=err.code))
+            continue
+        out.undone += 1
+        out.trashed += result.trashed
+        out.left_in_place += [
+            LeftOut(node_id=x.node_id, name=x.name, reason=x.reason) for x in result.left_in_place
+        ]
+    return out
 
 
 def undo_out(result: undo.UndoResult) -> UndoOut:
