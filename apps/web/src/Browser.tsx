@@ -858,10 +858,12 @@ export function Browser({ folderId, go, onRoot, onEnded, onOpenSetup }: Props) {
       {info.parent_id === null &&
         info.can_manage &&
         info.setup_state === "open" && (
-          <p className="banner" role="note">
-            This folder has not been set up yet.{" "}
-            <button onClick={onOpenSetup}>Set up…</button>
-          </p>
+          <div className="setup-prompt" role="note">
+            <p>This folder hasn&apos;t been set up yet.</p>
+            <button className="primary" onClick={onOpenSetup}>
+              Set up now
+            </button>
+          </div>
         )}
       {info.parent_id === null && info.can_manage && info.scan_delayed && (
         <p className="banner warn" role="note">

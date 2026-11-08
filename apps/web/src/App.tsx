@@ -533,7 +533,7 @@ function Shell({
   // After sign-in, a root whose setup window is open and that this person may set up gets a
   // full-page screen before the browser. A member gets their own folder. An administrator gets the
   // server setup, whose last step is the shared tree; their own folder is not offered here and is
-  // set up later from the side navigation ("(set up)").
+  // set up later from the side navigation (the "!" marker).
   const setupRoot = roots.find((r) =>
     setupFor !== null
       ? r.node_id === setupFor && r.setup_open
@@ -613,16 +613,17 @@ function Shell({
                   >
                     <Icon name={ROOT_ICON[r.kind]} />
                     {rootLabel(r)}
+                    {r.setup_open && (
+                      <span
+                        className="navwarn"
+                        role="img"
+                        aria-label="Not set up yet"
+                        title="Not set up yet"
+                      >
+                        !
+                      </span>
+                    )}
                   </a>
-                  {r.setup_open && (
-                    <button
-                      className="linklike flag"
-                      aria-label={`Set up ${r.name}`}
-                      onClick={() => setSetupFor(r.node_id)}
-                    >
-                      (set up)
-                    </button>
-                  )}
                 </li>
               ))}
           </ul>

@@ -1994,3 +1994,53 @@ button.link-button:focus-visible {
   color: var(--danger, #b3261e);
   font-size: 0.75rem;
 }
+
+/* nav marker for a folder that is not set up yet */
+.sidenav a .navwarn {
+  margin-left: auto;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  background: var(--warning);
+  color: #fff;
+}
+/* compact floating prompt in the middle of the content area (no backdrop, no dragging) */
+.setup-prompt {
+  position: fixed;
+  top: 50%;
+  left: calc(116px + 50vw);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 16px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--r-l);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+}
+.setup-prompt p {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .setup-prompt {
+    left: 50%;
+  }
+}
+/* empty folder: even space around the dashed box inside the list frame */
+.list > .empty {
+  margin: 16px;
+  padding: 24px;
+  text-align: center;
+}
