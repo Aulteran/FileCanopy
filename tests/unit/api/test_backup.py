@@ -1348,6 +1348,9 @@ def test_status_reports_sizes_and_estimates_without_names(fx: Fx, alice: Api) ->
     assert est["chains_held"] and est["history_days"]
     mine = next(r for r in status["roots"] if r["user_id"] == str(fx.uid("alice@example.com")))
     assert mine["last_run"]["kind"] == "incremental" and mine["chains"] == 1
+    # an administrator sees whose personal folder it is; the shared root has no owner
+    assert isinstance(mine["owner_name"], str) and mine["owner_name"]
+    assert all(r["owner_name"] is None for r in status["roots"] if r["kind"] == "shared")
     flat = repr(status)
     assert "big.bin" not in flat and "Taxes" not in flat
     assert status["volume"]["used_bytes"] > 0

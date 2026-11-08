@@ -406,7 +406,11 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
             {status.roots.map((r, i) => (
               <tr key={`${r.kind}-${r.user_id ?? "shared"}-${i}`}>
                 <td>
-                  {r.kind === "shared" ? "Server files" : "A personal folder"}
+                  {r.kind === "shared"
+                    ? "Server files"
+                    : r.owner_name
+                      ? `Personal folder of ${r.owner_name}`
+                      : "A personal folder"}
                 </td>
                 <td>
                   {r.status === "scan_suspended" ? "syncing paused" : r.status}

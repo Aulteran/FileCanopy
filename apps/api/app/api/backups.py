@@ -47,7 +47,7 @@ from app.backup.store import (
 from app.backup.store import rotate_key as rotate_stored_key
 from app.backup.volume import backups_root, folder_usage, inspect_volume
 from app.config import Settings
-from app.db.models import AuthAudit, BackupRootKey, BackupRun, Node, StorageRoot
+from app.db.models import AuthAudit, BackupRootKey, BackupRun, Node, StorageRoot, User
 from app.domain.nodes import root_node
 from app.policy import privacy
 from app.policy.deps import NodeContext, grant_admin_access
@@ -121,6 +121,8 @@ class RootOut(BaseModel):
     root_id: uuid.UUID
     kind: str
     user_id: uuid.UUID | None  # an account id only, never a name or content
+    # the owner's display name, for a personal folder, so an administrator can tell them apart
+    owner_name: str | None = None
     # shared: "instance" (the administrator's key). personal: none | pending | active (the
     # owner's own key; a root without an active key is not backed up while encryption is on).
     key_state: str
@@ -263,6 +265,12 @@ def build_status(
     if vol.usable:
         used = folder_usage(backups_root(settings))
     roots = list(db.scalars(select(StorageRoot).order_by(StorageRoot.created_at)))
+    owner_ids = {r.owner_user_id for r in roots if r.owner_user_id is not None}
+    owner_names: dict[uuid.UUID, str] = (
+        {u.id: u.name for u in db.scalars(select(User).where(User.id.in_(owner_ids)))}
+        if owner_ids
+        else {}
+    )
     chains = retention.list_chains(db)
     active_keys = {
         k.root_id: k
@@ -321,6 +329,7 @@ def build_status(
                 escrow=root.id in active_keys and active_keys[root.id].escrow_blob is not None,
                 legacy_chains=legacy_chain_count(db, root),
                 user_id=root.owner_user_id,
+                owner_name=owner_names.get(root.owner_user_id) if root.owner_user_id else None,
                 status="scan_suspended"
                 if root.status == "active" and root.scan_state
                 else root.status,
