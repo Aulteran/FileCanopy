@@ -236,9 +236,7 @@ def change_name(
     """Change your own display name. The name is only a label (never an identity), so the
     session is enough; the email, role and status cannot be changed here."""
     user = principal.user
-    name = body.name.strip()
-    if not name or any(ord(c) < 32 for c in name):
-        raise http_error(422, "INVALID_NAME")
+    name = _name(body.name)
     if name != user.name:
         user.name = name
         audit(

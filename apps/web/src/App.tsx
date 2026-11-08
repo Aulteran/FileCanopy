@@ -173,6 +173,7 @@ function SignedInApp() {
     return (
       <Shell
         session={boot.session}
+        onSession={(session) => setBoot({ state: "ready", session })}
         onEnded={ended}
         sso={sso}
         pinToken={pinToken}
@@ -253,12 +254,14 @@ function rootLabel(r: EntryPoint): string {
 
 function Shell({
   session,
+  onSession,
   onEnded,
   sso,
   pinToken,
   aliasLink,
 }: {
   session: Session;
+  onSession: (session: Session) => void;
   onEnded: () => void;
   sso: string | null;
   pinToken: string | null;
@@ -953,6 +956,9 @@ function Shell({
           initialTab={settingsTab}
           onClose={() => setSettingsTab(null)}
           account={{
+            name: session.user.name,
+            onName: (user) => onSession({ ...session, user }),
+            onSession,
             reauthed: pending === "pin",
             pinToken,
             onPinChanged: setPinSet,

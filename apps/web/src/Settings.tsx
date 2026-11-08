@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { AccountDialog } from "./Account";
 import { AiSettings } from "./AiSettings";
+import type { Session, User } from "./api";
 import { Modal } from "./Dialogs";
 import { PreviewSettings } from "./PreviewSettings";
 
@@ -26,6 +27,9 @@ export function SettingsDialog({
   onClose: () => void;
   /** What the Account section needs when the person returns from a provider or a PIN link. */
   account: {
+    name?: string;
+    onName?: (user: User) => void;
+    onSession?: (session: Session) => void;
     notice?: string;
     reauthed?: boolean;
     pinToken?: string | null;
