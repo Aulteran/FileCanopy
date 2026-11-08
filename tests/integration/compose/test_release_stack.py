@@ -67,6 +67,7 @@ class ReleaseStack(Stack):
         if self.candidate:
             return
         if not all(_image_present(local) for local in LOCAL_TO_RELEASE):
+            (self.tmp / "build").mkdir(exist_ok=True)
             base = Stack(self.tmp / "build", "fctestbuild")
             subprocess.run(  # noqa: S603
                 [  # noqa: S607
