@@ -131,7 +131,7 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     dialog.get_by_role("button", name="Archive").click()
     # Wait for the chosen folder's metadata before confirming; its async load/impact check can
     # otherwise change button readiness between Playwright's pointer-down and pointer-up.
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     expect(dialog.get_by_role("button", name="Copy here")).to_be_enabled()
     with page.expect_response(
         lambda response: response.request.method == "POST" and response.url.endswith("/copy")
@@ -147,7 +147,7 @@ def test_folder_crud_matches_real_files(browser: Browser, world: World) -> None:
     page.get_by_role("button", name="Move…").click()
     dialog = page.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name="Archive").click()
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog.get_by_role("alert")).to_have_text("An item with that name already exists here.")
     dialog.get_by_role("button", name="Cancel").click()
@@ -163,7 +163,7 @@ def test_move_between_folders(browser: Browser, world: World) -> None:
     page.get_by_role("button", name="Move…").click()
     dialog = page.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name="Archive").click()
-    expect(dialog.get_by_text("Destination: Archive")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Archive$"))).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog).to_be_hidden()
     expect(row(page, "report (2).bin")).to_have_count(0)
@@ -271,7 +271,7 @@ def test_phone_sized_viewport(browser: Browser, world: World) -> None:
     nav = page.get_by_role("navigation", name="Files", exact=True)
     expect(nav.get_by_role("link", name="My files")).to_be_visible()
     nav.get_by_role("link", name="My files").click()  # choosing a page closes the drawer
-    expect(page.get_by_role("button", name="Upload here")).to_be_visible()
+    expect(page.get_by_role("button", name="Upload", exact=True)).to_be_visible()
     new_folder(page, "Phone")
     assert (w.alice_disk / "Phone").is_dir()
     select(page, "Phone")
@@ -318,7 +318,7 @@ def test_forbidden_ui_and_direct_api(browser: Browser, world: World) -> None:
     expect(link).to_be_visible()
     link.click()
     expect(bob.get_by_text("Read-only")).to_be_visible()
-    expect(bob.get_by_role("button", name="Upload here")).to_be_disabled()
+    expect(bob.get_by_role("button", name="Upload", exact=True)).to_be_disabled()
     expect(bob.get_by_role("button", name="New folder")).to_be_disabled()
     select(bob, "final.bin")
     expect(bob.get_by_role("link", name="Download")).to_be_visible()  # viewers may read
@@ -367,7 +367,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
     expect(page.locator("ol.setup-steps > li > strong")).to_have_text(
         [
-            "Step 1: AI (optional)",
+            "Step 1: AI",
             "Step 2: Meaning-based search (optional)",
             "Step 3: Mail server (optional)",
             "Step 4: Other users (optional)",

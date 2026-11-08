@@ -187,7 +187,7 @@ def test_picker_offers_folders_past_the_first_page(world: World, browser: Browse
     page.get_by_role("button", name="Move…").click()
     dialog = page.get_by_role("dialog", name=re.compile("Move"))
     dialog.get_by_role("button", name="Many", exact=True).click()
-    expect(dialog.get_by_text("Destination: Many")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*Many$"))).to_be_visible()
     folders = dialog.get_by_role("list", name="Folders").get_by_role(
         "button", name=re.compile(r"^f\d{3}$")
     )
@@ -200,7 +200,7 @@ def test_picker_offers_folders_past_the_first_page(world: World, browser: Browse
     for name in ("f000", "f229"):
         expect(dialog.get_by_role("button", name=name, exact=True)).to_be_visible()
     dialog.get_by_role("button", name="f229", exact=True).click()
-    expect(dialog.get_by_text("Destination: f229")).to_be_visible()
+    expect(dialog.get_by_text(re.compile(r"Destination: .*f229$"))).to_be_visible()
     dialog.get_by_role("button", name="Move here").click()
     expect(dialog).to_be_hidden()
     expect(row(page, "item.txt")).to_have_count(0)

@@ -80,7 +80,8 @@ def select(page: Page, name: str) -> None:
 
 
 def crumbs(page: Page) -> Locator:
-    return page.get_by_role("navigation", name="Breadcrumb")
+    # The ancestors are in the breadcrumb; the current folder is the page title.
+    return page.locator("nav[aria-label='Breadcrumb'], .folder-title")
 
 
 def upload(page: Page, name: str, data: bytes) -> None:

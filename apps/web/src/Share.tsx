@@ -99,6 +99,7 @@ export function ShareDialog({
         <label>
           Add people
           <input
+            placeholder="Name or email"
             value={
               chosen
                 ? chosen.hint
@@ -208,7 +209,7 @@ export function ShareDialog({
             ))}
         </ul>
       )}
-      <div className="banner">
+      <div className="banner info">
         <strong>Everything inside is shared too</strong>
         <p>
           Sharing {folderName} also shares its subfolders and everything in

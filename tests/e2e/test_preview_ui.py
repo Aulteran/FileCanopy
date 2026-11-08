@@ -124,6 +124,6 @@ def test_private_files_need_the_opt_in_and_it_can_be_withdrawn(
     expect(box).to_be_checked()
     box.click()  # the box follows the server's answer, so wait for it rather than for the click
     expect(box).not_to_be_checked()
-    dialog.get_by_role("button", name="Close").click()
+    dialog.locator("button", has_text="Close").click()  # the footer button; the × has no text
     page.reload()
     expect(page.get_by_role("heading", name="Allow previews of protected files?")).to_be_visible()

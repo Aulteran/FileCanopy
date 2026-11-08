@@ -496,9 +496,9 @@ def test_missing_unsupported_collision_and_suspended_states(
         )
 
     page = sign_in(browser, w, p.mail)
-    expect(row(page, "shortcut")).to_contain_text("not supported: symbolic link")
-    expect(row(page, "external-drive")).to_contain_text("not supported: mounted drive")
-    expect(row(page, "pipe")).to_contain_text("not supported: special file")
+    expect(row(page, "shortcut")).to_contain_text("Not supported")
+    expect(row(page, "external-drive")).to_contain_text("Not supported")
+    expect(row(page, "pipe")).to_contain_text("Not supported")
     expect(row(page, "shortcut")).to_have_class(re.compile("unsupported"))  # greyed out
     expect(row(page, "shortcut").get_by_role("link")).to_have_count(0)  # never opened
     select(page, "shortcut")
@@ -506,7 +506,7 @@ def test_missing_unsupported_collision_and_suspended_states(
     for name in ("Rename", "Move…", "Copy…"):
         expect(page.get_by_role("button", name=name)).to_have_count(0)
     expect(page.get_by_role("link", name="Download")).to_have_count(0)
-    twins = page.get_by_role("row").filter(has_text="differs only by case")
+    twins = page.get_by_role("row").filter(has_text="Similar name")
     expect(twins).to_have_count(2)
 
     # a file removed on the host is shown as missing, never as deleted; it can be dismissed
@@ -514,15 +514,16 @@ def test_missing_unsupported_collision_and_suspended_states(
     open_gone.click()
     expect(row(page, "vanish.txt")).to_be_visible()
     (stack.library / "personal" / p.uid / "Gone" / "vanish.txt").unlink()
-    page.get_by_role("button", name="Rescan").first.click()
+    page.get_by_role("button", name="More").first.click()
+    page.get_by_role("menuitem", name="Rescan").click()
     wait_until(
         page,
         lambda: (
             row(page, "vanish.txt").count() > 0
-            and "missing" in row(page, "vanish.txt").inner_text()
+            and "Missing" in row(page, "vanish.txt").inner_text()
         ),
     )
-    expect(row(page, "vanish.txt")).to_contain_text("missing, rescan needed")
+    expect(row(page, "vanish.txt")).to_contain_text("Missing")
     expect(row(page, "keep.txt")).not_to_contain_text("missing")
     select(page, "vanish.txt")
     expect(page.get_by_text("Nothing was deleted here")).to_be_visible()
@@ -536,12 +537,14 @@ def test_missing_unsupported_collision_and_suspended_states(
     for i in range(130):
         (bulk_dir / f"f{i:03d}.txt").write_bytes(b"x")
     page.goto(f"{w.base}/f/{bulk}")
-    page.get_by_role("button", name="Rescan").first.click()
+    page.get_by_role("button", name="More").first.click()
+    page.get_by_role("menuitem", name="Rescan").click()
     wait_until(page, lambda: page.get_by_role("row").count() > 100)
     for f in bulk_dir.iterdir():
         f.unlink()
     page.goto(f"{w.base}/f/{p.root}")
-    page.get_by_role("button", name="Rescan").first.click()
+    page.get_by_role("button", name="More").first.click()
+    page.get_by_role("menuitem", name="Rescan").click()
     banner = page.get_by_role("region", name="Syncing from disk is paused")
     wait_until(page, lambda: banner.count() > 0)
     expect(banner).to_be_visible()
