@@ -193,7 +193,7 @@ export function Browser({
       try {
         const node = await api.node(folderId, !background.current);
         const chain: NodeInfo[] = [node];
-        for (let n = node; n.parent_id && chain.length < 64; ) {
+        for (let n = node; n.parent_id && chain.length < 64;) {
           n = await api.node(n.parent_id);
           chain.unshift(n);
         }
