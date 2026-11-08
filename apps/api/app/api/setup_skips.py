@@ -17,12 +17,14 @@ from app.db.models import AppSetting
 router = APIRouter(prefix="/api/v1/admin/setup-skips", tags=["admin"])
 
 KEY = "setup.skipped_steps"
-STEPS = ("ai", "semantic", "smtp", "users", "mail")
+# "smtp" is Step 3, Mail server (outgoing and incoming mail). A "mail" skip saved when incoming
+# mail was its own step is ignored, and dropped the next time a skip is saved.
+STEPS = ("ai", "semantic", "smtp", "users")
 
 
 class SkipBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    step: Literal["ai", "semantic", "smtp", "users", "mail"]
+    step: Literal["ai", "semantic", "smtp", "users"]
     skipped: bool
 
 

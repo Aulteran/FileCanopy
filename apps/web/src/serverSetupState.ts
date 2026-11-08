@@ -71,7 +71,7 @@ export async function loadServerSetupDone(
 }
 
 /** The optional steps that can be skipped (Step 5, the server files, is required). */
-export type SkippableStep = "ai" | "semantic" | "smtp" | "users" | "mail";
+export type SkippableStep = "ai" | "semantic" | "smtp" | "users";
 
 /** The steps the administrator skipped, as saved on the server. A failed request shows none. */
 export async function loadSkippedSteps(): Promise<SkippableStep[]> {
