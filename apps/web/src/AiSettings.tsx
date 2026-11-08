@@ -1418,11 +1418,6 @@ function Frame({
   if (asPage)
     return (
       <section aria-labelledby="ai-page-h">
-        <p>
-          <button type="button" className="linklike" onClick={onClose}>
-            Back to Administration
-          </button>
-        </p>
         <h1 id="ai-page-h">{title}</h1>
         {children}
       </section>

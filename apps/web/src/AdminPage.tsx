@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
-import { Icon } from "./Icon";
 import { IncomingMailSetup } from "./IncomingMailSetup";
 import { api } from "./api";
 import { SmtpSetup } from "./SmtpSettings";
@@ -23,76 +22,98 @@ import {
   type SkippableStep,
 } from "./serverSetupState";
 
-// One place for server-wide administration, instead of separate top-bar links.
-export function AdminPage({ go }: { go: (path: string) => void }) {
-  // A05: order is Server settings, Users, AI, Usage, Mail server, Backups.
-  const cards: Array<{
-    path: string;
-    icon: "settings" | "users" | "mail" | "backup" | "activity" | "sparkles";
-    title: string;
-    text: string;
-  }> = [
-    {
-      path: SETTINGS_PATH,
-      icon: "settings",
-      title: "Server settings",
-      text: "Trash retention, default access for new accounts and privacy labels.",
-    },
-    {
-      path: USERS_PATH,
-      icon: "users",
-      title: "Users",
-      text: "Invite people, reset sign-ins and manage roles.",
-    },
-    {
-      path: AI_ADMIN_PATH,
-      icon: "sparkles",
-      title: "AI",
-      text: "AI models, what they may see, and spending limits.",
-    },
-    {
-      path: USAGE_PATH,
-      icon: "activity",
-      title: "Usage",
-      text: "What each AI model used this month and its spending limit.",
-    },
-    {
-      path: MAILBOX_PATH,
-      icon: "mail",
-      title: "Mail server",
-      text: "Server email (SMTP and inbound) and quarantined messages.",
-    },
-    {
-      path: BACKUPS_PATH,
-      icon: "backup",
-      title: "Backups",
-      text: "Backup targets, schedules and restores.",
-    },
-  ];
+const ADMIN_SECTIONS: Array<{
+  path: string;
+  title: string;
+  text: string;
+}> = [
+  {
+    path: SETTINGS_PATH,
+    title: "Server settings",
+    text: "Trash retention, default access for new accounts and privacy labels.",
+  },
+  {
+    path: USERS_PATH,
+    title: "Users",
+    text: "Invite people, reset sign-ins and manage roles.",
+  },
+  {
+    path: AI_ADMIN_PATH,
+    title: "AI",
+    text: "AI models, what they may see, and spending limits.",
+  },
+  {
+    path: USAGE_PATH,
+    title: "Usage",
+    text: "What each AI model used this month and its spending limit.",
+  },
+  {
+    path: MAILBOX_PATH,
+    title: "Mail server",
+    text: "Server email (SMTP and inbound) and quarantined messages.",
+  },
+  {
+    path: BACKUPS_PATH,
+    title: "Backups",
+    text: "Backup targets, schedules and restores.",
+  },
+];
+
+/** The Admin pages share this layout, the same as the first-time server setup: the sections on
+ * the left, the chosen section's settings in the right-hand panel (which scrolls by itself). */
+export function AdminLayout({
+  current,
+  go,
+  children,
+}: {
+  current: string;
+  go: (path: string) => void;
+  children: ReactNode;
+}) {
   return (
-    <section aria-labelledby="admin-h">
-      <h1 id="admin-h">Administration</h1>
-      <p>Server-wide settings for everyone who uses this FileCanopy.</p>
-      <ul className="admin-cards">
-        {cards.map((c) => (
-          <li key={c.path}>
-            <a
-              className="admin-card"
-              href={c.path}
-              onClick={(e) => {
-                e.preventDefault();
-                go(c.path);
-              }}
-            >
-              <Icon name={c.icon} />
-              <strong>{c.title}</strong>
-              <span>{c.text}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+    <section aria-labelledby="admin-h" className="server-setup admin-layout">
+      <h1 id="admin-h" className="sr-only">
+        Administration
+      </h1>
+      <div className="server-setup-layout">
+        <nav className="server-setup-steps" aria-label="Administration">
+          <ol className="setup-steps">
+            {ADMIN_SECTIONS.map((s) => (
+              <li
+                key={s.path}
+                className={s.path === current ? "active" : undefined}
+              >
+                <strong>
+                  <a
+                    href={s.path}
+                    aria-current={s.path === current ? "page" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(s.path);
+                    }}
+                  >
+                    {s.title}
+                  </a>
+                </strong>
+                <p>{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <section className="server-setup-panel">{children}</section>
+      </div>
     </section>
   );
+}
+
+/** "/admin" itself has no page: it opens the first section. */
+export function AdminRedirect({
+  go,
+}: {
+  go: (path: string, replace?: boolean) => void;
+}) {
+  useEffect(() => go(SETTINGS_PATH, true), [go]);
+  return null;
 }
 
 type SetupView = "steps" | "ai" | "semantic" | "smtp" | "users" | "files";

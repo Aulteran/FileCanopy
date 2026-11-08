@@ -30,8 +30,7 @@ import { SettingsDialog, type SettingsTab } from "./Settings";
 import { describeError } from "./format";
 import { ssoIsError, takeSsoResult } from "./sso";
 import { Viewer } from "./Viewer";
-import { AdminPage, ServerSetupStep } from "./AdminPage";
-import { AdminCrumb } from "./AdminCrumb";
+import { AdminLayout, AdminRedirect, ServerSetupStep } from "./AdminPage";
 import { ServerSettingsPage } from "./ServerSettings";
 import { ProfileMenu } from "./ProfileMenu";
 import {
@@ -50,6 +49,8 @@ import {
   TRASH_PATH,
   SHARED_WITH_PATH,
   USERS_PATH,
+  SETTINGS_PATH,
+  USAGE_PATH,
   folderPath,
   tokenFromHash,
   tokenPageOf,
@@ -318,6 +319,29 @@ function Shell({
     return () => clearInterval(t);
   }, [refreshUnread, folderId]);
   const admin = session.user.role === "admin";
+  // The Admin pages share one layout: a section list on the left, the section's settings on the right.
+  const adminCurrent = users
+    ? USERS_PATH
+    : mailbox
+      ? MAILBOX_PATH
+      : settingsRoute
+        ? SETTINGS_PATH
+        : aiAdminRoute
+          ? AI_ADMIN_PATH
+          : usageRoute
+            ? USAGE_PATH
+            : backups
+              ? BACKUPS_PATH
+              : ADMIN_PATH;
+  const adminFixed =
+    admin &&
+    (users ||
+      mailbox ||
+      adminRoute ||
+      settingsRoute ||
+      aiAdminRoute ||
+      usageRoute ||
+      backups);
   // The Email inbox exists only once incoming mail is set up (Step 3, Mail server).
   const incomingMail = session.incoming_mail === true;
   const [roots, setRoots] = useState<EntryPoint[] | null>(null);
@@ -664,7 +688,7 @@ function Shell({
   }
 
   return (
-    <div className="shell">
+    <div className={adminFixed ? "shell admin-fixed" : "shell"}>
       <a href="#main" className="skip">
         Skip to content
       </a>
@@ -814,15 +838,7 @@ function Shell({
           onChanged={() => setReload((n) => n + 1)}
         />
         {sharedWith && <SharedWithYouPage roots={roots} go={go} />}
-        {users &&
-          (admin ? (
-            <>
-              <AdminCrumb page="Users" go={go} />
-              <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
-            </>
-          ) : (
-            <p>Only administrators can manage users.</p>
-          ))}
+        {users && !admin && <p>Only administrators can manage users.</p>}
         {inbox &&
           (incomingMail ? (
             <InboxPage onEnded={onEnded} go={go} />
@@ -874,49 +890,34 @@ function Shell({
             onChanged={() => setReload((n) => n + 1)}
           />
         )}
-        {mailbox &&
+        {(mailbox ||
+          adminRoute ||
+          settingsRoute ||
+          aiAdminRoute ||
+          usageRoute ||
+          users ||
+          backups) &&
           (admin ? (
-            <>
-              <AdminCrumb page="Mail server" go={go} />
-              <MailboxAdminPage onEnded={onEnded} outgoing />
-            </>
+            <AdminLayout current={adminCurrent} go={go}>
+              {users && (
+                <UsersPage me={session.user.id} go={go} onEnded={onEnded} />
+              )}
+              {mailbox && <MailboxAdminPage onEnded={onEnded} outgoing />}
+              {adminRoute && <AdminRedirect go={go} />}
+              {settingsRoute && <ServerSettingsPage onEnded={onEnded} />}
+              {aiAdminRoute && (
+                <AiSettings admin asPage onClose={() => go(ADMIN_PATH)} />
+              )}
+              {usageRoute && <UsagePage onAi={() => go(AI_ADMIN_PATH)} />}
+              {backups && (
+                <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
+              )}
+            </AdminLayout>
+          ) : users ? null : backups ? (
+            <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
           ) : (
-            <p>Only administrators can manage the mailbox.</p>
+            <p>Only administrators can open this page.</p>
           ))}
-        {adminRoute &&
-          (admin ? (
-            <AdminPage go={go} />
-          ) : (
-            <p>Only administrators can open the admin page.</p>
-          ))}
-        {settingsRoute &&
-          (admin ? (
-            <>
-              <AdminCrumb page="Server settings" go={go} />
-              <ServerSettingsPage onEnded={onEnded} />
-            </>
-          ) : (
-            <p>Only administrators can open the server settings.</p>
-          ))}
-        {aiAdminRoute &&
-          (admin ? (
-            <AiSettings admin asPage onClose={() => go(ADMIN_PATH)} />
-          ) : (
-            <p>Only administrators can open the AI settings.</p>
-          ))}
-        {usageRoute &&
-          (admin ? (
-            <>
-              <AdminCrumb page="Usage" go={go} />
-              <UsagePage onAi={() => go(AI_ADMIN_PATH)} />
-            </>
-          ) : (
-            <p>Only administrators can open the usage page.</p>
-          ))}
-        {backups && admin && <AdminCrumb page="Backups" go={go} />}
-        {backups && (
-          <BackupsPage admin={admin} roots={roots} onEnded={onEnded} />
-        )}
         {trash && (
           <TrashPage
             onEnded={onEnded}
