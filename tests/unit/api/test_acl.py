@@ -675,6 +675,7 @@ PUBLIC_OR_INSTANCE = {
     "/api/v1/admin/semantic",  # M19: administrators; totals only, no node addressed
     "/api/v1/admin/semantic/verify",
     "/api/v1/admin/semantic/enabled",
+    "/api/v1/admin/setup-skips",  # admin-only first-run screen state; no node addressed
     "/api/v1/me/emails",  # M13: own addresses only; no node addressed
     "/api/v1/me/emails/verify",
     "/api/v1/me/emails/{alias_id}/remove",

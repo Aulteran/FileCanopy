@@ -1900,3 +1900,27 @@ button.link-button:focus-visible {
     max-width: none;
   }
 }
+
+/* Prepare your server: Skip button beside each optional step's action, and the Required mark */
+.step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.step-skip {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  background: transparent;
+  color: var(--muted);
+}
+.step-required {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  color: #c0392b;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}

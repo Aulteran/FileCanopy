@@ -29,6 +29,7 @@ from app.api import privacy as privacy_routes
 from app.api import reconcile as reconcile_routes
 from app.api import search as search_routes
 from app.api import semantic as semantic_routes
+from app.api import setup_skips as setup_skip_routes
 from app.api import sharing as sharing_routes
 from app.api import trash as trash_routes
 from app.auth import admin as auth_admin
@@ -235,6 +236,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(preview_routes.router)
     app.include_router(search_routes.router)
     app.include_router(semantic_routes.router)
+    app.include_router(setup_skip_routes.router)
     app.include_router(trash_routes.router)
     app.include_router(reconcile_routes.router)
     app.include_router(import_routes.router)

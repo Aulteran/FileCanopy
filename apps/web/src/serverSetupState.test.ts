@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiDone, usersDone } from "./serverSetupState";
+import { aiDone, stepMarked, usersDone } from "./serverSetupState";
 
 describe("aiDone", () => {
   it("is false for a fresh server", () => {
@@ -35,5 +35,21 @@ describe("usersDone", () => {
   });
   it("is true with one more account", () => {
     expect(usersDone([{ id: "a" }, { id: "b" }], "a")).toBe(true);
+  });
+});
+
+describe("stepMarked", () => {
+  const none = {
+    ai: false,
+    semantic: false,
+    users: false,
+    smtp: false,
+    mail: false,
+  };
+  it("marks a step that is done or skipped, and no other", () => {
+    expect(stepMarked("ai", none, [])).toBe(false);
+    expect(stepMarked("ai", none, ["ai"])).toBe(true);
+    expect(stepMarked("mail", none, ["ai"])).toBe(false);
+    expect(stepMarked("smtp", { ...none, smtp: true }, [])).toBe(true);
   });
 });
