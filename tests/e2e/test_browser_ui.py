@@ -21,6 +21,7 @@ from support import (
     crumbs,
     new_folder,
     open_folder,
+    open_menu_if_phone,
     row,
     select,
     sign_in,
@@ -266,8 +267,10 @@ def test_keyboard_operation(browser: Browser, world: World) -> None:
 def test_phone_sized_viewport(browser: Browser, world: World) -> None:
     w = world
     page = sign_in(browser, w, w.alice_mail, viewport={"width": 375, "height": 812}, has_touch=True)
+    open_menu_if_phone(page)
     nav = page.get_by_role("navigation", name="Files", exact=True)
     expect(nav.get_by_role("link", name="My files")).to_be_visible()
+    nav.get_by_role("link", name="My files").click()  # choosing a page closes the drawer
     expect(page.get_by_role("button", name="Upload here")).to_be_visible()
     new_folder(page, "Phone")
     assert (w.alice_disk / "Phone").is_dir()
