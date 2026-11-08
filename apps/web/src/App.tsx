@@ -771,6 +771,7 @@ function Shell({
         )}
         {duplicates && (
           <DuplicatesPage
+            go={go}
             onEnded={onEnded}
             onChanged={() => setReload((n) => n + 1)}
           />
