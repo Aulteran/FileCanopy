@@ -506,7 +506,7 @@ def test_missing_unsupported_collision_and_suspended_states(
     for name in ("Rename", "Move…", "Copy…"):
         expect(page.get_by_role("button", name=name)).to_have_count(0)
     expect(page.get_by_role("link", name="Download")).to_have_count(0)
-    twins = page.get_by_role("row").filter(has_text="differs only by case")
+    twins = page.get_by_role("row").filter(has_text="Similar name")
     expect(twins).to_have_count(2)
 
     # a file removed on the host is shown as missing, never as deleted; it can be dismissed
