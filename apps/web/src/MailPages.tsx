@@ -352,7 +352,7 @@ export function MailboxAdminPage({
           <SmtpSetup onEnded={onEnded} />
         </section>
       )}
-      {status && !status.configured && <IncomingMailSetup onEnded={onEnded} />}
+      <IncomingMailSetup onEnded={onEnded} onChanged={() => void load()} />
       {status && status.configured && (
         <>
           <dl>
