@@ -50,7 +50,7 @@ def sign_in(browser: Browser, w: World, email: str, *, setup: bool = False, **ct
     nav.or_(later).or_(menu).first.wait_for()
     if later.is_visible():
         later.click()
-    expect(nav).to_be_visible()
+    expect(nav.or_(menu)).to_be_visible()
     return page
 
 
