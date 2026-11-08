@@ -30,36 +30,46 @@ export function AdminPage({
   go: (path: string) => void;
   onAi: () => void;
 }) {
-  const items = [
+  // A05: order is Server settings, Users, AI, Usage, Mail server, Backups.
+  const cards: Array<
+    | {
+        path: string;
+        icon: "settings" | "users" | "mail" | "backup" | "activity";
+        title: string;
+        text: string;
+      }
+    | { ai: true }
+  > = [
     {
       path: SETTINGS_PATH,
-      icon: "settings" as const,
+      icon: "settings",
       title: "Server settings",
       text: "Trash retention, default access for new accounts and privacy labels.",
     },
     {
       path: USERS_PATH,
-      icon: "users" as const,
+      icon: "users",
       title: "Users",
       text: "Invite people, reset sign-ins and manage roles.",
     },
+    { ai: true },
+    {
+      path: USAGE_PATH,
+      icon: "activity",
+      title: "Usage",
+      text: "What each AI model used this month and its spending limit.",
+    },
     {
       path: MAILBOX_PATH,
-      icon: "mail" as const,
+      icon: "mail",
       title: "Mail server",
       text: "Server email (SMTP and inbound) and quarantined messages.",
     },
     {
       path: BACKUPS_PATH,
-      icon: "backup" as const,
+      icon: "backup",
       title: "Backups",
       text: "Backup targets, schedules and restores.",
-    },
-    {
-      path: USAGE_PATH,
-      icon: "sparkles" as const,
-      title: "Usage",
-      text: "What each AI model used this month and its spending limit.",
     },
   ];
   return (
@@ -67,29 +77,32 @@ export function AdminPage({
       <h1 id="admin-h">Administration</h1>
       <p>Server-wide settings for everyone who uses this FileCanopy.</p>
       <ul className="admin-cards">
-        {items.map((i) => (
-          <li key={i.path}>
-            <a
-              className="admin-card"
-              href={i.path}
-              onClick={(e) => {
-                e.preventDefault();
-                go(i.path);
-              }}
-            >
-              <Icon name={i.icon} />
-              <strong>{i.title}</strong>
-              <span>{i.text}</span>
-            </a>
-          </li>
-        ))}
-        <li>
-          <button type="button" className="admin-card" onClick={onAi}>
-            <Icon name="sparkles" />
-            <strong>AI</strong>
-            <span>AI models, what they may see, and spending limits.</span>
-          </button>
-        </li>
+        {cards.map((c) =>
+          "ai" in c ? (
+            <li key="ai">
+              <button type="button" className="admin-card" onClick={onAi}>
+                <Icon name="sparkles" />
+                <strong>AI</strong>
+                <span>AI models, what they may see, and spending limits.</span>
+              </button>
+            </li>
+          ) : (
+            <li key={c.path}>
+              <a
+                className="admin-card"
+                href={c.path}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go(c.path);
+                }}
+              >
+                <Icon name={c.icon} />
+                <strong>{c.title}</strong>
+                <span>{c.text}</span>
+              </a>
+            </li>
+          ),
+        )}
       </ul>
     </section>
   );
@@ -218,8 +231,9 @@ export function ServerSetupStep({
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
         Set up the server in this order. The last step is the server files
-        everyone will use; finishing or skipping it completes setup. Each step
-        is optional and can be changed later under Admin.
+        everyone will use; finishing or skipping it completes setup. Steps 1 to
+        4 are optional and can be changed later under Admin. Step 5, the Server
+        files, is required and completes setup.
       </p>
       <div className="server-setup-layout">
         <div className="server-setup-steps">
@@ -298,14 +312,7 @@ export function ServerSetupStep({
               </div>
             </li>
             <li className={view === "files" ? "active" : undefined}>
-              <span
-                className="step-required"
-                role="img"
-                aria-label="Required"
-                title="Required"
-              >
-                *
-              </span>
+              <span className="badge step-required">Required</span>
               <strong>Step 5: Server files</strong>
               <p>
                 Start the shared library empty, or copy in files you already

@@ -8,6 +8,7 @@ import {
 } from "./api";
 import { CollectionSuggestions } from "./Collections";
 import { describeError } from "./format";
+import { ADMIN_PATH } from "./route";
 import {
   describeConfidence,
   describeProposal,
@@ -27,14 +28,18 @@ function errorOf(err: unknown, onEnded: () => void): string {
 }
 
 export function OrganizePage({
+  admin,
   go,
   onEnded,
   onChanged,
 }: {
+  admin: boolean;
   go: (path: string) => void;
   onEnded: () => void;
   onChanged: () => void;
 }) {
+  // C03: say plainly when AI is off instead of showing an empty list.
+  const [aiOn, setAiOn] = useState<boolean | null>(null);
   const [pending, setPending] = useState<OrganizeProposal[] | null>(null);
   const [applied, setApplied] = useState<OrganizeProposal[]>([]);
   const [error, setError] = useState("");
@@ -44,6 +49,13 @@ export function OrganizePage({
   const [splitDone, setSplitDone] = useState<SplitProposal[]>([]);
   const [dropBlank, setDropBlank] = useState<Record<string, boolean>>({});
   const [cutText, setCutText] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    api
+      .aiStatus()
+      .then((st) => setAiOn(st.server_ai_enabled))
+      .catch(() => setAiOn(null));
+  }, []);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -173,6 +185,28 @@ export function OrganizePage({
         Files in Private and Confidential folders are never sent to AI. Ask for
         a suggestion by selecting a file and choosing “Suggest organization”.
       </p>
+      {aiOn === false && (
+        <div className="banner info">
+          <p>
+            AI is turned off on this server, so no new suggestions are made.
+            {admin ? (
+              <>
+                {" "}
+                <a
+                  href={ADMIN_PATH}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(ADMIN_PATH);
+                  }}
+                >
+                  Turn it on in Admin
+                </a>
+                .
+              </>
+            ) : null}
+          </p>
+        </div>
+      )}
       {message && (
         <p role="status" className="notice">
           {message}
@@ -185,7 +219,11 @@ export function OrganizePage({
       )}
       {pending === null && !error && <Loading />}
       {pending !== null && pending.length === 0 && splits.length === 0 && (
-        <p className="empty">No suggestions are waiting.</p>
+        <p className="empty">
+          {aiOn === false
+            ? "Nothing is waiting, and AI is off."
+            : "No suggestions are waiting."}
+        </p>
       )}
       {splits.length > 0 && (
         <>

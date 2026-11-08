@@ -1,4 +1,6 @@
 import { Loading } from "./Loading";
+import { ConfirmDialog } from "./Dialogs";
+import { Icon } from "./Icon";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
@@ -112,7 +114,7 @@ function CollectionList({
         file can be in several collections. Being in a collection never changes
         who can open a file.
       </p>
-      <form onSubmit={(e) => void create(e)}>
+      <form className="collection-create" onSubmit={(e) => void create(e)}>
         <label>
           New collection
           <input
@@ -121,7 +123,7 @@ function CollectionList({
             onChange={(e) => setTitle(e.target.value)}
             autoComplete="off"
           />
-        </label>{" "}
+        </label>
         <button type="submit" className="primary" disabled={busy}>
           Create
         </button>
@@ -140,7 +142,8 @@ function CollectionList({
       )}
       <ul className="plain">
         {items?.map((c) => (
-          <li key={c.id}>
+          <li key={c.id} className="collection-row">
+            <Icon name="layers" />
             <a
               href={collectionPath(c.id)}
               onClick={(e) => {
@@ -178,6 +181,7 @@ function CollectionView({
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<"leave" | "delete" | null>(null);
 
   const apply = useCallback((d: CollectionDetail) => {
     setData(d);
@@ -326,40 +330,45 @@ function CollectionView({
       )}
       {!owner && (
         <p>
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (!window.confirm("Stop seeing this collection?")) return;
-              void api
-                .unshareCollection(id, me)
-                .then(() => go("/collections"))
-                .catch((err: unknown) => setError(errorOf(err, onEnded)));
-            }}
-          >
+          <button disabled={busy} onClick={() => setConfirming("leave")}>
             Leave collection
           </button>
         </p>
       )}
       {owner && (
         <p>
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Delete this collection? The files in it are not deleted.",
-                )
-              )
-                return;
-              void api
-                .deleteCollection(id)
-                .then(() => go("/collections"))
-                .catch((err: unknown) => setError(errorOf(err, onEnded)));
-            }}
-          >
+          <button disabled={busy} onClick={() => setConfirming("delete")}>
             Delete collection
           </button>
         </p>
+      )}
+      {confirming === "leave" && (
+        <ConfirmDialog
+          title="Leave this collection?"
+          body="You will stop seeing this collection. The files in it are not affected."
+          confirmLabel="Leave collection"
+          danger
+          onConfirm={async () => {
+            await api.unshareCollection(id, me);
+            setConfirming(null);
+            go("/collections");
+          }}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+      {confirming === "delete" && (
+        <ConfirmDialog
+          title="Delete this collection?"
+          body="The collection is removed for everyone it is shared with. The files in it are not deleted."
+          confirmLabel="Delete collection"
+          danger
+          onConfirm={async () => {
+            await api.deleteCollection(id);
+            setConfirming(null);
+            go("/collections");
+          }}
+          onClose={() => setConfirming(null)}
+        />
       )}
     </section>
   );

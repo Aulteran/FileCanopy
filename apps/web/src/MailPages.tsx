@@ -8,6 +8,7 @@ import {
   type SharedIntake,
 } from "./api";
 import { describeError, formatDate, formatSize } from "./format";
+import { ConfirmDialog } from "./Dialogs";
 import { IncomingMailSetup } from "./IncomingMailSetup";
 import { SmtpSetup } from "./SmtpSettings";
 
@@ -265,14 +266,19 @@ export function MailboxAdminPage({
     }
   }
 
+  // Filing and rejecting ask first, in a styled dialog (G07b).
+  const [asking, setAsking] = useState<{
+    kind: "approve" | "reject";
+    m: MailMessage;
+  } | null>(null);
+
   async function approve(m: MailMessage): Promise<void> {
     if (!intake?.node_id) return;
-    if (
-      !window.confirm(
-        "File the kept attachments into the shared email folder? This gives the sender no access to anything.",
-      )
-    )
-      return;
+    setAsking({ kind: "approve", m });
+  }
+
+  async function doApprove(m: MailMessage): Promise<void> {
+    if (!intake?.node_id) return;
     setBusy(true);
     setError("");
     try {
@@ -290,12 +296,10 @@ export function MailboxAdminPage({
   }
 
   async function reject(m: MailMessage): Promise<void> {
-    if (
-      !window.confirm(
-        "Reject this message? Its stored attachments are deleted. The record stays.",
-      )
-    )
-      return;
+    setAsking({ kind: "reject", m });
+  }
+
+  async function doReject(m: MailMessage): Promise<void> {
     setBusy(true);
     setError("");
     try {
@@ -310,6 +314,31 @@ export function MailboxAdminPage({
 
   return (
     <section aria-labelledby="mailbox-title">
+      {asking && (
+        <ConfirmDialog
+          title={
+            asking.kind === "approve"
+              ? "File the kept attachments?"
+              : "Reject this message?"
+          }
+          body={
+            asking.kind === "approve"
+              ? "The kept attachments go into the shared email folder. This gives the sender no access to anything."
+              : "Its stored attachments are deleted. The record stays."
+          }
+          confirmLabel={
+            asking.kind === "approve" ? "File attachments" : "Reject message"
+          }
+          danger={asking.kind === "reject"}
+          onConfirm={async () => {
+            const { kind, m } = asking;
+            setAsking(null);
+            if (kind === "approve") await doApprove(m);
+            else await doReject(m);
+          }}
+          onClose={() => setAsking(null)}
+        />
+      )}
       <h1 id="mailbox-title">Mail server</h1>
       {error && (
         <p role="alert" className="error">

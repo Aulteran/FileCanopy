@@ -1,9 +1,11 @@
+import { Icon } from "./Icon";
 import { Loading } from "./Loading";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, type DuplicateGroup } from "./api";
 import { describeError, formatSize } from "./format";
 import { viewPath } from "./route";
 import { viewKind } from "./viewerTypes";
+import { ConfirmDialog } from "./Dialogs";
 
 // Duplicate files among those you can open (M17). This page only reports. Nothing is removed
 // unless you press "Move to Trash" on a copy yourself; Trash keeps it and it can be restored.
@@ -40,6 +42,11 @@ export function DuplicatesPage({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<{
+    id: string;
+    name: string;
+    revision: number;
+  } | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -53,10 +60,6 @@ export function DuplicatesPage({
   }, [load]);
 
   async function trash(id: string, name: string, revision: number) {
-    if (
-      !window.confirm(`Move “${name}” to Trash? You can restore it from Trash.`)
-    )
-      return;
     setBusy(true);
     setError("");
     try {
@@ -67,46 +70,49 @@ export function DuplicatesPage({
       setError(errorOf(err, onEnded));
     } finally {
       setBusy(false);
+      setPending(null);
       await load();
     }
   }
 
   function renderGroup(g: DuplicateGroup, i: number) {
     return (
-      <div key={`${g.kind}-${i}`} className="dup-group">
+      <div key={`${g.kind}-${i}`} className="card dup-group">
         <h3>{groupLabel(g)}</h3>
         <ul className="plain">
           {g.members.map((m) => (
-            <li key={m.node_id}>
-              {viewKind(m.name) !== null ? (
-                <a
-                  href={viewPath(m.node_id)}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go(viewPath(m.node_id));
-                  }}
-                >
-                  {m.name}
-                </a>
-              ) : (
-                m.name
-              )}{" "}
-              <span className="muted">
-                {formatSize(m.size)}
-                {m.parent_name ? ` · in ${m.parent_name}` : ""}
-              </span>{" "}
-              {viewKind(m.name) !== null && (
-                <button
-                  className="linklike"
-                  onClick={() => go(viewPath(m.node_id))}
-                >
-                  View
-                </button>
-              )}{" "}
+            <li key={m.node_id} className="dup-row">
+              <Icon name="file" />
+              <span className="dup-name">
+                {viewKind(m.name) !== null ? (
+                  <a
+                    href={viewPath(m.node_id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(viewPath(m.node_id));
+                    }}
+                  >
+                    {m.name}
+                  </a>
+                ) : (
+                  m.name
+                )}
+                <span className="muted dup-meta">
+                  {formatSize(m.size)}
+                  {m.parent_name ? ` · in ${m.parent_name}` : ""}
+                </span>
+              </span>
               <button
-                className="linklike"
+                type="button"
+                className="danger small"
                 disabled={busy}
-                onClick={() => void trash(m.node_id, m.name, m.revision)}
+                onClick={() =>
+                  setPending({
+                    id: m.node_id,
+                    name: m.name,
+                    revision: m.revision,
+                  })
+                }
               >
                 Move to Trash
               </button>
@@ -151,6 +157,16 @@ export function DuplicatesPage({
         <p className="empty">
           No duplicates found. New files appear after they have been scanned.
         </p>
+      )}
+      {pending && (
+        <ConfirmDialog
+          title="Move to Trash?"
+          body={`Move “${pending.name}” to Trash? You can restore it from Trash.`}
+          confirmLabel="Move to Trash"
+          danger
+          onConfirm={() => trash(pending.id, pending.name, pending.revision)}
+          onClose={() => setPending(null)}
+        />
       )}
       {groups && groups.some((g) => g.kind === "exact") && (
         <>

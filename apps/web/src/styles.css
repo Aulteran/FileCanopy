@@ -864,10 +864,6 @@ button.linklike {
 .backups {
   max-width: 760px;
 }
-.backups h1 {
-  margin-top: 0;
-  font-size: 1.4rem;
-}
 .backups section {
   margin-bottom: 28px;
 }
@@ -929,10 +925,6 @@ input[type="number"] {
 .users {
   max-width: 1000px;
 }
-.users h1 {
-  margin-top: 0;
-  font-size: 1.4rem;
-}
 .users section {
   margin-bottom: 28px;
 }
@@ -952,13 +944,73 @@ input[type="number"] {
   width: 160px;
   margin: 0;
 }
+/* U01: "More" menu for the less common row actions */
+.row-menu {
+  position: relative;
+}
+.row-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow);
+}
+.row-menu-list button {
+  justify-content: flex-start;
+  text-align: left;
+  border: 0;
+  background: transparent;
+}
+.row-menu-list button:hover,
+.row-menu-list button:focus-visible {
+  background: var(--line);
+}
+/* U03: on phones each person is a card; role and status share one line */
 @media (max-width: 700px) {
-  .users table thead {
+  .users-table thead {
     display: none;
   }
-  .users table tr,
-  .users table td {
+  .users-table,
+  .users-table tbody {
     display: block;
+    width: 100%;
+  }
+  .users-table tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--r-l);
+    margin-bottom: 12px;
+    padding: 8px 12px;
+  }
+  .users-table td,
+  .users-table th[scope="row"] {
+    display: block;
+    border: 0;
+    padding: 2px 0;
+    white-space: normal;
+  }
+  .users-table td:nth-child(3),
+  .users-table td:nth-child(4) {
+    display: inline-block;
+  }
+  .users-table td:nth-child(3)::after {
+    content: " \00b7 ";
+    color: var(--muted);
+  }
+  .users-table td:last-child {
+    min-width: 0;
+    margin-top: 6px;
+  }
+  .row-menu-list {
+    left: 0;
+    right: auto;
   }
 }
 
@@ -1087,11 +1139,21 @@ button.danger.primary {
   align-items: center;
   gap: 8px 12px;
 }
-.viewer-title {
+/* V01: the title sits on the same line as the 40px buttons beside it */
+.viewer-heading {
   flex: 1 1 12em;
+  min-width: 0;
+}
+.viewer-title {
   margin: 0;
   font-size: 1.1rem;
+  line-height: 40px;
   overflow-wrap: anywhere;
+}
+/* V03: the folder the file is in, under the title */
+.viewer-where {
+  margin: -6px 0 0;
+  font-size: 0.9rem;
 }
 .viewer-tools {
   display: flex;
@@ -2018,12 +2080,13 @@ button.link-button:focus-visible {
 }
 .step-required {
   position: absolute;
-  top: 8px;
-  right: 16px;
+  top: 10px;
+  right: 14px;
   color: var(--danger);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1;
+  border-color: currentColor;
+}
+.confirm-body p {
+  margin-top: 0;
 }
 
 .field-error {
@@ -2072,6 +2135,92 @@ button.link-button:focus-visible {
   margin: 16px;
   padding: 24px;
   text-align: center;
+}
+
+/* Duplicates (C01) and Collections (C02) */
+.dup-group {
+  margin-bottom: 12px;
+}
+.dup-group h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+.dup-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dup-row:last-child {
+  border-bottom: 0;
+}
+.dup-row .i {
+  flex: none;
+  color: var(--muted);
+}
+.dup-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dup-meta {
+  display: block;
+  font-size: 0.9rem;
+}
+button.small {
+  padding: 4px 10px;
+  min-height: 32px;
+  font-size: 0.9rem;
+}
+.collection-create {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.collection-create label {
+  max-width: 360px;
+  flex: 1 1 260px;
+}
+.collection-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.collection-row .i {
+  color: var(--muted);
+}
+
+/* Trash header (T01), backup page index and card spacing (K01), bare fieldsets (K03) */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.page-head h1 {
+  margin: 0;
+}
+.page-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+}
+.backups section.card {
+  margin-bottom: 20px;
+}
+fieldset.bare {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+fieldset.bare:disabled {
+  opacity: 0.6;
 }
 
 /* ---- navigation drawer, search field, results, Ask AI (UI audit N01-N03, R01, Q01-Q03) ---- */

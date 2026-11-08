@@ -1,5 +1,11 @@
 import { Loading } from "./Loading";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import {
   ApiError,
   api,
@@ -20,6 +26,7 @@ import {
 } from "./backupForm";
 import { BackupJobsPanel } from "./BackupJobs";
 import { describeError, formatDate, formatSize } from "./format";
+import { ConfirmDialog } from "./Dialogs";
 
 type Props = {
   admin: boolean;
@@ -33,9 +40,33 @@ function message(err: unknown): string {
 }
 
 export function BackupsPage({ admin, roots, onEnded }: Props) {
+  const hasKey = roots.some((r) => r.kind === "personal");
+  // K01: a short index of the sections, so the long page can be scanned.
+  const jump = (id: string) => (e: MouseEvent) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ block: "start" });
+  };
+  const links: Array<[string, string]> = [];
+  if (admin) {
+    links.push(
+      ["bk-settings", "Backup settings"],
+      ["bk-space", "Space"],
+      ["bk-folders", "Folders"],
+      ["bk-jobs", "Backup jobs"],
+    );
+  }
+  if (hasKey) links.push(["bk-keys", "Your backup key"]);
+  links.push(["bk-restore", "Restore"]);
   return (
     <div className="backups">
       <h1>Backups</h1>
+      <nav aria-label="On this page" className="page-index">
+        {links.map(([id, text]) => (
+          <a key={id} href={`#${id}`} onClick={jump(id)}>
+            {text}
+          </a>
+        ))}
+      </nav>
       {admin && <BackupSettingsPanel onEnded={onEnded} />}
       {admin && <BackupJobsPanel onEnded={onEnded} />}
       <OwnerKeyPanel roots={roots} onEnded={onEnded} />
@@ -60,6 +91,7 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
   const [limitGb, setLimitGb] = useState("");
   const [encrypt, setEncrypt] = useState(true);
   const [ack, setAck] = useState(false);
+  const [rotating, setRotating] = useState(false);
 
   const fill = useCallback((s: BackupStatus) => {
     setStatus(s);
@@ -143,12 +175,6 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
   }
 
   async function rotate(): Promise<void> {
-    if (
-      !window.confirm(
-        "Create a new recovery key? Older backups can only be restored with the key they were made with. Each folder starts a new full backup.",
-      )
-    )
-      return;
     setError("");
     try {
       take(await api.rotateBackupKey(status?.key.fingerprint ?? null));
@@ -168,218 +194,239 @@ function BackupSettingsPanel({ onEnded }: { onEnded: () => void }) {
 
   const est = status.estimates;
   return (
-    <section aria-labelledby="bk-settings">
-      <h2 id="bk-settings">Backup settings</h2>
-      <p className="hint">
-        A backup copies everyone&rsquo;s files, including private ones, to a
-        separate folder you mount. Whoever controls that folder, and the
-        recovery key, can read them. Backups are compressed, per folder, and
-        never sent anywhere else.
-      </p>
-
-      {recovery !== null && (
-        <div className="banner warn" role="alert">
-          <h3>Save your recovery key now</h3>
-          <p>
-            This key is shown once and is not stored by the app. Without it the
-            encrypted backups cannot be read.
-            {recoveryFp ? ` Key fingerprint: ${recoveryFp}.` : ""}
-          </p>
-          <p>
-            This administrator key opens the shared folder&rsquo;s backups and
-            any older backups made before people had their own keys. Each
-            person&rsquo;s folder has its own key, which only they see.
-          </p>
-          <pre className="key" aria-label="Recovery key">
-            {recovery}
-          </pre>
-          <button
-            type="button"
-            onClick={() => void navigator.clipboard?.writeText(recovery)}
-          >
-            Copy
-          </button>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={stored}
-              onChange={(e) => setStored(e.target.checked)}
-            />{" "}
-            I have stored the key somewhere safe
-          </label>
-          <button
-            type="button"
-            disabled={!stored}
-            onClick={() => setRecovery(null)}
-          >
-            Done
-          </button>
-        </div>
-      )}
-
-      {status.warnings.length > 0 && (
-        <ul className="warnings" aria-label="Warnings">
-          {status.warnings.map((w) => (
-            <li key={w}>{warningText(w)}</li>
-          ))}
-        </ul>
-      )}
-
-      <form onSubmit={(e) => void save(e)} className="stack-form">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={!status.volume.usable}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />{" "}
-          Back up automatically
-        </label>
-        <label>
-          Every (hours)
-          <input
-            inputMode="decimal"
-            value={hours}
-            onChange={(e) => setHours(e.target.value)}
-          />
-        </label>
-        <label>
-          Full backup every (runs)
-          <input
-            inputMode="numeric"
-            value={fullEvery}
-            onChange={(e) => setFullEvery(e.target.value)}
-          />
-          <span className="hint">
-            The runs in between only copy what changed.
-          </span>
-        </label>
-        <label>
-          Full backups always kept
-          <input
-            inputMode="numeric"
-            value={minChains}
-            onChange={(e) => setMinChains(e.target.value)}
-          />
-        </label>
-        <label>
-          Size limit (GB, empty for none)
-          <input
-            inputMode="decimal"
-            value={limitGb}
-            onChange={(e) => setLimitGb(e.target.value)}
-          />
-          <span className="hint">
-            When exceeded, the oldest whole chain of backups is removed, but
-            never below the number of full backups above.
-          </span>
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={encrypt}
-            onChange={(e) => setEncrypt(e.target.checked)}
-          />{" "}
-          Encrypt backups (recommended)
-        </label>
-        {!encrypt && (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={ack}
-              onChange={(e) => setAck(e.target.checked)}
-            />{" "}
-            I understand anyone who can read the backup folder can read all
-            files in it
-          </label>
-        )}
-        <p role="alert" className="error">
-          {error}
+    <>
+      <section aria-labelledby="bk-settings" className="card">
+        <h2 id="bk-settings">Backup settings</h2>
+        <p className="hint">
+          A backup copies everyone&rsquo;s files, including private ones, to a
+          separate folder you mount. Whoever controls that folder, and the
+          recovery key, can read them. Backups are compressed, per folder, and
+          never sent anywhere else.
         </p>
-        {saved && <p role="status">Saved.</p>}
-        <div className="row">
-          <button type="submit" className="primary" disabled={busy}>
-            Save
-          </button>
-          <button
-            type="button"
-            disabled={!status.settings.enabled}
-            onClick={() => void runNow()}
-          >
-            Back up now
-          </button>
-          <button type="button" onClick={() => void rotate()}>
-            New recovery key
-          </button>
-        </div>
-      </form>
 
-      <h3>Space</h3>
-      <dl className="facts">
-        <dt>Backup folder</dt>
-        <dd>
-          {status.volume.usable
-            ? `${formatSize(status.volume.used_bytes)} used, ${formatSize(status.volume.free_bytes)} free`
-            : "not available"}
-        </dd>
-        <dt>Last full backup</dt>
-        <dd>{formatSize(est.last_full_bytes)}</dd>
-        <dt>Average changed-only run</dt>
-        <dd>{formatSize(est.avg_incremental_bytes)}</dd>
-        <dt>Full backups the limit holds</dt>
-        <dd>
-          {est.chains_held === null
-            ? "no limit or no data yet"
-            : `${est.chains_held} (about ${est.history_days} days)`}
-        </dd>
-        <dt>Recovery key</dt>
-        <dd>
-          {status.key.present
-            ? `fingerprint ${status.key.fingerprint}`
-            : "none yet"}
-        </dd>
-      </dl>
+        {recovery !== null && (
+          <div className="banner warn" role="alert">
+            <h3>Save your recovery key now</h3>
+            <p>
+              This key is shown once and is not stored by the app. Without it
+              the encrypted backups cannot be read.
+              {recoveryFp ? ` Key fingerprint: ${recoveryFp}.` : ""}
+            </p>
+            <p>
+              This administrator key opens the shared folder&rsquo;s backups and
+              any older backups made before people had their own keys. Each
+              person&rsquo;s folder has its own key, which only they see.
+            </p>
+            <pre className="key" aria-label="Recovery key">
+              {recovery}
+            </pre>
+            <button
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(recovery)}
+            >
+              Copy
+            </button>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={stored}
+                onChange={(e) => setStored(e.target.checked)}
+              />{" "}
+              I have stored the key somewhere safe
+            </label>
+            <button
+              type="button"
+              disabled={!stored}
+              onClick={() => setRecovery(null)}
+            >
+              Done
+            </button>
+          </div>
+        )}
 
-      <h3>Folders</h3>
-      <p className="hint">
-        Backups of a folder that is disabled, missing or belongs to a removed
-        account are kept and are not cleaned up automatically, so they keep
-        using space. A separate, audited purge for them is planned but does not
-        exist yet.
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Folder</th>
-            <th>State</th>
-            <th>Last backup</th>
-            <th>Full backups kept</th>
-          </tr>
-        </thead>
-        <tbody>
-          {status.roots.map((r, i) => (
-            <tr key={`${r.kind}-${r.user_id ?? "shared"}-${i}`}>
-              <td>
-                {r.kind === "shared" ? "Server files" : "A personal folder"}
-              </td>
-              <td>
-                {r.status === "scan_suspended" ? "syncing paused" : r.status}
-              </td>
-              <td>
-                {r.last_run
-                  ? `${r.last_run.status === "ok" ? r.last_run.kind : r.last_run.status}${
-                      r.last_run.finished_at
-                        ? `, ${formatDate(r.last_run.finished_at)}`
-                        : ""
-                    }`
-                  : "never"}
-              </td>
-              <td>{r.chains}</td>
+        {status.warnings.length > 0 && (
+          <div className="banner warn">
+            <ul className="warnings" aria-label="Warnings">
+              {status.warnings.map((w) => (
+                <li key={w}>{warningText(w)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <form onSubmit={(e) => void save(e)} className="stack-form">
+          <fieldset className="bare" disabled={!status.volume.usable}>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={!status.volume.usable}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />{" "}
+              Back up automatically
+            </label>
+            <label>
+              Every (hours)
+              <input
+                inputMode="decimal"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+              />
+            </label>
+            <label>
+              Full backup every (runs)
+              <input
+                inputMode="numeric"
+                value={fullEvery}
+                onChange={(e) => setFullEvery(e.target.value)}
+              />
+              <span className="hint">
+                The runs in between only copy what changed.
+              </span>
+            </label>
+            <label>
+              Full backups always kept
+              <input
+                inputMode="numeric"
+                value={minChains}
+                onChange={(e) => setMinChains(e.target.value)}
+              />
+            </label>
+            <label>
+              Size limit (GB, empty for none)
+              <input
+                inputMode="decimal"
+                value={limitGb}
+                onChange={(e) => setLimitGb(e.target.value)}
+              />
+              <span className="hint">
+                When exceeded, the oldest whole chain of backups is removed, but
+                never below the number of full backups above.
+              </span>
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={encrypt}
+                onChange={(e) => setEncrypt(e.target.checked)}
+              />{" "}
+              Encrypt backups (recommended)
+            </label>
+            {!encrypt && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={ack}
+                  onChange={(e) => setAck(e.target.checked)}
+                />{" "}
+                I understand anyone who can read the backup folder can read all
+                files in it
+              </label>
+            )}
+            <p role="alert" className="error">
+              {error}
+            </p>
+            {saved && <p role="status">Saved.</p>}
+            <div className="row">
+              <button type="submit" className="primary" disabled={busy}>
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={!status.settings.enabled}
+                onClick={() => void runNow()}
+              >
+                Back up now
+              </button>
+              <button type="button" onClick={() => setRotating(true)}>
+                New recovery key
+              </button>
+            </div>
+          </fieldset>
+        </form>
+        {rotating && (
+          <ConfirmDialog
+            title="Create a new recovery key?"
+            body="Older backups can only be restored with the key they were made with. Each folder starts a new full backup."
+            confirmLabel="Create new key"
+            danger
+            onConfirm={async () => {
+              setRotating(false);
+              await rotate();
+            }}
+            onClose={() => setRotating(false)}
+          />
+        )}
+      </section>
+      <section aria-labelledby="bk-space" className="card">
+        <h2 id="bk-space">Space</h2>
+        <dl className="facts">
+          <dt>Backup folder</dt>
+          <dd>
+            {status.volume.usable
+              ? `${formatSize(status.volume.used_bytes)} used, ${formatSize(status.volume.free_bytes)} free`
+              : "not available"}
+          </dd>
+          <dt>Last full backup</dt>
+          <dd>{formatSize(est.last_full_bytes)}</dd>
+          <dt>Average changed-only run</dt>
+          <dd>{formatSize(est.avg_incremental_bytes)}</dd>
+          <dt>Full backups the limit holds</dt>
+          <dd>
+            {est.chains_held === null
+              ? "no limit or no data yet"
+              : `${est.chains_held} (about ${est.history_days} days)`}
+          </dd>
+          <dt>Recovery key</dt>
+          <dd>
+            {status.key.present
+              ? `fingerprint ${status.key.fingerprint}`
+              : "none yet"}
+          </dd>
+        </dl>
+      </section>
+      <section aria-labelledby="bk-folders" className="card">
+        <h2 id="bk-folders">Folders</h2>
+        <p className="hint">
+          Backups of a folder that is disabled, missing or belongs to a removed
+          account are kept and are not cleaned up automatically, so they keep
+          using space. A separate, audited purge for them is planned but does
+          not exist yet.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Folder</th>
+              <th>State</th>
+              <th>Last backup</th>
+              <th>Full backups kept</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+          </thead>
+          <tbody>
+            {status.roots.map((r, i) => (
+              <tr key={`${r.kind}-${r.user_id ?? "shared"}-${i}`}>
+                <td>
+                  {r.kind === "shared" ? "Server files" : "A personal folder"}
+                </td>
+                <td>
+                  {r.status === "scan_suspended" ? "syncing paused" : r.status}
+                </td>
+                <td>
+                  {r.last_run
+                    ? `${r.last_run.status === "ok" ? r.last_run.kind : r.last_run.status}${
+                        r.last_run.finished_at
+                          ? `, ${formatDate(r.last_run.finished_at)}`
+                          : ""
+                      }`
+                    : "never"}
+                </td>
+                <td>{r.chains}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </>
   );
 }
 
@@ -393,7 +440,7 @@ function OwnerKeyPanel({
   const mine = roots.filter((r) => r.kind === "personal");
   if (mine.length === 0) return null;
   return (
-    <section aria-labelledby="bk-keys">
+    <section aria-labelledby="bk-keys" className="card">
       <h2 id="bk-keys">Your backup key</h2>
       <p className="hint">
         Encrypted backups of your own folder use a key only you hold. The app
@@ -604,7 +651,7 @@ function RestorePanel({ admin, roots, onEnded }: Props) {
     (r) => r.kind === "personal" || (admin && r.kind === "shared"),
   );
   return (
-    <section aria-labelledby="bk-restore">
+    <section aria-labelledby="bk-restore" className="card">
       <h2 id="bk-restore">Restore</h2>
       <p className="hint">
         A restore never replaces anything. It builds the folder as it was in a

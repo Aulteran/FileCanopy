@@ -24,7 +24,7 @@ import {
   modelName,
   parseLimit,
 } from "./aiModels";
-import { Modal } from "./Dialogs";
+import { ConfirmDialog, Modal } from "./Dialogs";
 import {
   OWN_AI,
   SERVER_AI,
@@ -895,17 +895,18 @@ function LimitCell({
   if (model.mode === "local")
     return <span className="muted">Not needed (runs here)</span>;
   const parsed = parseLimit(text);
-  async function save(): Promise<void> {
+  const [confirmNoLimit, setConfirmNoLimit] = useState(false);
+  function save(): void {
     if (parsed === undefined) return;
-    if (
-      parsed === null &&
-      !window.confirm(
-        `No limit: spending on ${model.label || model.model} will not be capped. Remove the limit?`,
-      )
-    )
+    if (parsed === null) {
+      setConfirmNoLimit(true);
       return;
+    }
+    void store(parsed);
+  }
+  async function store(value: number | null): Promise<void> {
     try {
-      await api.aiSetModelCap(model.id, parsed);
+      await api.aiSetModelCap(model.id, value);
       setError("");
       onSaved();
     } catch (err) {
@@ -931,7 +932,7 @@ function LimitCell({
         <button
           type="button"
           disabled={parsed === undefined}
-          onClick={() => void save()}
+          onClick={() => save()}
         >
           Save
         </button>
@@ -940,6 +941,19 @@ function LimitCell({
         <span role="alert" className="error">
           {error}
         </span>
+      )}
+      {confirmNoLimit && (
+        <ConfirmDialog
+          title="Remove the limit?"
+          body={`No limit: spending on ${name} will not be capped.`}
+          confirmLabel="Remove the limit"
+          danger
+          onConfirm={() => {
+            setConfirmNoLimit(false);
+            return store(null);
+          }}
+          onClose={() => setConfirmNoLimit(false)}
+        />
       )}
     </div>
   );
@@ -952,15 +966,16 @@ function TestButton({ model }: { model: AiProvider }) {
     null,
   );
   const name = model.label || model.model;
-  async function run(): Promise<void> {
-    const cloud = model.mode !== "local";
-    if (
-      cloud &&
-      !window.confirm(
-        `Test ${name}? This sends one tiny request to the provider that may be billed.`,
-      )
-    )
+  const [confirmTest, setConfirmTest] = useState(false);
+  function run(): void {
+    if (model.mode !== "local") {
+      setConfirmTest(true);
       return;
+    }
+    void check();
+  }
+  async function check(): Promise<void> {
+    const cloud = model.mode !== "local";
     setTesting(true);
     setResult(null);
     try {
@@ -981,10 +996,22 @@ function TestButton({ model }: { model: AiProvider }) {
         type="button"
         disabled={testing}
         aria-label={`Test ${name}`}
-        onClick={() => void run()}
+        onClick={() => run()}
       >
         {testing ? "Testing…" : "Test"}
       </button>
+      {confirmTest && (
+        <ConfirmDialog
+          title={`Test ${name}?`}
+          body="This sends one tiny request to the provider that may be billed."
+          confirmLabel="Send test request"
+          onConfirm={() => {
+            setConfirmTest(false);
+            return check();
+          }}
+          onClose={() => setConfirmTest(false)}
+        />
+      )}
       {result && (
         <span
           role={result.ok ? "status" : "alert"}
@@ -1019,11 +1046,7 @@ function ModelsSection({
     }
   }
 
-  function remove(m: AiProvider): void {
-    const name = m.label || m.model;
-    if (!window.confirm(`Remove ${name}? People can no longer use it.`)) return;
-    void run(() => api.aiDeleteModel(m.id));
-  }
+  const [removing, setRemoving] = useState<AiProvider | null>(null);
 
   return (
     <>
@@ -1094,7 +1117,7 @@ function ModelsSection({
                           Make default
                         </button>
                       )}
-                      <button type="button" onClick={() => remove(m)}>
+                      <button type="button" onClick={() => setRemoving(m)}>
                         Remove
                       </button>
                     </div>
@@ -1145,6 +1168,20 @@ function ModelsSection({
         <p role="alert" className="error">
           {error}
         </p>
+      )}
+      {removing && (
+        <ConfirmDialog
+          title={`Remove ${removing.label || removing.model}?`}
+          body="People can no longer use it."
+          confirmLabel="Remove model"
+          danger
+          onConfirm={() => {
+            const m = removing;
+            setRemoving(null);
+            return run(() => api.aiDeleteModel(m.id));
+          }}
+          onClose={() => setRemoving(null)}
+        />
       )}
     </>
   );

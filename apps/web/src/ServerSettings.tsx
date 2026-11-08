@@ -68,20 +68,31 @@ export function ServerSettingsPage({ onEnded }: Props) {
     void load();
   }, [load]);
 
-  async function save(
-    event: FormEvent,
-    action: () => Promise<unknown>,
-    done: string,
-  ): Promise<void> {
+  // A02: one form, one "Save changes". Only the values that differ are sent, in the same three calls.
+  async function saveAll(event: FormEvent): Promise<void> {
     event.preventDefault();
     setBusy(true);
     setError("");
     setNotice("");
+    const saved: string[] = [];
     try {
-      await action();
+      if (daysChanged) {
+        await api.setTrashRetention(Number(days));
+        saved.push("Trash");
+      }
+      if (accessChanged) {
+        await api.setSharedDefaultAccess(access);
+        saved.push("default access");
+      }
+      if (labelsChanged) {
+        await api.setLabelsEnabled(labels, confirmStay);
+        saved.push("privacy labels");
+      }
       await load();
-      setNotice(done);
+      setNotice(`Saved: ${saved.join(", ")}.`);
     } catch (err) {
+      // A later call can fail after an earlier one saved: reload so the page shows what is stored.
+      await load();
       fail(err);
     } finally {
       setBusy(false);
@@ -107,6 +118,17 @@ export function ServerSettingsPage({ onEnded }: Props) {
     privacy.private_folders + privacy.confidential_folders;
   const needsConfirm =
     !labels && privacy.labels_enabled && protectedFolders > 0;
+  const daysChanged =
+    days !==
+    (storage.trash_retention_days === null
+      ? ""
+      : String(storage.trash_retention_days));
+  const accessChanged = access !== storage.shared_default_access;
+  const labelsChanged = labels !== privacy.labels_enabled;
+  const dirty = daysChanged || accessChanged || labelsChanged;
+  const blocked =
+    (daysChanged && !validRetention(days)) ||
+    (labelsChanged && needsConfirm && !confirmStay);
 
   return (
     <section aria-labelledby="settings-h">
@@ -126,16 +148,7 @@ export function ServerSettingsPage({ onEnded }: Props) {
         </p>
       )}
 
-      <form
-        aria-labelledby="settings-trash-h"
-        onSubmit={(e) =>
-          void save(
-            e,
-            () => api.setTrashRetention(Number(days)),
-            "Trash retention saved.",
-          )
-        }
-      >
+      <form className="stack-form" onSubmit={(e) => void saveAll(e)}>
         <h2 id="settings-trash-h">Trash</h2>
         <label>
           Days an item stays in the trash
@@ -152,25 +165,7 @@ export function ServerSettingsPage({ onEnded }: Props) {
           From 7 to 3650 days, or 0 to never delete automatically. Lowering it
           never shortens items already in the trash.
         </p>
-        <button
-          type="submit"
-          className="primary"
-          disabled={busy || !validRetention(days)}
-        >
-          Save trash setting
-        </button>
-      </form>
 
-      <form
-        aria-labelledby="settings-access-h"
-        onSubmit={(e) =>
-          void save(
-            e,
-            () => api.setSharedDefaultAccess(access),
-            "Default access saved.",
-          )
-        }
-      >
         <h2 id="settings-access-h">Server files for new accounts</h2>
         <label>
           Default access
@@ -189,28 +184,14 @@ export function ServerSettingsPage({ onEnded }: Props) {
           Applies to accounts created afterwards. Existing access is edited
           folder by folder.
         </p>
-        <button type="submit" className="primary" disabled={busy}>
-          Save default access
-        </button>
-      </form>
 
-      <form
-        aria-labelledby="settings-privacy-h"
-        onSubmit={(e) =>
-          void save(
-            e,
-            () => api.setLabelsEnabled(labels, confirmStay),
-            "Privacy labels setting saved.",
-          )
-        }
-      >
         <h2 id="settings-privacy-h">Privacy labels</h2>
-        <label>
+        <label className="check">
           <input
             type="checkbox"
             checked={labels}
             onChange={(e) => setLabels(e.target.checked)}
-          />{" "}
+          />
           Let people mark folders Private or Confidential
         </label>
         <p className="muted">
@@ -219,22 +200,25 @@ export function ServerSettingsPage({ onEnded }: Props) {
           protecting their folders until their owners lower them.
         </p>
         {needsConfirm && (
-          <label>
+          <label className="check">
             <input
               type="checkbox"
               checked={confirmStay}
               onChange={(e) => setConfirmStay(e.target.checked)}
-            />{" "}
+            />
             I understand existing labels stay in force
           </label>
         )}
-        <button
-          type="submit"
-          className="primary"
-          disabled={busy || (needsConfirm && !confirmStay)}
-        >
-          Save privacy setting
-        </button>
+
+        <div className="actions">
+          <button
+            type="submit"
+            className="primary"
+            disabled={busy || !dirty || blocked}
+          >
+            Save changes
+          </button>
+        </div>
       </form>
     </section>
   );

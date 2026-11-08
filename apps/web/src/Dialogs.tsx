@@ -492,3 +492,60 @@ export function TargetDialog({
     </Modal>
   );
 }
+
+type ConfirmProps = {
+  title: string;
+  body: ReactNode;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void> | void;
+  onClose: () => void;
+};
+
+// Styled replacement for window.confirm(): a Modal with Cancel and a confirm button.
+export function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  danger = false,
+  onConfirm,
+  onClose,
+}: ConfirmProps) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function go(): Promise<void> {
+    setBusy(true);
+    setError("");
+    try {
+      await onConfirm();
+    } catch (err) {
+      setError(describeError(err instanceof ApiError ? err.code : "UNKNOWN"));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="confirm-body">
+        {typeof body === "string" ? <p>{body}</p> : body}
+      </div>
+      <p role="alert" className="error">
+        {error}
+      </p>
+      <div className="actions">
+        <button type="button" onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={danger ? "danger primary" : "primary"}
+          disabled={busy}
+          onClick={() => void go()}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}
