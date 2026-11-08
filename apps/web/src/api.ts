@@ -550,15 +550,39 @@ export type ActivityEvent = {
   source: string;
   details: Record<string, unknown>;
 };
+export type RecentItem = {
+  operation_id: string;
+  name: string | null;
+  old_name: string | null;
+  from_location: string | null;
+  to_location: string | null;
+  at: string;
+  node_id: string | null;
+  reversible: boolean;
+  undone: boolean;
+};
 export type Recent = {
   id: string;
-  kind: "operation" | "import";
+  // "batch": one multi-item action; its id is the batch id, `items` lists every file.
+  kind: "operation" | "import" | "batch";
   action: string;
   name: string | null;
   at: string;
   node_id: string | null;
   reversible: boolean;
   undone: boolean;
+  // Older servers omit these.
+  count?: number;
+  by?: string | null;
+  from_location?: string | null;
+  to_location?: string | null;
+  items?: RecentItem[];
+};
+export type BatchUndoResult = {
+  undone: number;
+  trashed: number;
+  skipped: { operation_id: string; name: string | null; reason: string }[];
+  left_in_place: { node_id: string; name: string; reason: string }[];
 };
 export type UndoResult = {
   operation: Operation | null;
@@ -918,8 +942,10 @@ export type MailboxStatus = {
 };
 
 const enc = encodeURIComponent;
-const key = (): Record<string, string> => ({
+const key = (batch?: string): Record<string, string> => ({
   "Idempotency-Key": crypto.randomUUID(),
+  // One id shared by the operations of a multi-item action: Recent actions shows them as one.
+  ...(batch ? { "X-Batch-Id": batch } : {}),
 });
 
 export const api = {
@@ -1200,27 +1226,37 @@ export const api = {
       { name, expected_revision },
       { headers: key() },
     ),
-  move: (id: string, target_parent_id: string, expected_revision: number) =>
+  move: (
+    id: string,
+    target_parent_id: string,
+    expected_revision: number,
+    batch?: string,
+  ) =>
     call<OpResult>(
       "POST",
       `/api/v1/nodes/${enc(id)}/move`,
       { target_parent_id, expected_revision, on_conflict: "reject" },
-      { headers: key() },
+      { headers: key(batch) },
     ),
-  copy: (id: string, target_parent_id: string, expected_revision: number) =>
+  copy: (
+    id: string,
+    target_parent_id: string,
+    expected_revision: number,
+    batch?: string,
+  ) =>
     call<OpResult>(
       "POST",
       `/api/v1/nodes/${enc(id)}/copy`,
       { target_parent_id, expected_revision, on_conflict: "keep_both" },
-      { headers: key() },
+      { headers: key(batch) },
     ),
   // Delete moves to the trash; nothing here deletes forever except `deleteForever`.
-  deleteNode: (id: string, expected_revision: number) =>
+  deleteNode: (id: string, expected_revision: number, batch?: string) =>
     call<{ item: TrashItem; operation: Operation | null; replayed: boolean }>(
       "DELETE",
       `/api/v1/nodes/${enc(id)}?expected_revision=${expected_revision}`,
       undefined,
-      { headers: key() },
+      { headers: key(batch) },
     ),
   trash: (after?: string | null) =>
     call<TrashList>(
@@ -1266,6 +1302,13 @@ export const api = {
     call<UndoResult>("POST", `/api/v1/operations/${enc(id)}/undo`, undefined, {
       headers: key(),
     }),
+  undoBatch: (id: string) =>
+    call<BatchUndoResult>(
+      "POST",
+      `/api/v1/operations/batch/${enc(id)}/undo`,
+      undefined,
+      { headers: key() },
+    ),
   undoImport: (id: string) =>
     call<UndoResult>("POST", `/api/v1/imports/${enc(id)}/undo`, undefined, {
       headers: key(),

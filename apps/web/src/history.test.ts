@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityEvent, CheckResult, TrashItem } from "./api";
+import type { ActivityEvent, CheckResult, Recent, TrashItem } from "./api";
 import {
   daysLeftText,
   describeAction,
   describeCheck,
+  describeBatchUndo,
   describeEvent,
+  describeRecent,
+  describeRecentItem,
   describeUndoConflict,
   reasonText,
 } from "./history";
@@ -115,5 +118,103 @@ describe("activity text", () => {
         event({ action: "checked", details: { how: "entry_missing" } }),
       ),
     ).toMatch(/still needs attention/);
+  });
+});
+
+const recent = (over: Partial<Recent> = {}): Recent => ({
+  id: "1",
+  kind: "operation",
+  action: "move",
+  name: "a.txt",
+  at: "2026-01-01T00:00:00Z",
+  node_id: null,
+  reversible: true,
+  undone: false,
+  ...over,
+});
+
+describe("recent actions text", () => {
+  it("names the destination of a single move", () => {
+    expect(describeRecent(recent({ to_location: "My files / Trips" }))).toBe(
+      "Moved a.txt to My files / Trips",
+    );
+    expect(describeRecent(recent())).toBe("Moved a.txt");
+  });
+  it("makes a batch one line", () => {
+    expect(
+      describeRecent(
+        recent({
+          kind: "batch",
+          count: 12,
+          name: null,
+          to_location: "Server files / Trips",
+        }),
+      ),
+    ).toBe("Moved 12 items to Server files / Trips");
+    expect(
+      describeRecent(
+        recent({ kind: "batch", count: 3, action: "trash", name: null }),
+      ),
+    ).toBe("Moved 3 items to the Trash");
+  });
+  it("reads trash, rename and unknown actions", () => {
+    expect(describeRecent(recent({ action: "trash" }))).toBe(
+      "Moved a.txt to the Trash",
+    );
+    expect(
+      describeRecent(
+        recent({
+          action: "rename",
+          name: "b.txt",
+          items: [
+            {
+              operation_id: "o",
+              name: "b.txt",
+              old_name: "a.txt",
+              from_location: null,
+              to_location: null,
+              at: "",
+              node_id: null,
+              reversible: true,
+              undone: false,
+            },
+          ],
+        }),
+      ),
+    ).toBe("Renamed a.txt to b.txt");
+    expect(describeRecent(recent({ action: "upload" }))).toBe("Uploaded a.txt");
+  });
+  it("describes where an item was and went", () => {
+    const item = {
+      operation_id: "o",
+      name: "a.txt",
+      old_name: null,
+      from_location: "My files / Src",
+      to_location: "My files / Dst",
+      at: "",
+      node_id: null,
+      reversible: true,
+      undone: false,
+    };
+    expect(describeRecentItem(recent(), item)).toEqual({
+      name: "a.txt",
+      where: "From My files / Src to My files / Dst",
+    });
+    expect(describeRecentItem(recent(), { ...item, name: null }).name).toBe(
+      "A protected item",
+    );
+  });
+  it("tells what a batch undo did", () => {
+    const base = { undone: 3, trashed: 0, skipped: [], left_in_place: [] };
+    expect(describeBatchUndo(base)).toContain("Undone for 3 items");
+    const some = describeBatchUndo({
+      ...base,
+      undone: 2,
+      skipped: [{ operation_id: "o", name: "a", reason: "changed" }],
+    });
+    expect(some).toContain("1 item changed since and was left");
+    expect(describeBatchUndo({ ...base, undone: 0 })).toContain(
+      "Nothing could be undone",
+    );
   });
 });

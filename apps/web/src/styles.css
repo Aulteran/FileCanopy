@@ -1792,3 +1792,31 @@ section.server-setup > p {
 .smtp-form .actions {
   justify-content: flex-start;
 }
+
+/* Recent actions: the row title opens the details; it looks like text, not a button. */
+button.link-button {
+  all: unset;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 0.25rem;
+}
+button.link-button:hover strong {
+  text-decoration: underline;
+}
+button.link-button:focus-visible {
+  outline: 2px solid var(--focus, currentColor);
+  outline-offset: 2px;
+}
+.recent-details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+}
+.recent-details dt {
+  color: var(--muted);
+}
+.recent-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

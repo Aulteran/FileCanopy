@@ -75,6 +75,8 @@ class OpCtx:
     session_id: uuid.UUID | None = None
     # Where the action came from, as recorded in the file's history: "ui", or "email" (M14).
     source: str = "ui"
+    # Groups the operations of one multi-item action so "Recent actions" shows them as one entry.
+    batch_id: uuid.UUID | None = None
 
     def event_actor(self) -> dict[str, Any]:
         """Keyword arguments naming the actor for `events.record`."""
@@ -318,6 +320,8 @@ def _begin(
         raise OpError(422, "INVALID_IDEMPOTENCY_KEY")
     digest = _hash(action=action, **params)
     now = clock.utcnow()
+    if ctx.batch_id is not None:
+        detail = {**detail, "batch": str(ctx.batch_id)}
     if key is not None:
         prior = ctx.db.scalar(
             select(FileOperation).where(

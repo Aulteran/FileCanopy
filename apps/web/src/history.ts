@@ -1,7 +1,14 @@
 // Plain-language text for trash, activity and undo (M07). Pure functions so they are unit-tested;
 // messages never repeat a path and only name things the person already sees.
 
-import type { ActivityEvent, CheckResult, TrashItem } from "./api";
+import type {
+  ActivityEvent,
+  BatchUndoResult,
+  CheckResult,
+  Recent,
+  RecentItem,
+  TrashItem,
+} from "./api";
 
 /** Why an undo was refused, and what to do instead. Nothing was changed on disk. */
 const UNDO_CONFLICTS: Record<string, string> = {
@@ -41,6 +48,72 @@ const ACTIONS: Record<string, string> = {
 /** Label for an entry of "Recent actions". */
 export function describeAction(action: string): string {
   return ACTIONS[action] ?? action.replace(/_/g, " ");
+}
+
+const TRASH_ACTIONS = new Set(["trash", "delete"]);
+const ACTION_VERBS: Record<string, string> = {
+  move: "Moved",
+  xmove: "Moved",
+  copy: "Copied",
+  rename: "Renamed",
+  restore: "Restored",
+};
+
+function items(count: number): string {
+  return count === 1 ? "1 item" : `${count} items`;
+}
+
+/** One line for a row of "Recent actions": what was done, to what, and where it went. */
+export function describeRecent(r: Recent): string {
+  const count = r.count ?? 1;
+  const to = r.to_location ?? null;
+  if (r.kind === "import") return "Imported files";
+  if (TRASH_ACTIONS.has(r.action))
+    return count > 1
+      ? `Moved ${items(count)} to the Trash`
+      : r.name
+        ? `Moved ${r.name} to the Trash`
+        : "Moved to the Trash";
+  const verb = ACTION_VERBS[r.action];
+  if (verb === undefined)
+    return `${describeAction(r.action)}${r.name ? ` ${r.name}` : ""}`;
+  if (count > 1) return `${verb} ${items(count)}${to ? ` to ${to}` : ""}`;
+  const item = r.items?.[0];
+  if (r.action === "rename" && r.name && item?.old_name)
+    return `Renamed ${item.old_name} to ${r.name}`;
+  const what = r.name ?? "an item";
+  return `${verb} ${what}${to && r.action !== "rename" ? ` to ${to}` : ""}`;
+}
+
+/** Where one item was before and after, for the details view. */
+export function describeRecentItem(
+  r: Recent,
+  item: RecentItem,
+): { name: string; where: string } {
+  const name = item.name ?? "A protected item";
+  if (TRASH_ACTIONS.has(r.action))
+    return {
+      name,
+      where: item.from_location ? `From ${item.from_location}` : "",
+    };
+  if (r.action === "rename" && item.old_name)
+    return { name, where: `Was ${item.old_name}` };
+  const parts: string[] = [];
+  if (item.from_location) parts.push(`from ${item.from_location}`);
+  if (item.to_location) parts.push(`to ${item.to_location}`);
+  const where = parts.join(" ");
+  return { name, where: where ? where[0]!.toUpperCase() + where.slice(1) : "" };
+}
+
+/** The answer after undoing a whole batch. */
+export function describeBatchUndo(res: BatchUndoResult): string {
+  const left = res.skipped.length + res.left_in_place.length;
+  const done = `Undone for ${items(res.undone)}.`;
+  if (res.undone === 0)
+    return "Nothing could be undone. Each item changed after that action. Nothing was changed.";
+  return left > 0
+    ? `${done} ${left === 1 ? "1 item" : `${left} items`} changed since and ${left === 1 ? "was" : "were"} left as they are.`
+    : `${done} Anything removed is in the Trash.`;
 }
 
 const SHARING = new Set(["shared", "share_changed", "unshared", "share_left"]);
