@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
@@ -40,7 +40,8 @@ from app.db.models import (
     StorageRoot,
 )
 from app.domain.fileops import OpCtx, OpError
-from app.mail import ingest, store
+from app.mail import imap_store, ingest, source_watch, store
+from app.mail.imap import ImapClient, MailboxError
 from app.policy import engine
 from app.policy.model import Actor, Privilege
 
@@ -536,3 +537,156 @@ def quarantine_approve(
     )
     db.commit()
     return _out(db, m, admin)
+
+
+# --- Mailbox settings from the web UI (instead of FILECANOPY_IMAP_* variables) ---
+
+
+class ImapIn(Strict):
+    host: str = Field(max_length=255)
+    port: int = Field(ge=1, le=65535)
+    security: Literal["ssl", "starttls", "none"]
+    username: str = Field(max_length=255)
+    # None keeps the password already saved (when the user name is unchanged).
+    password: str | None = Field(default=None, max_length=1024)
+    folder: str = Field(default="INBOX", max_length=200)
+    personal_address: str = Field(max_length=320)
+    ingest_address: str = Field(max_length=320)
+    authserv_id: str = Field(default="", max_length=255)
+
+
+def _imap_out(request: Request, db: Session) -> dict[str, object]:
+    s = ctx_of(request).settings
+    on = s.imap_configured
+    env = on and bool(request.app.state.imap_from_environment)
+    return {
+        "configured": on,
+        "source": ("environment" if env else "saved") if on else None,
+        "host": s.imap_host if on else "",
+        "port": s.imap_port,
+        "security": s.imap_security,
+        "username": s.imap_username if on else "",
+        "folder": s.imap_folder,
+        "personal_address": s.imap_personal_address if on else "",
+        "ingest_address": s.imap_ingest_address if on else "",
+        "authserv_id": s.imap_authserv_id if on else "",
+        "has_password": on,
+        "can_store_password": request.app.state.ai_box.configured,
+    }
+
+
+def _imap_config(request: Request, body: ImapIn) -> imap_store.ImapConfig:
+    s = ctx_of(request).settings
+    username = body.username.strip()
+    if body.password is not None:
+        password = body.password
+    elif s.imap_configured and username == s.imap_username:
+        password = s.imap_password.get_secret_value()
+    else:
+        password = ""
+    try:
+        return imap_store.validate(
+            imap_store.ImapConfig(
+                body.host.strip(),
+                body.port,
+                body.security,
+                username,
+                password,
+                body.folder.strip(),
+                body.personal_address,
+                body.ingest_address,
+                body.authserv_id.strip(),
+            )
+        )
+    except imap_store.ImapInvalid as exc:
+        raise http_error(422, str(exc)) from exc
+
+
+def _not_from_environment(request: Request) -> None:
+    if request.app.state.imap_from_environment:
+        raise http_error(409, "MAIL_SET_IN_ENVIRONMENT")
+
+
+@router.get("/admin/mailbox/settings")
+def mailbox_settings_get(
+    request: Request,
+    _: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """The incoming mailbox settings in force. The password is never returned."""
+    return _imap_out(request, db)
+
+
+@router.put("/admin/mailbox/settings")
+def mailbox_settings_put(
+    body: ImapIn,
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _not_from_environment(request)
+    c = _imap_config(request, body)
+    box = request.app.state.ai_box
+    if not box.configured:
+        raise http_error(409, "SECRETS_KEY_MISSING")
+    imap_store.save(db, box, c)
+    source_watch.remember(db, "mailbox", "saved")
+    audit(db, "mailbox.save", actor=admin.user.id, ip=client_ip(request))
+    db.commit()
+    imap_store.apply(ctx_of(request).settings, c)
+    request.app.state.mailbox.restart()
+    return _imap_out(request, db)
+
+
+@router.delete("/admin/mailbox/settings")
+def mailbox_settings_delete(
+    request: Request,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """Forgets the saved mailbox and switches incoming mail off."""
+    _not_from_environment(request)
+    if imap_store.clear(db):
+        source_watch.remember(db, "mailbox", "none")
+        audit(db, "mailbox.clear", actor=admin.user.id, ip=client_ip(request))
+        db.commit()
+    s = ctx_of(request).settings
+    off = imap_store.ImapConfig("", s.imap_port, s.imap_security, "", "", s.imap_folder, "", "", "")
+    imap_store.apply(s, off)
+    request.app.state.mailbox.restart()
+    return _imap_out(request, db)
+
+
+@router.post("/admin/mailbox/settings/test", response_model=Ok)
+def mailbox_settings_test(
+    request: Request,
+    body: ImapIn | None = None,
+    admin: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Ok:
+    """Signs in to the mailbox and opens the folder read-only, with the posted settings (not
+    saved) or, without a body, the ones in force. Answers with a short code, never server text."""
+    s = ctx_of(request).settings
+    if body is not None:
+        test_settings = imap_store.settings_with(s, _imap_config(request, body))
+    elif s.imap_configured:
+        test_settings = s
+    else:
+        raise http_error(409, "MAILBOX_NOT_CONFIGURED")
+    failure: str | None = None
+    client: ImapClient | None = None
+    try:
+        client = ImapClient(test_settings).connect()
+        client.select(test_settings.imap_folder)
+    except MailboxError as exc:
+        failure = exc.code
+    except Exception:  # never leak library text
+        failure = "CONNECT_FAILED"
+    finally:
+        if client is not None:
+            client.close()
+    audit(db, "mailbox.test", actor=admin.user.id, ip=client_ip(request), ok=failure is None)
+    db.commit()
+    if failure is not None:
+        raise http_error(502, failure)
+    return Ok()

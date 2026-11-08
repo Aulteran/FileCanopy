@@ -52,7 +52,7 @@ from app.domain.imports import ImportRunner, recover_imports
 from app.domain.trash import TrashService, ensure_trash_base
 from app.health import build_report
 from app.logging_config import configure_logging
-from app.mail import smtp_store
+from app.mail import imap_store, smtp_store, source_watch
 from app.mail.poller import MailboxPoller
 from app.mcp import router as mcp_routes
 from app.mcp.tokens import TokenLimiter
@@ -94,6 +94,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
         except Exception as exc:  # falls back to the environment settings
             log.warning("saved mail settings not loaded: %s", type(exc).__name__)
+        try:  # incoming mail saved by an administrator, unless the environment sets it
+            if not app.state.imap_from_environment:
+                with sessions() as db:
+                    saved_imap = imap_store.load(db, app.state.ai_box)
+                if saved_imap is not None:
+                    imap_store.apply(cfg, saved_imap)
+        except Exception as exc:  # the mailbox stays off
+            log.warning("saved mailbox settings not loaded: %s", type(exc).__name__)
+        try:  # environment settings replacing saved ones are told to the administrators once
+            with sessions() as db:
+                source_watch.check(
+                    db,
+                    env_smtp=app.state.auth.mailer.from_environment.configured,
+                    env_mailbox=app.state.imap_from_environment,
+                )
+                db.commit()
+        except Exception as exc:
+            log.warning("mail source check failed: %s", type(exc).__name__)
         try:
             ensure_roots(sessions, cfg)
         except Exception as exc:  # roots are retried on the next start; the API still serves
@@ -158,6 +176,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.previews = previews
     app.state.indexer = indexer
     app.state.mailbox = mailbox
+    # Set before any saved settings are applied: environment settings always win.
+    app.state.imap_from_environment = cfg.imap_configured
     app.state.ai_box = SecretBox.from_setting(cfg.secrets_key.get_secret_value())
     app.state.ai = AiGateway(cfg, sessions, app.state.ai_box)
     semantic = Semantic(

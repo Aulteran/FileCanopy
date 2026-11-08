@@ -49,7 +49,7 @@ describe("stepMarked", () => {
   it("marks a step that is done or skipped, and no other", () => {
     expect(stepMarked("ai", none, [])).toBe(false);
     expect(stepMarked("ai", none, ["ai"])).toBe(true);
-    expect(stepMarked("mail", none, ["ai"])).toBe(false);
+    expect(stepMarked("users", none, ["ai"])).toBe(false);
     expect(stepMarked("smtp", { ...none, smtp: true }, [])).toBe(true);
   });
 });

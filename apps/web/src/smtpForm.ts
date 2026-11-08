@@ -1,6 +1,6 @@
 import type { SmtpInput, SmtpSettings } from "./api";
 
-// The outgoing-mail form (first-time setup Step 3). Pure helpers, so they can be tested.
+// The outgoing-mail form (first-time setup Step 3, Mail server). Pure helpers, so they can be tested.
 
 export type SmtpFields = {
   host: string;

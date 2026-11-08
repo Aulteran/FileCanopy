@@ -7,6 +7,7 @@ import {
   type SharedIntake,
 } from "./api";
 import { describeError, formatDate, formatSize } from "./format";
+import { IncomingMailSetup } from "./IncomingMailSetup";
 import { SmtpSetup } from "./SmtpSettings";
 
 // Mail views (M13). Everything shown here comes from the server as plain text and is rendered as
@@ -319,12 +320,7 @@ export function MailboxAdminPage({
           <SmtpSetup onEnded={onEnded} />
         </section>
       )}
-      {status && !status.configured && (
-        <p>
-          No inbound mailbox is set up. See the FILECANOPY_IMAP_* settings in
-          .env.advanced.example.
-        </p>
-      )}
+      {status && !status.configured && <IncomingMailSetup onEnded={onEnded} />}
       {status && status.configured && (
         <>
           <dl>

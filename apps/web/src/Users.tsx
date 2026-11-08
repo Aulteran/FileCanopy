@@ -508,9 +508,9 @@ function SignInPanel({
           : "Single sign-on is not configured."}
       </p>
       <p className="hint">
-        Outgoing email is set up in Step 3 of first-time setup, or under Admin,
-        Mailbox. Single sign-on is set in the server&apos;s environment file.
-        Password sign-in always stays available.
+        Outgoing email is set up in the Mail server step (Step 3) of first-time
+        setup, or under Admin, Mailbox. Single sign-on is set in the
+        server&apos;s environment file. Password sign-in always stays available.
       </p>
       {smtp.configured && (
         <div className="row">

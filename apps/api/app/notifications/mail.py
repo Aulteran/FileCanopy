@@ -82,7 +82,9 @@ class Mailer:
 
     @property
     def config(self) -> SmtpConfig:
-        """What the server uses now: the administrator's saved settings win over the environment."""
+        """What the server uses now: settings from the environment win over saved ones."""
+        if self._env.configured:
+            return self._env
         return self._saved or self._env
 
     @property
@@ -94,7 +96,7 @@ class Mailer:
 
     @property
     def is_saved(self) -> bool:
-        return self._saved is not None
+        return self._saved is not None and not self._env.configured
 
     @property
     def configured(self) -> bool:

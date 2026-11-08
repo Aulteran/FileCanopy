@@ -33,7 +33,7 @@ from app.auth.service import (
     valid_email,
 )
 from app.db.models import AuthToken, User, UserEmailAlias, UserIdentity
-from app.mail import smtp_store
+from app.mail import smtp_store, source_watch
 from app.mail.address import address_forms, normalize_address, reserved_addresses
 from app.notifications.mail import SmtpConfig
 
@@ -394,11 +394,14 @@ def smtp_put(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     ctx = ctx_of(request)
+    if ctx.mailer.from_environment.configured:
+        raise http_error(409, "MAIL_SET_IN_ENVIRONMENT")
     c = _smtp_config(request, body)
     box = request.app.state.ai_box
     if c.password and not box.configured:
         raise http_error(409, "SECRETS_KEY_MISSING")
     smtp_store.save(db, box, c)
+    source_watch.remember(db, "smtp", "saved")
     audit(db, "smtp.save", actor=admin.user.id, ip=client_ip(request))
     db.commit()
     ctx.mailer.use_saved(c)
@@ -412,7 +415,10 @@ def smtp_delete(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     """Forgets the saved settings; the server falls back to its environment settings."""
+    if ctx_of(request).mailer.from_environment.configured:
+        raise http_error(409, "MAIL_SET_IN_ENVIRONMENT")
     if smtp_store.clear(db):
+        source_watch.remember(db, "smtp", "none")
         audit(db, "smtp.clear", actor=admin.user.id, ip=client_ip(request))
         db.commit()
     ctx_of(request).mailer.use_saved(None)

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { Icon } from "./Icon";
-import { MailboxAdminPage } from "./MailPages";
+import { IncomingMailSetup } from "./IncomingMailSetup";
 import { api } from "./api";
 import { SmtpSetup } from "./SmtpSettings";
 import {
@@ -95,15 +95,14 @@ export function AdminPage({
   );
 }
 
-type SetupView =
-  "steps" | "ai" | "semantic" | "smtp" | "users" | "mail" | "files";
+type SetupView = "steps" | "ai" | "semantic" | "smtp" | "users" | "files";
 
 /** The shared tree whose first-time file setup is the last step of the server setup. */
 export type SharedSetupRoot = { id: string; name: string; kind: string };
 
 // Shown to an administrator on first sign-in, so the server itself (AI, people, email) is
 // configured before the shared files. Every part is optional and can be done later.
-// The order is fixed: AI, meaning-based search, outgoing email (SMTP), other users, incoming mail,
+// The order is fixed: AI, meaning-based search, mail server (SMTP and incoming mail), other users,
 // and last the shared file setup (the library everyone uses). The administrator's own personal
 // folder is not part of this flow: it is set up later from the side navigation. Every step opens
 // as a panel beside the step list
@@ -175,10 +174,14 @@ export function ServerSetupStep({
     ) : view === "smtp" ? (
       <SetupPanel
         id="server-smtp-h"
-        title="Step 3: Outgoing email"
+        title="Step 3: Mail server"
         onClose={close}
       >
         <SmtpSetup
+          onEnded={onEnded}
+          onChanged={() => void loadServerSetupDone(me).then((d) => setDone(d))}
+        />
+        <IncomingMailSetup
           onEnded={onEnded}
           onChanged={() => void loadServerSetupDone(me).then((d) => setDone(d))}
         />
@@ -191,18 +194,10 @@ export function ServerSetupStep({
       >
         <UsersPage me={me} onEnded={onEnded} />
       </SetupPanel>
-    ) : view === "mail" ? (
-      <SetupPanel
-        id="server-mail-h"
-        title="Step 5: Incoming mail"
-        onClose={close}
-      >
-        <MailboxAdminPage onEnded={onEnded} />
-      </SetupPanel>
     ) : view === "files" ? (
       <SetupPanel
         id="server-files-h"
-        title="Step 6: Server files"
+        title="Step 5: Server files"
         onClose={close}
       >
         <SetupScreen
@@ -268,14 +263,14 @@ export function ServerSetupStep({
             </li>
             <li className={view === "smtp" ? "active" : undefined}>
               <StepDone done={stepMarked("smtp", done, skipped)} />
-              <strong>Step 3: Outgoing email (optional)</strong>
+              <strong>Step 3: Mail server (optional)</strong>
               <p>
                 Set up and test the mail server that sends invitations and
-                password resets.
+                password resets, and choose whether people can email files in.
               </p>
               <div className="step-actions">
                 <button type="button" {...step("smtp")}>
-                  Set up outgoing email
+                  Set up mail server
                 </button>
                 <SkipButton
                   step="smtp"
@@ -301,24 +296,6 @@ export function ServerSetupStep({
                 />
               </div>
             </li>
-            <li className={view === "mail" ? "active" : undefined}>
-              <StepDone done={stepMarked("mail", done, skipped)} />
-              <strong>Step 5: Incoming mail (optional)</strong>
-              <p>
-                Let people file attachments by emailing them to this server.
-              </p>
-              <div className="step-actions">
-                <button type="button" {...step("mail")}>
-                  Check incoming mail
-                </button>
-                <SkipButton
-                  step="mail"
-                  done={done.mail}
-                  skipped={skipped}
-                  onToggle={toggleSkip}
-                />
-              </div>
-            </li>
             <li className={view === "files" ? "active" : undefined}>
               <span
                 className="step-required"
@@ -328,7 +305,7 @@ export function ServerSetupStep({
               >
                 *
               </span>
-              <strong>Step 6: Server files</strong>
+              <strong>Step 5: Server files</strong>
               <p>
                 Start the shared library empty, or copy in files you already
                 have. Finishing or skipping this completes setup.
