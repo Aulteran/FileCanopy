@@ -364,7 +364,7 @@ def test_first_run_server_steps_run_in_order(fresh_stack: Stack, browser: Browse
     expect(page.get_by_role("heading", level=1, name="Prepare your server")).to_be_visible()
     expect(page.locator("ol.setup-steps > li > strong")).to_have_text(
         [
-            "Step 1: AI (optional)",
+            "Step 1: AI",
             "Step 2: Meaning-based search (optional)",
             "Step 3: Mail server (optional)",
             "Step 4: Other users (optional)",
