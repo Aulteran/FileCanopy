@@ -2772,3 +2772,29 @@ legend {
     z-index: 1;
   }
 }
+
+/* Every page: the header and the left menu stay fixed and only the content area scrolls. */
+@media (min-width: 801px) {
+  .shell:not(.setup-only) {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .shell:not(.setup-only) .sidenav {
+    min-height: 0;
+    overflow-y: auto;
+  }
+  :where(.shell:not(.setup-only)) .content {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+@media (max-width: 800px) {
+  .shell:not(.setup-only) .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+}
