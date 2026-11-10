@@ -411,6 +411,7 @@ function Shell({
       !notices &&
       !inbox &&
       !organize &&
+      !ask &&
       !duplicates &&
       !collections &&
       !mailbox &&
@@ -433,6 +434,7 @@ function Shell({
     notices,
     inbox,
     organize,
+    ask,
     duplicates,
     collections,
     mailbox,
