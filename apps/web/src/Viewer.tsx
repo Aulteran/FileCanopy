@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { Loading } from "./Loading";
 import {
   createContext,
@@ -85,7 +86,8 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
       <div className="viewer">
         <div className="viewer-bar">
           <button type="button" onClick={back}>
-            ← Back
+            <Icon name="back" />
+            Back
           </button>
           <div className="viewer-heading">
             <h1 className="viewer-title">{node?.name ?? "Opening…"}</h1>
@@ -106,6 +108,7 @@ export function Viewer({ nodeId, go, onEnded }: Props) {
           </div>
           {node?.kind === "file" && !cannotShow && (
             <a className="button" href={api.downloadUrl(nodeId)} download>
+              <Icon name="download" />
               Download
             </a>
           )}
@@ -252,22 +255,24 @@ function Zoombar({
     <div className="viewer-tools" role="group" aria-label={label}>
       <button
         type="button"
+        className="iconbtn"
         aria-label="Zoom out"
         disabled={zoom <= min}
         onClick={() => step(1 / 1.25)}
       >
-        −
+        <Icon name="minus" />
       </button>
       <span aria-live="polite" className="viewer-zoom">
         {Math.round(zoom * 100)}%
       </span>
       <button
         type="button"
+        className="iconbtn"
         aria-label="Zoom in"
         disabled={zoom >= max}
         onClick={() => step(1.25)}
       >
-        +
+        <Icon name="plus" />
       </button>
       <button type="button" onClick={() => onZoom(1)}>
         Fit
@@ -785,42 +790,49 @@ function PdfView({
             >
               Fit page
             </button>
-            <button
-              type="button"
-              aria-label="Previous page"
-              disabled={current <= 1}
-              onClick={() => goTo(current - 1)}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              aria-label="Next page"
-              disabled={current >= doc.numPages}
-              onClick={() => goTo(current + 1)}
-            >
-              ›
-            </button>
-            <input
-              key={current}
-              className="viewer-goto"
-              type="number"
-              min={1}
-              max={doc.numPages}
-              aria-label="Go to page"
-              defaultValue={current}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") goTo(Number(e.currentTarget.value));
-              }}
-            />
-            <span className="viewer-page" aria-live="polite">
-              Page {current} of {doc.numPages}
+            <span className="viewer-sep" aria-hidden="true" />
+            <span className="viewer-pages">
+              <button
+                type="button"
+                className="iconbtn"
+                aria-label="Previous page"
+                disabled={current <= 1}
+                onClick={() => goTo(current - 1)}
+              >
+                <Icon name="chev-left" />
+              </button>
+              <button
+                type="button"
+                className="iconbtn"
+                aria-label="Next page"
+                disabled={current >= doc.numPages}
+                onClick={() => goTo(current + 1)}
+              >
+                <Icon name="chev" />
+              </button>
+              <input
+                key={current}
+                className="viewer-goto"
+                type="number"
+                min={1}
+                max={doc.numPages}
+                aria-label="Go to page"
+                defaultValue={current}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") goTo(Number(e.currentTarget.value));
+                }}
+              />
+              <span className="viewer-page" aria-live="polite">
+                Page {current} of {doc.numPages}
+              </span>
             </span>
             <button
               type="button"
               aria-pressed={rail}
+              className="viewer-railbtn"
               onClick={() => setRail((r) => !r)}
             >
+              <Icon name="sidebar" />
               Thumbnails
             </button>
           </>

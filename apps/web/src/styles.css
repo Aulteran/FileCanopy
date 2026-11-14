@@ -2798,3 +2798,596 @@ legend {
     z-index: 50;
   }
 }
+
+/* ---- UI revamp pass: one page rhythm, menus, action lists, file kinds, calmer boxes ---- */
+
+/* Page rhythm: the same gutters, title spacing and lede on every page. */
+.content {
+  padding: 22px 28px 48px;
+}
+.content h1 {
+  margin: 0 0 8px;
+}
+.content > section > h1 + p,
+.content > section > .page-head + p,
+.content > div > h1 + p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+/* Reading pages keep a comfortable width; the file browser, viewer and admin use the full area. */
+.content
+  > :where(section, div):not(
+    .browser,
+    .viewer,
+    .admin-layout,
+    .server-setup,
+    .setup-screen
+  ) {
+  max-width: 920px;
+}
+.folder-title {
+  margin: 0 0 12px;
+}
+.crumbs ol {
+  margin-bottom: 6px;
+  margin-left: -6px;
+}
+.toolbar {
+  margin-bottom: 12px;
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 20px 0 8px;
+}
+
+/* Notice boxes hug their text. */
+.banner > :first-child,
+.setup > :first-child {
+  margin-top: 0;
+}
+.banner > :last-child,
+.setup > :last-child {
+  margin-bottom: 0;
+}
+.banner {
+  margin: 0 0 16px;
+}
+.banner.info {
+  background: color-mix(in srgb, var(--info) 6%, var(--surface));
+}
+.banner.warn {
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+.banner .warnings {
+  margin: 0;
+  padding-left: 18px;
+}
+.banner strong + p {
+  margin-top: 4px;
+}
+
+/* Empty states: one centered, quiet box everywhere. */
+.empty {
+  margin: 0 0 16px;
+  padding: 28px 24px;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Text-like buttons sit inside a sentence without breaking its line. */
+button.linklike {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border-radius: 2px;
+  font-weight: inherit;
+  font-size: inherit;
+  text-align: inherit;
+}
+button.linklike:hover:not(:disabled) {
+  background: none;
+  color: var(--primary-strong);
+}
+
+/* Check boxes keep one size, also inside the backup forms. */
+.backups .check input {
+  width: 1rem;
+  height: 1rem;
+}
+/* A field and its button on one line share a baseline. */
+.collection-create label,
+.ask form label {
+  margin: 0;
+}
+.collection-create > button,
+.ask form > button {
+  min-height: 44px;
+}
+
+/* Menus: a down arrow on the button, quiet rows with an icon each. */
+.caret {
+  display: inline-flex;
+  margin: 0 -4px 0 -2px;
+}
+.caret svg.i {
+  width: 16px;
+  height: 16px;
+}
+.menu {
+  min-width: 220px;
+  padding: 6px;
+}
+.menu.end {
+  left: auto;
+  right: 0;
+}
+.menu button {
+  gap: 10px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: var(--r-s);
+  font-weight: 400;
+}
+.menu-mark {
+  width: 20px;
+  color: var(--muted);
+}
+.menu-mark svg.i {
+  width: 18px;
+  height: 18px;
+}
+.menu button[aria-checked="true"] .menu-mark {
+  color: var(--primary);
+}
+
+/* Profile menu: icon first, text left, like every other menu. */
+.profile-panel {
+  min-width: 190px;
+}
+.profile-panel > button,
+.profile-panel > a {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 400;
+  font-size: 0.95rem;
+}
+.profile-panel > button svg.i,
+.profile-panel > a svg.i {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.profile-panel > button.danger svg.i {
+  color: inherit;
+}
+
+/* File kinds in lists. */
+.fi.folder {
+  color: var(--primary);
+}
+.fi.folder svg path:first-child {
+  fill: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.fi.pdf {
+  color: var(--danger);
+}
+.fi.sheet {
+  color: var(--primary);
+}
+.fi.slides {
+  color: var(--warning);
+}
+.fi.media {
+  color: var(--confidential);
+}
+.fi.zip,
+.fi.plain {
+  color: var(--muted);
+}
+.list tbody tr:hover {
+  background: color-mix(in srgb, var(--sunken) 55%, transparent);
+}
+.list tbody tr.selected,
+.list tbody tr.selected:hover {
+  background: var(--sel);
+}
+
+/* Details panel: Open and Download as buttons, everything else as a quiet list of actions. */
+.details dl {
+  font-size: 0.95rem;
+}
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.detail-actions .detail-row {
+  margin: 0;
+}
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.action-list:empty {
+  display: none;
+}
+.action-list button {
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-s);
+  background: transparent;
+  font-weight: 400;
+  text-align: left;
+}
+.action-list button:hover:not(:disabled) {
+  background: var(--sunken);
+}
+.action-list button svg.i {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.action-list button.danger svg.i {
+  color: inherit;
+}
+.toolbar .badge {
+  align-self: center;
+}
+
+/* Share dialog: one row to add a person, and tidy rows for the people who have access. */
+.share-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem auto;
+  gap: 4px 8px;
+  align-items: end;
+}
+.share-add label {
+  margin: 0;
+}
+.share-add > button {
+  min-height: 44px;
+}
+.share-add > .hint,
+.share-add > .people-found {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+}
+.people-found button {
+  width: 100%;
+  justify-content: flex-start;
+  font-weight: 400;
+}
+.people-found li + li {
+  margin-top: 4px;
+}
+.people li {
+  gap: 10px;
+  padding: 8px 0;
+}
+.people li:last-child {
+  border-bottom: 0;
+}
+.people .person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.people li select {
+  width: auto;
+  min-width: 6.5rem;
+  min-height: 40px;
+  margin: 0;
+  flex: none;
+}
+@media (max-width: 520px) {
+  .share-add {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .share-add > label:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Ask AI: a page of its own, and a quieter panel under search results. */
+.ask.bare {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.ask h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+.ask form label:nth-of-type(2) {
+  flex: 0 0 9.5rem;
+}
+.ask .answer {
+  margin: 20px 0 8px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+}
+ul.results {
+  margin: 0 0 16px;
+}
+ul.results li {
+  padding: 12px 0;
+}
+ul.results li:last-child {
+  border-bottom: 0;
+}
+ul.results .hit-head a:first-of-type {
+  font-weight: 700;
+  text-decoration: none;
+}
+ul.results .hit-head a:first-of-type:hover {
+  text-decoration: underline;
+}
+ul.results .snippet {
+  margin: 4px 0 0 28px;
+  color: var(--muted);
+}
+
+/* Admin: a compact section list (icon, title, one quiet line) instead of tall cards. */
+.server-setup-steps > .grp-h {
+  display: block;
+  padding: 4px 12px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.admin-layout .server-setup-layout {
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 24px;
+}
+.admin-layout .setup-steps {
+  gap: 2px;
+  margin: 0;
+}
+.admin-layout .setup-steps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-m);
+  background: transparent;
+}
+.admin-layout .setup-steps li:hover {
+  background: var(--sunken);
+}
+.admin-layout .setup-steps li.active {
+  background: var(--sel);
+}
+.admin-layout .setup-steps li.active strong,
+.admin-layout .setup-steps li.active > svg.i {
+  color: var(--primary-strong);
+}
+.admin-layout .setup-steps li > svg.i {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.admin-layout .setup-steps li p {
+  grid-column: 2;
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.admin-layout .server-setup-panel h1 {
+  margin: 0 0 12px;
+}
+.admin-layout .server-setup-panel h2 {
+  margin: 28px 0 8px;
+  font-size: 1.15rem;
+}
+.admin-layout .server-setup-panel .page-index {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+/* Inside the admin panel a section is a part of the page, not a box inside a box. */
+.server-setup-panel .backups section.card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.server-setup-panel .backups section.card > h2:first-child {
+  margin-top: 0;
+}
+.server-setup-panel > header {
+  margin-bottom: 16px;
+}
+/* First-time setup, Step 5 inside the panel reads left to right like the other steps. */
+.server-setup-panel .setup-screen {
+  max-width: 720px;
+  margin: 0;
+  text-align: left;
+}
+.server-setup-panel .setup-screen > .actions {
+  justify-content: flex-start;
+}
+@media (max-width: 800px) {
+  .server-setup-steps > .grp-h {
+    display: none;
+  }
+  .admin-layout .server-setup-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .admin-layout .setup-steps {
+    gap: 6px;
+  }
+  .admin-layout .setup-steps li {
+    display: block;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+  }
+  .admin-layout .setup-steps li.active {
+    border-color: var(--primary);
+    background: var(--sel);
+  }
+  .admin-layout .setup-steps li > svg.i {
+    display: none;
+  }
+}
+
+/* Viewer toolbar: icon buttons, a thin divider between zoom and pages. */
+.viewer-bar > button svg.i,
+.viewer-bar > a.button svg.i,
+.viewer-tools svg.i {
+  width: 18px;
+  height: 18px;
+}
+.viewer-tools {
+  gap: 6px;
+}
+.viewer-sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--line);
+}
+.viewer-scroll,
+.viewer-rail,
+.viewer-text {
+  border-radius: var(--r-m);
+}
+
+/* Phones: wider gutters, a toolbar that fits one row, a selection bar that stays one row. */
+@media (max-width: 760px) {
+  .content {
+    padding: 16px 16px 40px;
+  }
+  .topbar {
+    padding: 8px 12px;
+  }
+  .phone-bar {
+    flex-wrap: nowrap;
+    padding: 10px 16px;
+  }
+  .phone-bar-count {
+    white-space: nowrap;
+  }
+  .viewer-sep {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .toolbar .icon-on-phone {
+    min-width: 40px;
+    padding: 6px;
+  }
+  .toolbar .icon-on-phone .lbl {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .viewer-railbtn {
+    display: none;
+  }
+}
+.collection-create {
+  margin-bottom: 20px;
+}
+.banner .warnings {
+  list-style: none;
+  padding-left: 0;
+}
+.banner .warnings li + li {
+  margin-top: 6px;
+}
+.viewer-pages {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.menu {
+  max-width: calc(100vw - 32px);
+}
+.people li {
+  flex-wrap: wrap;
+}
+.people .person {
+  flex: 1 1 9rem;
+}
+@media (max-width: 520px) {
+  .toolbar {
+    gap: 6px;
+  }
+  .toolbar > button,
+  .toolbar .menu-wrap > button {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .toolbar .caret {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .people .person {
+    flex-basis: 100%;
+  }
+}
+.setup-screen .dropzone .actions {
+  flex-wrap: wrap;
+}
+
+/* Trash and Recent actions: rows inside one card, buttons level with the text. */
+.trash-list {
+  padding: 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+}
+.trash-item {
+  align-items: center;
+  padding: 12px 0;
+}
+.trash-item:last-child {
+  border-bottom: 0;
+}
+.trash-item .actions {
+  align-items: center;
+}
+.trash-item .actions button {
+  min-height: 36px;
+  padding: 4px 12px;
+}
+.page-head {
+  margin-bottom: 8px;
+}
+/* Collections: pick lists with the button at the end of each row. */
+.collection-create label.narrow {
+  flex: 0 0 9rem;
+}
+.pick-rows > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pick-rows:empty {
+  display: none;
+}

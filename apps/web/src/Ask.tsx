@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api, type ChatAnswer } from "./api";
 import {
   describeChatReason,
@@ -6,29 +6,70 @@ import {
   describeWithheld,
 } from "./chatText";
 import { describeError } from "./format";
-import { folderPath, viewPath } from "./route";
+import { Icon } from "./Icon";
+import { AI_ADMIN_PATH, folderPath, viewPath } from "./route";
 
 type Props = {
   initial: string;
   placeholder?: string;
+  /** On the Ask AI page the page title already says what this is: no heading or divider. */
+  bare?: boolean;
   go: (path: string) => void;
   onEnded: () => void;
 };
 
 /** The Ask AI page (nav item): an empty question, so the person types their own. */
 export function AskPage({
+  admin,
   go,
   onEnded,
 }: {
+  admin: boolean;
   go: (path: string) => void;
   onEnded: () => void;
 }) {
+  const [aiOn, setAiOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    api
+      .aiStatus()
+      .then((st) => setAiOn(st.server_ai_enabled))
+      .catch(() => setAiOn(null));
+  }, []);
   return (
-    <section aria-labelledby="ask-page-h">
+    <section aria-labelledby="ask-page-h" className="ask-page">
       <h1 id="ask-page-h">Ask AI</h1>
+      <p className="muted">
+        Ask a question in your own words. The answer lists the files it came
+        from, and nothing is saved. Files in Private and Confidential folders
+        are never sent to a cloud provider.
+      </p>
+      {aiOn === false && (
+        <div className="banner info">
+          <p>
+            AI is turned off on this server, so questions cannot be answered
+            yet.
+            {admin && (
+              <>
+                {" "}
+                <a
+                  href={AI_ADMIN_PATH}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(AI_ADMIN_PATH);
+                  }}
+                >
+                  Turn it on in Admin
+                </a>
+                .
+              </>
+            )}
+          </p>
+        </div>
+      )}
       <AskPanel
         initial=""
-        placeholder="Ask a question about your files"
+        placeholder="For example: when does my car insurance renew?"
+        bare
         go={go}
         onEnded={onEnded}
       />
@@ -38,7 +79,7 @@ export function AskPage({
 
 /** Ask a question about your files (M20). Nothing is saved: the question and answer are gone when
  * the page is left. Every citation is a real file the server checked you may read. */
-export function AskPanel({ initial, placeholder, go, onEnded }: Props) {
+export function AskPanel({ initial, placeholder, bare, go, onEnded }: Props) {
   const [question, setQuestion] = useState(initial);
   const [scope, setScope] = useState<"mine" | "shared">("mine");
   const [busy, setBusy] = useState(false);
@@ -65,8 +106,12 @@ export function AskPanel({ initial, placeholder, go, onEnded }: Props) {
   const withheld = result ? describeWithheld(result.withheld_protected) : null;
   const where = result ? describeProvider(result.provider_mode) : null;
   return (
-    <section aria-labelledby="ask-h" className="ask">
-      <h2 id="ask-h">Ask about your files</h2>
+    <section
+      aria-labelledby={bare ? undefined : "ask-h"}
+      aria-label={bare ? "Your question" : undefined}
+      className={bare ? "ask bare" : "ask"}
+    >
+      {!bare && <h2 id="ask-h">Ask about your files</h2>}
       <form onSubmit={submit}>
         <label>
           Your question
@@ -93,6 +138,7 @@ export function AskPanel({ initial, placeholder, go, onEnded }: Props) {
           className="primary"
           disabled={busy || question.trim().length < 2}
         >
+          <Icon name="sparkles" />
           {busy ? "Asking…" : "Ask"}
         </button>
       </form>

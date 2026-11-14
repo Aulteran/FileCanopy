@@ -886,7 +886,7 @@ function Shell({
             onChanged={() => setReload((n) => n + 1)}
           />
         )}
-        {ask && <AskPage go={go} onEnded={onEnded} />}
+        {ask && <AskPage admin={admin} go={go} onEnded={onEnded} />}
         {organize && (
           <OrganizePage
             admin={admin}

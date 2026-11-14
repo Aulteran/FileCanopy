@@ -112,7 +112,7 @@ def test_pdf_opens_scrolls_and_zooms_with_no_third_party_requests(
     expect(page.get_by_role("img", name="Page 6")).to_be_visible()
 
     # one "viewed" entry for the open, in the activity panel
-    page.get_by_role("button", name="← Back").click()
+    page.get_by_role("button", name="Back", exact=True).click()
     expect(page).not_to_have_url(re.compile(r"/view/"))
     select(page, "canopy.pdf")
     page.get_by_role("button", name="Show history").click()
@@ -244,7 +244,7 @@ def test_adobe_xfa_form_gets_an_acrobat_notice_with_download(
     open_file(page, "form.pdf")
     expect(page.get_by_role("heading", name="This is an Adobe Acrobat form")).to_be_visible()
     expect(page.get_by_role("link", name="Download")).to_have_count(2)  # top bar and the notice
-    page.get_by_role("button", name="← Back").click()
+    page.get_by_role("button", name="Back", exact=True).click()
     open_file(page, "plain.pdf")
     expect(page.get_by_role("img", name="Page 1")).to_be_visible()
     expect(page.get_by_role("heading", name="This is an Adobe Acrobat form")).to_have_count(0)

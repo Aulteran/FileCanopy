@@ -8,7 +8,7 @@ import {
 } from "./api";
 import { CollectionSuggestions } from "./Collections";
 import { describeError } from "./format";
-import { ADMIN_PATH } from "./route";
+import { AI_ADMIN_PATH } from "./route";
 import {
   describeConfidence,
   describeProposal,
@@ -193,10 +193,10 @@ export function OrganizePage({
               <>
                 {" "}
                 <a
-                  href={ADMIN_PATH}
+                  href={AI_ADMIN_PATH}
                   onClick={(e) => {
                     e.preventDefault();
-                    go(ADMIN_PATH);
+                    go(AI_ADMIN_PATH);
                   }}
                 >
                   Turn it on in Admin
