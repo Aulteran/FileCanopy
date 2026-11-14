@@ -18,8 +18,13 @@ interface Props {
   primary?: boolean;
   disabled?: boolean;
   title?: string;
+  /** On a phone show only the icon; the label stays as the button's name. */
+  iconOnPhone?: boolean;
   items: MenuItem[];
 }
+
+/** Room the menu needs beside the button (its CSS min-width plus a margin). */
+const MENU_WIDTH = 236;
 
 /** A button that opens a small menu. Escape and a click outside close it, and it closes after a pick. */
 export function MenuButton({
@@ -28,9 +33,12 @@ export function MenuButton({
   primary,
   disabled,
   title,
+  iconOnPhone,
   items,
 }: Props) {
   const [open, setOpen] = useState(false);
+  // The menu hangs from the button's left edge unless that would run off the screen.
+  const [end, setEnd] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -61,19 +69,39 @@ export function MenuButton({
       <button
         ref={trigger}
         type="button"
-        className={primary ? "primary" : undefined}
+        className={
+          [primary && "primary", iconOnPhone && "icon-on-phone"]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         disabled={disabled}
         title={title}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const box = trigger.current?.getBoundingClientRect();
+          if (box)
+            setEnd(
+              box.left + MENU_WIDTH > window.innerWidth &&
+                box.right >= MENU_WIDTH,
+            );
+          setOpen((o) => !o);
+        }}
       >
         {icon && <Icon name={icon} />}
-        {label}
-        <Icon name="chev" />
+        <span className="lbl">{label}</span>
+        {icon !== "more" && (
+          <span className="caret">
+            <Icon name="chev-down" />
+          </span>
+        )}
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label={label}>
+        <div
+          className={end ? "menu end" : "menu"}
+          role="menu"
+          aria-label={label}
+        >
           {items.map((it) => (
             <button
               key={it.label}

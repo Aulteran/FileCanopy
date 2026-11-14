@@ -51,6 +51,7 @@ import {
   type Picked,
 } from "./importer";
 import { folderPath, viewPath } from "./route";
+import { fileKind } from "./fileKind";
 import { hasThumbnail, viewKind } from "./viewerTypes";
 import { ScanBanner } from "./ScanBanner";
 
@@ -108,7 +109,6 @@ type Props = {
 };
 
 /** A file the in-app viewer can open (the server checks again). */
-const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|svg|heic|tiff?)$/i;
 
 function canView(c: Child): boolean {
   return (
@@ -778,6 +778,8 @@ export function Browser({
     ? undefined
     : "You do not have permission to change this folder.";
 
+  const canShare = info.shared_with !== null && info.kind === "dir";
+  const fileCount = items.filter((c) => c.kind === "file").length;
   return (
     <section
       className={dragging ? "browser dragging" : "browser"}
@@ -872,51 +874,68 @@ export function Browser({
           disabled={!canWrite}
           title={noWrite}
           items={[
-            { label: "Files…", onSelect: () => fileInput.current?.click() },
-            { label: "Folder…", onSelect: () => folderInput.current?.click() },
+            {
+              label: "Files…",
+              icon: "file-blank",
+              onSelect: () => fileInput.current?.click(),
+            },
+            {
+              label: "Folder…",
+              icon: "folder",
+              onSelect: () => folderInput.current?.click(),
+            },
             {
               label: "Unpack a .zip…",
+              icon: "zip",
               title: "Add the files inside a .zip to this folder",
               onSelect: () => zipInput.current?.click(),
             },
           ]}
         />
         <button
+          className="icon-on-phone"
           disabled={!canWrite}
           title={noWrite}
           onClick={() => setDialog("folder")}
         >
           <Icon name="folder-plus" />
-          New folder
+          <span className="lbl">New folder</span>
         </button>
-        {info.shared_with !== null && info.kind === "dir" && (
+        {canShare && (
           <button onClick={() => setDialog("share")}>
-            Share{info.shared_with > 0 ? ` (${info.shared_with})` : ""}
+            <Icon name="share" />
+            Share{info.shared_with ? ` (${info.shared_with})` : ""}
           </button>
         )}
-        {info.shared_with !== null && info.kind === "dir" && (
-          <button onClick={() => setDialog("privacy")}>Privacy…</button>
-        )}
-        <button
-          disabled={aiOff || items.filter((c) => c.kind === "file").length < 2}
-          title={
-            aiOff
-              ? AI_OFF
-              : "Ask AI which of the files listed here belong together"
-          }
-          onClick={() => void suggestCollections()}
-        >
-          <Icon name="sparkles" />
-          Suggest collections
-        </button>
-        {!canWrite && <span className="hint">Read-only</span>}
         <MenuButton
           label="More"
           icon="more"
+          iconOnPhone
           items={[
+            ...(canShare
+              ? [
+                  {
+                    label: "Privacy…",
+                    icon: "lock" as const,
+                    onSelect: () => setDialog("privacy"),
+                  },
+                ]
+              : []),
+            {
+              label: "Suggest collections",
+              icon: "sparkles",
+              disabled: aiOff || fileCount < 2,
+              title: aiOff
+                ? AI_OFF
+                : fileCount < 2
+                  ? "Needs at least two files in this folder"
+                  : "Ask AI which of the files listed here belong together",
+              onSelect: () => void suggestCollections(),
+            },
             { label: "Rescan", icon: "refresh", onSelect: () => void rescan() },
             {
               label: "Compact list",
+              icon: "rows",
               checked: density === "compact",
               title: "Show more rows in the list",
               onSelect: () => {
@@ -940,6 +959,7 @@ export function Browser({
               : []),
           ]}
         />
+        {!canWrite && <span className="badge muted">Read-only</span>}
       </div>
 
       {info.parent_id === null &&
@@ -1096,7 +1116,7 @@ export function Browser({
           {items.length === 0 ? (
             <p className="empty">
               This folder is empty.
-              {canWrite && " Drop files here or use Upload here."}
+              {canWrite && " Drop files here, or use Upload."}
             </p>
           ) : (
             <table role="grid" aria-label={`Contents of ${info.name}`}>
@@ -1160,21 +1180,7 @@ export function Browser({
                     </td>
                     <td>
                       <span className="name-cell">
-                        <span
-                          className={`fi ${c.kind === "dir" ? "folder" : c.kind === "other" ? "other" : IMAGE_NAME.test(c.name) ? "img" : "doc"}`}
-                        >
-                          <Icon
-                            name={
-                              c.kind === "dir"
-                                ? "folder"
-                                : c.kind === "other"
-                                  ? "alert"
-                                  : IMAGE_NAME.test(c.name)
-                                    ? "image"
-                                    : "file"
-                            }
-                          />
-                        </span>
+                        <RowIcon item={c} />
                         {c.kind === "dir" ? (
                           <a
                             href={folderPath(c.id)}
@@ -1262,7 +1268,11 @@ export function Browser({
                 )}
               <dl>
                 <dt>Type</dt>
-                <dd>{selected.kind === "dir" ? "Folder" : "File"}</dd>
+                <dd>
+                  {selected.kind === "dir"
+                    ? "Folder"
+                    : fileKind(selected.name).label}
+                </dd>
                 {selected.size !== null && (
                   <>
                     <dt>Size</dt>
@@ -1286,18 +1296,22 @@ export function Browser({
                   here. If it comes back, a rescan finds it again.
                 </p>
               )}
-              <div className="actions column">
+              <div className="detail-actions">
                 {selected.status === "missing" && (
-                  <>
-                    <button onClick={() => void rescan()}>Rescan</button>
+                  <div className="action-list">
+                    <button onClick={() => void rescan()}>
+                      <Icon name="refresh" />
+                      Rescan
+                    </button>
                     <button
                       disabled={!canWrite}
                       title={noWrite}
                       onClick={() => void dismissSelected()}
                     >
+                      <Icon name="close" />
                       Remove from list
                     </button>
-                  </>
+                  </div>
                 )}
                 <div className="detail-row">
                   {privileges.includes("read") &&
@@ -1325,13 +1339,14 @@ export function Browser({
                         href={api.downloadUrl(selected.id)}
                         download
                       >
+                        <Icon name="download" />
                         Download
                       </a>
                     )}
                 </div>
                 {selected.kind !== "other" && selected.status === "active" && (
                   <>
-                    <div className="detail-group">
+                    <div className="action-list">
                       <button
                         disabled={!canWrite}
                         title={noWrite}
@@ -1367,18 +1382,20 @@ export function Browser({
                         selectedNode.shared_with !== null && (
                           <>
                             <button onClick={() => setDialog("share-selected")}>
+                              <Icon name="share" />
                               Share…
                             </button>
                             <button
                               onClick={() => setDialog("privacy-selected")}
                             >
+                              <Icon name="lock" />
                               Privacy…
                             </button>
                           </>
                         )}
                     </div>
                     {selected.kind === "file" && (
-                      <div className="detail-group">
+                      <div className="action-list">
                         <button
                           disabled={!canWrite || aiOff}
                           title={aiOff ? AI_OFF : noWrite}
@@ -1399,16 +1416,17 @@ export function Browser({
                         )}
                       </div>
                     )}
-                    <hr className="detail-divider" />
-                    <button
-                      className="danger"
-                      disabled={!canWrite}
-                      title={noWrite}
-                      onClick={() => void deleteSelected()}
-                    >
-                      <Icon name="trash" />
-                      Move to Trash
-                    </button>
+                    <div className="action-list">
+                      <button
+                        className="danger"
+                        disabled={!canWrite}
+                        title={noWrite}
+                        onClick={() => void deleteSelected()}
+                      >
+                        <Icon name="trash" />
+                        Move to Trash
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -1421,31 +1439,40 @@ export function Browser({
                   ? `${actionable.length} of them can be moved, copied or trashed.`
                   : "Choose what to do with all of them."}
               </p>
-              <div className="actions column">
-                <button
-                  disabled={!canWrite || actionable.length === 0}
-                  title={noWrite}
-                  onClick={() => setDialog("move")}
-                >
-                  Move…
-                </button>
-                <button
-                  disabled={!canWrite || actionable.length === 0}
-                  title={noWrite}
-                  onClick={() => setDialog("copy")}
-                >
-                  Copy…
-                </button>
-                <button
-                  disabled={!canWrite || actionable.length === 0}
-                  title={noWrite}
-                  onClick={() => void deleteChecked()}
-                >
-                  Move to Trash
-                </button>
-                <button onClick={() => setChecked(new Set())}>
-                  Clear selection
-                </button>
+              <div className="detail-actions">
+                <div className="action-list">
+                  <button
+                    disabled={!canWrite || actionable.length === 0}
+                    title={noWrite}
+                    onClick={() => setDialog("move")}
+                  >
+                    <Icon name="move" />
+                    Move…
+                  </button>
+                  <button
+                    disabled={!canWrite || actionable.length === 0}
+                    title={noWrite}
+                    onClick={() => setDialog("copy")}
+                  >
+                    <Icon name="copy" />
+                    Copy…
+                  </button>
+                  <button onClick={() => setChecked(new Set())}>
+                    <Icon name="close" />
+                    Clear selection
+                  </button>
+                </div>
+                <div className="action-list">
+                  <button
+                    className="danger"
+                    disabled={!canWrite || actionable.length === 0}
+                    title={noWrite}
+                    onClick={() => void deleteChecked()}
+                  >
+                    <Icon name="trash" />
+                    Move to Trash
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -1468,25 +1495,14 @@ export function Browser({
             (selected.kind === "dir" || canView(selected)) && (
               <button onClick={() => openItem(selected)}>Open</button>
             )}
-          {selected &&
-            privileges.includes("read") &&
-            selected.kind === "file" &&
-            selected.status === "active" && (
-              <a
-                className="button"
-                href={api.downloadUrl(selected.id)}
-                download
-              >
-                Download
-              </a>
-            )}
           <button
             className="danger"
             disabled={!canWrite || actionable.length === 0}
             title={noWrite}
             onClick={() => void (selected ? deleteSelected() : deleteChecked())}
           >
-            Move to Trash
+            <Icon name="trash" />
+            Trash
           </button>
           <button
             onClick={() =>
@@ -1608,6 +1624,28 @@ export function Browser({
         />
       )}
     </section>
+  );
+}
+
+/** The icon in front of a row's name: a folder, a problem mark, or the file's kind. */
+function RowIcon({ item }: { item: Child }) {
+  if (item.kind === "dir")
+    return (
+      <span className="fi folder">
+        <Icon name="folder" />
+      </span>
+    );
+  if (item.kind === "other")
+    return (
+      <span className="fi other">
+        <Icon name="alert" />
+      </span>
+    );
+  const kind = fileKind(item.name);
+  return (
+    <span className={`fi ${kind.tone}`}>
+      <Icon name={kind.icon} />
+    </span>
   );
 }
 

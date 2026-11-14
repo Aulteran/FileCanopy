@@ -95,7 +95,7 @@ export function ShareDialog({
   const taken = new Set((grants ?? []).map((g) => g.grantee_user_id));
   return (
     <Modal title={`Share “${folderName}”`} onClose={onClose}>
-      <form onSubmit={add}>
+      <form onSubmit={add} className="share-add">
         <label>
           Add people
           <input
@@ -115,6 +115,19 @@ export function ShareDialog({
             aria-describedby="share-hint"
           />
         </label>
+        <label>
+          Can
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as Level)}
+          >
+            <option value="viewer">View</option>
+            <option value="editor">Edit</option>
+          </select>
+        </label>
+        <button type="submit" disabled={busy || !chosen}>
+          Add
+        </button>
         <p id="share-hint" className="hint">
           Only people with an account here can be added.
         </p>
@@ -131,19 +144,6 @@ export function ShareDialog({
               ))}
           </ul>
         )}
-        <label>
-          Can
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value as Level)}
-          >
-            <option value="viewer">View</option>
-            <option value="editor">Edit</option>
-          </select>
-        </label>
-        <button type="submit" disabled={busy || !chosen}>
-          Add
-        </button>
       </form>
       <h3>People with access</h3>
       {grants === null ? (
@@ -177,7 +177,12 @@ export function ShareDialog({
             .filter((g) => !g.inherited_from_id)
             .map((g) => (
               <li key={g.grantee_user_id}>
-                <span>{g.grantee_name}</span>
+                <span className="person">
+                  <span className="avatar" aria-hidden="true">
+                    {g.grantee_name.trim().charAt(0).toUpperCase()}
+                  </span>
+                  {g.grantee_name}
+                </span>
                 <select
                   aria-label={`${g.grantee_name} can`}
                   value={g.level}

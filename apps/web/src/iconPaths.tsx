@@ -663,6 +663,142 @@ export const ICON_PATHS = {
       </g>
     </>
   ),
+  "file-blank": (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z" />
+        <path d="M14 3v5h5" />
+      </g>
+    </>
+  ),
+  pdf: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z" />
+        <path d="M14 3v5h5M8.5 17.5c2-1.2 3.6-4 4-6.5.8 3 2 4.6 3.5 5.2-2.4-.2-5 .3-7.5 1.3z" />
+      </g>
+    </>
+  ),
+  slides: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <rect x="3.5" y="4.5" width="17" height="12" rx="2.5" />
+        <path d="M12 16.5V20M8.5 20h7M8 12.5l2.5-2.5 2 2 3.5-3.5" />
+      </g>
+    </>
+  ),
+  media: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z" />
+        <path d="M14 3v5h5M10 12v5l4.5-2.5z" />
+      </g>
+    </>
+  ),
+  "chev-down": (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </g>
+    </>
+  ),
+  "chev-left": (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="m15 6-6 6 6 6" />
+      </g>
+    </>
+  ),
+  minus: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M5 12h14" />
+      </g>
+    </>
+  ),
+  sidebar: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+        <path d="M9.5 4.5v15" />
+      </g>
+    </>
+  ),
+  open: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M14 4h6v6M20 4l-8.5 8.5M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" />
+      </g>
+    </>
+  ),
+  gauge: (
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M4.5 17a8 8 0 1 1 15 0M12 13l3.5-4" />
+        <circle cx="12" cy="13.5" r="1.2" />
+      </g>
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICON_PATHS;

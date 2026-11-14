@@ -495,11 +495,11 @@ export function UsersPage({ me, go, onEnded }: Props) {
               </p>
             )}
             <div className="actions">
-              <button type="submit" className="primary" disabled={busy}>
-                Create invitation
-              </button>
               <button type="button" onClick={() => setInviting(false)}>
                 Cancel
+              </button>
+              <button type="submit" className="primary" disabled={busy}>
+                Create invitation
               </button>
             </div>
           </form>
@@ -684,7 +684,7 @@ function SignInPanel({
       </p>
       <p className="hint">
         Outgoing email is set up in the Mail server step (Step 3) of first-time
-        setup, or under Admin, Mailbox. Single sign-on is set in the
+        setup, or under Admin, Mail server. Single sign-on is set in the
         server&apos;s environment file. Password sign-in always stays available.
       </p>
       {smtp.configured && (

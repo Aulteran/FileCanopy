@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AiSettings, SemanticSettings } from "./AiSettings";
 import { IncomingMailSetup } from "./IncomingMailSetup";
 import { api } from "./api";
+import { Icon } from "./Icon";
+import type { IconName } from "./iconPaths";
 import { SmtpSetup } from "./SmtpSettings";
 import {
   AI_ADMIN_PATH,
@@ -25,36 +27,43 @@ import {
 const ADMIN_SECTIONS: Array<{
   path: string;
   title: string;
+  icon: IconName;
   text: string;
 }> = [
   {
     path: SETTINGS_PATH,
     title: "Server settings",
+    icon: "settings",
     text: "Trash retention, default access for new accounts and privacy labels.",
   },
   {
     path: USERS_PATH,
     title: "Users",
+    icon: "users",
     text: "Invite people, reset sign-ins and manage roles.",
   },
   {
     path: AI_ADMIN_PATH,
     title: "AI",
+    icon: "sparkles",
     text: "AI models, what they may see, and spending limits.",
   },
   {
     path: USAGE_PATH,
     title: "Usage",
+    icon: "gauge",
     text: "What each AI model used this month and its spending limit.",
   },
   {
     path: MAILBOX_PATH,
     title: "Mail server",
+    icon: "mail",
     text: "Server email (SMTP and inbound) and quarantined messages.",
   },
   {
     path: BACKUPS_PATH,
     title: "Backups",
+    icon: "backup",
     text: "Backup targets, schedules and restores.",
   },
 ];
@@ -77,12 +86,16 @@ export function AdminLayout({
       </h1>
       <div className="server-setup-layout">
         <nav className="server-setup-steps" aria-label="Administration">
+          <span className="grp-h" aria-hidden="true">
+            Administration
+          </span>
           <ol className="setup-steps">
             {ADMIN_SECTIONS.map((s) => (
               <li
                 key={s.path}
                 className={s.path === current ? "active" : undefined}
               >
+                <Icon name={s.icon} />
                 <strong>
                   <a
                     href={s.path}
@@ -238,10 +251,8 @@ export function ServerSetupStep({
     <section aria-labelledby="server-step-h" className="server-setup">
       <h1 id="server-step-h">Prepare your server</h1>
       <p>
-        Set up the server in this order. The last step is the server files
-        everyone will use; finishing or skipping it completes setup. Steps 1 to
-        4 are optional and can be changed later under Admin. Step 5, the Server
-        files, is required and completes setup.
+        Steps 1 to 4 are optional and can be changed later under Admin. Step 5,
+        the Server files, completes setup.
       </p>
       <div className="server-setup-layout">
         <div className="server-setup-steps">

@@ -266,6 +266,7 @@ function CollectionView({
       )}
       {owner && (
         <form
+          className="collection-create"
           onSubmit={(e) => {
             e.preventDefault();
             void run(() => api.renameCollection(id, title.trim()), "Renamed.");
@@ -285,7 +286,7 @@ function CollectionView({
         </form>
       )}
       {data.members.length === 0 ? (
-        <p>
+        <p className="empty">
           No files you can open in this collection yet. Choose “Add to
           collection” on a file in the file list.
         </p>
@@ -330,14 +331,22 @@ function CollectionView({
       )}
       {!owner && (
         <p>
-          <button disabled={busy} onClick={() => setConfirming("leave")}>
+          <button
+            className="danger"
+            disabled={busy}
+            onClick={() => setConfirming("leave")}
+          >
             Leave collection
           </button>
         </p>
       )}
       {owner && (
         <p>
-          <button disabled={busy} onClick={() => setConfirming("delete")}>
+          <button
+            className="danger"
+            disabled={busy}
+            onClick={() => setConfirming("delete")}
+          >
             Delete collection
           </button>
         </p>
@@ -426,21 +435,27 @@ function SharePanel({
           </li>
         ))}
       </ul>
-      <label>
-        Find a person
-        <input value={q} onChange={(e) => setQ(e.target.value)} />
-      </label>{" "}
-      <label>
-        Can{" "}
-        <select
-          value={level}
-          onChange={(e) => setLevel(e.target.value as "viewer" | "editor")}
-        >
-          <option value="viewer">view</option>
-          <option value="editor">add files</option>
-        </select>
-      </label>
-      <ul className="plain">
+      <div className="collection-create">
+        <label>
+          Find a person
+          <input
+            value={q}
+            placeholder="Name or email"
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </label>
+        <label className="narrow">
+          Can
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as "viewer" | "editor")}
+          >
+            <option value="viewer">View</option>
+            <option value="editor">Add files</option>
+          </select>
+        </label>
+      </div>
+      <ul className="plain pick-rows">
         {found.map((p) => (
           <li key={p.id}>
             {p.name}
@@ -514,7 +529,7 @@ export function AddToCollectionDialog({
   return (
     <Modal title={`Add “${name}” to a collection`} onClose={onClose}>
       {items === null && !error && <Loading />}
-      <ul className="plain">
+      <ul className="plain pick-rows">
         {items?.map((c) => (
           <li key={c.id}>
             {c.title}{" "}
@@ -528,7 +543,7 @@ export function AddToCollectionDialog({
           </li>
         ))}
       </ul>
-      <form onSubmit={(e) => void createNew(e)}>
+      <form className="collection-create" onSubmit={(e) => void createNew(e)}>
         <label>
           Or start a new collection
           <input
