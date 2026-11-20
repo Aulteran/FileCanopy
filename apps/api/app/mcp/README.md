@@ -1,8 +1,7 @@
 # mcp
 
 Optional, read-only MCP interface (M21). Off unless `FILECANOPY_MCP_ENABLED=true`; while off,
-`/api/v1/mcp*` answers 404 (the status route says "off"). Design, threat model and acceptance
-evidence: `docs/milestones/M21-design-and-plan.md`. User guide: `docs/guides/mcp.md`.
+`/api/v1/mcp*` answers 404 (the status route says "off"). User guide: `docs/guides/mcp.md`.
 
 ## Layout
 

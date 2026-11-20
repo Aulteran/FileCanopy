@@ -2,7 +2,7 @@
 
 Optional. Ordinary search (file names and the text inside files) always works. With a model server
 on your own network, search can also find files whose **meaning** is close to your words ("vacation"
-finds a note about a holiday trip). Design and threat model: `docs/milestones/M19-design-and-plan.md`.
+finds a note about a holiday trip).
 
 Nothing is sent to a cloud service, ever: the address must be on your own network, and there is no
 cloud option for this feature. Confidential files are never used.

@@ -2,8 +2,7 @@
 
 Optional and **off by default**. When an administrator turns it on, you can connect an AI app you
 run (a desktop assistant, an editor, a script) to your library through the Model Context Protocol
-(MCP). The app can look around and read short pieces of text. It cannot change anything. Design
-and threat model: `docs/milestones/M21-design-and-plan.md`.
+(MCP). The app can look around and read short pieces of text. It cannot change anything.
 
 ## Turn it on (administrators)
 

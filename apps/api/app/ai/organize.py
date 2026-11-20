@@ -9,7 +9,7 @@ deterministic validator has checked every part of it against the database. What 
   administrator set a confidence threshold, and every deterministic check passes. Even then the
   action is a rename or move that the existing undo can reverse.
 
-Hard limits, enforced by construction (see the tests and `docs/milestones/M16-design-and-plan.md`):
+Hard limits, enforced by construction (see the tests):
 
 * the schema has no field for permissions, labels, deletion or replacement, and rejects extras;
 * applying calls only `fileops.relocate(..., on_conflict="reject")` and `fileops.create_folder`;

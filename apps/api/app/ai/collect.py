@@ -6,7 +6,7 @@ Nothing else happens: `suggest` has no way to create a collection (the tests che
 creation call appears only in `approve`). Approval re-checks every member, then creates the
 collection owned by the approving person through the same domain function the manual route uses.
 
-Hard limits, enforced by construction (see `docs/milestones/M18-design-and-plan.md`):
+Hard limits, enforced by construction:
 
 * the text sent to the model is built only from the files listed in `node_ids` (each file's name
   and the start of its own extracted text); no folder names, no other file, no other person;

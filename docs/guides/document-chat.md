@@ -1,8 +1,7 @@
 # Asking questions about your files
 
 Optional. On the search results page, "Ask about your files" answers a question from the text of
-your files and shows which files it used. Design and threat model:
-`docs/milestones/M20-design-and-plan.md`.
+your files and shows which files it used.
 
 ## What you need
 

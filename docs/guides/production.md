@@ -3,7 +3,7 @@
 This guide covers what you need to run FileCanopy for real: install from a pinned release, upgrade, back up, restore, put it behind HTTPS, and (if you use Docker Swarm) the Stack variant. Everything here runs without any AI service.
 
 FileCanopy has no public release yet and no published images. The intended first release is beta.
-For local release preparation see the [release packet](../release/README.md) and
+For local release preparation use
 `npm run release:plan -- --prefix local/filecanopy-review --platform linux/amd64`.
 The plan derives full-commit tags and refuses a dirty tree when building. It never publishes.
 Name selection is owner-approved; external clearance and release gates remain pending.
@@ -100,7 +100,7 @@ Compose is the primary, best-tested way to run FileCanopy. If you already run Sw
 - The disaster-recovery backup is a full copy each time (no incremental runs). The in-app backups are incremental.
 - Backup and restore are POSIX shell scripts for Linux and macOS hosts (and WSL); there is no web screen for them.
 - Docker is the first-beta priority; native Proxmox helper-script LXC is deferred until later with
-  [packaging and real-host testing pending](../release/proxmox-lxc.md). No native support or
+  packaging and real-host testing pending. No native support or
   upstream helper availability is claimed.
 - The host/hypervisor administrator can inspect all plaintext files and state. Confidential is
   an app lock, not disk encryption. Per-folder backup keys (ADR-016, M25) mean that after an upgrade each person must create and confirm a backup key before their personal folder is backed up again; the shared folder keeps using the administrator key.

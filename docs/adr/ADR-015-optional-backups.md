@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (owner, 2026-10-31)
 - **Date:** 2026-10-31
-- **Milestone:** M06c (implemented 2026-10-31; [design and deviations](../milestones/M06c-design-and-plan.md))
+- **Milestone:** M06c (implemented 2026-10-31)
 
 ## Context
 
@@ -53,7 +53,7 @@ A separate bind mount (`/backups`), validated like `/library` and `/app-data`: i
 
 ### 6. Privacy
 
-Backups contain everyone's files, including Private and Confidential ones, and whoever controls the backup volume can read it. The host and its mounts are outside the app's trust model (CLAUDE.md), so this is accepted but must be stated plainly in the setup screen. To limit it:
+Backups contain everyone's files, including Private and Confidential ones, and whoever controls the backup volume can read it. The host and its mounts are outside the app's trust model (project trust model), so this is accepted but must be stated plainly in the setup screen. To limit it:
 
 - archives are **encrypted at rest by default** with a key generated at setup and shown once for the admin to store; it is never written to the library or the backup volume, and losing it means the backups cannot be read. Encryption needs one reviewed crypto dependency (to be added to the pre-release license audit);
 - backups are kept **per root**, so an owner-level restore never needs another person's archive;

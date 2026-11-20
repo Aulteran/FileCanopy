@@ -12,7 +12,6 @@
 | [Backups](guides/backups.md) | Disaster-recovery backups and encrypted in-app backups. |
 | [Security and privacy](guides/security-and-privacy.md) | What FileCanopy protects and what it does not. |
 | [Production guide](guides/production.md), [hardening](guides/hardening.md) | Pinned versions, restore, HTTPS, Docker Swarm, logging. |
-| [What is built and what is next](roadmap.md) | Feature status. |
 
 ## AI features
 
@@ -20,10 +19,10 @@ FileCanopy is built around AI. Start with [Set up AI](guides/ai.md), then [AI or
 
 Also optional: [inbound mailbox](guides/inbound-mailbox.md), [Google sign-in](guides/google-sign-in.md).
 
-## Release status
+## Release material
 
-[Release packet](release/README.md) and [known issues](release/known-issues.md). Items parked until after 1.0.0 are listed in the [roadmap after 1.0.0](ROADMAP_AFTER_1_0.md).
+Licensing, dependency and container records are in [`release/`](release/).
 
 ## Developing
 
-[Developing and contributing](development.md), including the planning files (`PROJECT_STATUS.md`, `MILESTONES.json`, specs 01 to 11, [ADRs](adr/README.md)) that AI agents read first.
+[Developing and contributing](development.md) and the [architecture decision records](adr/README.md).

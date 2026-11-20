@@ -1,7 +1,6 @@
 # AI organization suggestions
 
-Optional, and off until you turn it on. It needs AI to be set up first (see `ai.md`). Design and
-threat model: `docs/milestones/M16-design-and-plan.md`.
+Optional, and off until you turn it on. It needs AI to be set up first (see `ai.md`).
 
 ## What it does
 

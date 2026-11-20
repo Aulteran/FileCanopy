@@ -1,4 +1,4 @@
-"""Document chat with source references (M20, docs/milestones/M20-design-and-plan.md).
+"""Document chat with source references (M20).
 
 One question, one answer, over the files the person may read in ONE storage tree (their own, or
 the shared one). Nothing here is stored. The order of events is the privacy argument:

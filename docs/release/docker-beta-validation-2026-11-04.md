@@ -11,7 +11,7 @@ Started with a clean isolated worktree at current `origin/main`, verified by fet
 `ls-remote`: `4688e041bc9d5a0c3226440f0a43b0a899765c44` (PR #32 merge).
 PR #32 records all eight CI jobs passing on integrated head
 `823aee1ef55b8111dfe386504dd7d459d79d7e84`, run 41773921497. Those are upstream baseline
-results, not CI for this candidate. No AGENTS.md was present; CLAUDE.md was followed.
+results, not CI for this candidate.
 Existing edits and installations were preserved. Branch: `codex/docker-beta-validation`.
 
 Clean preliminary candidate: **`ab3f4815971894a8bc0193e210cec5e1174d953d`**.

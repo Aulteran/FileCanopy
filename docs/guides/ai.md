@@ -1,7 +1,6 @@
 # AI
 
-This guide covers setting up the AI behind FileCanopy's organizing, chat and search features. Design and threat model:
-`docs/milestones/M15-design-and-plan.md`.
+This guide covers setting up the AI behind FileCanopy's organizing, chat and search features.
 
 ## What exists
 

@@ -1,8 +1,7 @@
 # Collections
 
 A collection is a named group of files you choose, like a playlist. It does not move or copy
-anything: the files stay in their folders, and a file can be in several collections. Design and
-threat model: `docs/milestones/M18-design-and-plan.md`.
+anything: the files stay in their folders, and a file can be in several collections.
 
 ## Using collections
 

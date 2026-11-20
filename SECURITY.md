@@ -40,7 +40,5 @@ Protect the host, disk and backups independently. Normal files may leave the hos
 is explicitly enabled. MCP clients may forward received data to their own providers.
 
 An evidence-backed deployment/version matrix must accompany the beta; a platform
-priority is not a support guarantee. [Release preparation](docs/release/README.md) and
-[known issues](docs/release/known-issues.md) record risks and coverage gaps, including the
-accepted but unimplemented ADR-016 backup-key design. Internal reviews and
+priority is not a support guarantee. Internal reviews and
 automated tests are not an external security audit or compliance certification.
