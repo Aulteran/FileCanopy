@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (owner request 2026-11-05, decisions below taken by the implementer within that request and open to owner veto); implemented in M27 on branch `m27-backup-jobs`, pending independent security review.
 - **Date:** 2026-11-05
-- **Milestone:** [M27 — Backup jobs, destinations and backup types](../milestones/M27-design-and-plan.md)
+- **Milestone:** M27 — Backup jobs, destinations and backup types
 - **Builds on:** ADR-015 (backup engine), ADR-016 (per-root keys). Does not change either.
 
 ## Context

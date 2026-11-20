@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-// Module boundaries from docs/02_ARCHITECTURE.md ("Repository skeleton").
+// Module boundaries of the repository skeleton.
 const REQUIRED_PATHS = [
   "apps/api/app/api/README.md",
   "apps/api/app/auth/README.md",
@@ -27,9 +27,6 @@ const REQUIRED_PATHS = [
   "tests/fixtures/README.md",
   "docs/adr/README.md",
   "README.md",
-  "CLAUDE.md",
-  "docs/PROJECT_STATUS.md",
-  "docs/MILESTONES.json",
 ];
 
 test("repository contains the planned module-boundary skeleton", () => {

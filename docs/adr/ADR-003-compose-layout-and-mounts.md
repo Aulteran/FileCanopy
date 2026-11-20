@@ -6,7 +6,7 @@
 
 ## Context
 
-`docs/02_ARCHITECTURE.md` defines a core profile (web, api, postgres, library and app-data mounts) and an optional document-processing profile (redis, worker). `docs/04_DATA_FILESYSTEM.md` shows `app-data/database/` as an illustrative location for the database files and requires the document library to stay an ordinary bind-mounted tree.
+The original architecture notes defined a core profile (web, api, postgres, library and app-data mounts) and an optional document-processing profile (redis, worker). The original data-layout notes showed `app-data/database/` as an illustrative location for the database files and requires the document library to stay an ordinary bind-mounted tree.
 
 ## Decision
 

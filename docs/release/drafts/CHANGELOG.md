@@ -1,6 +1,6 @@
 # Changelog — draft for owner approval
 
-**Draft status:** Not adopted; see the [policy approval package](../policy-approval.md).
+**Draft status:** Not adopted.
 The entries below describe implemented work and preparation, not a published release.
 
 ## Unreleased — intended first beta
@@ -26,11 +26,10 @@ Release gates remain open: dependency redistribution/source review (including Re
 PDF.js Liberation fonts and native libraries), native Proxmox LXC validation or explicit scope
 decision, external name clearance, supported-platform
 matrix, private security reporting and governance approval, reproducibility evidence, final
-candidate CI and manual acceptance. See [the release packet](../README.md) before using any
-release-readiness claim. GitHub private reporting was disabled at the 2026-11-04 read-only check.
+candidate CI and manual acceptance.  GitHub private reporting was disabled at the 2026-11-04 read-only check.
 
 Known limitations include ADR-016 per-root backup keys not implemented, global backup recovery
 key scope, synchronous restore, parser sandbox follow-ups, process-local rate limits, bounded
 collection views, missing chat page citations and the documented M23 concurrency/performance gaps.
-See [known issues](../known-issues.md). No release version/date is assigned until an authorized
+No release version/date is assigned until an authorized
 publication; future entries should state upgrade/migration and backup/restore precautions.

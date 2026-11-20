@@ -59,8 +59,6 @@ Your files are ordinary files in the `library/` folder next to `compose.yaml`.
 - Restoring a single file from an in-app backup is not built yet.
 - The screenshots are design previews while the interface is being finished.
 
-See the full [known issues](docs/release/known-issues.md) and [roadmap](docs/roadmap.md).
-
 ## Contributing, security and license
 
 Bug reports and ideas are welcome in [GitHub issues](https://github.com/Aulteran/FileCanopy/issues); see the [developer guide](docs/development.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). FileCanopy is licensed under the [AGPL-3.0](LICENSE).

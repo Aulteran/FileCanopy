@@ -1,4 +1,4 @@
-"""Confidential PIN (M12b, docs/milestones/M12b-design-and-plan.md).
+"""Confidential PIN (M12b).
 
 A six-digit PIN is brute-forceable, so the safety is in the counter, not in the hash:
 

@@ -1,8 +1,8 @@
 # Contributing to FileCanopy — draft for owner approval
 
 **Draft status:** Not adopted. Owner approval and verified private vulnerability
-reporting are required before promotion to root `CONTRIBUTING.md`; see the
-[approval package](../policy-approval.md). Proposed wording follows.
+reporting are required before promotion to root `CONTRIBUTING.md`.
+Proposed wording follows.
 
 ## Bugs and ideas
 
@@ -19,8 +19,7 @@ response-time promise; proposed maintenance expectations are in that policy.
 
 ## Development
 
-Read `CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/MILESTONES.json`, the relevant plan and security/storage
-specifications. Node.js 22+ and Docker are used by the check harness. Use `npm ci` and
+Read the relevant ADRs in `docs/adr/` and the security guide. Node.js 22+ and Docker are used by the check harness. Use `npm ci` and
 `npm ci --prefix apps/web`. Run `npm run check`, `npm run check:web`, `npm run check:api`,
 `npm run test:compose` and `npm run test:e2e` as appropriate; changes to isolation or release
 packaging need their real integration checks. Record commands, results and skips in the PR.

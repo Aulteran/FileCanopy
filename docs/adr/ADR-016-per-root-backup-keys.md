@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (owner decision 2026-10-31); implemented in M25 on branch `m25-backup-keys` (2026-11-05), pending independent security review. Implementation notes: the shared tree keeps the administrator instance key; a personal root is not backed up until its owner creates a key and proves it is saved by presenting it back (`backup_root_key`, states pending/active/retired); escrow seals the owner key to the administrator key, is chosen with explicit consent, and is opened offline with `cli escrow-open`; rotation is per root with compare-and-swap on the active fingerprint; chains written under the instance key are labelled `legacy_instance`.
 - **Date:** 2026-10-31
-- **Milestone:** [M25 — Per-root backup keys and owner recovery](../milestones/M25-design-and-plan.md), not started; follow-up to M06c, before any release that advertises owner self-restore; preserves M09 privacy requirements
+- **Milestone:** M25 — Per-root backup keys and owner recovery; follow-up to M06c, before any release that advertises owner self-restore; preserves M09 privacy requirements
 
 ## Context
 

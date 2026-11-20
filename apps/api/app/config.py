@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     # Cosine similarity a semantic hit needs to be shown. Models differ; tune per model.
     semantic_min_score: float = Field(default=0.3, ge=-1.0, le=1.0)
 
-    # --- Optional MCP integration (M21, docs/milestones/M21-design-and-plan.md). Off unless the
+    # --- Optional MCP integration (M21). Off unless the
     # operator turns it on; read-only; one personal access token per connected app.
     mcp_enabled: bool = False
     mcp_per_minute: int = Field(default=60, ge=1, le=10_000)  # calls per token
@@ -253,7 +253,7 @@ class Settings(BaseSettings):
     # Break-glass (M12b): ignore the "OIDC-only" switch so password sign-in works again.
     force_local_login: bool = False
 
-    # --- Optional AI (M15, docs/milestones/M15-design-and-plan.md). Nothing here is needed; with no
+    # --- Optional AI (M15). Nothing here is needed; with no
     # provider configured the app behaves exactly as before.
     # 32 random bytes, base64 (url-safe or standard). Seals provider API keys stored in the
     # database. Empty = keys cannot be stored; local providers (no key) still work.

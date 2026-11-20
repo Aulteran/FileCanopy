@@ -14,5 +14,4 @@ budgets. Must be replaceable and must never block core CRUD.
   decision per source (cloud sees Normal only), then `AiGateway.generate`; typed answer with
   server-mapped citations, and a passages-only fallback for every refusal or failure.
 
-Guides: `docs/guides/ai.md`, `docs/guides/ai-organize.md`, `docs/guides/document-chat.md`. Design: `docs/milestones/M15-design-and-plan.md`,
-`docs/milestones/M16-design-and-plan.md`.
+Guides: `docs/guides/ai.md`, `docs/guides/ai-organize.md`, `docs/guides/document-chat.md`.

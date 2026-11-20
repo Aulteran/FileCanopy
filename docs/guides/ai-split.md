@@ -1,7 +1,7 @@
 # Splitting PDFs and finding duplicates
 
 Splitting works without AI. AI, if you have set it up (see `ai.md`), only helps choose the cut
-points. Design and threat model: `docs/milestones/M17-design-and-plan.md`.
+points.
 
 ## Splitting a scanned or combined PDF
 

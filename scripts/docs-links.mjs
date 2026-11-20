@@ -19,12 +19,7 @@ const files = execFileSync(
         p.startsWith("docs/guides/") ||
         /^docs\/[^/]+\.md$/.test(p) ||
         p.startsWith("deploy/") ||
-        [
-          "README.md",
-          "docs/PROJECT_STATUS.md",
-          "docs/guides/production.md",
-          "docs/milestones/M24-design-and-plan.md",
-        ].includes(p)),
+        p === "README.md"),
   );
 let count = 0;
 const problems = [];
